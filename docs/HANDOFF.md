@@ -232,6 +232,34 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
     Note: Supabase's `protect_delete` trigger blocks bucket deletion via SQL — bucket
     deletes must go through the dashboard/Storage API.
 
+## Pre-ratification audit (2026-06-28) — PASS, no blockers
+
+Consolidated audit before the human ratification sign-off (cross-slice code review + static
+& live security/RLS + tractable gate re-confirmation). Verified against the live project.
+
+- **Code (cross-slice):** the `.stamp` regression class is fixed (`.casting-stamp`); cost
+  math correct (per-episode `max(spend_so_far)`, deltas clamped ≥0, total = sum of maxes;
+  Overview shares the same memoized `costStats`); read-only + per-id state-bleed clean.
+  Build clean (Next 15.5.19). One builder-lane seam: Overview vs Cost Box use different
+  status vocabularies (`"complete"` = Cleared in Overview but IN-FLIGHT in Cost Box).
+- **Security (live + static):** every dashboard table owner-scoped to `auth.uid()`,
+  `authenticated`-only; **anon simulation = 0 rows everywhere** (fail-closed); revisions
+  immutable (insert+select); `episodes`/`receipts` read-only. No committed secret, **no
+  service-role key anywhere** — the dashboard reads exclusively via the browser anon key.
+  Advisor WARNs: leaked-password protection off; `set_updated_at` mutable search_path.
+- **Public-app decisions (Supabase console, not code):** disable open sign-ups (`signUp` is
+  ungated and any registrant can read all `episodes`/`receipts`); enable leaked-password
+  protection.
+- **Functional gap checked:** `jobs`/`published_posts`/`asset_ledger` have RLS on with **zero
+  policies** → invisible to the anon-key dashboard. Not read today (no breakage), but any
+  future feature surfacing them needs `authenticated` read policies first.
+- **Live-vs-docs drift (benign):** 9 live migrations; this repo tracks 2 (its own). The
+  rest are pipeline-domain — pipeline repo owns committing them; not absorbed here.
+  `render-assets` bucket exists (public/500MB); `episodes.character_id` column landed but
+  unpopulated (D-1 schema in, run pending).
+- **Not re-run:** in-browser visual gates (sandbox can't TLS-egress; need the Node-fetch
+  bridge or a human).
+
 ## Git state
 
 - **Default branch (production):** `claude/new-session-3l99vs`. `main` does not exist.

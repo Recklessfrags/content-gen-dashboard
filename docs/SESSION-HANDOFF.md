@@ -60,8 +60,18 @@ and production tracks it. Everything is committed + pushed.
 - Login: `cameronnicodemus@gmail.com` / temp password in `docs/HANDOFF.md` (change it).
 
 **Supabase:** project `reels-content` = `tyeejhaknqkeftjykqog`. Seed: 2 characters
-(Mad Dog McGrath active / Grandma Pearl draft), 4 ideas, 3 cottage-cheese episodes.
-**Storage: 0 buckets** (see D-5 / §4).
+(Mad Dog McGrath active / Grandma Pearl draft), 4 ideas, 3 episodes, 3 jobs.
+**Storage: 1 bucket** — `render-assets` (public, 500MB), 0 objects yet. The misspelled
+`character-assests` bucket is gone. (See D-5 / §4.A.)
+
+**Migration drift (real but benign — verified 2026-06-28).** The live project has **9
+migrations; this repo tracks 2** (`0001_init` control-room + `0002_bible_revisions`, both
+dashboard-owned). The other 7 are **pipeline-domain** (jobs queue + live-adapters,
+`published_posts`, `asset_ledger`, `episodes.character_id`, receipts cache tokens) plus an
+audit-log migration. These correctly live **out of dashboard scope** — the **pipeline repo
+owns committing its own migrations to its `main`; do NOT absorb them here.** (One to confirm:
+`init_audit_log` is applied to live but tracked in neither repo's dashboard set — verify
+which repo owns it.)
 
 ---
 
@@ -104,11 +114,12 @@ and production tracks it. Everything is committed + pushed.
 
 ## 4. WHAT'S LEFT TO FINISH (prioritized, with triggers)
 
-### A. `render-assets` Supabase bucket — the current blocker 🔑 (pipeline-repo-owned)
-The pipeline's back half (voice/music/Assembly/render/Buffer) is built but **unverified
-against live keys**. Its first real job needs a **public** bucket to host VO/music/clips so
-JSON2Video/Buffer can fetch by URL. **Recipe** (public read, service-role write, no
-per-user policies):
+### A. `render-assets` Supabase bucket — ✅ DONE (created 2026-06-28)
+**Resolved.** The `render-assets` bucket now exists in the shared project: **public, 500MB,
+0 policies** (public flag serves reads; service role bypasses RLS for writes) — exactly the
+recipe below. 0 objects so far. The only piece left is **a pipeline-repo check**: confirm
+the Assembly adapter writes to that exact bucket name (`render-assets`). Not this session's
+job. Recipe kept for reference:
 ```sql
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('render-assets','render-assets', true, 524288000) on conflict (id) do nothing;
@@ -119,15 +130,32 @@ Owned by the pipeline repo (record the config there). Can be created in the shar
 ### B. The Acoustic Kitty run — the keystone trigger (pipeline session's job)
 First real episode = **Mad Dog McGrath → "Acoustic Kitty"** (dark/declassified-history
 channel, NOT food). It (a) validates the unverified pipeline subsystems, (b) wires the
-character **bible into the script-writer**, and (c) lands **`character_id` on `episodes`**
+character **bible into the script-writer**, and (c) populates **`character_id` on `episodes`**
 (decision **D-1**). Publish held at `approval_required` (validation run). **This is out of
 this repo's GitHub scope** — it's the pipeline session's work.
 
+> **Update (verified 2026-06-28):** the `episodes.character_id` **column has already landed**
+> (pipeline migration `episodes_character_id`), but **0 episodes are linked** — so D-1's
+> *schema* is in; the actual run that populates it hasn't happened. The keystone trigger is
+> still pending.
+
 ### C. Dashboard work UNBLOCKED by B (build via the loop once `character_id` exists)
 - **Tier 2 — per-character / per-idea cost.** The Cost Box already has a disabled
-  "CHARACTERS DEFERRED" seam; drop in `group by character` once the key lands.
+  "CHARACTERS DEFERRED" seam; drop in `group by character`. **Now schema-unblocked** (the
+  column exists) but **data-blocked**: with 0 linked episodes there's nothing to group yet —
+  wait for the Acoustic Kitty run. Builder lane, NOT this PR.
 - **Idea → pipeline linkage** ("queue an idea as a run") — enqueues an `episodes` write
   the pipeline picks up; a cross-repo contract change, do it WITH the pipeline owner.
+
+> **⚠️ Read-policy pre-req (audit finding, 2026-06-28).** Three pipeline tables —
+> `jobs`, `published_posts`, `asset_ledger` — have **RLS enabled with ZERO policies** (deny
+> all). The dashboard reads **only via the browser anon/authenticated key** (no service-role
+> client exists anywhere). So those three tables are invisible to the dashboard today. They
+> aren't read yet, so nothing breaks — but the moment a feature surfaces them (asset spend in
+> the Cost Box from `asset_ledger`, publishing status from `published_posts`, idea→pipeline
+> status from `jobs`), it will render **empty** under the anon key. Fix at that time: add
+> `authenticated` read policies on those tables (same `using (true)` shape as
+> `episodes`/`receipts`). Not needed for ratification.
 
 ### D. Character-generation flow — queued dashboard slice (after Acoustic Kitty)
 Agents design 3–4 candidate characters → surfaced as cards in the dashboard → operator
@@ -152,6 +180,26 @@ character-generation flow). Spell it correctly; capture it in a migration. (See 
   the production deploy is READY at `content-gen-dashboard.vercel.app`.
 - **Final ratification sign-off** of all slices (independent-agent review has stood in).
 - Change the temp login password.
+- **Supabase console toggles (public-app hardening — not code, no diff):**
+  - **Disable open sign-ups.** The app is public and `signUp` is ungated, so anyone can
+    self-register an operator account — and because `episodes`/`receipts` are `using (true)`
+    for any authenticated user, every registrant can read ALL pipeline output + spend. Solo
+    founder → turn sign-ups off (or add an invite/allow-list).
+  - **Enable leaked-password protection** (HaveIBeenPwned) — flagged by the Supabase
+    security advisor; cheap hardening, esp. with a weak temp password as the only gate.
+
+### H. Pre-ratification audit — run 2026-06-28 (PASS, no blockers)
+Consolidated audit before the human sign-off: cross-slice code review + static & **live**
+security/RLS + tractable gate re-confirmation. Result: **PASS.** Highlights — the `.stamp`
+collision class is fixed (`.casting-stamp`); cost math correct; read-only holds; **live RLS
+verified** (every dashboard table owner-scoped to `auth.uid()`, anon simulation returns 0
+rows everywhere, revisions immutable); no committed secrets / no service-role key anywhere;
+build clean; production READY. Open items it surfaced → tracked as follow-ups (see below) and
+in §G. Not re-run: in-browser visual gates (need the Node-fetch bridge or a human).
+
+**Builder-lane follow-up (NOT this docs PR):** Overview vs Cost Box use **different status
+vocabularies** — an episode with status `"complete"` reads as *Cleared* in Overview but
+*IN-FLIGHT* in the Cost Box. Reconcile to one shared status set when the loop next runs.
 
 ---
 
