@@ -9,6 +9,8 @@ import {
   STATUS_LABEL,
   type Bible,
   type Character,
+  type CharacterBibleRevision,
+  type CharacterStatus,
   type Episode,
   type Idea,
   type IdeaStatus,
@@ -21,13 +23,13 @@ type FlatChar = {
   id: string;
   codename: string;
   concept: string;
-  status: string;
+  status: CharacterStatus;
   created_at: string;
 } & { [K in (typeof BIBLE_FIELDS)[number]]: string };
 
 function flatten(row: Character): FlatChar {
   const bible = row.bible || {};
-  const flat: Record<string, string> = {
+  const flat: Record<string, string> & Pick<FlatChar, "status"> = {
     id: row.id,
     codename: row.codename ?? "",
     concept: row.concept ?? "",
@@ -44,6 +46,41 @@ function toBible(c: FlatChar): Bible {
   return bible;
 }
 
+function flattenRevision(row: CharacterBibleRevision, characterId: string): FlatChar {
+  const bible = row.bible || {};
+  const flat: Record<string, string> & Pick<FlatChar, "status"> = {
+    id: characterId,
+    codename: row.codename ?? "",
+    concept: row.concept ?? "",
+    status: row.status === "active" ? "active" : "draft",
+    created_at: row.created_at,
+  };
+  for (const f of BIBLE_FIELDS) flat[f] = bible[f] ?? "";
+  return flat as FlatChar;
+}
+
+const FIELD_LABELS: Record<(typeof BIBLE_FIELDS)[number], string> = {
+  voice: "Voice & identity",
+  cadence: "Cadence",
+  vocab: "Vocabulary",
+  offlimits: "Off-limits",
+  lines: "Gold-standard lines",
+  beats: "Beat template",
+  runtime: "Runtime target",
+};
+
+function formatRevisionDate(createdAt: string) {
+  return new Date(createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+}
+
+function getFocusable(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), summary, [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
+}
+
 function Icon({ name }: { name: string }) {
   const p =
     {
@@ -51,6 +88,7 @@ function Icon({ name }: { name: string }) {
       wire: "M4 6h16M4 12h16M4 18h10",
       runs: "M5 12l4 4 10-10",
       exit: "M14 8V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h7a2 2 0 002-2v-2M9 12h12m0 0l-3-3m3 3l-3 3",
+      clock: "M12 6v6l4 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
     }[name] || "";
   return (
     <svg
@@ -74,6 +112,8 @@ function Field({
   onChange,
   rows = 3,
   mono,
+  readOnly = false,
+  locked = false,
 }: {
   label: string;
   hint?: string;
@@ -81,17 +121,24 @@ function Field({
   onChange: (v: string) => void;
   rows?: number;
   mono?: boolean;
+  readOnly?: boolean;
+  locked?: boolean;
 }) {
   return (
     <div className="field">
       <label>
         <span className="eyebrow">{label}</span>
-        {hint && <span className="hint">{hint}</span>}
+        <span className="field-label-side">
+          {locked && <span className="badge lock-badge">LOCKED - PREVIEW</span>}
+          {hint && <span className="hint">{hint}</span>}
+        </span>
       </label>
       <textarea
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        readOnly={readOnly}
+        aria-readonly={readOnly}
         style={mono ? { fontFamily: "var(--mono)", fontSize: "12.5px" } : undefined}
       />
     </div>
@@ -147,11 +194,7 @@ function DrillDownPanel({
       const panel = panelRef.current;
       if (!panel) return;
 
-      const focusable = Array.from(
-        panel.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), summary, [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
+      const focusable = getFocusable(panel);
 
       if (focusable.length === 0) return;
 
@@ -296,7 +339,6 @@ function DrillDownPanel({
                         <details className="receipt-json-details">
                           <summary
                             className="receipt-json-summary"
-                            role="button"
                             aria-label="Toggle raw evidence JSON"
                           >
                             Evidence JSON
@@ -311,7 +353,6 @@ function DrillDownPanel({
                         <details className="receipt-json-details">
                           <summary
                             className="receipt-json-summary"
-                            role="button"
                             aria-label="Toggle raw result JSON"
                           >
                             Result JSON
@@ -333,6 +374,267 @@ function DrillDownPanel({
   );
 }
 
+type HistoryDrawerProps = {
+  revisions: CharacterBibleRevision[];
+  loading: boolean;
+  error: string | null;
+  previewingRevisionId: string | null;
+  onClose: () => void;
+  onRetry: () => void;
+  onPreview: (revision: CharacterBibleRevision) => void;
+  onRestore: (revision: CharacterBibleRevision) => void;
+};
+
+function changedFields(
+  revision: CharacterBibleRevision,
+  previousRevision: CharacterBibleRevision | undefined,
+) {
+  if (!previousRevision) return "Initial baseline";
+  const changed = BIBLE_FIELDS.filter(
+    (field) => (revision.bible?.[field] ?? "") !== (previousRevision.bible?.[field] ?? ""),
+  ).map((field) => FIELD_LABELS[field]);
+  if (changed.length === 0) return "No bible text changes";
+  if (changed.length <= 3) return `Changed: ${changed.join(", ")}`;
+  return `+${changed.length} edits: ${changed.slice(0, 3).join(", ")}`;
+}
+
+function HistoryDrawer({
+  revisions,
+  loading,
+  error,
+  previewingRevisionId,
+  onClose,
+  onRetry,
+  onPreview,
+  onRestore,
+}: HistoryDrawerProps) {
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+      const drawer = drawerRef.current;
+      if (!drawer) return;
+      const focusable = getFocusable(drawer);
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeElement = document.activeElement;
+
+      if (!drawer.contains(activeElement)) {
+        event.preventDefault();
+        first.focus();
+        return;
+      }
+
+      if (event.shiftKey && activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="history-layer" role="presentation">
+      <button
+        className="history-backdrop"
+        type="button"
+        aria-label="Close version history"
+        onClick={onClose}
+      />
+      <aside
+        ref={drawerRef}
+        className="history-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Bible version history"
+      >
+        <div className="history-head">
+          <button
+            ref={closeButtonRef}
+            className="btn ghost close-btn"
+            type="button"
+            onClick={onClose}
+          >
+            ← Back
+          </button>
+          <div>
+            <h2>History</h2>
+            <span className="count">{revisions.length} revision{revisions.length === 1 ? "" : "s"}</span>
+          </div>
+          <button
+            className="history-x"
+            type="button"
+            aria-label="Close version history"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="history-body">
+          {loading ? (
+            <div className="loading history-loading">
+              <span className="spin" /> Loading version history…
+            </div>
+          ) : error ? (
+            <div className="history-error">
+              <h3>History unavailable</h3>
+              <p>Couldn&apos;t load saved revisions: {error}</p>
+              <button className="btn" type="button" onClick={onRetry}>
+                Retry Connection
+              </button>
+            </div>
+          ) : revisions.length === 0 ? (
+            <div className="empty history-empty">
+              <Icon name="clock" />
+              <h3>No history logged</h3>
+              <p>Save this character dossier to create your first permanent manual revision snapshot.</p>
+            </div>
+          ) : (
+            <div className="revision-list" aria-label="Saved bible revisions">
+              {revisions.map((revision, index) => {
+                const isLatest = index === 0;
+                const isPreviewing = revision.id === previewingRevisionId;
+                const previousRevision = revisions[index + 1];
+                return (
+                  <div
+                    key={revision.id}
+                    className={"revision-card" + (isPreviewing ? " preview-on" : "")}
+                  >
+                    <div className="revision-card-top">
+                      <span className="revision-time">{formatRevisionDate(revision.created_at)}</span>
+                      <span className={"chip " + (isLatest ? "latest-badge" : "archive-badge")}>
+                        {isLatest ? "Latest saved" : "Archived revision"}
+                      </span>
+                    </div>
+                    <div className="revision-identity">
+                      <span>Codename: {revision.codename || "Untitled"}</span>
+                      <span>Status: {revision.status === "active" ? "Active" : "Draft"}</span>
+                    </div>
+                    <p className="revision-diff">{changedFields(revision, previousRevision)}</p>
+                    <div className="revision-actions">
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        onClick={() => onPreview(revision)}
+                        aria-pressed={isPreviewing}
+                      >
+                        {isPreviewing ? "Previewing" : "Preview"}
+                      </button>
+                      <button className="btn" type="button" onClick={() => onRestore(revision)}>
+                        Restore
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+type RestoreDialogProps = {
+  revision: CharacterBibleRevision;
+  onCancel: () => void;
+  onConfirm: () => void;
+};
+
+function RestoreDialog({ revision, onCancel, onConfirm }: RestoreDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    cancelButtonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCancel();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusable = getFocusable(dialog);
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeElement = document.activeElement;
+
+      if (!dialog.contains(activeElement)) {
+        event.preventDefault();
+        first.focus();
+        return;
+      }
+
+      if (event.shiftKey && activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel]);
+
+  return (
+    <div className="restore-layer" role="presentation">
+      <div
+        ref={dialogRef}
+        className="restore-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="restore-title"
+        aria-describedby="restore-desc"
+      >
+        <h2 id="restore-title">Confirm Restore</h2>
+        <p id="restore-desc">
+          Are you sure you want to restore the revision from {formatRevisionDate(revision.created_at)}?
+          This will replace all current unsaved edits in your editor. You must click Save dossier to
+          write this restored version back to your live manual.
+        </p>
+        <div className="restore-actions">
+          <button className="btn restore-confirm" type="button" onClick={onConfirm}>
+            Yes, Restore Draft
+          </button>
+          <button ref={cancelButtonRef} className="btn ghost" type="button" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const supabase = useMemo(() => createClient(), []);
 
@@ -348,6 +650,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [receiptsError, setReceiptsError] = useState<string | null>(null);
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [revisions, setRevisions] = useState<CharacterBibleRevision[]>([]);
+  const [revisionsLoading, setRevisionsLoading] = useState(false);
+  const [revisionsError, setRevisionsError] = useState<string | null>(null);
+  const [previewingRevisionId, setPreviewingRevisionId] = useState<string | null>(null);
+  const [pendingRestore, setPendingRestore] = useState<CharacterBibleRevision | null>(null);
+  const [isRestoredDraft, setIsRestoredDraft] = useState(false);
   const [view, setView] = useState<"roster" | "wire" | "runs">("roster");
   const [draftIdea, setDraftIdea] = useState("");
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
@@ -358,6 +667,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const runButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const lastRunTriggerRef = useRef<string | null>(null);
   const receiptRequestRef = useRef(0);
+  const headerHistoryButtonRef = useRef<HTMLButtonElement>(null);
+  const savebarHistoryButtonRef = useRef<HTMLButtonElement>(null);
+  const lastHistoryTriggerRef = useRef<"header" | "savebar" | null>(null);
+  const revisionRequestRef = useRef(0);
   const showFlash = (msg: string, err = false) => {
     setFlash({ msg, err });
     if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -393,12 +706,96 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, [supabase]);
 
   const active = chars.find((c) => c.id === activeId) ?? null;
+  const previewingRevision =
+    revisions.find((revision) => revision.id === previewingRevisionId) ?? null;
+  const displayedActive =
+    active && previewingRevision ? flattenRevision(previewingRevision, active.id) : active;
   const activeEpisode = episodes.find((e) => e.episode_id === activeEpisodeId) ?? null;
 
   const set = (field: keyof FlatChar, val: string) =>
     setChars((cs) =>
       cs.map((c) => (c.id === activeId ? { ...c, [field]: val } : c)),
     );
+
+  useEffect(() => {
+    setHistoryOpen(false);
+    setRevisions([]);
+    setRevisionsError(null);
+    setPreviewingRevisionId(null);
+    setPendingRestore(null);
+    setIsRestoredDraft(false);
+  }, [activeId]);
+
+  const restoreHistoryFocus = useCallback(() => {
+    const trigger = lastHistoryTriggerRef.current;
+    window.requestAnimationFrame(() => {
+      if (trigger === "header") headerHistoryButtonRef.current?.focus();
+      if (trigger === "savebar") savebarHistoryButtonRef.current?.focus();
+    });
+  }, []);
+
+  const fetchRevisions = useCallback(
+    async (characterId: string) => {
+      const requestId = revisionRequestRef.current + 1;
+      revisionRequestRef.current = requestId;
+      setRevisionsLoading(true);
+      setRevisionsError(null);
+      const { data, error } = await supabase
+        .from("character_bible_revisions")
+        .select("*")
+        .eq("character_id", characterId)
+        .order("created_at", { ascending: false })
+        .returns<CharacterBibleRevision[]>();
+      if (revisionRequestRef.current !== requestId) return;
+      setRevisionsLoading(false);
+      if (error) {
+        setRevisions([]);
+        setRevisionsError(error.message);
+        return;
+      }
+      setRevisions(data ?? []);
+    },
+    [supabase],
+  );
+
+  const openHistory = (trigger: "header" | "savebar") => {
+    if (!active) return;
+    lastHistoryTriggerRef.current = trigger;
+    setHistoryOpen(true);
+    void fetchRevisions(active.id);
+  };
+
+  const closeHistory = useCallback(() => {
+    revisionRequestRef.current += 1;
+    setHistoryOpen(false);
+    setRevisionsLoading(false);
+    setRevisionsError(null);
+    restoreHistoryFocus();
+  }, [restoreHistoryFocus]);
+
+  const exitPreview = useCallback(() => {
+    setPreviewingRevisionId(null);
+  }, []);
+
+  const previewRevision = (revision: CharacterBibleRevision) => {
+    setPreviewingRevisionId(revision.id);
+  };
+
+  const requestRestore = (revision: CharacterBibleRevision) => {
+    setPendingRestore(revision);
+  };
+
+  const confirmRestore = () => {
+    if (!active || !pendingRestore) return;
+    const restored = flattenRevision(pendingRestore, active.id);
+    setChars((cs) => cs.map((c) => (c.id === active.id ? restored : c)));
+    setPendingRestore(null);
+    setPreviewingRevisionId(null);
+    setHistoryOpen(false);
+    setIsRestoredDraft(true);
+    showFlash("Draft loaded from history — click Save to write new version");
+    restoreHistoryFocus();
+  };
 
   const fetchReceipts = useCallback(
     async (episodeId: string) => {
@@ -446,19 +843,42 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   // ── persist character ───────────────────────────────────────────────────
   const save = async () => {
     if (!active || saving) return;
+    const snapshot = {
+      character_id: active.id,
+      codename: active.codename,
+      concept: active.concept,
+      status: active.status,
+      bible: toBible(active),
+    };
     setSaving(true);
     const { error } = await supabase
       .from("characters")
       .update({
-        codename: active.codename,
-        concept: active.concept,
-        status: active.status,
-        bible: toBible(active),
+        codename: snapshot.codename,
+        concept: snapshot.concept,
+        status: snapshot.status,
+        bible: snapshot.bible,
       })
-      .eq("id", active.id);
+      .eq("id", snapshot.character_id);
+    if (error) {
+      setSaving(false);
+      showFlash("Save failed — " + error.message, true);
+      return;
+    }
+
+    const { error: revisionError } = await supabase
+      .from("character_bible_revisions")
+      .insert(snapshot);
+
     setSaving(false);
-    if (error) showFlash("Save failed — " + error.message, true);
-    else showFlash("✓ Saved · the writer reads this on every run");
+    if (revisionError) {
+      showFlash("Saved, but history snapshot failed — " + revisionError.message, true);
+      return;
+    }
+
+    setIsRestoredDraft(false);
+    showFlash("✓ Saved · revision snapshot logged");
+    if (historyOpen) void fetchRevisions(snapshot.character_id);
   };
 
   const addChar = async () => {
@@ -613,105 +1033,200 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 </div>
               </aside>
 
-              {active ? (
-                <section className="dossier">
+              {active && displayedActive ? (
+                <section className={"dossier" + (historyOpen ? " history-open" : "")}>
+                  {previewingRevision && (
+                    <div className="preview-banner" role="status">
+                      <div className="preview-banner-copy">
+                        <span className="preview-mark">!</span>
+                        <span>
+                          Previewing revision from {formatRevisionDate(previewingRevision.created_at)}
+                        </span>
+                      </div>
+                      <div className="preview-actions">
+                        <button
+                          className="btn dark"
+                          type="button"
+                          onClick={() => requestRestore(previewingRevision)}
+                        >
+                          Restore this Version
+                        </button>
+                        <button className="btn dark-ghost" type="button" onClick={exitPreview}>
+                          Exit Preview
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <header className="dossier-head">
                     <div className="filecode">
-                      <span>FILE · {active.id.slice(0, 8).toUpperCase()}</span>
+                      <span>FILE · {displayedActive.id.slice(0, 8).toUpperCase()}</span>
+                      <button
+                        ref={headerHistoryButtonRef}
+                        className="history-trigger"
+                        type="button"
+                        onClick={() => openHistory("header")}
+                        aria-haspopup="dialog"
+                        aria-expanded={historyOpen}
+                        disabled={!active}
+                      >
+                        <Icon name="clock" />
+                        <span>History</span>
+                      </button>
                       <span className="live">
-                        ● {active.status === "active" ? "ACTIVE FIELD MANUAL" : "DRAFT FIELD MANUAL"}
+                        ● {displayedActive.status === "active" ? "ACTIVE FIELD MANUAL" : "DRAFT FIELD MANUAL"}
                       </span>
                     </div>
-                    <h1>{active.codename || "Untitled"}</h1>
+                    <h1>{displayedActive.codename || "Untitled"}</h1>
                     <p className="sub">
-                      {active.concept ||
+                      {displayedActive.concept ||
                         "Add a one-line concept below to anchor this character."}
                     </p>
                     <div className="stamp">Casting</div>
                   </header>
 
-                  <div className="sheet">
+                  <div className={"sheet" + (previewingRevision ? " preview-active" : "")}>
                     <Field
                       label="Codename"
-                      value={active.codename}
+                      value={displayedActive.codename}
                       onChange={(v) => set("codename", v)}
                       rows={1}
+                      readOnly={Boolean(previewingRevision)}
+                      locked={Boolean(previewingRevision)}
                     />
                     <Field
                       label="One-line concept"
                       hint="The logline the writer reads first"
-                      value={active.concept}
+                      value={displayedActive.concept}
                       onChange={(v) => set("concept", v)}
                       rows={2}
+                      readOnly={Boolean(previewingRevision)}
+                      locked={Boolean(previewingRevision)}
                     />
                     <Field
                       label="Voice & identity"
                       hint="Who they are — keep it original, never a real person"
-                      value={active.voice}
+                      value={displayedActive.voice}
                       onChange={(v) => set("voice", v)}
                       rows={4}
+                      readOnly={Boolean(previewingRevision)}
+                      locked={Boolean(previewingRevision)}
                     />
                     <div className="grid2">
                       <Field
                         label="Cadence & delivery"
-                        value={active.cadence}
+                        value={displayedActive.cadence}
                         onChange={(v) => set("cadence", v)}
                         rows={5}
+                        readOnly={Boolean(previewingRevision)}
+                        locked={Boolean(previewingRevision)}
                       />
                       <Field
                         label="Vocabulary & catchphrases"
-                        value={active.vocab}
+                        value={displayedActive.vocab}
                         onChange={(v) => set("vocab", v)}
                         rows={5}
+                        readOnly={Boolean(previewingRevision)}
+                        locked={Boolean(previewingRevision)}
                       />
                     </div>
                     <Field
                       label="Off-limits"
                       hint="Hard rules — what they never say (keeps you monetizable & on-brand)"
-                      value={active.offlimits}
+                      value={displayedActive.offlimits}
                       onChange={(v) => set("offlimits", v)}
                       rows={3}
+                      readOnly={Boolean(previewingRevision)}
+                      locked={Boolean(previewingRevision)}
                     />
                     <Field
                       label="Gold-standard lines"
                       hint="2–4 example lines — the writer imitates these more than any instruction"
-                      value={active.lines}
+                      value={displayedActive.lines}
                       onChange={(v) => set("lines", v)}
                       rows={5}
                       mono
+                      readOnly={Boolean(previewingRevision)}
+                      locked={Boolean(previewingRevision)}
                     />
                     <div className="grid2">
                       <Field
                         label="Beat template"
-                        value={active.beats}
+                        value={displayedActive.beats}
                         onChange={(v) => set("beats", v)}
                         rows={6}
                         mono
+                        readOnly={Boolean(previewingRevision)}
+                        locked={Boolean(previewingRevision)}
                       />
                       <Field
                         label="Runtime target"
                         hint="Enforced at script + render"
-                        value={active.runtime}
+                        value={displayedActive.runtime}
                         onChange={(v) => set("runtime", v)}
                         rows={2}
+                        readOnly={Boolean(previewingRevision)}
+                        locked={Boolean(previewingRevision)}
                       />
                     </div>
                   </div>
 
-                  <div className="savebar">
-                    <button className="btn" onClick={save} disabled={saving}>
-                      {saving ? "Saving…" : "Save dossier"}
-                    </button>
-                    <button className="btn ghost" onClick={toggleStatus}>
-                      {active.status === "active" ? "● Active" : "○ Draft"}
-                    </button>
-                    <button className="btn ghost" onClick={() => setView("wire")}>
-                      Log an idea →
-                    </button>
-                    <span className={"flash" + (flash ? " show" : "") + (flash?.err ? " err" : "")}>
-                      {flash?.msg}
-                    </span>
-                  </div>
+                  {!previewingRevision && (
+                    <div className="savebar">
+                      {isRestoredDraft && (
+                        <div className="restore-warning">
+                          ⚠ UNSAVED RESTORED DRAFT — You are viewing a restored manual. Click
+                          Save dossier to make these changes live.
+                        </div>
+                      )}
+                      <button
+                        className={"btn" + (isRestoredDraft ? " save-highlight" : "")}
+                        onClick={save}
+                        disabled={saving}
+                      >
+                        {saving ? "Saving…" : "Save dossier"}
+                      </button>
+                      <button className="btn ghost" onClick={toggleStatus}>
+                        {active.status === "active" ? "● Active" : "○ Draft"}
+                      </button>
+                      <button
+                        ref={savebarHistoryButtonRef}
+                        className="btn ghost"
+                        type="button"
+                        onClick={() => openHistory("savebar")}
+                        aria-haspopup="dialog"
+                        aria-expanded={historyOpen}
+                      >
+                        View History
+                      </button>
+                      <button className="btn ghost" onClick={() => setView("wire")}>
+                        Log an idea →
+                      </button>
+                      <span className={"flash" + (flash ? " show" : "") + (flash?.err ? " err" : "")}>
+                        {flash?.msg}
+                      </span>
+                    </div>
+                  )}
+                  {historyOpen && (
+                    <HistoryDrawer
+                      revisions={revisions}
+                      loading={revisionsLoading}
+                      error={revisionsError}
+                      previewingRevisionId={previewingRevisionId}
+                      onClose={closeHistory}
+                      onRetry={() => {
+                        void fetchRevisions(active.id);
+                      }}
+                      onPreview={previewRevision}
+                      onRestore={requestRestore}
+                    />
+                  )}
+                  {pendingRestore && (
+                    <RestoreDialog
+                      revision={pendingRestore}
+                      onCancel={() => setPendingRestore(null)}
+                      onConfirm={confirmRestore}
+                    />
+                  )}
                 </section>
               ) : (
                 <section className="dossier">

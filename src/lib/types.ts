@@ -27,6 +27,17 @@ export type Character = {
   updated_at: string;
 };
 
+export type CharacterBibleRevision = {
+  id: string;
+  character_id: string;
+  owner: string;
+  codename: string | null;
+  concept: string | null;
+  status: CharacterStatus | null;
+  bible: Bible;
+  created_at: string;
+};
+
 export type IdeaStatus = "backlog" | "active" | "used";
 
 export type Idea = {
