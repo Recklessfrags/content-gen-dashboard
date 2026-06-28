@@ -3,8 +3,12 @@
 > Per `AGENTS.md` rule 1: **the repo is the memory.** Not written here = didn't
 > happen. This file is the running state of the project.
 
-_Last updated: 2026-06-28 — Architect (Claude). Slice 1 independently ratified;
-Slice 2 specified._
+_Last updated: 2026-06-28 — Architect (Claude). Slices 1–4 shipped + ratified
+(drill-down, version history, Overview, Cost Box) + red-diagonal hotfix._
+
+> **New chat picking this up? Start with [`docs/SESSION-HANDOFF.md`](SESSION-HANDOFF.md)**
+> — current state, operational gotchas, and exactly what's left to finish. This file is
+> the full running history.
 
 ## Provenance caveat (read first)
 
