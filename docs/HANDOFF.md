@@ -188,8 +188,9 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
   the Character Control Room** (focused tool). The broad kanban/pipeline-board
   vision from the `DIRECTION.md` draft is **deferred, not killed.** Division of
   labor: **dashboard owns inputs** (characters, ideas) and **surfaces outputs**
-  (Runs); **the pipeline owns the middle** (production stages). `DIRECTION.md`
-  remains the human's to author; this ruling is captured here so it is not lost.
+  (Runs); **the pipeline owns the middle** (production stages). **`DIRECTION.md` is
+  now authored** (2026-06-28) capturing this ruling — D-2 fully closed; it is the
+  read-only direction source for Builders/Designer.
 - **D-3 Auth model** — RESOLVED: "me now, scoped others later" (owner column from
   day one, owner-scoped RLS).
 
