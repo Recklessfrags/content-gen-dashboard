@@ -156,6 +156,20 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
   - **Slice 2 is CLOSED.** All S2 gates PASS (`GATES.md`). Human authorized autonomous
     execution with independent-agent review standing in for immediate grading; human
     does the final sign-off on return.
+- **Slice 3 — DONE + RATIFIED, CLOSED (2026-06-28).** Read-only **Overview** view
+  (`docs/slices/slice-3-overview.md`). Full loop: Gemini designed
+  (`docs/design/slice-3-overview.md`), Codex built the `OverviewDashboard`
+  (aggregates from already-loaded state; commits `7019c3e` + fix `b46f27e`),
+  Architect reviewed/build-verified/merged. Independent reviewer agent: APPROVE
+  WITH NITS (all 6 S3 gates PASS); its 2 LOW findings (unguarded `sentinels`,
+  case-sensitive status grouping) fixed + verified. Architect ratified in-browser:
+  every aggregate matched the live DB (chars/ideas/episodes counts, spend $0.14,
+  avg $0.05, pass-rate 67%), with **zero writes and zero new reads**. Chosen as the
+  one next step inside the ratified framing needing no direction call.
+- **Next slices need a human direction call (D-2 / `DIRECTION.md`).** Multi-user
+  teams, publishing, external/SEO analytics, and idea→pipeline linkage (the last
+  also needs a cross-repo write to the pipeline-owned `jobs` table) are deferred
+  pending that ruling — see `docs/slices/slice-3-overview.md` → "Deferred".
   - Loop tooling note: this session's injected `GEMINI_API_KEY`/`OPENAI_API_KEY`
     are wrapped in literal `<>` brackets (invalid); valid keys supplied at runtime.
     Codex also needs `codex login --with-api-key` (it ignores the env var).

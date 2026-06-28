@@ -71,3 +71,28 @@ is restored.
 
 **Slice 2 is CLOSED.** Remaining: optional human final sign-off (independent agent
 review stood in per the human's authorization).
+
+---
+
+# Slice 3 gates (frozen 2026-06-28) — CLOSED
+
+Read-only **Overview** view. Full loop: Designer (Gemini) → Builder (Codex) →
+Architect review/merge → independent reviewer agent → Architect in-browser
+ratification (aggregate correctness vs live DB + zero writes). All gates **PASS**.
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| S3-1 | "Overview" reachable from rail; renders Roster/Wire/Runs summary cards from real data | **PASS** | 4th rail nav item; three-column dashboard renders live aggregates. |
+| S3-2 | Aggregates correct vs live data | **PASS** | UI vs DB matched exactly: chars 2 (1 active/1 draft, 50%); ideas 4 (3 backlog/1 active/0 used, 0%); episodes 3 (success 2/running 1), spend $0.14, avg $0.05, **pass-rate 67% (2 of 3)**, last run Cottage cheese. |
+| S3-3 | Read-only; zero writes | **PASS** | In-browser: **0 writes** to any table AND **0 new reads** during Overview (derives purely from already-loaded state). No mutating controls. |
+| S3-4 | Empty/zero + loading/error states | **PASS** | Per-card `is-empty` states; top-level loading/error guards wrap the view (code-reviewed). |
+| S3-5 | Responsive (320px), visible focus, reduced-motion | **PASS** | Independent review verified breakpoints (3-col→1-col @1120px, compact @480px), `.metric-card` `:focus-visible`, reduced-motion block; existing tokens only. |
+| S3-6 | Build clean; no schema/migration; no new deps | **PASS** | `next build` clean; additive component only; no migration; no dependencies. |
+
+Independent reviewer agent: **APPROVE WITH NITS** (all 6 gates PASS, no
+hard-constraint violations). Its two LOW findings — unguarded `episode.sentinels`
+and case-sensitive status grouping — were fixed (commit `b46f27e`) and build-verified.
+
+**Slice 3 is CLOSED.** Direction-dependent deferrals (multi-user teams, publishing,
+external/SEO analytics, idea→pipeline linkage) await a human D-2 / `DIRECTION.md`
+ruling (`docs/slices/slice-3-overview.md` → "Deferred").
