@@ -4,7 +4,9 @@
 > happen. This file is the running state of the project.
 
 _Last updated: 2026-06-28 — Architect (Claude). Slices 1–4 shipped + ratified
-(drill-down, version history, Overview, Cost Box) + red-diagonal hotfix._
+(drill-down, version history, Overview, Cost Box) + red-diagonal hotfix, and
+**promoted to PRODUCTION** (merge `00d5fcc` → `claude/new-session-3l99vs`;
+all 4 slices live + verified at `content-gen-dashboard.vercel.app`)._
 
 > **New chat picking this up? Start with [`docs/SESSION-HANDOFF.md`](SESSION-HANDOFF.md)**
 > — current state, operational gotchas, and exactly what's left to finish. This file is

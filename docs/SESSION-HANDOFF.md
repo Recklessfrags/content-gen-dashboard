@@ -45,12 +45,15 @@ shared Supabase project:**
   via per-row deltas, in-flight aware, USD-only with asset-gap note, cap parked).
 - Hotfix: red-diagonal CSS class collision (`.stamp` → `.casting-stamp`).
 
-**Work branch:** `claude/dashboard-slice-count-pof88m` (NOT yet merged to the default
-branch). Tip commit ~`9b80e26`. Everything is committed + pushed.
+**Branches:** work branch `claude/dashboard-slice-count-pof88m`; production/default
+branch `claude/new-session-3l99vs`. **Slices 2–4 were PROMOTED to production**
+(2026-06-28, merge commit `00d5fcc`) — the two branches now carry the same app.
+Everything committed + pushed.
 
 **Live URLs / login:**
-- Branch preview (latest, all 4 slices): `https://content-gen-dashboard-git-claude-dashboard-slic-690daf-canicode.vercel.app`
-- Production (still Slice 1 only — default branch): `https://content-gen-dashboard.vercel.app`
+- Production (all 4 slices live, verified — nav: Roster/The Wire/Runs/Overview/Cost):
+  `https://content-gen-dashboard.vercel.app`
+- Branch preview (same code): `https://content-gen-dashboard-git-claude-dashboard-slic-690daf-canicode.vercel.app`
 - Login: `cameronnicodemus@gmail.com` / temp password in `docs/HANDOFF.md` (change it).
 
 **Supabase:** project `reels-content` = `tyeejhaknqkeftjykqog`. Seed: 2 characters
@@ -141,8 +144,10 @@ a dashboard feature actually uploads a file (e.g. reference-image upload, likely
 character-generation flow). Spell it correctly; capture it in a migration. (See D-5.)
 
 ### G. Standing human decisions (not blocking the loop)
-- **Promote dashboard to production:** merge `claude/dashboard-slice-count-pof88m` → the
-  GitHub default branch to deploy Slices 2–4 to `content-gen-dashboard.vercel.app`.
+- **Promote dashboard to production — DONE** (2026-06-28, merge `00d5fcc`); Slices 2–4
+  live at `content-gen-dashboard.vercel.app`. New work lands on
+  `claude/dashboard-slice-count-pof88m`; promote = merge it into
+  `claude/new-session-3l99vs` again (same procedure).
 - **Final ratification sign-off** of all slices (independent-agent review has stood in).
 - Change the temp login password.
 
