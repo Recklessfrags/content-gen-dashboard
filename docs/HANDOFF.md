@@ -193,6 +193,24 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
   read-only direction source for Builders/Designer.
 - **D-3 Auth model** — RESOLVED: "me now, scoped others later" (owner column from
   day one, owner-scoped RLS).
+- **D-5 Storage (buckets)** — RESOLVED (human, 2026-06-28). Two asset classes have
+  contradictory read rules, so they **cannot share one bucket** (same split as the
+  tables: pipeline service-role data vs. dashboard owner-scoped rows; plus a
+  blast-radius argument — a misconfig on one can't expose the other):
+  - **`render-assets`** — pipeline render outputs (VO/music/clips). **Public read,
+    service-role write, no per-user scoping.** JSON2Video/Buffer must fetch by URL;
+    a private bucket would make a job spend on VO/music/generation then die at
+    render. **Pipeline-repo-owned** (`reels-content-generation`, out of this repo's
+    GitHub scope) — provisioned + recorded there, NOT here. Recipe handed off.
+  - **User-uploads** (e.g., a character reference image) — **private, owner-scoped
+    (`auth.uid()`), RLS-enforced.** **Dashboard-repo-owned.** **DESIGNED, NOT BUILT**
+    — no dashboard feature uploads a file yet (bibles are jsonb text). Stand up a
+    private owner-scoped `character-assets` bucket (spelled correctly) only when an
+    upload feature exists; capture it in a migration at that time.
+  - Cleanup done: a premature `character-assets` bucket + a typo'd `character-assests`
+    bucket (both empty) were removed; storage is currently **0 buckets / 0 policies**.
+    Note: Supabase's `protect_delete` trigger blocks bucket deletion via SQL — bucket
+    deletes must go through the dashboard/Storage API.
 
 ## Git state
 
