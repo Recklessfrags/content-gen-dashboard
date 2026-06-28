@@ -166,6 +166,20 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
   every aggregate matched the live DB (chars/ideas/episodes counts, spend $0.14,
   avg $0.05, pass-rate 67%), with **zero writes and zero new reads**. Chosen as the
   one next step inside the ratified framing needing no direction call.
+- **Slice 4 — DONE + RATIFIED, CLOSED (2026-06-28).** Read-only **Cost Box** (Tier 1
+  spend governance) from the human's brief. Full loop: Gemini designed, Codex built
+  (commit `16c7518`), Architect reviewed/build-verified/merged, independent agent
+  APPROVE WITH NITS (9/9 S4 gates PASS), Architect ratified in-browser vs SQL:
+  running total **$0.1656** (== UI $0.17), by-provider anthropic 100% / google 0% /
+  deterministic 0% (delta-sum, not cumulative), per-episode incl. an IN-FLIGHT running
+  job, **zero writes**, and S4-9 Overview total now equals the Cost total (shared
+  `max(spend_so_far)` source). Asset spend NOT logged by pipeline yet → shipped
+  LLM-USD-only with a disclosure note (flagged pipeline gap); cap parked (no readable
+  config). **by-API built; by-character DEFERRED** to D-1 (no `character_id`) as a
+  disabled seam. Cosmetic nits accepted (provider % rounding; a money-format label).
+- **Cost tiers remaining:** Tier 2 (per-character cost) unblocks at the Acoustic Kitty
+  / D-1 `character_id` landing; Tier 3 (ROI) waits on publishing + analytics ingestion
+  (per the Notion 'ROI table — SCOPE CORRECTION': analytics deferred, not killed).
 - **Next slices need a human direction call (D-2 / `DIRECTION.md`).** Multi-user
   teams, publishing, external/SEO analytics, and idea→pipeline linkage (the last
   also needs a cross-repo write to the pipeline-owned `jobs` table) are deferred

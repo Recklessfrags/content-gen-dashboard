@@ -96,3 +96,31 @@ and case-sensitive status grouping — were fixed (commit `b46f27e`) and build-v
 **Slice 3 is CLOSED.** Direction-dependent deferrals (multi-user teams, publishing,
 external/SEO analytics, idea→pipeline linkage) await a human D-2 / `DIRECTION.md`
 ruling (`docs/slices/slice-3-overview.md` → "Deferred").
+
+---
+
+# Slice 4 gates (frozen 2026-06-28) — CLOSED
+
+Read-only **Cost Box** (Tier 1 spend governance). Full loop: Designer (Gemini) →
+Builder (Codex) → Architect review/merge → independent reviewer agent → Architect
+in-browser ratification vs SQL ground truth. All gates **PASS**.
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| S4-1 | Running total from `max(spend_so_far)` per episode, USD-labeled | **PASS** | Hero shows **$0.17 USD**; == SQL grandTotal `$0.1656`. |
+| S4-2 | Per-episode live/in-flight cost (not `episodes.spend`) | **PASS** | Log shows $0.10 / **$0.02 (IN-FLIGHT, running)** / $0.04 from `max(spend_so_far)`. |
+| S4-3 | By-provider from per-row deltas; deterministic bucketed | **PASS** | anthropic $0.165 (100%), google $0.001 (0%), Deterministic/None $0 — matches SQL delta-sum (`Math.max(0,Δ)`, never sums cumulative). |
+| S4-4 | USD explicit; no cross-unit summing; asset-gap note | **PASS** | "Asset spend not yet reported by the pipeline … LLM provider spend only, in USD." No fabricated asset/cap numbers (cap parked with an empty seam). |
+| S4-5 | Read-only; zero writes | **PASS** | In-browser: **0 writes**; receipts/episodes only `select`. |
+| S4-6 | Reconciles a known completed run | **PASS** | Completed episodes: `max(spend_so_far)` == `episodes.spend` (verified). |
+| S4-7 | Tier 1 only — no character grouping / ROI / analytics | **PASS** | Per-character is a disabled "CHARACTERS DEFERRED" seam (`aria-disabled`); nothing character-keyed computed. |
+| S4-8 | Quality floor; build clean; no schema/deps | **PASS** | `next build` clean; 320px responsive; `:focus-visible`; reduced-motion disables the in-flight pulse; existing tokens; no `any`/deps/migration. |
+| S4-9 | Overview total == Cost Box total | **PASS** | `runsStats.totalSpend = costStats.grandTotal` — both surfaces share one source; Overview now also reads `$0.166`. |
+
+Independent reviewer agent: **APPROVE WITH NITS** (9/9 PASS, no constraint violations).
+Accepted cosmetic nits (no action this tier): B1 — provider %s rounded independently
+may not total exactly 100% (exact USD shown alongside); B2 — Overview avg uses a
+no-suffix money format vs the Cost view's "USD" suffix (totals still agree).
+
+**Slice 4 is CLOSED.** Tier 2 (per-character cost) unblocks at the Acoustic Kitty /
+D-1 `character_id` landing; Tier 3 (ROI) waits on publishing + analytics ingestion.
