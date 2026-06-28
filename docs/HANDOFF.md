@@ -121,8 +121,14 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
   not applied to the build → confirm both are set for Production and redeploy.
 - **P-2 Independent review** of gates 2,3,4,7 in a real browser (Slice 1) —
   **DONE** by the Architect session via the Node-fetch bridge (see ratification
-  section above). Only the **human final sign-off** remains (+ optional G6
-  public-URL spot-check once Deployment Protection is lifted).
+  section above). Only the **human final sign-off** remains.
+- **P-1 G6 public-URL check — DONE (2026-06-28).** Human lifted Vercel Deployment
+  Protection; Architect verified the **live public URL** end-to-end:
+  `content-gen-dashboard.vercel.app` → real login → Roster loads Mad Dog + Pearl,
+  Runs shows real episodes, browser hit live `characters`/`ideas`/`episodes`
+  endpoints (proves the `NEXT_PUBLIC_*` env vars are applied to the prod build).
+  Same Node-fetch bridge method (Chromium still can't TLS-egress the sandbox proxy);
+  the deployed app + its server-action login ran for real.
 - **Slice 2 — SPECIFIED, not yet built.** Spec + Designer brief + Builder block in
   `docs/slices/slice-2-deferred-features.md`. Scope: Runs → run/receipt drill-down
   and bible version history (the two highest-value deferred build-brief items).

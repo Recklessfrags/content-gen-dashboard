@@ -16,7 +16,7 @@
 | 3 | Switching characters loads correct bible; no bleed | **PASS** | In-browser: Mad Dog vs Pearl show distinct codenames/bibles; an unsaved edit on Pearl did **not** appear on Mad Dog (no bleed) and Pearl retained its own unsaved edit on return (correct per-id local state). |
 | 4 | Idea quick-capture persists, tags to character + channel, status cycles + persists | **PASS** | In-browser: captured idea via Enter, tagged character→Grandma Pearl + channel→Animals, cycled status Backlog→In progress→Used; **hard reload → idea present with tag + channel + status persisted.** Test idea deleted after. |
 | 5 | Runs reads real `episodes` for the **active character** (seed one row) | **RATIFIED EXCEPTION** | Reads real episodes **globally** (pipeline schema has no character link). Human ruling D-1 (2026-06-28): accept global Runs, defer the board. In-app "operation-wide pipeline output" note present (`ControlRoom.tsx:545`). Runs now reads 2 real pipeline episodes. |
-| 6 | Deploys clean on Vercel from a fresh clone; no secrets in repo; Supabase keys in env | **PASS** | `next build` clean; no secrets tracked (keys via `NEXT_PUBLIC_*` env). Vercel: both commits auto-built **READY** in production; server runtime verified (root→307 `/login`, `/login` 200). **In-browser client data-load now independently observed** against the live DB (login → Roster loads Mad Dog + Pearl; see method note). Caveat: rendered-pixel check ran against the **local production build** (`next start`), not the Vercel URL, which is still behind Vercel Deployment Protection — the client bundle + env vars are identical, so confidence is high; one human spot-check on the public URL remains nice-to-have. |
+| 6 | Deploys clean on Vercel from a fresh clone; no secrets in repo; Supabase keys in env | **PASS** | `next build` clean; no secrets tracked (keys via `NEXT_PUBLIC_*` env). **Public Vercel URL now verified end-to-end** (2026-06-28, after Deployment Protection lifted): `content-gen-dashboard.vercel.app` root→307 `/login`, `/login` 200; real server-action **login succeeds** and the **Roster loads Mad Dog + Pearl** with Runs showing real pipeline episodes — browser hit the live `characters`/`ideas`/`episodes` REST endpoints (env vars confirmed applied to the production build). Screenshot captured. No remaining caveat. |
 | 7 | Quality floor: responsive to mobile, visible keyboard focus, `prefers-reduced-motion` respected | **PASS** | In-browser: 320px viewport → **no horizontal overflow** (scrollWidth == clientWidth), rail visible; keyboard Tab → every control matches `:focus-visible` with a settled **2px solid brass outline** (initial 0px reads were mid-`.15s`-transition artifacts); `prefers-reduced-motion: reduce` → button `transition-duration: 0s`; small controls meet target size (`.statusbtn` 47×25, `.tag-select` 144×27 ≥ 24px). Backs Gemini's earlier code-level audit (`docs/design/slice-1-audit.md`) with rendered pixels. |
 
 ### Independent verification method (2026-06-28, Architect session)
@@ -40,7 +40,7 @@ login inputs.
 
 ## Stop condition
 
-All seven gates are **PASS** or a human-ratified exception (G5). The remaining
-human action is the **final ratification sign-off** (and the optional public-URL
-spot-check for G6); the loop has produced the independent evidence rule 2 requires.
+All seven gates are **PASS** or a human-ratified exception (G5), now including the
+**public Vercel URL** end-to-end (Deployment Protection lifted 2026-06-28). The loop
+has produced the independent evidence rule 2 requires; the human owns final sign-off.
 Slice 1 is **closed**. Next work is specified in `docs/slices/slice-2-deferred-features.md`.
