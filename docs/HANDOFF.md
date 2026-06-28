@@ -54,12 +54,19 @@ exception so they survive the ephemeral container.)
 
 ## Pending / not done
 
-- **P-1 Vercel deploy.** Not executed. The Vercel MCP can read the account (team
-  *Cam's projects*) but cannot deploy or set env vars; the CLI has no token. Human
-  is importing the repo via the Vercel dashboard and setting the two
-  `NEXT_PUBLIC_*` env vars (values in `README.md` / `.env.example`). Only branch
-  with code is `claude/new-session-3l99vs` — set it as the Vercel Production Branch
-  or merge to `main`.
+- **P-1 Vercel deploy — DONE (with caveats).** Human imported the repo; Vercel
+  Git integration auto-deploys `claude/new-session-3l99vs` (GitHub default branch),
+  both commits **READY** in production (project `content-gen-dashboard`, team
+  `canicode`/`team_ZdMtQu9H5HYrMPFTf4TL0fC1`). Verified: root→307 `/login`,
+  `/login` 200 → **server env present**. NOT verified independently: the in-browser
+  client data-load (sandbox blocks Chromium through the agent proxy —
+  `ERR_CONNECTION_CLOSED`); confidence is high because middleware uses the same two
+  `NEXT_PUBLIC_*` vars at runtime and works. **Two human follow-ups:** (a) the site
+  sits behind **Vercel Deployment Protection** (Settings → Deployment Protection) —
+  turn it off to make the app publicly reachable (the app has its own auth);
+  (b) log in once to confirm the Roster loads Mad Dog/Pearl and Runs shows the demo
+  episode. If the Roster spins on "Loading…" forever, the `NEXT_PUBLIC_*` vars were
+  not applied to the build → confirm both are set for Production and redeploy.
 - **P-2 Independent review** of gates 2,3,4,7 in a real browser (Slice 1).
 
 ## Open decisions (human)
