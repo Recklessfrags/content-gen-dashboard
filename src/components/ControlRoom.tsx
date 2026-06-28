@@ -27,7 +27,26 @@ type FlatChar = {
   created_at: string;
 } & { [K in (typeof BIBLE_FIELDS)[number]]: string };
 
-type View = "roster" | "wire" | "runs" | "overview";
+type View = "roster" | "wire" | "runs" | "overview" | "cost";
+type CostReceipt = Pick<Receipt, "episode_id" | "seq" | "provider" | "stage" | "spend_so_far">;
+
+type ProviderCost = {
+  name: string;
+  amount: number;
+  percentage: number;
+};
+
+type EpisodeCost = {
+  episode: Episode;
+  liveSpend: number;
+  isInFlight: boolean;
+};
+
+type CostStats = {
+  grandTotal: number;
+  providerSplit: ProviderCost[];
+  episodeCosts: EpisodeCost[];
+};
 
 function flatten(row: Character): FlatChar {
   const bible = row.bible || {};
@@ -90,6 +109,7 @@ function Icon({ name }: { name: string }) {
       wire: "M4 6h16M4 12h16M4 18h10",
       runs: "M5 12l4 4 10-10",
       overview: "M4 4h6v6H4V4zm10 0h6v6h-6V4zm-10 10h6v6H4v-6zm10 0h6v6h-6v-6z",
+      cost: "M12 8c-3.31 0-6 2.24-6 5s2.69 5 6 5 6-2.24 6-5-2.69-5-6-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-10c-3.31 0-6 2.24-6 5h12c0-2.76-2.69-5-6-5z",
       exit: "M14 8V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h7a2 2 0 002-2v-2M9 12h12m0 0l-3-3m3 3l-3 3",
       clock: "M12 6v6l4 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
     }[name] || "";
@@ -182,6 +202,15 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
+function formatUsd(value: number, digits = 2) {
+  return `${new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value)} USD`;
+}
+
 function formatOverviewDate(createdAt: string) {
   return new Date(createdAt).toLocaleString([], {
     month: "short",
@@ -202,14 +231,77 @@ function titleCaseStatus(status: string) {
     .join(" ");
 }
 
+function providerBucket(provider: string | null) {
+  const cleaned = (provider ?? "").trim();
+  return cleaned.length > 0 ? cleaned : "Deterministic / None";
+}
+
+function isInFlightStatus(status: string) {
+  const normalized = (status || "").trim().toLowerCase();
+  return normalized !== "success" && normalized !== "failed";
+}
+
+function computeCostStats(episodes: Episode[], receipts: CostReceipt[]): CostStats {
+  const receiptGroups = new Map<string, CostReceipt[]>();
+  for (const receipt of receipts) {
+    const existing = receiptGroups.get(receipt.episode_id);
+    if (existing) existing.push(receipt);
+    else receiptGroups.set(receipt.episode_id, [receipt]);
+  }
+
+  const providerTotals = new Map<string, number>();
+  const episodeCosts: EpisodeCost[] = [];
+  let grandTotal = 0;
+
+  for (const episode of episodes) {
+    const sortedReceipts = [...(receiptGroups.get(episode.episode_id) ?? [])].sort(
+      (a, b) => Number(a.seq ?? 0) - Number(b.seq ?? 0),
+    );
+    let previousSpend = 0;
+    let maxSpend = 0;
+
+    for (const receipt of sortedReceipts) {
+      const currentSpend = Number(receipt.spend_so_far ?? 0);
+      const delta = Math.max(0, currentSpend - previousSpend);
+      const provider = providerBucket(receipt.provider);
+      providerTotals.set(provider, (providerTotals.get(provider) ?? 0) + delta);
+      if (currentSpend > maxSpend) maxSpend = currentSpend;
+      previousSpend = currentSpend;
+    }
+
+    grandTotal += maxSpend;
+    episodeCosts.push({
+      episode,
+      liveSpend: maxSpend,
+      isInFlight: isInFlightStatus(episode.status) && maxSpend > 0,
+    });
+  }
+
+  const providerSplit = Array.from(providerTotals.entries())
+    .map(([name, amount]) => ({
+      name,
+      amount,
+      percentage: grandTotal > 0 ? Math.round((amount / grandTotal) * 100) : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
+
+  return { grandTotal, providerSplit, episodeCosts };
+}
+
 function OverviewDashboard({
   chars,
   ideas,
   episodes,
+  costStats,
+  costReceiptsLoading,
+  costReceiptsError,
 }: {
   chars: FlatChar[];
   ideas: Idea[];
   episodes: Episode[];
+  costStats: CostStats;
+  costReceiptsLoading: boolean;
+  costReceiptsError: string | null;
 }) {
   const rosterStats = useMemo(() => {
     const total = chars.length;
@@ -230,7 +322,7 @@ function OverviewDashboard({
 
   const runsStats = useMemo(() => {
     const total = episodes.length;
-    const totalSpend = episodes.reduce((sum, episode) => sum + Number(episode.spend || 0), 0);
+    const totalSpend = costStats.grandTotal;
     const avgSpend = total > 0 ? totalSpend / total : 0;
     const statusCounts = episodes.reduce<Record<string, number>>((counts, episode) => {
       const status = (episode.status || "unknown").trim().toLowerCase() || "unknown";
@@ -271,7 +363,7 @@ function OverviewDashboard({
       passedSentinels,
       lastEpisode,
     };
-  }, [episodes]);
+  }, [costStats.grandTotal, episodes]);
 
   return (
     <div className="overview" role="region" aria-label="Overview dashboard">
@@ -431,16 +523,28 @@ function OverviewDashboard({
               <div
                 className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
                 tabIndex={0}
-                aria-label={`Total operational spend: ${formatMoney(runsStats.totalSpend)}. Average cost per episode is ${formatMoney(runsStats.avgSpend)}.`}
+                aria-label={
+                  costReceiptsLoading
+                    ? "Total operational spend is loading from receipts."
+                    : costReceiptsError
+                      ? `Total operational spend is unavailable: ${costReceiptsError}.`
+                      : `Total operational spend: ${formatUsd(runsStats.totalSpend)}. Average cost per episode is ${formatUsd(runsStats.avgSpend)}.`
+                }
               >
                 <div className="metric-meta">
                   <span className="metric-eyebrow">Total Operational Spend</span>
                   <span className="metric-badge">Cost</span>
                 </div>
-                <div className="metric-value metric-money">{formatMoney(runsStats.totalSpend)}</div>
+                <div className="metric-value metric-money">
+                  {costReceiptsLoading ? "Loading" : costReceiptsError ? "Unavailable" : formatMoney(runsStats.totalSpend)}
+                </div>
                 <div className="metric-breakdown">
                   <span className="metric-subtext">
-                    Avg. Cost: <b>{formatMoney(runsStats.avgSpend)}</b> / episode
+                    {costReceiptsLoading
+                      ? "Reading the live receipts spend source."
+                      : costReceiptsError
+                        ? "Receipt spend source could not be read."
+                        : <>Avg. Cost: <b>{formatMoney(runsStats.avgSpend)}</b> / episode</>}
                   </span>
                 </div>
               </div>
@@ -503,6 +607,207 @@ function OverviewDashboard({
                   </>
                 )}
               </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CostBoxDashboard({
+  episodes,
+  costStats,
+  loading,
+  error,
+  receiptsLoaded,
+}: {
+  episodes: Episode[];
+  costStats: CostStats;
+  loading: boolean;
+  error: string | null;
+  receiptsLoaded: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="cost" role="region" aria-label="Spend governance workspace">
+        <div className="col-head">
+          <h2>Cost</h2>
+          <span className="count">loading receipts</span>
+        </div>
+        <div className="cost-content">
+          <div className="loading cost-loading">
+            <span className="spin" /> Loading spend receipts…
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="cost" role="region" aria-label="Spend governance workspace">
+        <div className="col-head">
+          <h2>Cost</h2>
+          <span className="count">receipt read failed</span>
+        </div>
+        <div className="cost-content">
+          <div className="cost-state">
+            <h3>Cost Box Unavailable</h3>
+            <p>Couldn&apos;t read the pipeline receipts source: {error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (episodes.length === 0) {
+    return (
+      <div className="cost" role="region" aria-label="Spend governance workspace">
+        <div className="col-head">
+          <h2>Cost</h2>
+          <span className="count">no episodes</span>
+        </div>
+        <div className="cost-content">
+          <div className="cost-state">
+            <Icon name="cost" />
+            <h3>No Episodes Yet</h3>
+            <p>Pipeline episodes need to exist before spend can be audited here.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (receiptsLoaded && costStats.providerSplit.length === 0) {
+    return (
+      <div className="cost" role="region" aria-label="Spend governance workspace">
+        <div className="col-head">
+          <h2>Cost</h2>
+          <span className="count">no receipts</span>
+        </div>
+        <div className="cost-content">
+          <div className="cost-state">
+            <Icon name="cost" />
+            <h3>No Receipts Logged</h3>
+            <p>Episodes are present, but the pipeline has not reported spend receipts yet.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="cost" role="region" aria-label="Spend governance workspace">
+      <div className="col-head">
+        <h2>Cost</h2>
+        <span className="count">read-only spend governance</span>
+      </div>
+
+      <div className="cap">
+        <span className="eyebrow">Running spend from max(spend_so_far) per episode.</span>
+      </div>
+
+      <div className="cost-content">
+        <div className="cost-disclosure" role="note">
+          <span className="disclosure-mark" aria-hidden="true">!</span>
+          <div>
+            <span className="disclosure-tag">Pipeline disclosure</span>
+            <p>
+              Asset spend is not yet reported by the content pipeline. Today&apos;s ledger tracks
+              LLM text-generation provider spend only, in USD.
+            </p>
+          </div>
+        </div>
+
+        <div className="cost-grid">
+          <section className="cost-summary" aria-label="Spend summary">
+            <div
+              className="metric-card hero-card"
+              tabIndex={0}
+              aria-label={`Running total operational spend is ${formatUsd(costStats.grandTotal)}.`}
+            >
+              <div className="metric-meta">
+                <span className="metric-eyebrow">Running Total Operational Spend</span>
+                <span className="metric-badge">USD</span>
+              </div>
+              <div className="metric-value hero-value">{formatUsd(costStats.grandTotal)}</div>
+              <div className="metric-breakdown">
+                <span className="pulse-dot" aria-hidden="true" />
+                Live &amp; In-Flight Aware · Includes running pipeline operations
+              </div>
+            </div>
+
+            <div className="metric-card parked-card" tabIndex={0}>
+              <div className="metric-meta">
+                <span className="metric-eyebrow">Budget Cap Status</span>
+                <span className="metric-badge">Parked</span>
+              </div>
+              <div className="budget-seam" aria-hidden="true">
+                <div className="budget-seam-bar" />
+                <span>Parked · Awaiting pipeline cap API exposure</span>
+              </div>
+              <p className="metric-subtext">
+                Cap configuration is not exposed in a dashboard-readable table yet.
+              </p>
+            </div>
+
+            <div className="metric-card provider-card" tabIndex={0}>
+              <div className="metric-meta provider-head">
+                <span className="metric-eyebrow">API Provider Breakdown</span>
+                <span className="grouping-seam" title="Character attribution requires episodes metadata upgrade.">
+                  <span className="grouping-on">Providers</span>
+                  <span className="grouping-off" aria-disabled="true">Characters Deferred</span>
+                </span>
+              </div>
+
+              <div className="provider-list">
+                {costStats.providerSplit.map((provider, index) => (
+                  <div className="provider-row" key={provider.name}>
+                    <div className="provider-row-top">
+                      <span className="provider-name">{provider.name}</span>
+                      <span className="provider-amount">{formatUsd(provider.amount, 3)}</span>
+                    </div>
+                    <div className="progress-container" aria-hidden="true">
+                      <div
+                        className={"progress-bar " + (index === 0 ? "cleared" : index === 1 ? "brass" : "stamp")}
+                        style={{ width: `${provider.percentage}%` }}
+                      />
+                    </div>
+                    <span className="provider-share">{provider.percentage}% share</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="cost-audit" aria-labelledby="cost-audit-title">
+            <div className="cost-panel-head">
+              <h3 id="cost-audit-title">Per-Episode Cost Log</h3>
+              <span className="count">{costStats.episodeCosts.length} tracked</span>
+            </div>
+            <div className="audit-list">
+              {costStats.episodeCosts.map(({ episode, liveSpend, isInFlight }) => (
+                <article
+                  className={"audit-card" + (isInFlight ? " in-flight" : "")}
+                  key={episode.episode_id}
+                  tabIndex={0}
+                >
+                  <div className="audit-main">
+                    <div className="audit-title">
+                      <span className="run-id">#{episode.episode_id.slice(0, 8).toUpperCase()}</span>
+                      <h4>{episode.food}</h4>
+                    </div>
+                    <span className="audit-spend">{formatUsd(liveSpend)}</span>
+                  </div>
+                  <div className="audit-meta">
+                    <span className="rmeta stat">{episode.status}</span>
+                    {isInFlight && <span className="flight-badge">IN-FLIGHT</span>}
+                    {episode.final_stage && <span className="rmeta">stage · {episode.final_stage}</span>}
+                    <span className="rmeta">{new Date(episode.created_at).toLocaleDateString()}</span>
+                  </div>
+                </article>
+              ))}
             </div>
           </section>
         </div>
@@ -989,6 +1294,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [chars, setChars] = useState<FlatChar[]>([]);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [costReceipts, setCostReceipts] = useState<CostReceipt[]>([]);
+  const [costReceiptsLoading, setCostReceiptsLoading] = useState(true);
+  const [costReceiptsError, setCostReceiptsError] = useState<string | null>(null);
+  const [costReceiptsLoaded, setCostReceiptsLoaded] = useState(false);
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
@@ -1018,6 +1327,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const previewRestoreButtonRef = useRef<HTMLButtonElement>(null);
   const lastRestoreTriggerRef = useRef<"history" | "preview" | null>(null);
   const revisionRequestRef = useRef(0);
+  const costReceiptRequestRef = useRef(0);
   const showFlash = (msg: string, err = false) => {
     setFlash({ msg, err });
     if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -1052,12 +1362,47 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     };
   }, [supabase]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const requestId = costReceiptRequestRef.current + 1;
+    costReceiptRequestRef.current = requestId;
+    setCostReceiptsLoading(true);
+    setCostReceiptsError(null);
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("receipts")
+        .select("episode_id,seq,provider,stage,spend_so_far")
+        .order("episode_id", { ascending: true })
+        .order("seq", { ascending: true })
+        .returns<CostReceipt[]>();
+
+      if (cancelled || costReceiptRequestRef.current !== requestId) return;
+      setCostReceiptsLoading(false);
+      setCostReceiptsLoaded(true);
+      if (error) {
+        setCostReceipts([]);
+        setCostReceiptsError(error.message);
+        return;
+      }
+      setCostReceipts(data ?? []);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
   const active = chars.find((c) => c.id === activeId) ?? null;
   const previewingRevision =
     revisions.find((revision) => revision.id === previewingRevisionId) ?? null;
   const displayedActive =
     active && previewingRevision ? flattenRevision(previewingRevision, active) : active;
   const activeEpisode = episodes.find((e) => e.episode_id === activeEpisodeId) ?? null;
+  const costStats = useMemo(
+    () => computeCostStats(episodes, costReceipts),
+    [costReceipts, episodes],
+  );
 
   const set = (field: keyof FlatChar, val: string) =>
     setChars((cs) =>
@@ -1335,6 +1680,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             ["wire", "The Wire"],
             ["runs", "Runs"],
             ["overview", "Overview"],
+            ["cost", "Cost"],
           ] as const
         ).map(([k, lbl]) => (
           <button
@@ -1781,7 +2127,24 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           )}
 
           {view === "overview" && (
-            <OverviewDashboard chars={chars} ideas={ideas} episodes={episodes} />
+            <OverviewDashboard
+              chars={chars}
+              ideas={ideas}
+              episodes={episodes}
+              costStats={costStats}
+              costReceiptsLoading={costReceiptsLoading}
+              costReceiptsError={costReceiptsError}
+            />
+          )}
+
+          {view === "cost" && (
+            <CostBoxDashboard
+              episodes={episodes}
+              costStats={costStats}
+              loading={costReceiptsLoading}
+              error={costReceiptsError}
+              receiptsLoaded={costReceiptsLoaded}
+            />
           )}
         </>
       )}
