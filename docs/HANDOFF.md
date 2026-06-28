@@ -71,18 +71,20 @@ exception so they survive the ephemeral container.)
 
 ## Open decisions (human)
 
-- **D-1 Runs ↔ character linkage.** The pipeline's `episodes` has no `character_id`,
-  so Runs currently shows **all** pipeline episodes, not per-character (deviates from
-  build-brief acceptance #5). Honoring "per active character" requires adding a
-  column to the pipeline's table — a cross-repo change owned by the pipeline, out of
-  scope here. **Needs a human ruling**: accept global Runs, or open a pipeline-side
-  change request.
-- **D-2 Product framing.** The uploaded `DIRECTION.md` draft describes a broader
-  "Reels Content Creation" kanban/pipeline product; what was built is the
-  **Character Control Room** per `dashboardbuildbrief.md`. These are not the same
-  product. `DIRECTION.md` is product ground truth and is the human's to author —
-  it is intentionally **not** committed by the Architect. Reconcile before the next
-  feature slice.
+- **D-1 Runs ↔ character linkage** — RESOLVED (human ruling, 2026-06-28). **Accept
+  global Runs as-is**: Runs stays read-only, operation-wide pipeline output; we do
+  **not** add a character link or build a production board now. Runs is the *seed*
+  of a future board, to be promoted only on demonstrated need (watching many
+  episodes mid-flight and wanting to nudge them). Follow-on for the Builder: add a
+  one-line in-app note clarifying Runs is operation-wide (the "accept global Runs"
+  branch in the Slice 1 builder block). Build-brief acceptance #5 is therefore a
+  ratified exception, not a defect.
+- **D-2 Product framing** — RESOLVED (human ruling, 2026-06-28). The product **is
+  the Character Control Room** (focused tool). The broad kanban/pipeline-board
+  vision from the `DIRECTION.md` draft is **deferred, not killed.** Division of
+  labor: **dashboard owns inputs** (characters, ideas) and **surfaces outputs**
+  (Runs); **the pipeline owns the middle** (production stages). `DIRECTION.md`
+  remains the human's to author; this ruling is captured here so it is not lost.
 - **D-3 Auth model** — RESOLVED: "me now, scoped others later" (owner column from
   day one, owner-scoped RLS).
 
