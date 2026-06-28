@@ -52,6 +52,28 @@ exception so they survive the ephemeral container.)
 - Live RLS checks: authenticated user reads exactly 2 characters / 4 ideas / 1
   episode; **anon reads `[]`** on `characters` and `episodes`.
 
+## Slice 1 — results (2026-06-28)
+
+The loop ran end-to-end through real tooling (Codex CLI + Gemini CLI, API-key auth):
+
+- **Designer (Gemini 2.5-pro):** produced `docs/design/slice-1-audit.md` — flagged a
+  contrast failure on `--paper-faint`, sub-24px target sizes on `.statusbtn`/
+  `.tag-select`, and an `outline:none` focus inconsistency on form inputs.
+- **Builder (Codex):** implemented the fixes + the D-1 Runs "operation-wide" note.
+  Codex **could not commit** (`.git` is read-only inside its sandbox — the intended
+  builder protection); it produced reviewed edits only.
+- **Architect:** reviewed the diff, ran `npm run build` (passes), APPROVED, and
+  merged as the Codex-authored commit `afa3ac5`.
+
+Changes: `--paper-faint #6E6A5F→#8A8475`; `.statusbtn`/`.tag-select` min 24px target;
+restored `:focus-visible` on inputs; Runs operation-wide note.
+
+**Limit (honest):** the loop could **not** run the *in-browser* gate checks
+(gates 2–4 data interaction; gate 7 visual). Headless Chromium cannot egress
+through the agent proxy (`ERR_CONNECTION_CLOSED`), so those still need a human or a
+browser environment with real network. Gemini's audit is a code-level independent
+review, not a rendered-pixel check.
+
 ## Pending / not done
 
 - **P-1 Vercel deploy — DONE (with caveats).** Human imported the repo; Vercel

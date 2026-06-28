@@ -17,7 +17,7 @@
 | 4 | Idea quick-capture persists, tags to character + channel, status cycles + persists | **SELF-ONLY** | Insert verified at data layer; UI cycle/tag persistence not browser-tested. |
 | 5 | Runs reads real `episodes` for the **active character** (seed one row) | **RATIFIED EXCEPTION** | Reads real episodes **globally** (pipeline schema has no character link). Human ruling D-1 (2026-06-28): accept global Runs, defer the board. Builder to add a one-line "operation-wide" note. Demo row seeded + read-verified. |
 | 6 | Deploys clean on Vercel from a fresh clone; no secrets in repo; Supabase keys in env | **SELF-ONLY** | Deployed to Vercel (project `content-gen-dashboard`, team *canicode*); both commits auto-built **READY** in production. Server runtime verified (root→307 `/login`, `/login` 200 → server env present). No secrets tracked. **In-browser client data-load not independently observed** (sandbox blocks Chromium egress); behind Vercel Deployment Protection (currently private). |
-| 7 | Quality floor: responsive to mobile, visible keyboard focus, `prefers-reduced-motion` respected | **SELF-ONLY** | Implemented in `globals.css` (`:focus-visible`, reduced-motion block, `@media max-width:880px`); not independently audited. |
+| 7 | Quality floor: responsive to mobile, visible keyboard focus, `prefers-reduced-motion` respected | **PASS (code-level)** | Independently audited by Gemini (`docs/design/slice-1-audit.md`); findings remediated in Slice 1 (contrast, 24px target size, input `:focus-visible`) and build-verified. Live rendered-pixel spot-check still recommended. |
 
 ## Stop condition
 
