@@ -3,7 +3,8 @@
 > Per `AGENTS.md` rule 1: **the repo is the memory.** Not written here = didn't
 > happen. This file is the running state of the project.
 
-_Last updated: 2026-06-28 — Architect (Claude)._
+_Last updated: 2026-06-28 — Architect (Claude). Slice 1 independently ratified;
+Slice 2 specified._
 
 ## Provenance caveat (read first)
 
@@ -74,6 +75,35 @@ through the agent proxy (`ERR_CONNECTION_CLOSED`), so those still need a human o
 browser environment with real network. Gemini's audit is a code-level independent
 review, not a rendered-pixel check.
 
+## Slice 1 — INDEPENDENT RATIFICATION (2026-06-28, Architect session)
+
+A **separate Claude session, Architect-only** (not the foundation's solo-builder,
+not Codex) ran the previously-missing in-browser gate checks against the **live
+`reels-content` DB**, closing the independence gap from the provenance caveat.
+
+- **All seven gates now PASS or ratified** (G5 = human-ratified exception). Full
+  evidence + method in `GATES.md`. Headlines:
+  - **G1** independently re-confirmed at the REST layer: anon reads `[]`; anon
+    insert → 401 RLS violation; anon update hit 0 rows (data unchanged); authed
+    reads 2 chars / 4 ideas / 2 episodes.
+  - **G2** bible jsonb round-trip is **byte-identical** across a hard reload, even
+    with escapes/braces/emoji/newlines in the values.
+  - **G3** no field bleed across character switches (per-id local state correct).
+  - **G4** idea capture + tag + channel + status-cycle all persist across reload.
+  - **G7** 320px no overflow; 2px brass `:focus-visible` outline on every control;
+    reduced-motion zeroes transitions; small controls ≥ 24px.
+- **Method caveat (honest):** headless Chromium still can't TLS-egress through the
+  sandbox proxy (CONNECT opens; MITM-CA handshake aborts). The app ran as a real
+  `next build`/`next start`; browser→Supabase calls were **bridged through Node's
+  proxy-aware fetch** (`page.route`) so the real `ControlRoom.tsx` client code ran
+  unmodified — only the transport hop was forwarded (carrying the real JWT, so RLS
+  applied). This is independent of the original builder; the **human still owns the
+  final ratification sign-off**.
+- **Seed left clean:** test edits restored; test idea deleted; verified 2 chars
+  (Mad Dog active / Pearl draft) + 4 ideas remain.
+- **Residual (non-blocking → Slice 2 polish):** `.login-card input:focus` still
+  uses `outline:none`; login inputs show focus only via border-color change.
+
 ## Pending / not done
 
 - **P-1 Vercel deploy — DONE (with caveats).** Human imported the repo; Vercel
@@ -89,7 +119,15 @@ review, not a rendered-pixel check.
   (b) log in once to confirm the Roster loads Mad Dog/Pearl and Runs shows the demo
   episode. If the Roster spins on "Loading…" forever, the `NEXT_PUBLIC_*` vars were
   not applied to the build → confirm both are set for Production and redeploy.
-- **P-2 Independent review** of gates 2,3,4,7 in a real browser (Slice 1).
+- **P-2 Independent review** of gates 2,3,4,7 in a real browser (Slice 1) —
+  **DONE** by the Architect session via the Node-fetch bridge (see ratification
+  section above). Only the **human final sign-off** remains (+ optional G6
+  public-URL spot-check once Deployment Protection is lifted).
+- **Slice 2 — SPECIFIED, not yet built.** Spec + Designer brief + Builder block in
+  `docs/slices/slice-2-deferred-features.md`. Scope: Runs → run/receipt drill-down
+  and bible version history (the two highest-value deferred build-brief items).
+  Runs through the Designer→Builder→Architect loop next session. Multi-user teams,
+  analytics, and publishing remain deferred beyond Slice 2.
 
 ## Open decisions (human)
 

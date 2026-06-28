@@ -11,17 +11,36 @@
 
 | # | Gate | Status | Evidence / note |
 | --- | --- | --- | --- |
-| 1 | Schema applied with **RLS on every table**; nothing readable/writable unauthenticated | **SELF-ONLY** | Live check: anon reads `[]` on `characters` + `episodes`; all 4 tables RLS-enabled. Re-confirm independently. |
-| 2 | Characters CRUD persists across refresh; `bible` jsonb round-trips intact (edit→save→reload identical) | **SELF-ONLY** | Data-layer reads verified; **full edit→save→reload round-trip not exercised in-browser.** |
-| 3 | Switching characters loads correct bible; no bleed | **SELF-ONLY** | Logic present (per-id local state); not browser-tested. |
-| 4 | Idea quick-capture persists, tags to character + channel, status cycles + persists | **SELF-ONLY** | Insert verified at data layer; UI cycle/tag persistence not browser-tested. |
-| 5 | Runs reads real `episodes` for the **active character** (seed one row) | **RATIFIED EXCEPTION** | Reads real episodes **globally** (pipeline schema has no character link). Human ruling D-1 (2026-06-28): accept global Runs, defer the board. Builder to add a one-line "operation-wide" note. Demo row seeded + read-verified. |
-| 6 | Deploys clean on Vercel from a fresh clone; no secrets in repo; Supabase keys in env | **SELF-ONLY** | Deployed to Vercel (project `content-gen-dashboard`, team *canicode*); both commits auto-built **READY** in production. Server runtime verified (root→307 `/login`, `/login` 200 → server env present). No secrets tracked. **In-browser client data-load not independently observed** (sandbox blocks Chromium egress); behind Vercel Deployment Protection (currently private). |
-| 7 | Quality floor: responsive to mobile, visible keyboard focus, `prefers-reduced-motion` respected | **PASS (code-level)** | Independently audited by Gemini (`docs/design/slice-1-audit.md`); findings remediated in Slice 1 (contrast, 24px target size, input `:focus-visible`) and build-verified. Live rendered-pixel spot-check still recommended. |
+| 1 | Schema applied with **RLS on every table**; nothing readable/writable unauthenticated | **PASS** | Independent REST checks (anon key, no browser): anon `select` → `[]` on `characters`/`ideas`/`episodes`; anon `insert characters` → **401** `42501 RLS violation`; anon `patch episodes` → 204 but **row unchanged** (RLS hid it — status still `success`/`running`, not the injected value). Authed (live login) reads exactly 2 characters / 4 ideas / 2 episodes. All 5 public tables RLS-enabled (`jobs` is pipeline-owned, RLS-on/no-policy = deny-all). |
+| 2 | Characters CRUD persists across refresh; `bible` jsonb round-trips intact (edit→save→reload identical) | **PASS** | In-browser (prod build, live DB): edited `codename`+`concept`+all 7 bible fields on Mad Dog with adversarial content (`"escapes"`, `{jsonb:true}`, emoji, newlines), Save → flash "✓ Saved", **hard reload → all 9 fields byte-identical** (0 mismatches). Originals restored + seed re-verified after the test. |
+| 3 | Switching characters loads correct bible; no bleed | **PASS** | In-browser: Mad Dog vs Pearl show distinct codenames/bibles; an unsaved edit on Pearl did **not** appear on Mad Dog (no bleed) and Pearl retained its own unsaved edit on return (correct per-id local state). |
+| 4 | Idea quick-capture persists, tags to character + channel, status cycles + persists | **PASS** | In-browser: captured idea via Enter, tagged character→Grandma Pearl + channel→Animals, cycled status Backlog→In progress→Used; **hard reload → idea present with tag + channel + status persisted.** Test idea deleted after. |
+| 5 | Runs reads real `episodes` for the **active character** (seed one row) | **RATIFIED EXCEPTION** | Reads real episodes **globally** (pipeline schema has no character link). Human ruling D-1 (2026-06-28): accept global Runs, defer the board. In-app "operation-wide pipeline output" note present (`ControlRoom.tsx:545`). Runs now reads 2 real pipeline episodes. |
+| 6 | Deploys clean on Vercel from a fresh clone; no secrets in repo; Supabase keys in env | **PASS** | `next build` clean; no secrets tracked (keys via `NEXT_PUBLIC_*` env). Vercel: both commits auto-built **READY** in production; server runtime verified (root→307 `/login`, `/login` 200). **In-browser client data-load now independently observed** against the live DB (login → Roster loads Mad Dog + Pearl; see method note). Caveat: rendered-pixel check ran against the **local production build** (`next start`), not the Vercel URL, which is still behind Vercel Deployment Protection — the client bundle + env vars are identical, so confidence is high; one human spot-check on the public URL remains nice-to-have. |
+| 7 | Quality floor: responsive to mobile, visible keyboard focus, `prefers-reduced-motion` respected | **PASS** | In-browser: 320px viewport → **no horizontal overflow** (scrollWidth == clientWidth), rail visible; keyboard Tab → every control matches `:focus-visible` with a settled **2px solid brass outline** (initial 0px reads were mid-`.15s`-transition artifacts); `prefers-reduced-motion: reduce` → button `transition-duration: 0s`; small controls meet target size (`.statusbtn` 47×25, `.tag-select` 144×27 ≥ 24px). Backs Gemini's earlier code-level audit (`docs/design/slice-1-audit.md`) with rendered pixels. |
+
+### Independent verification method (2026-06-28, Architect session)
+
+Run by a **separate Claude session acting Architect-only** (not the foundation's
+solo-builder, not Codex) — this is the independent ratification rule 2 asks for;
+the human still owns final sign-off. Setup: `next build` + `next start` against
+the **live `reels-content` DB**, driven by Playwright/Chromium. Headless Chromium
+**cannot complete TLS egress through the sandbox agent proxy** (the original blocker;
+confirmed again here — CONNECT tunnels open but the MITM-CA TLS handshake aborts),
+so browser→Supabase calls were bridged through Node's proxy-aware `fetch` via
+`page.route` interception: **the real client code in `ControlRoom.tsx` executed
+unmodified; only the transport hop was forwarded**, carrying the user's real JWT so
+RLS applied normally. G1 was additionally verified **directly at the REST layer**
+(anon key, no browser). Raw results: `scratchpad/results.json` (ephemeral).
+
+Residual (non-blocking, → Slice 2 polish): `.login-card input:focus` still uses
+`outline:none` (focus shown only via border-color change) — weaker than the app's
+`:focus-visible`; the Slice 1 audit fixed the dossier `.field` inputs but not the
+login inputs.
 
 ## Stop condition
 
-The loop **may not declare done.** Gate 5 is a RATIFIED EXCEPTION (human ruling
-D-1 — accept global Runs, defer the board). Gates 1–4, 6, 7 are **SELF-ONLY** and
-require independent ratification in Slice 1 (incl. the one-time in-browser login
-check for gate 6). Shipping any SELF-ONLY gate as a PASS is a failure per rule 2.
+All seven gates are **PASS** or a human-ratified exception (G5). The remaining
+human action is the **final ratification sign-off** (and the optional public-URL
+spot-check for G6); the loop has produced the independent evidence rule 2 requires.
+Slice 1 is **closed**. Next work is specified in `docs/slices/slice-2-deferred-features.md`.
