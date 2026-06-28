@@ -27,6 +27,8 @@ type FlatChar = {
   created_at: string;
 } & { [K in (typeof BIBLE_FIELDS)[number]]: string };
 
+type View = "roster" | "wire" | "runs" | "overview";
+
 function flatten(row: Character): FlatChar {
   const bible = row.bible || {};
   const flat: Record<string, string> & Pick<FlatChar, "status"> = {
@@ -87,6 +89,7 @@ function Icon({ name }: { name: string }) {
       roster: "M4 20v-2a4 4 0 014-4h0M16 14a4 4 0 014 4v2M12 4a4 4 0 100 8 4 4 0 000-8z",
       wire: "M4 6h16M4 12h16M4 18h10",
       runs: "M5 12l4 4 10-10",
+      overview: "M4 4h6v6H4V4zm10 0h6v6h-6V4zm-10 10h6v6H4v-6zm10 0h6v6h-6v-6z",
       exit: "M14 8V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h7a2 2 0 002-2v-2M9 12h12m0 0l-3-3m3 3l-3 3",
       clock: "M12 6v6l4 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
     }[name] || "";
@@ -164,6 +167,348 @@ function receiptVerdictClass(verdict: string | null) {
   if (["warning", "pass_with_warning"].includes(normalized)) return "warning";
   if (["fail", "rejected", "error", "failed"].includes(normalized)) return "fail";
   return "none";
+}
+
+const PASS_VERDICTS = new Set(["pass", "cleared", "approved", "success"]);
+const CLEARED_STATUSES = new Set(["success", "cleared", "approved", "complete", "completed", "done"]);
+const FAILED_STATUSES = new Set(["failed", "fail", "rejected", "error"]);
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatOverviewDate(createdAt: string) {
+  return new Date(createdAt).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function titleCaseStatus(status: string) {
+  const normalized = status.trim();
+  if (!normalized) return "Unknown";
+  return normalized
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function OverviewDashboard({
+  chars,
+  ideas,
+  episodes,
+}: {
+  chars: FlatChar[];
+  ideas: Idea[];
+  episodes: Episode[];
+}) {
+  const rosterStats = useMemo(() => {
+    const total = chars.length;
+    const active = chars.filter((c) => c.status === "active").length;
+    const draft = chars.filter((c) => c.status === "draft").length;
+    const activeRatio = total > 0 ? Math.round((active / total) * 100) : 0;
+    return { total, active, draft, activeRatio };
+  }, [chars]);
+
+  const wireStats = useMemo(() => {
+    const total = ideas.length;
+    const backlog = ideas.filter((i) => i.status === "backlog").length;
+    const active = ideas.filter((i) => i.status === "active").length;
+    const used = ideas.filter((i) => i.status === "used").length;
+    const conversionRate = total > 0 ? Math.round((used / total) * 100) : 0;
+    return { total, backlog, active, used, conversionRate };
+  }, [ideas]);
+
+  const runsStats = useMemo(() => {
+    const total = episodes.length;
+    const totalSpend = episodes.reduce((sum, episode) => sum + Number(episode.spend || 0), 0);
+    const avgSpend = total > 0 ? totalSpend / total : 0;
+    const statusCounts = episodes.reduce<Record<string, number>>((counts, episode) => {
+      const status = episode.status || "unknown";
+      counts[status] = (counts[status] ?? 0) + 1;
+      return counts;
+    }, {});
+    const sortedStatusCounts = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]);
+    const cleared = episodes.filter((episode) =>
+      CLEARED_STATUSES.has((episode.status || "").toLowerCase()),
+    ).length;
+    const failed = episodes.filter((episode) =>
+      FAILED_STATUSES.has((episode.status || "").toLowerCase()),
+    ).length;
+    const active = Math.max(total - cleared - failed, 0);
+    const passedSentinels = episodes.filter((episode) => {
+      const sentinels = episode.sentinels;
+      const gate = sentinels.length > 0 ? sentinels[sentinels.length - 1] : undefined;
+      return PASS_VERDICTS.has((gate?.verdict || "").toLowerCase());
+    }).length;
+    const passRate = total > 0 ? Math.round((passedSentinels / total) * 100) : 0;
+    const lastEpisode =
+      episodes.reduce<Episode | null>((latest, episode) => {
+        if (!latest) return episode;
+        return new Date(episode.created_at).getTime() > new Date(latest.created_at).getTime()
+          ? episode
+          : latest;
+      }, null) ?? null;
+
+    return {
+      total,
+      totalSpend,
+      avgSpend,
+      cleared,
+      failed,
+      active,
+      statusCounts: sortedStatusCounts,
+      passRate,
+      passedSentinels,
+      lastEpisode,
+    };
+  }, [episodes]);
+
+  return (
+    <div className="overview" role="region" aria-label="Overview dashboard">
+      <div className="col-head">
+        <h2>Overview</h2>
+        <span className="count">operations summary</span>
+      </div>
+
+      <div className="cap">
+        <span className="eyebrow">Aggregate operational intelligence across active assets.</span>
+      </div>
+
+      <div className="overview-content">
+        <div className="overview-grid">
+          <section className="overview-column" aria-labelledby="overview-roster-title">
+            <div className="overview-column-header">
+              <span className="eyebrow">Domain 01</span>
+              <h3 id="overview-roster-title">Roster Dossier</h3>
+            </div>
+            <div className="overview-cards">
+              <div
+                className={"metric-card" + (rosterStats.total === 0 ? " is-empty" : "")}
+                tabIndex={0}
+                aria-label={`Total characters: ${rosterStats.total}. ${rosterStats.active} active, ${rosterStats.draft} draft.`}
+              >
+                <div className="metric-meta">
+                  <span className="metric-eyebrow">Total Characters</span>
+                  <span className="metric-indicator cleared" aria-hidden="true" />
+                </div>
+                <div className="metric-value">{rosterStats.total}</div>
+                <div className="metric-breakdown">
+                  <span className="accent-cleared">{rosterStats.active} Active</span>
+                  <span className="divider">-</span>
+                  <span className="accent-dim">{rosterStats.draft} Drafts</span>
+                </div>
+                {rosterStats.total === 0 && (
+                  <p className="metric-empty">No character manuals are on file yet.</p>
+                )}
+              </div>
+
+              <div
+                className={"metric-card" + (rosterStats.total === 0 ? " is-empty" : "")}
+                tabIndex={0}
+                aria-label={`Roster integrity: ${rosterStats.activeRatio} percent active characters.`}
+              >
+                <div className="metric-meta">
+                  <span className="metric-eyebrow">Roster Integrity</span>
+                  <span className="metric-badge">Active Ratio</span>
+                </div>
+                <div className="metric-value">{rosterStats.activeRatio}%</div>
+                <div className="metric-breakdown">
+                  <div className="progress-container" aria-hidden="true">
+                    <div
+                      className="progress-bar cleared"
+                      style={{ width: `${rosterStats.activeRatio}%` }}
+                    />
+                  </div>
+                  <span className="metric-subtext">
+                    {rosterStats.total === 0
+                      ? "Waiting on the first dossier."
+                      : "Percentage of finalized dossier manuals."}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="overview-column" aria-labelledby="overview-wire-title">
+            <div className="overview-column-header">
+              <span className="eyebrow">Domain 02</span>
+              <h3 id="overview-wire-title">The Wire Queue</h3>
+            </div>
+            <div className="overview-cards">
+              <div
+                className={"metric-card" + (wireStats.total === 0 ? " is-empty" : "")}
+                tabIndex={0}
+                aria-label={`Total logged ideas: ${wireStats.total}. ${wireStats.backlog} backlog, ${wireStats.active} active, ${wireStats.used} used.`}
+              >
+                <div className="metric-meta">
+                  <span className="metric-eyebrow">Total Logged Ideas</span>
+                  <span className="metric-indicator brass" aria-hidden="true" />
+                </div>
+                <div className="metric-value">{wireStats.total}</div>
+                <div className="metric-breakdown">
+                  <span className="accent-dim">{wireStats.backlog} Backlog</span>
+                  <span className="divider">-</span>
+                  <span className="accent-brass">{wireStats.active} Active</span>
+                  <span className="divider">-</span>
+                  <span className="accent-cleared">{wireStats.used} Used</span>
+                </div>
+                {wireStats.total === 0 && (
+                  <p className="metric-empty">No ideas have been logged into the queue.</p>
+                )}
+              </div>
+
+              <div
+                className={"metric-card" + (wireStats.total === 0 ? " is-empty" : "")}
+                tabIndex={0}
+                aria-label={`Inspiration conversion: ${wireStats.conversionRate} percent of ideas converted.`}
+              >
+                <div className="metric-meta">
+                  <span className="metric-eyebrow">Inspiration Conversion</span>
+                  <span className="metric-badge">Used Rate</span>
+                </div>
+                <div className="metric-value">{wireStats.conversionRate}%</div>
+                <div className="metric-breakdown">
+                  <div className="progress-container" aria-hidden="true">
+                    <div
+                      className="progress-bar stamp"
+                      style={{ width: `${wireStats.conversionRate}%` }}
+                    />
+                  </div>
+                  <span className="metric-subtext">
+                    {wireStats.used} ideas implemented as runs.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="overview-column" aria-labelledby="overview-runs-title">
+            <div className="overview-column-header">
+              <span className="eyebrow">Domain 03</span>
+              <h3 id="overview-runs-title">Runs Pipeline</h3>
+            </div>
+            <div className="overview-cards">
+              <div
+                className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
+                tabIndex={0}
+                aria-label={`Total pipeline runs: ${runsStats.total}. ${runsStats.cleared} cleared, ${runsStats.failed} failed, ${runsStats.active} active or other.`}
+              >
+                <div className="metric-meta">
+                  <span className="metric-eyebrow">Total Pipeline Runs</span>
+                  <span className="metric-indicator stamp" aria-hidden="true" />
+                </div>
+                <div className="metric-value">{runsStats.total}</div>
+                <div className="metric-breakdown">
+                  <span className="accent-cleared">{runsStats.cleared} Cleared</span>
+                  <span className="divider">-</span>
+                  <span className="accent-failed">{runsStats.failed} Failed</span>
+                  <span className="divider">-</span>
+                  <span className="accent-brass">{runsStats.active} Other</span>
+                </div>
+                {runsStats.statusCounts.length > 0 ? (
+                  <div className="status-breakdown" aria-label="Episode status counts">
+                    {runsStats.statusCounts.map(([status, count]) => (
+                      <span key={status} className="status-pill">
+                        {titleCaseStatus(status)}: {count}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="metric-empty">No pipeline output has landed yet.</p>
+                )}
+              </div>
+
+              <div
+                className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
+                tabIndex={0}
+                aria-label={`Total operational spend: ${formatMoney(runsStats.totalSpend)}. Average cost per episode is ${formatMoney(runsStats.avgSpend)}.`}
+              >
+                <div className="metric-meta">
+                  <span className="metric-eyebrow">Total Operational Spend</span>
+                  <span className="metric-badge">Cost</span>
+                </div>
+                <div className="metric-value metric-money">{formatMoney(runsStats.totalSpend)}</div>
+                <div className="metric-breakdown">
+                  <span className="metric-subtext">
+                    Avg. Cost: <b>{formatMoney(runsStats.avgSpend)}</b> / episode
+                  </span>
+                </div>
+              </div>
+
+              <div
+                className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
+                tabIndex={0}
+                aria-label={`Sentinel pass rate: ${runsStats.passRate} percent. ${runsStats.passedSentinels} of ${runsStats.total} episodes passed.`}
+              >
+                <div className="metric-meta">
+                  <span className="metric-eyebrow">Sentinel Pass Rate</span>
+                  <span className="metric-badge">Quality Gate</span>
+                </div>
+                <div className="metric-value">{runsStats.passRate}%</div>
+                <div className="metric-breakdown">
+                  <div className="progress-container" aria-hidden="true">
+                    <div
+                      className="progress-bar cleared"
+                      style={{ width: `${runsStats.passRate}%` }}
+                    />
+                  </div>
+                  <span className="metric-subtext">
+                    {runsStats.passedSentinels} of {runsStats.total} episodes passed fact-checks.
+                  </span>
+                </div>
+              </div>
+
+              <div
+                className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
+                tabIndex={0}
+                aria-label={
+                  runsStats.lastEpisode
+                    ? `Last run operated on ${formatOverviewDate(runsStats.lastEpisode.created_at)}. Subject: ${runsStats.lastEpisode.food}.`
+                    : "No runs executed yet."
+                }
+              >
+                <div className="metric-meta">
+                  <span className="metric-eyebrow">Last Run Operated</span>
+                  <span className="metric-badge">Freshness</span>
+                </div>
+                {runsStats.lastEpisode ? (
+                  <>
+                    <div className="metric-value-date">
+                      {formatOverviewDate(runsStats.lastEpisode.created_at)}
+                    </div>
+                    <div className="metric-breakdown">
+                      <span className="metric-subtext truncated">
+                        ID: <b>{runsStats.lastEpisode.episode_id.slice(0, 8).toUpperCase()}</b>
+                        {" - "}
+                        {runsStats.lastEpisode.food}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="metric-value-date">No Runs</div>
+                    <div className="metric-breakdown">
+                      <span className="metric-subtext">No recent pipeline activity.</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function DrillDownPanel({
@@ -657,7 +1002,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [previewingRevisionId, setPreviewingRevisionId] = useState<string | null>(null);
   const [pendingRestore, setPendingRestore] = useState<CharacterBibleRevision | null>(null);
   const [isRestoredDraft, setIsRestoredDraft] = useState(false);
-  const [view, setView] = useState<"roster" | "wire" | "runs">("roster");
+  const [view, setView] = useState<View>("roster");
   const [draftIdea, setDraftIdea] = useState("");
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -989,6 +1334,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             ["roster", "Roster"],
             ["wire", "The Wire"],
             ["runs", "Runs"],
+            ["overview", "Overview"],
           ] as const
         ).map(([k, lbl]) => (
           <button
@@ -1432,6 +1778,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 />
               )}
             </div>
+          )}
+
+          {view === "overview" && (
+            <OverviewDashboard chars={chars} ideas={ideas} episodes={episodes} />
           )}
         </>
       )}
