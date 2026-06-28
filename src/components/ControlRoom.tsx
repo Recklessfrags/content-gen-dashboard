@@ -1797,7 +1797,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       {displayedActive.concept ||
                         "Add a one-line concept below to anchor this character."}
                     </p>
-                    <div className="stamp">Casting</div>
+                    <div className="casting-stamp">Casting</div>
                   </header>
 
                   <div className={"sheet" + (previewingRevision ? " preview-active" : "")}>

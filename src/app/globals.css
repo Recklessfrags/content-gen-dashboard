@@ -84,7 +84,7 @@ body{font-family:var(--body)}
 .dossier-head h1{font-family:var(--display);font-weight:700;font-size:40px;letter-spacing:.02em;
   text-transform:uppercase;margin:0;line-height:.98}
 .dossier-head .sub{color:var(--paper-dim);margin-top:8px;max-width:60ch}
-.stamp{position:absolute;top:22px;right:30px;font-family:var(--display);font-weight:700;font-size:13px;
+.casting-stamp{position:absolute;top:22px;right:30px;font-family:var(--display);font-weight:700;font-size:13px;
   letter-spacing:.14em;color:var(--stamp);border:2.5px solid var(--stamp);border-radius:4px;
   padding:5px 11px;text-transform:uppercase;transform:rotate(7deg);opacity:.92}
 
