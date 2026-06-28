@@ -12,7 +12,7 @@
 
 | Class | Tables | Writer | Dashboard access |
 | --- | --- | --- | --- |
-| **Dashboard-owned** | `characters`, `ideas` | the dashboard (authenticated user) | full CRUD, owner-scoped |
+| **Dashboard-owned** | `characters`, `ideas`, `character_bible_revisions` | the dashboard (authenticated user) | owner-scoped; revisions insert/read only |
 | **Pipeline-owned** | `episodes`, `receipts` | the content pipeline (service role) | **read-only** |
 
 The dashboard **must never** create, alter, or write to the pipeline-owned tables.
@@ -55,6 +55,32 @@ each gated by `owner = auth.uid()`.
 | `created_at` | timestamptz NOT NULL | `default now()` |
 
 **RLS:** enabled, owner-scoped on all four verbs (same shape as `characters`).
+
+---
+
+## `character_bible_revisions` — dashboard-owned, immutable history
+
+Added by human-ratified Slice 2 ruling D-4. Each row is a save-time snapshot of a
+character bible plus the scalar dossier identity fields needed for history preview.
+Rows are immutable: dashboard clients may insert and read their own snapshots, but
+there are no update/delete policies.
+
+| column | type | notes |
+| --- | --- | --- |
+| `id` | uuid PK | `default gen_random_uuid()` |
+| `character_id` | uuid NOT NULL | → `characters(id)` ON DELETE CASCADE |
+| `owner` | uuid NOT NULL | `default auth.uid()` → `auth.users(id)` ON DELETE CASCADE |
+| `codename` | text NULL | save-time snapshot |
+| `concept` | text NULL | save-time snapshot |
+| `status` | text NULL | save-time snapshot |
+| `bible` | jsonb NOT NULL | `default '{}'` — save-time snapshot of the full bible payload |
+| `created_at` | timestamptz NOT NULL | `default now()` |
+
+**Indexes:** `(character_id, created_at desc)` for newest-first history reads.
+
+**RLS:** enabled. Policies (all `to authenticated`): `select` using
+`owner = auth.uid()` and `insert` with check `owner = auth.uid()`. **No**
+`update`/`delete` policies; history is append-only.
 
 ---
 

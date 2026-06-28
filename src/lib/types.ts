@@ -27,6 +27,17 @@ export type Character = {
   updated_at: string;
 };
 
+export type CharacterBibleRevision = {
+  id: string;
+  character_id: string;
+  owner: string;
+  codename: string | null;
+  concept: string | null;
+  status: CharacterStatus | null;
+  bible: Bible;
+  created_at: string;
+};
+
 export type IdeaStatus = "backlog" | "active" | "used";
 
 export type Idea = {
@@ -60,6 +71,25 @@ export type Episode = {
   sentinels: Sentinel[];
   created_at: string;
   updated_at: string;
+};
+
+export type Receipt = {
+  id: number;
+  episode_id: string;
+  seq: number;
+  stage: string | null;
+  provider: string | null;
+  model: string | null;
+  effort_requested: string | null;
+  effort_used: string | null;
+  verdict: string | null;
+  reason: string | null;
+  iteration: number | null;
+  clamped: boolean | null;
+  evidence: unknown;
+  result: unknown;
+  spend_so_far: number | null;
+  ts: string | null;
 };
 
 export const CHANNELS = [

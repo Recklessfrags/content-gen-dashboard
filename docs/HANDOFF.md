@@ -3,7 +3,12 @@
 > Per `AGENTS.md` rule 1: **the repo is the memory.** Not written here = didn't
 > happen. This file is the running state of the project.
 
-_Last updated: 2026-06-28 — Architect (Claude)._
+_Last updated: 2026-06-28 — Architect (Claude). Slices 1–4 shipped + ratified
+(drill-down, version history, Overview, Cost Box) + red-diagonal hotfix._
+
+> **New chat picking this up? Start with [`docs/SESSION-HANDOFF.md`](SESSION-HANDOFF.md)**
+> — current state, operational gotchas, and exactly what's left to finish. This file is
+> the full running history.
 
 ## Provenance caveat (read first)
 
@@ -74,26 +79,118 @@ through the agent proxy (`ERR_CONNECTION_CLOSED`), so those still need a human o
 browser environment with real network. Gemini's audit is a code-level independent
 review, not a rendered-pixel check.
 
-## Slice 1 — CLOSED (human-ratified 2026-06-28)
+## Slice 1 — INDEPENDENT RATIFICATION (2026-06-28, Architect session)
 
-The human ran the in-browser checklist on the live Vercel app and confirmed **it all
-works**: Roster loads both characters, switching shows the correct bible (no bleed),
-edit→Save→refresh persists, idea capture + status-cycle persist, Runs shows the demo
-episode + the operation-wide note, and the layout is responsive. That is the
-independent ratification (rule 2). **All seven gates PASS** (gate 5 as a ratified
-exception). **v1 acceptance criteria: MET.** See `GATES.md`.
+A **separate Claude session, Architect-only** (not the foundation's solo-builder,
+not Codex) ran the previously-missing in-browser gate checks against the **live
+`reels-content` DB**, closing the independence gap from the provenance caveat.
 
-- **P-1 Vercel deploy — DONE.** Live, Deployment Protection turned off, human logged
-  in and used the app successfully.
-- **P-2 Independent review — DONE.** Human-verified gates 1–4, 6, 7 live.
+- **All seven gates now PASS or ratified** (G5 = human-ratified exception). Full
+  evidence + method in `GATES.md`. Headlines:
+  - **G1** independently re-confirmed at the REST layer: anon reads `[]`; anon
+    insert → 401 RLS violation; anon update hit 0 rows (data unchanged); authed
+    reads 2 chars / 4 ideas / 2 episodes.
+  - **G2** bible jsonb round-trip is **byte-identical** across a hard reload, even
+    with escapes/braces/emoji/newlines in the values.
+  - **G3** no field bleed across character switches (per-id local state correct).
+  - **G4** idea capture + tag + channel + status-cycle all persist across reload.
+  - **G7** 320px no overflow; 2px brass `:focus-visible` outline on every control;
+    reduced-motion zeroes transitions; small controls ≥ 24px.
+- **Method caveat (honest):** headless Chromium still can't TLS-egress through the
+  sandbox proxy (CONNECT opens; MITM-CA handshake aborts). The app ran as a real
+  `next build`/`next start`; browser→Supabase calls were **bridged through Node's
+  proxy-aware fetch** (`page.route`) so the real `ControlRoom.tsx` client code ran
+  unmodified — only the transport hop was forwarded (carrying the real JWT, so RLS
+  applied). This is independent of the original builder; the **human still owns the
+  final ratification sign-off**.
+- **Seed left clean:** test edits restored; test idea deleted; verified 2 chars
+  (Mad Dog active / Pearl draft) + 4 ideas remain.
+- **Residual (non-blocking → Slice 2 polish):** `.login-card input:focus` still
+  uses `outline:none`; login inputs show focus only via border-color change.
 
-## Next
+## Pending / not done
 
-No open slice. The build is at a clean, ratified stopping point. Candidate next work
-(write a slice spec only when one is chosen): Slice 2 = deferred build-brief items
-(run/receipt drill-down, bible version history, etc.); pipeline deployment + key
-placement (needs `reels-content-generation` in session scope); rotate the
-chat-exposed API keys.
+- **P-1 Vercel deploy — DONE (with caveats).** Human imported the repo; Vercel
+  Git integration auto-deploys `claude/new-session-3l99vs` (GitHub default branch),
+  both commits **READY** in production (project `content-gen-dashboard`, team
+  `canicode`/`team_ZdMtQu9H5HYrMPFTf4TL0fC1`). Verified: root→307 `/login`,
+  `/login` 200 → **server env present**. NOT verified independently: the in-browser
+  client data-load (sandbox blocks Chromium through the agent proxy —
+  `ERR_CONNECTION_CLOSED`); confidence is high because middleware uses the same two
+  `NEXT_PUBLIC_*` vars at runtime and works. **Two human follow-ups:** (a) the site
+  sits behind **Vercel Deployment Protection** (Settings → Deployment Protection) —
+  turn it off to make the app publicly reachable (the app has its own auth);
+  (b) log in once to confirm the Roster loads Mad Dog/Pearl and Runs shows the demo
+  episode. If the Roster spins on "Loading…" forever, the `NEXT_PUBLIC_*` vars were
+  not applied to the build → confirm both are set for Production and redeploy.
+- **P-2 Independent review** of gates 2,3,4,7 in a real browser (Slice 1) —
+  **DONE** by the Architect session via the Node-fetch bridge (see ratification
+  section above). Only the **human final sign-off** remains.
+- **P-1 G6 public-URL check — DONE (2026-06-28).** Human lifted Vercel Deployment
+  Protection; Architect verified the **live public URL** end-to-end:
+  `content-gen-dashboard.vercel.app` → real login → Roster loads Mad Dog + Pearl,
+  Runs shows real episodes, browser hit live `characters`/`ideas`/`episodes`
+  endpoints (proves the `NEXT_PUBLIC_*` env vars are applied to the prod build).
+  Same Node-fetch bridge method (Chromium still can't TLS-egress the sandbox proxy);
+  the deployed app + its server-action login ran for real.
+- **Slice 2 — IN PROGRESS.** Spec + Designer brief + Builder block in
+  `docs/slices/slice-2-deferred-features.md`. Multi-user teams, analytics, and
+  publishing remain deferred beyond Slice 2.
+  - **W-A run/receipt drill-down — DONE + RATIFIED (2026-06-28).** Ran the real
+    loop: Designer (Gemini) → `docs/design/slice-2-drilldown.md`; Builder (Codex)
+    → read-only slide-over drill-down (commit by Codex, Architect-reviewed +
+    build-verified); Architect ratified in-browser against the live DB. Evidence:
+    3 run cards (buttons), drill-down `role=dialog` shows receipts in seq order
+    (researcher→fact_check→gate→script_writer) with verdict coding, effort/clamped,
+    accumulated spend, reason, and expandable evidence/result JSON; Esc closes +
+    focus returns; **zero mutations to pipeline tables** (read-only confirmed);
+    320px ~no overflow (1px rounding). S2-1, S2-2 PASS; S2-6 (login-focus fix +
+    contrast) and S2-7 (build clean, no migration) PASS for W-A.
+  - **W-B bible version history — DONE + RATIFIED (2026-06-28).** Human ruling **D-4**
+    approved the data-contract amendment adding dashboard-owned `character_bible_revisions`
+    (migration 0002; owner-scoped RLS; insert+select only / immutable; no pipeline
+    tables). Ran the real loop: Gemini designed (`docs/design/slice-2-version-history.md`),
+    Codex built (migration + revision-on-save + history drawer/preview/restore;
+    Architect-reviewed + build-verified), migration applied to live DB. Independent
+    reviewer agent: APPROVE WITH NITS; its one MAJOR finding (dual focus-trap on
+    restore-from-drawer) was fixed (commit `9801462`) and re-verified. Architect
+    ratified in-browser: empty→2 revisions newest-first; preview read-only; restore→
+    unsaved draft→save → 3 revisions persist; **zero pipeline-table writes**; anon
+    blocked on the new table (read `[]`, insert 401). Test data cleaned; seed restored.
+  - **Slice 2 is CLOSED.** All S2 gates PASS (`GATES.md`). Human authorized autonomous
+    execution with independent-agent review standing in for immediate grading; human
+    does the final sign-off on return.
+- **Slice 3 — DONE + RATIFIED, CLOSED (2026-06-28).** Read-only **Overview** view
+  (`docs/slices/slice-3-overview.md`). Full loop: Gemini designed
+  (`docs/design/slice-3-overview.md`), Codex built the `OverviewDashboard`
+  (aggregates from already-loaded state; commits `7019c3e` + fix `b46f27e`),
+  Architect reviewed/build-verified/merged. Independent reviewer agent: APPROVE
+  WITH NITS (all 6 S3 gates PASS); its 2 LOW findings (unguarded `sentinels`,
+  case-sensitive status grouping) fixed + verified. Architect ratified in-browser:
+  every aggregate matched the live DB (chars/ideas/episodes counts, spend $0.14,
+  avg $0.05, pass-rate 67%), with **zero writes and zero new reads**. Chosen as the
+  one next step inside the ratified framing needing no direction call.
+- **Slice 4 — DONE + RATIFIED, CLOSED (2026-06-28).** Read-only **Cost Box** (Tier 1
+  spend governance) from the human's brief. Full loop: Gemini designed, Codex built
+  (commit `16c7518`), Architect reviewed/build-verified/merged, independent agent
+  APPROVE WITH NITS (9/9 S4 gates PASS), Architect ratified in-browser vs SQL:
+  running total **$0.1656** (== UI $0.17), by-provider anthropic 100% / google 0% /
+  deterministic 0% (delta-sum, not cumulative), per-episode incl. an IN-FLIGHT running
+  job, **zero writes**, and S4-9 Overview total now equals the Cost total (shared
+  `max(spend_so_far)` source). Asset spend NOT logged by pipeline yet → shipped
+  LLM-USD-only with a disclosure note (flagged pipeline gap); cap parked (no readable
+  config). **by-API built; by-character DEFERRED** to D-1 (no `character_id`) as a
+  disabled seam. Cosmetic nits accepted (provider % rounding; a money-format label).
+- **Cost tiers remaining:** Tier 2 (per-character cost) unblocks at the Acoustic Kitty
+  / D-1 `character_id` landing; Tier 3 (ROI) waits on publishing + analytics ingestion
+  (per the Notion 'ROI table — SCOPE CORRECTION': analytics deferred, not killed).
+- **Next slices need a human direction call (D-2 / `DIRECTION.md`).** Multi-user
+  teams, publishing, external/SEO analytics, and idea→pipeline linkage (the last
+  also needs a cross-repo write to the pipeline-owned `jobs` table) are deferred
+  pending that ruling — see `docs/slices/slice-3-overview.md` → "Deferred".
+  - Loop tooling note: this session's injected `GEMINI_API_KEY`/`OPENAI_API_KEY`
+    are wrapped in literal `<>` brackets (invalid); valid keys supplied at runtime.
+    Codex also needs `codex login --with-api-key` (it ignores the env var).
 
 ## Open decisions (human)
 
@@ -109,10 +206,29 @@ chat-exposed API keys.
   the Character Control Room** (focused tool). The broad kanban/pipeline-board
   vision from the `DIRECTION.md` draft is **deferred, not killed.** Division of
   labor: **dashboard owns inputs** (characters, ideas) and **surfaces outputs**
-  (Runs); **the pipeline owns the middle** (production stages). `DIRECTION.md`
-  remains the human's to author; this ruling is captured here so it is not lost.
+  (Runs); **the pipeline owns the middle** (production stages). **`DIRECTION.md` is
+  now authored** (2026-06-28) capturing this ruling — D-2 fully closed; it is the
+  read-only direction source for Builders/Designer.
 - **D-3 Auth model** — RESOLVED: "me now, scoped others later" (owner column from
   day one, owner-scoped RLS).
+- **D-5 Storage (buckets)** — RESOLVED (human, 2026-06-28). Two asset classes have
+  contradictory read rules, so they **cannot share one bucket** (same split as the
+  tables: pipeline service-role data vs. dashboard owner-scoped rows; plus a
+  blast-radius argument — a misconfig on one can't expose the other):
+  - **`render-assets`** — pipeline render outputs (VO/music/clips). **Public read,
+    service-role write, no per-user scoping.** JSON2Video/Buffer must fetch by URL;
+    a private bucket would make a job spend on VO/music/generation then die at
+    render. **Pipeline-repo-owned** (`reels-content-generation`, out of this repo's
+    GitHub scope) — provisioned + recorded there, NOT here. Recipe handed off.
+  - **User-uploads** (e.g., a character reference image) — **private, owner-scoped
+    (`auth.uid()`), RLS-enforced.** **Dashboard-repo-owned.** **DESIGNED, NOT BUILT**
+    — no dashboard feature uploads a file yet (bibles are jsonb text). Stand up a
+    private owner-scoped `character-assets` bucket (spelled correctly) only when an
+    upload feature exists; capture it in a migration at that time.
+  - Cleanup done: a premature `character-assets` bucket + a typo'd `character-assests`
+    bucket (both empty) were removed; storage is currently **0 buckets / 0 policies**.
+    Note: Supabase's `protect_delete` trigger blocks bucket deletion via SQL — bucket
+    deletes must go through the dashboard/Storage API.
 
 ## Git state
 
