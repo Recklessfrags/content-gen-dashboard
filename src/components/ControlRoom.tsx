@@ -233,7 +233,7 @@ function OverviewDashboard({
     const totalSpend = episodes.reduce((sum, episode) => sum + Number(episode.spend || 0), 0);
     const avgSpend = total > 0 ? totalSpend / total : 0;
     const statusCounts = episodes.reduce<Record<string, number>>((counts, episode) => {
-      const status = episode.status || "unknown";
+      const status = (episode.status || "unknown").trim().toLowerCase() || "unknown";
       counts[status] = (counts[status] ?? 0) + 1;
       return counts;
     }, {});
@@ -246,7 +246,7 @@ function OverviewDashboard({
     ).length;
     const active = Math.max(total - cleared - failed, 0);
     const passedSentinels = episodes.filter((episode) => {
-      const sentinels = episode.sentinels;
+      const sentinels = episode.sentinels ?? [];
       const gate = sentinels.length > 0 ? sentinels[sentinels.length - 1] : undefined;
       return PASS_VERDICTS.has((gate?.verdict || "").toLowerCase());
     }).length;
