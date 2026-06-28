@@ -542,6 +542,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   {episodes.length === 1 ? "" : "s"}
                 </span>
               </div>
+              <div className="cap"><span className="eyebrow">Operation-wide pipeline output — every character&apos;s finished episodes.</span></div>
               {episodes.length === 0 ? (
                 <div className="empty">
                   <Icon name="runs" />

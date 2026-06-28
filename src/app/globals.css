@@ -3,7 +3,7 @@
 :root{
   --ink:#15181E; --ink-2:#1C2027; --ink-3:#232932;
   --line:#333B45; --line-soft:#2A313B;
-  --paper:#E9E2D3; --paper-dim:#A39A86; --paper-faint:#6E6A5F;
+  --paper:#E9E2D3; --paper-dim:#A39A86; --paper-faint:#8A8475;
   --stamp:#C8453B; --stamp-deep:#8F2F28;
   --brass:#C9A24B; --cleared:#7E8B53;
   --display:'Oswald',sans-serif; --body:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
@@ -87,7 +87,7 @@ body{font-family:var(--body)}
 .field .hint{font-family:var(--mono);font-size:9.5px;color:var(--paper-faint);text-transform:none;letter-spacing:.04em}
 .field textarea,.field input{width:100%;background:var(--ink-2);border:1px solid var(--line-soft);
   border-radius:3px;padding:11px 13px;font-size:13.5px;line-height:1.55;resize:vertical;transition:.15s}
-.field textarea:focus,.field input:focus,.cap input:focus,.cr select:focus{outline:none;
+.field textarea:focus,.field input:focus,.cap input:focus,.cr select:focus{
   border-color:var(--stamp-deep);background:var(--ink-3)}
 .field textarea::placeholder,.cap input::placeholder{color:var(--paper-faint)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
@@ -119,10 +119,10 @@ body{font-family:var(--body)}
 .icard .note{font-size:12.5px;color:var(--paper-dim);margin-top:3px}
 .icard .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;align-items:center}
 .statusbtn{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
-  padding:3px 8px;border-radius:2px;border:1px solid var(--line);background:transparent;color:var(--paper-dim);transition:.15s}
+  padding:6px 8px;min-height:24px;border-radius:2px;border:1px solid var(--line);background:transparent;color:var(--paper-dim);transition:.15s}
 .statusbtn:hover{border-color:var(--paper-dim);color:var(--paper)}
 .tag-select{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
-  background:var(--ink-3);border:1px solid var(--line-soft);border-radius:2px;padding:3px 6px;color:var(--paper-dim)}
+  background:var(--ink-3);border:1px solid var(--line-soft);border-radius:2px;padding:6px 8px;min-height:24px;color:var(--paper-dim)}
 .s-backlog{color:var(--paper-dim)} .s-active{color:var(--brass);border-color:#6e5a26}
 .s-used{color:var(--cleared);border-color:#4d5635}
 
