@@ -62,6 +62,25 @@ export type Episode = {
   updated_at: string;
 };
 
+export type Receipt = {
+  id: number;
+  episode_id: string;
+  seq: number;
+  stage: string | null;
+  provider: string | null;
+  model: string | null;
+  effort_requested: string | null;
+  effort_used: string | null;
+  verdict: string | null;
+  reason: string | null;
+  iteration: number | null;
+  clamped: boolean | null;
+  evidence: unknown;
+  result: unknown;
+  spend_so_far: number | null;
+  ts: string | null;
+};
+
 export const CHANNELS = [
   "Food",
   "Dark history",

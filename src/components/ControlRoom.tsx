@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   BIBLE_FIELDS,
@@ -12,6 +12,7 @@ import {
   type Episode,
   type Idea,
   type IdeaStatus,
+  type Receipt,
 } from "@/lib/types";
 
 // A flattened, editable view of a character: scalar columns + bible keys hoisted
@@ -97,6 +98,241 @@ function Field({
   );
 }
 
+type DrillDownProps = {
+  episode: Episode;
+  receipts: Receipt[];
+  loading: boolean;
+  error: string | null;
+  onClose: () => void;
+  onRetry: () => void;
+};
+
+function hasJson(value: unknown) {
+  return value !== null && value !== undefined;
+}
+
+function receiptVerdictClass(verdict: string | null) {
+  const normalized = (verdict || "").toLowerCase();
+  if (["pass", "cleared", "approved", "success"].includes(normalized)) return "pass";
+  if (["warning", "pass_with_warning"].includes(normalized)) return "warning";
+  if (["fail", "rejected", "error", "failed"].includes(normalized)) return "fail";
+  return "none";
+}
+
+function DrillDownPanel({
+  episode,
+  receipts,
+  loading,
+  error,
+  onClose,
+  onRetry,
+}: DrillDownProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), summary, [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
+
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeElement = document.activeElement;
+
+      if (!panel.contains(activeElement)) {
+        event.preventDefault();
+        first.focus();
+        return;
+      }
+
+      if (event.shiftKey && activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={panelRef}
+      className="drilldown-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Detail for run ${episode.food}`}
+    >
+      <div className="col-head">
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <button
+            ref={closeButtonRef}
+            className="btn ghost close-btn"
+            onClick={onClose}
+            aria-label="Close run detail"
+          >
+            ← Back
+          </button>
+          <h2>Run Detail</h2>
+        </div>
+        <span className="count">ID: {episode.episode_id.slice(0, 8).toUpperCase()}</span>
+      </div>
+
+      <div className="detail-cap">
+        <div className="topic-title">{episode.food}</div>
+        <div className="detail-meta">
+          <span className="rmeta stat">{episode.status}</span>
+          {episode.final_stage && <span className="rmeta">stage · {episode.final_stage}</span>}
+          {typeof episode.spend === "number" && episode.spend > 0 && (
+            <span className="rmeta spend-total">Total Spend: ${episode.spend.toFixed(2)}</span>
+          )}
+          <span className="rmeta">{new Date(episode.created_at).toLocaleDateString()}</span>
+        </div>
+      </div>
+
+      <div className="drilldown-content">
+        {loading ? (
+          <div className="loading">
+            <span className="spin" /> Loading run receipts…
+          </div>
+        ) : error ? (
+          <div className="empty">
+            <h3>Comms Down</h3>
+            <p>Couldn&apos;t reach the pipeline receipts database: {error}</p>
+            <button className="btn" onClick={onRetry} style={{ marginTop: "12px" }}>
+              Retry Connection
+            </button>
+          </div>
+        ) : receipts.length === 0 ? (
+          <div className="empty">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M5 12l4 4 10-10" />
+            </svg>
+            <h3>No receipts logged</h3>
+            <p>This episode finished without producing step-by-step pipeline receipts.</p>
+          </div>
+        ) : (
+          <div className="timeline">
+            {receipts.map((receipt) => {
+              const resolvedClass = receiptVerdictClass(receipt.verdict);
+              return (
+                <div key={receipt.id} className="timeline-item">
+                  <div className={`timeline-node ${resolvedClass}`} aria-hidden="true" />
+                  <div className={`receipt-card ${resolvedClass}`}>
+                    <div className="receipt-card-header">
+                      <div className="receipt-stage-title">
+                        {receipt.stage || "unknown-stage"}
+                        <span className="receipt-seq">seq · {receipt.seq}</span>
+                      </div>
+                      <span className="receipt-timestamp">
+                        {receipt.ts
+                          ? new Date(receipt.ts).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })
+                          : "no timestamp"}
+                      </span>
+                    </div>
+
+                    <div className="receipt-meta-row">
+                      <span className="rmeta model-badge">
+                        {receipt.provider || "unknown"} · {receipt.model || "no-model"}
+                      </span>
+                      {receipt.effort_requested && (
+                        <span className="rmeta effort-badge">
+                          Effort: {receipt.effort_used || "0"}/{receipt.effort_requested}
+                          {receipt.clamped && <span className="clamped-text"> (clamped)</span>}
+                        </span>
+                      )}
+                      {typeof receipt.spend_so_far === "number" && (
+                        <span className="rmeta spend-so-far-badge">
+                          Accumulated Spend: ${receipt.spend_so_far.toFixed(3)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="receipt-verdict-banner">
+                      <span className={`receipt-verdict-label ${resolvedClass}`}>
+                        {receipt.verdict || "UNKNOWN"}
+                      </span>
+                      <p className="receipt-reason-text">
+                        {receipt.reason || "No written justification logged."}
+                      </p>
+                    </div>
+
+                    <div className="receipt-json-disclosures">
+                      {hasJson(receipt.evidence) && (
+                        <details className="receipt-json-details">
+                          <summary
+                            className="receipt-json-summary"
+                            role="button"
+                            aria-label="Toggle raw evidence JSON"
+                          >
+                            Evidence JSON
+                          </summary>
+                          <pre className="receipt-json-content">
+                            <code>{JSON.stringify(receipt.evidence, null, 2)}</code>
+                          </pre>
+                        </details>
+                      )}
+
+                      {hasJson(receipt.result) && (
+                        <details className="receipt-json-details">
+                          <summary
+                            className="receipt-json-summary"
+                            role="button"
+                            aria-label="Toggle raw result JSON"
+                          >
+                            Result JSON
+                          </summary>
+                          <pre className="receipt-json-content">
+                            <code>{JSON.stringify(receipt.result, null, 2)}</code>
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const supabase = useMemo(() => createClient(), []);
 
@@ -106,6 +342,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [chars, setChars] = useState<FlatChar[]>([]);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [receiptsLoading, setReceiptsLoading] = useState(false);
+  const [receiptsError, setReceiptsError] = useState<string | null>(null);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [view, setView] = useState<"roster" | "wire" | "runs">("roster");
@@ -115,6 +355,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [adding, setAdding] = useState(false);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const lastRunTriggerRef = useRef<string | null>(null);
+  const receiptRequestRef = useRef(0);
   const showFlash = (msg: string, err = false) => {
     setFlash({ msg, err });
     if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -150,11 +393,55 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, [supabase]);
 
   const active = chars.find((c) => c.id === activeId) ?? null;
+  const activeEpisode = episodes.find((e) => e.episode_id === activeEpisodeId) ?? null;
 
   const set = (field: keyof FlatChar, val: string) =>
     setChars((cs) =>
       cs.map((c) => (c.id === activeId ? { ...c, [field]: val } : c)),
     );
+
+  const fetchReceipts = useCallback(
+    async (episodeId: string) => {
+      const requestId = receiptRequestRef.current + 1;
+      receiptRequestRef.current = requestId;
+      setReceiptsLoading(true);
+      setReceiptsError(null);
+      const { data, error } = await supabase
+        .from("receipts")
+        .select("*")
+        .eq("episode_id", episodeId)
+        .order("seq", { ascending: true })
+        .returns<Receipt[]>();
+      if (receiptRequestRef.current !== requestId) return;
+      setReceiptsLoading(false);
+      if (error) {
+        setReceipts([]);
+        setReceiptsError(error.message);
+        return;
+      }
+      setReceipts(data ?? []);
+    },
+    [supabase],
+  );
+
+  const openRunDetail = (episodeId: string) => {
+    lastRunTriggerRef.current = episodeId;
+    setActiveEpisodeId(episodeId);
+    setReceipts([]);
+    void fetchReceipts(episodeId);
+  };
+
+  const closeRunDetail = useCallback(() => {
+    const triggerId = lastRunTriggerRef.current;
+    receiptRequestRef.current += 1;
+    setActiveEpisodeId(null);
+    setReceipts([]);
+    setReceiptsError(null);
+    setReceiptsLoading(false);
+    window.requestAnimationFrame(() => {
+      if (triggerId) runButtonRefs.current.get(triggerId)?.focus();
+    });
+  }, []);
 
   // ── persist character ───────────────────────────────────────────────────
   const save = async () => {
@@ -558,7 +845,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   {episodes.map((e) => {
                     const gate = e.sentinels?.[e.sentinels.length - 1];
                     return (
-                      <div key={e.episode_id} className="runcard">
+                      <button
+                        key={e.episode_id}
+                        ref={(node) => {
+                          if (node) runButtonRefs.current.set(e.episode_id, node);
+                          else runButtonRefs.current.delete(e.episode_id);
+                        }}
+                        className="runcard"
+                        onClick={() => openRunDetail(e.episode_id)}
+                        aria-haspopup="dialog"
+                        aria-expanded={activeEpisodeId === e.episode_id}
+                      >
                         <div className="topic">{e.food}</div>
                         <div className="runmeta">
                           <span className="rmeta stat">{e.status}</span>
@@ -578,10 +875,22 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                             {new Date(e.created_at).toLocaleDateString()}
                           </span>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
+              )}
+              {activeEpisode && (
+                <DrillDownPanel
+                  episode={activeEpisode}
+                  receipts={receipts}
+                  loading={receiptsLoading}
+                  error={receiptsError}
+                  onClose={closeRunDetail}
+                  onRetry={() => {
+                    void fetchReceipts(activeEpisode.episode_id);
+                  }}
+                />
               )}
             </div>
           )}
