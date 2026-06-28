@@ -74,22 +74,26 @@ through the agent proxy (`ERR_CONNECTION_CLOSED`), so those still need a human o
 browser environment with real network. Gemini's audit is a code-level independent
 review, not a rendered-pixel check.
 
-## Pending / not done
+## Slice 1 — CLOSED (human-ratified 2026-06-28)
 
-- **P-1 Vercel deploy — DONE (with caveats).** Human imported the repo; Vercel
-  Git integration auto-deploys `claude/new-session-3l99vs` (GitHub default branch),
-  both commits **READY** in production (project `content-gen-dashboard`, team
-  `canicode`/`team_ZdMtQu9H5HYrMPFTf4TL0fC1`). Verified: root→307 `/login`,
-  `/login` 200 → **server env present**. NOT verified independently: the in-browser
-  client data-load (sandbox blocks Chromium through the agent proxy —
-  `ERR_CONNECTION_CLOSED`); confidence is high because middleware uses the same two
-  `NEXT_PUBLIC_*` vars at runtime and works. **Two human follow-ups:** (a) the site
-  sits behind **Vercel Deployment Protection** (Settings → Deployment Protection) —
-  turn it off to make the app publicly reachable (the app has its own auth);
-  (b) log in once to confirm the Roster loads Mad Dog/Pearl and Runs shows the demo
-  episode. If the Roster spins on "Loading…" forever, the `NEXT_PUBLIC_*` vars were
-  not applied to the build → confirm both are set for Production and redeploy.
-- **P-2 Independent review** of gates 2,3,4,7 in a real browser (Slice 1).
+The human ran the in-browser checklist on the live Vercel app and confirmed **it all
+works**: Roster loads both characters, switching shows the correct bible (no bleed),
+edit→Save→refresh persists, idea capture + status-cycle persist, Runs shows the demo
+episode + the operation-wide note, and the layout is responsive. That is the
+independent ratification (rule 2). **All seven gates PASS** (gate 5 as a ratified
+exception). **v1 acceptance criteria: MET.** See `GATES.md`.
+
+- **P-1 Vercel deploy — DONE.** Live, Deployment Protection turned off, human logged
+  in and used the app successfully.
+- **P-2 Independent review — DONE.** Human-verified gates 1–4, 6, 7 live.
+
+## Next
+
+No open slice. The build is at a clean, ratified stopping point. Candidate next work
+(write a slice spec only when one is chosen): Slice 2 = deferred build-brief items
+(run/receipt drill-down, bible version history, etc.); pipeline deployment + key
+placement (needs `reels-content-generation` in session scope); rotate the
+chat-exposed API keys.
 
 ## Open decisions (human)
 
