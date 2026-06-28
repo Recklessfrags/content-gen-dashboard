@@ -129,11 +129,25 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
   endpoints (proves the `NEXT_PUBLIC_*` env vars are applied to the prod build).
   Same Node-fetch bridge method (Chromium still can't TLS-egress the sandbox proxy);
   the deployed app + its server-action login ran for real.
-- **Slice 2 — SPECIFIED, not yet built.** Spec + Designer brief + Builder block in
-  `docs/slices/slice-2-deferred-features.md`. Scope: Runs → run/receipt drill-down
-  and bible version history (the two highest-value deferred build-brief items).
-  Runs through the Designer→Builder→Architect loop next session. Multi-user teams,
-  analytics, and publishing remain deferred beyond Slice 2.
+- **Slice 2 — IN PROGRESS.** Spec + Designer brief + Builder block in
+  `docs/slices/slice-2-deferred-features.md`. Multi-user teams, analytics, and
+  publishing remain deferred beyond Slice 2.
+  - **W-A run/receipt drill-down — DONE + RATIFIED (2026-06-28).** Ran the real
+    loop: Designer (Gemini) → `docs/design/slice-2-drilldown.md`; Builder (Codex)
+    → read-only slide-over drill-down (commit by Codex, Architect-reviewed +
+    build-verified); Architect ratified in-browser against the live DB. Evidence:
+    3 run cards (buttons), drill-down `role=dialog` shows receipts in seq order
+    (researcher→fact_check→gate→script_writer) with verdict coding, effort/clamped,
+    accumulated spend, reason, and expandable evidence/result JSON; Esc closes +
+    focus returns; **zero mutations to pipeline tables** (read-only confirmed);
+    320px ~no overflow (1px rounding). S2-1, S2-2 PASS; S2-6 (login-focus fix +
+    contrast) and S2-7 (build clean, no migration) PASS for W-A.
+  - **W-B bible version history — BLOCKED on human ratification of the
+    data-contract amendment** (new dashboard-owned table `character_bible_revisions`,
+    migration 0002). Per rule 4, Codex does not build it until the human ratifies.
+  - Loop tooling note: this session's injected `GEMINI_API_KEY`/`OPENAI_API_KEY`
+    are wrapped in literal `<>` brackets (invalid); valid keys supplied at runtime.
+    Codex also needs `codex login --with-api-key` (it ignores the env var).
 
 ## Open decisions (human)
 
