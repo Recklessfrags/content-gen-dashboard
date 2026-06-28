@@ -38,10 +38,13 @@ This is the ratified split from D-2 (focused tool) and the data contract
 - **Multi-user teams** — premature for a solo operator. Owner-scoped RLS already
   supports "me now, scoped others later" (D-3), so no rework is owed when this comes.
 - **Idea → pipeline linkage ("queue an idea as a run")** — the tempting one, but a
-  **soft no today**: it requires **writing to the pipeline-owned `jobs` table** and
-  the pipeline taking a character-aware idea as input. It belongs to the **same
-  trigger as wiring the character bible into the pipeline** — a future **cross-repo
-  contract change**, built then (with the pipeline owner's agreement), not before.
+  **soft no today**: it requires **writing into the pipeline-owned tables** (it would
+  enqueue a run the pipeline picks up — an `episodes` write, the pipeline's to make,
+  not the dashboard's) and the pipeline taking a character-aware idea as input. It
+  belongs to the **same trigger as wiring the character bible into the pipeline** (the
+  Acoustic Kitty run, which also lands `character_id` on `episodes` per D-1) — a future
+  **cross-repo contract change**, built then (with the pipeline owner's agreement),
+  not before.
 
 ## Current scope = "done" for the dashboard
 
