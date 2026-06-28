@@ -4,7 +4,9 @@
 > happen. This file is the running state of the project.
 
 _Last updated: 2026-06-28 — Architect (Claude). Slices 1–4 shipped + ratified
-(drill-down, version history, Overview, Cost Box) + red-diagonal hotfix._
+(drill-down, version history, Overview, Cost Box) + red-diagonal hotfix, then
+**promoted to production** (merge `00d5fcc` → default branch `claude/new-session-3l99vs`;
+production deploy READY at `content-gen-dashboard.vercel.app`)._
 
 > **New chat picking this up? Start with [`docs/SESSION-HANDOFF.md`](SESSION-HANDOFF.md)**
 > — current state, operational gotchas, and exactly what's left to finish. This file is
@@ -232,5 +234,12 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
 
 ## Git state
 
-- Branch `claude/new-session-3l99vs`. One app-code commit (the foundation) + this
-  docs commit. `main` does not yet exist.
+- **Default branch (production):** `claude/new-session-3l99vs`. `main` does not exist.
+- Slices 1–4 (foundation + drill-down + version history + Overview + Cost Box + the
+  red-diagonal hotfix) plus all docs were built on `claude/dashboard-slice-count-pof88m`,
+  then **merged into the default branch** via merge commit `00d5fcc` ("Merge dashboard
+  Slices 2-4 to production (promote)"). That feature branch is now deleted.
+- Production tracks the default branch; the Vercel deploy from `00d5fcc` is
+  `target: production`, state READY.
+- App-code commits are Codex-authored with committer `Claude <noreply@anthropic.com>`
+  (GitHub-verified); docs commits are plain Architect commits.

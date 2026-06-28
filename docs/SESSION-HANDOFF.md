@@ -4,6 +4,9 @@ _Last updated: 2026-06-28 by the Architect (Claude). This is the onboarding doc 
 **new chat** picking up the work. Read this first, then the canonical docs it points to.
 For deep running history see `docs/HANDOFF.md`; this file is the fast path._
 
+_Update (2026-06-28): Slices 2–4 are now **merged to the default branch and live in
+production** — see §2._
+
 ---
 
 ## 1. What this is (60 seconds)
@@ -36,7 +39,7 @@ shared Supabase project:**
 
 ## 2. Current status (what's DONE)
 
-**Dashboard: Slices 1–4 shipped, ratified, pushed — all gates PASS.**
+**Dashboard: Slices 1–4 shipped, ratified, pushed, and PROMOTED to production — all gates PASS.**
 - Slice 1: foundation (characters/ideas CRUD, bible jsonb, Runs, auth + owner-scoped RLS).
 - Slice 2: run/receipt **drill-down** + bible **version history** (table
   `character_bible_revisions`, migration `0002`, applied to live DB).
@@ -45,12 +48,15 @@ shared Supabase project:**
   via per-row deltas, in-flight aware, USD-only with asset-gap note, cap parked).
 - Hotfix: red-diagonal CSS class collision (`.stamp` → `.casting-stamp`).
 
-**Work branch:** `claude/dashboard-slice-count-pof88m` (NOT yet merged to the default
-branch). Tip commit ~`9b80e26`. Everything is committed + pushed.
+**Branch state:** the Slices 2–4 work branch (`claude/dashboard-slice-count-pof88m`) has
+been **merged into the default branch** `claude/new-session-3l99vs` via merge commit
+`00d5fcc` ("Merge dashboard Slices 2-4 to production (promote)"). That work branch is now
+deleted. `main` still does not exist — the GitHub default branch is `claude/new-session-3l99vs`,
+and production tracks it. Everything is committed + pushed.
 
 **Live URLs / login:**
-- Branch preview (latest, all 4 slices): `https://content-gen-dashboard-git-claude-dashboard-slic-690daf-canicode.vercel.app`
-- Production (still Slice 1 only — default branch): `https://content-gen-dashboard.vercel.app`
+- Production (now ALL 4 slices — tracks the default branch): `https://content-gen-dashboard.vercel.app`
+  (Vercel deploy from `00d5fcc` is `target: production`, state READY.)
 - Login: `cameronnicodemus@gmail.com` / temp password in `docs/HANDOFF.md` (change it).
 
 **Supabase:** project `reels-content` = `tyeejhaknqkeftjykqog`. Seed: 2 characters
@@ -141,8 +147,9 @@ a dashboard feature actually uploads a file (e.g. reference-image upload, likely
 character-generation flow). Spell it correctly; capture it in a migration. (See D-5.)
 
 ### G. Standing human decisions (not blocking the loop)
-- **Promote dashboard to production:** merge `claude/dashboard-slice-count-pof88m` → the
-  GitHub default branch to deploy Slices 2–4 to `content-gen-dashboard.vercel.app`.
+- ~~**Promote dashboard to production:** merge `claude/dashboard-slice-count-pof88m` → the
+  GitHub default branch to deploy Slices 2–4.~~ **DONE (2026-06-28)** — merge `00d5fcc`;
+  the production deploy is READY at `content-gen-dashboard.vercel.app`.
 - **Final ratification sign-off** of all slices (independent-agent review has stood in).
 - Change the temp login password.
 
