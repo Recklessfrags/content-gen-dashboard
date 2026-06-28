@@ -44,3 +44,30 @@ All seven gates are **PASS** or a human-ratified exception (G5), now including t
 **public Vercel URL** end-to-end (Deployment Protection lifted 2026-06-28). The loop
 has produced the independent evidence rule 2 requires; the human owns final sign-off.
 Slice 1 is **closed**. Next work is specified in `docs/slices/slice-2-deferred-features.md`.
+
+---
+
+# Slice 2 gates (frozen 2026-06-28) — CLOSED
+
+Full loop ran for real: **Designer (Gemini)** → **Builder (Codex)** → **Architect
+(Claude)** review/merge → **independent reviewer agent** → **Architect in-browser
+ratification** against the live DB (Node-fetch bridge). All gates **PASS**.
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| S2-1 | Clicking a run opens a drill-down showing every receipt in `seq` order (stage/provider/model/effort+clamped/verdict/reason/spend/ts); jsonb viewable | **PASS** | In-browser: 3 run cards (buttons) → `role=dialog` with receipts in seq order (researcher→fact_check→gate→script_writer), verdict color-coded, 8 evidence/result JSON disclosures that expand. |
+| S2-2 | Drill-down read-only; closing returns with no state loss; empty state | **PASS** | Esc closes + focus returns to the run card; **0 mutations to pipeline tables** observed across the session (only reads). |
+| S2-3 | Saving a character creates an immutable revision without altering Slice-1 save | **PASS** | Save updates `characters` first (G2 preserved), then an additive non-fatal revision insert. DB confirmed 2 saves → 2 immutable revisions. |
+| S2-4 | History newest-first; preview read-only; restore→unsaved draft→save persists; non-destructive | **PASS** | Empty→2 revisions ("Latest saved" first); preview shows older value read-only without clobbering the live draft; restore loads it editable with an "unsaved restored draft" warning; save → 3 revisions persist after reload; restored value is current. |
+| S2-5 | Revisions owner-scoped (RLS); immutable | **PASS** | Migration: `select`+`insert` policies gated by `owner=auth.uid()`, **no update/delete** (immutable). Anon REST: read → `[]`, insert → 401 RLS violation. |
+| S2-6 | Quality floor (responsive 320px, visible focus, reduced-motion); login-input focus residual fixed | **PASS** | W-A drill-down 320px ~no overflow, `:focus-visible` brass outline, reduced-motion block; `--paper-faint` contrast bump (#8F897B); login `:focus-visible` fix applied. |
+| S2-7 | Build clean; migration idempotent and dashboard-only | **PASS** | `next build` clean; `0002_bible_revisions.sql` idempotent (`if not exists` / `drop policy if exists`); touches only `character_bible_revisions` — **no episodes/receipts/jobs**. Applied to live DB. |
+
+Independent reviewer agent verdict: **APPROVE WITH NITS** on both W-A and W-B; the
+one MAJOR finding (dual focus-trap when restoring from the open drawer) was fixed
+(commit `9801462`) and re-verified (drawer closes when the restore dialog opens).
+Test data created during ratification was deleted; the seed (2 characters / 4 ideas)
+is restored.
+
+**Slice 2 is CLOSED.** Remaining: optional human final sign-off (independent agent
+review stood in per the human's authorization).

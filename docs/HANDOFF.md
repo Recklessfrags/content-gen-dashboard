@@ -142,13 +142,20 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
     focus returns; **zero mutations to pipeline tables** (read-only confirmed);
     320px ~no overflow (1px rounding). S2-1, S2-2 PASS; S2-6 (login-focus fix +
     contrast) and S2-7 (build clean, no migration) PASS for W-A.
-  - **W-B bible version history — RATIFIED, IN PROGRESS.** Human ruling **D-4**
-    (2026-06-28): **approved** the data-contract amendment adding the dashboard-owned
-    table `character_bible_revisions` (migration 0002; owner-scoped RLS; insert+select
-    only / immutable; no pipeline tables touched). Codex cleared to build. Human also
-    authorized autonomous execution of remaining slice tasks with an **independent
-    agent review** standing in for immediate human grading (human does final sign-off
-    on return).
+  - **W-B bible version history — DONE + RATIFIED (2026-06-28).** Human ruling **D-4**
+    approved the data-contract amendment adding dashboard-owned `character_bible_revisions`
+    (migration 0002; owner-scoped RLS; insert+select only / immutable; no pipeline
+    tables). Ran the real loop: Gemini designed (`docs/design/slice-2-version-history.md`),
+    Codex built (migration + revision-on-save + history drawer/preview/restore;
+    Architect-reviewed + build-verified), migration applied to live DB. Independent
+    reviewer agent: APPROVE WITH NITS; its one MAJOR finding (dual focus-trap on
+    restore-from-drawer) was fixed (commit `9801462`) and re-verified. Architect
+    ratified in-browser: empty→2 revisions newest-first; preview read-only; restore→
+    unsaved draft→save → 3 revisions persist; **zero pipeline-table writes**; anon
+    blocked on the new table (read `[]`, insert 401). Test data cleaned; seed restored.
+  - **Slice 2 is CLOSED.** All S2 gates PASS (`GATES.md`). Human authorized autonomous
+    execution with independent-agent review standing in for immediate grading; human
+    does the final sign-off on return.
   - Loop tooling note: this session's injected `GEMINI_API_KEY`/`OPENAI_API_KEY`
     are wrapped in literal `<>` brackets (invalid); valid keys supplied at runtime.
     Codex also needs `codex login --with-api-key` (it ignores the env var).
