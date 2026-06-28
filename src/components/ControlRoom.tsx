@@ -46,14 +46,14 @@ function toBible(c: FlatChar): Bible {
   return bible;
 }
 
-function flattenRevision(row: CharacterBibleRevision, characterId: string): FlatChar {
+function flattenRevision(row: CharacterBibleRevision, character: Pick<FlatChar, "id" | "created_at">): FlatChar {
   const bible = row.bible || {};
   const flat: Record<string, string> & Pick<FlatChar, "status"> = {
-    id: characterId,
+    id: character.id,
     codename: row.codename ?? "",
     concept: row.concept ?? "",
     status: row.status === "active" ? "active" : "draft",
-    created_at: row.created_at,
+    created_at: character.created_at,
   };
   for (const f of BIBLE_FIELDS) flat[f] = bible[f] ?? "";
   return flat as FlatChar;
@@ -670,6 +670,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const headerHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const savebarHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const lastHistoryTriggerRef = useRef<"header" | "savebar" | null>(null);
+  const previewRestoreButtonRef = useRef<HTMLButtonElement>(null);
+  const lastRestoreTriggerRef = useRef<"history" | "preview" | null>(null);
   const revisionRequestRef = useRef(0);
   const showFlash = (msg: string, err = false) => {
     setFlash({ msg, err });
@@ -709,7 +711,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const previewingRevision =
     revisions.find((revision) => revision.id === previewingRevisionId) ?? null;
   const displayedActive =
-    active && previewingRevision ? flattenRevision(previewingRevision, active.id) : active;
+    active && previewingRevision ? flattenRevision(previewingRevision, active) : active;
   const activeEpisode = episodes.find((e) => e.episode_id === activeEpisodeId) ?? null;
 
   const set = (field: keyof FlatChar, val: string) =>
@@ -729,10 +731,24 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const restoreHistoryFocus = useCallback(() => {
     const trigger = lastHistoryTriggerRef.current;
     window.requestAnimationFrame(() => {
-      if (trigger === "header") headerHistoryButtonRef.current?.focus();
       if (trigger === "savebar") savebarHistoryButtonRef.current?.focus();
+      else headerHistoryButtonRef.current?.focus();
     });
   }, []);
+
+  const restoreDialogFocus = useCallback(
+    (confirmed = false) => {
+      const trigger = lastRestoreTriggerRef.current;
+      window.requestAnimationFrame(() => {
+        if (!confirmed && trigger === "preview" && previewRestoreButtonRef.current) {
+          previewRestoreButtonRef.current.focus();
+          return;
+        }
+        restoreHistoryFocus();
+      });
+    },
+    [restoreHistoryFocus],
+  );
 
   const fetchRevisions = useCallback(
     async (characterId: string) => {
@@ -782,19 +798,26 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   };
 
   const requestRestore = (revision: CharacterBibleRevision) => {
+    lastRestoreTriggerRef.current = historyOpen ? "history" : "preview";
+    setHistoryOpen(false);
     setPendingRestore(revision);
   };
 
+  const cancelRestore = useCallback(() => {
+    setPendingRestore(null);
+    restoreDialogFocus();
+  }, [restoreDialogFocus]);
+
   const confirmRestore = () => {
     if (!active || !pendingRestore) return;
-    const restored = flattenRevision(pendingRestore, active.id);
+    const restored = flattenRevision(pendingRestore, active);
     setChars((cs) => cs.map((c) => (c.id === active.id ? restored : c)));
     setPendingRestore(null);
     setPreviewingRevisionId(null);
     setHistoryOpen(false);
     setIsRestoredDraft(true);
     showFlash("Draft loaded from history — click Save to write new version");
-    restoreHistoryFocus();
+    restoreDialogFocus(true);
   };
 
   const fetchReceipts = useCallback(
@@ -1045,6 +1068,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       </div>
                       <div className="preview-actions">
                         <button
+                          ref={previewRestoreButtonRef}
                           className="btn dark"
                           type="button"
                           onClick={() => requestRestore(previewingRevision)}
@@ -1223,7 +1247,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   {pendingRestore && (
                     <RestoreDialog
                       revision={pendingRestore}
-                      onCancel={() => setPendingRestore(null)}
+                      onCancel={cancelRestore}
                       onConfirm={confirmRestore}
                     />
                   )}
