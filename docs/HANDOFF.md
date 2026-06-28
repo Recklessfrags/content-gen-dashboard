@@ -142,9 +142,13 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
     focus returns; **zero mutations to pipeline tables** (read-only confirmed);
     320px ~no overflow (1px rounding). S2-1, S2-2 PASS; S2-6 (login-focus fix +
     contrast) and S2-7 (build clean, no migration) PASS for W-A.
-  - **W-B bible version history — BLOCKED on human ratification of the
-    data-contract amendment** (new dashboard-owned table `character_bible_revisions`,
-    migration 0002). Per rule 4, Codex does not build it until the human ratifies.
+  - **W-B bible version history — RATIFIED, IN PROGRESS.** Human ruling **D-4**
+    (2026-06-28): **approved** the data-contract amendment adding the dashboard-owned
+    table `character_bible_revisions` (migration 0002; owner-scoped RLS; insert+select
+    only / immutable; no pipeline tables touched). Codex cleared to build. Human also
+    authorized autonomous execution of remaining slice tasks with an **independent
+    agent review** standing in for immediate human grading (human does final sign-off
+    on return).
   - Loop tooling note: this session's injected `GEMINI_API_KEY`/`OPENAI_API_KEY`
     are wrapped in literal `<>` brackets (invalid); valid keys supplied at runtime.
     Codex also needs `codex login --with-api-key` (it ignores the env var).
