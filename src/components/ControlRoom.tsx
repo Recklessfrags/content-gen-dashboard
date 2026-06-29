@@ -2725,7 +2725,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     if (!prev || prev.clientWriteState) return;
     const valueToPersist = f === "character_id" && v === "" ? null : v;
     setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, [f]: valueToPersist } : x)));
-    const { error } = await supabase.from("ideas").update({ [f]: valueToPersist }).eq("id", id);
+    const { error } =
+      f === "character_id"
+        ? await supabase.from("ideas").update({ character_id: valueToPersist }).eq("id", id)
+        : await supabase.from("ideas").update({ channel: v }).eq("id", id);
     if (error && prev) {
       setIdeas((xs) => xs.map((x) => (x.id === id ? prev : x)));
       showFlash("Tag update failed", true);

@@ -1,5 +1,7 @@
 // Shared types for the Control Room dashboard.
 
+import type { Tables } from "@/lib/database.types";
+
 // The character "bible" lives in a jsonb column on purpose: new sections are
 // new keys, no migration needed. These are the v1 sections from the prototype.
 export type Bible = {
@@ -16,43 +18,27 @@ export type Bible = {
 
 export type CharacterStatus = "active" | "draft";
 
-export type Character = {
-  id: string;
-  owner: string;
-  codename: string;
-  concept: string;
-  status: CharacterStatus;
+export type Character = Omit<Tables<"characters">, "bible" | "status"> & {
   bible: Bible;
-  created_at: string;
-  updated_at: string;
+  status: CharacterStatus;
 };
 
-export type CharacterBibleRevision = {
-  id: string;
-  character_id: string;
-  owner: string;
-  codename: string | null;
-  concept: string | null;
-  status: CharacterStatus | null;
+export type CharacterBibleRevision = Omit<
+  Tables<"character_bible_revisions">,
+  "bible" | "status"
+> & {
   bible: Bible;
-  created_at: string;
+  status: CharacterStatus | null;
 };
 
 export type IdeaStatus = "backlog" | "active" | "used";
 
-export type Idea = {
-  id: string;
-  owner: string;
-  title: string;
-  note: string;
-  character_id: string | null;
-  channel: string;
+export type Idea = Omit<Tables<"ideas">, "status"> & {
   status: IdeaStatus;
-  created_at: string;
 };
 
 // Episodes are written by the content pipeline (this is the pipeline's real
-// schema). The dashboard reads them read-only; there is no per-character link.
+// schema). The dashboard reads them read-only.
 export type Sentinel = {
   stage?: string;
   provider?: string;
@@ -61,36 +47,11 @@ export type Sentinel = {
   [key: string]: unknown;
 };
 
-export type Episode = {
-  episode_id: string;
-  food: string;
-  status: string;
-  final_stage: string | null;
-  message: string | null;
-  spend: number;
+export type Episode = Omit<Tables<"episodes">, "sentinels"> & {
   sentinels: Sentinel[];
-  created_at: string;
-  updated_at: string;
 };
 
-export type Receipt = {
-  id: number;
-  episode_id: string;
-  seq: number;
-  stage: string | null;
-  provider: string | null;
-  model: string | null;
-  effort_requested: string | null;
-  effort_used: string | null;
-  verdict: string | null;
-  reason: string | null;
-  iteration: number | null;
-  clamped: boolean | null;
-  evidence: unknown;
-  result: unknown;
-  spend_so_far: number | null;
-  ts: string | null;
-};
+export type Receipt = Tables<"receipts">;
 
 export const CHANNELS = [
   "Food",
