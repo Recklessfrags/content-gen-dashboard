@@ -423,10 +423,14 @@ export type BracketState = {
   favorites: AuditionCandidate[];
   pool: AuditionCandidate[]; // the current (most recent) batch awaiting triage
   winner: AuditionCandidate | null;
+  /** The permanent characters.voice_id this bracket's winner was locked to.
+   * null when no winner has been locked from THIS bracket. Used to detect a
+   * re-cast (incl. on another device) that desyncs the crown from the DB. */
+  lockedVoiceId: string | null;
 };
 
 export function emptyBracket(characterId: string): BracketState {
-  return { characterId, favorites: [], pool: [], winner: null };
+  return { characterId, favorites: [], pool: [], winner: null, lockedVoiceId: null };
 }
 
 function candidateKey(c: AuditionCandidate): string {
@@ -461,12 +465,38 @@ export function removeFavorite(state: BracketState, candidate: AuditionCandidate
 }
 
 /** Crown a winner (must be a known favorite or pool candidate). */
-export function setWinner(state: BracketState, candidate: AuditionCandidate): BracketState {
-  return { ...state, winner: candidate };
+export function setWinner(
+  state: BracketState,
+  candidate: AuditionCandidate,
+  lockedVoiceId: string,
+): BracketState {
+  return { ...state, winner: candidate, lockedVoiceId };
 }
 
 export function resetBracket(state: BracketState): BracketState {
   return emptyBracket(state.characterId);
+}
+
+/**
+ * Reconcile a loaded bracket against the character's canonical DB voice_id.
+ * If the bracket crowned a winner but the live voice_id no longer matches the
+ * voice that winner was locked to (a re-cast happened — possibly on another
+ * device — or the voice was cleared), the crown is stale: drop winner +
+ * lockedVoiceId so the UI never shows a stale "WINNER/live" state. Pool +
+ * favorites are preserved (the operator may still be mid-triage). Returns the
+ * reconciled state and whether anything was stale.
+ */
+export function reconcileBracket(
+  state: BracketState,
+  liveVoiceId: string | null | undefined,
+): { state: BracketState; staleWinnerCleared: boolean } {
+  if (state.winner && state.lockedVoiceId !== (liveVoiceId ?? null)) {
+    return {
+      state: { ...state, winner: null, lockedVoiceId: null },
+      staleWinnerCleared: true,
+    };
+  }
+  return { state, staleWinnerCleared: false };
 }
 
 // thin storage I/O — kept separate so the reducers above stay pure/testable.
@@ -488,6 +518,7 @@ export function loadBracket(characterId: string): BracketState {
       favorites: Array.isArray(parsed.favorites) ? parsed.favorites : [],
       pool: Array.isArray(parsed.pool) ? parsed.pool : [],
       winner: parsed.winner ?? null,
+      lockedVoiceId: typeof parsed.lockedVoiceId === "string" ? parsed.lockedVoiceId : null,
     };
   } catch {
     return emptyBracket(characterId);

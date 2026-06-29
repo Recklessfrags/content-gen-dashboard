@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addFavorite,
   clampVoiceSettings,
@@ -6,10 +6,13 @@ import {
   discard,
   emptyBracket,
   isCast,
+  loadBracket,
+  reconcileBracket,
   removeFavorite,
   setPool,
   setWinner,
   type AuditionCandidate,
+  type BracketState,
 } from "@/lib/casting";
 
 function candidate(id: string): AuditionCandidate {
@@ -26,6 +29,25 @@ function candidate(id: string): AuditionCandidate {
     },
   };
 }
+
+function stubLocalStorage(initial: Record<string, string> = {}) {
+  const store = new Map(Object.entries(initial));
+  const localStorage = {
+    getItem: vi.fn((key: string) => store.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      store.set(key, value);
+    }),
+    removeItem: vi.fn((key: string) => {
+      store.delete(key);
+    }),
+  };
+  vi.stubGlobal("window", { localStorage });
+  return { localStorage, store };
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("clampVoiceSettings", () => {
   it("clamps numeric ranges and preserves boolean speaker boost", () => {
@@ -137,9 +159,104 @@ describe("bracket reducers", () => {
     const pooled = setPool(emptyBracket("char-1"), [a, b]);
     const favorited = addFavorite(pooled, a);
 
-    expect(setWinner(favorited, a).winner).toEqual(a);
+    const won = setWinner(favorited, a, "voice-live");
+    expect(won.winner).toEqual(a);
+    expect(won.lockedVoiceId).toBe("voice-live");
     expect(discard(favorited, b).pool).toEqual([]);
     expect(removeFavorite(favorited, a).favorites).toEqual([]);
+  });
+});
+
+describe("reconcileBracket", () => {
+  it("keeps a winner when its locked voice matches the live DB voice", () => {
+    const state = setWinner(emptyBracket("char-1"), candidate("a"), "voice-live");
+
+    expect(reconcileBracket(state, "voice-live")).toEqual({
+      state,
+      staleWinnerCleared: false,
+    });
+  });
+
+  it("clears a stale winner when the live DB voice is different", () => {
+    const winner = candidate("a");
+    const state = setWinner(emptyBracket("char-1"), winner, "voice-old");
+
+    expect(reconcileBracket(state, "voice-new")).toEqual({
+      state: { ...state, winner: null, lockedVoiceId: null },
+      staleWinnerCleared: true,
+    });
+  });
+
+  it("clears a stale winner when the live DB voice is null or undefined", () => {
+    const state = setWinner(emptyBracket("char-1"), candidate("a"), "voice-old");
+
+    expect(reconcileBracket(state, null)).toEqual({
+      state: { ...state, winner: null, lockedVoiceId: null },
+      staleWinnerCleared: true,
+    });
+    expect(reconcileBracket(state, undefined)).toEqual({
+      state: { ...state, winner: null, lockedVoiceId: null },
+      staleWinnerCleared: true,
+    });
+  });
+
+  it("leaves brackets without winners unchanged even when voice ids differ", () => {
+    const state: BracketState = { ...emptyBracket("char-1"), lockedVoiceId: "voice-old" };
+
+    expect(reconcileBracket(state, "voice-new")).toEqual({
+      state,
+      staleWinnerCleared: false,
+    });
+  });
+
+  it("preserves pool and favorites when clearing a stale winner", () => {
+    const favorite = candidate("favorite");
+    const pooled = candidate("pooled");
+    const state: BracketState = {
+      ...emptyBracket("char-1"),
+      favorites: [favorite],
+      pool: [pooled],
+      winner: favorite,
+      lockedVoiceId: "voice-old",
+    };
+
+    const reconciled = reconcileBracket(state, "voice-new");
+
+    expect(reconciled.staleWinnerCleared).toBe(true);
+    expect(reconciled.state.favorites).toEqual([favorite]);
+    expect(reconciled.state.pool).toEqual([pooled]);
+    expect(reconciled.state.winner).toBeNull();
+    expect(reconciled.state.lockedVoiceId).toBeNull();
+  });
+});
+
+describe("bracket storage", () => {
+  it("defaults empty and older persisted brackets to a null lockedVoiceId", () => {
+    expect(emptyBracket("char-1").lockedVoiceId).toBeNull();
+
+    stubLocalStorage({
+      casting_bracket_char_legacy: JSON.stringify({
+        favorites: [],
+        pool: [],
+        winner: null,
+      }),
+    });
+
+    expect(loadBracket("char-empty").lockedVoiceId).toBeNull();
+    expect(loadBracket("char_legacy").lockedVoiceId).toBeNull();
+  });
+
+  it("reads a persisted lockedVoiceId string", () => {
+    stubLocalStorage({
+      casting_bracket_char_1: JSON.stringify({
+        favorites: [],
+        pool: [],
+        winner: candidate("a"),
+        lockedVoiceId: "voice-live",
+      }),
+    });
+
+    expect(loadBracket("char_1").lockedVoiceId).toBe("voice-live");
   });
 });
 

@@ -16,6 +16,7 @@ import {
   generateVoicePreviews,
   isCast,
   loadBracket,
+  reconcileBracket,
   removeFavorite,
   sampleTextFor,
   saveBracket,
@@ -96,6 +97,7 @@ export function CastingStudioPanel({
     }),
   );
   const [bracket, setBracket] = useState<BracketState>(() => loadBracket(character.id));
+  const bracketRef = useRef(bracket);
   const [designing, setDesigning] = useState(false);
   const [castsLeft, setCastsLeft] = useState<number | null>(null);
   const [capReached, setCapReached] = useState(false);
@@ -135,6 +137,24 @@ export function CastingStudioPanel({
       aliveRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    bracketRef.current = bracket;
+  }, [bracket]);
+
+  // Reconcile the local bracket against the canonical DB voice on mount and whenever
+  // characters.voice_id changes underneath (e.g. a re-cast elsewhere once Realtime lands).
+  useEffect(() => {
+    const { state, staleWinnerCleared } = reconcileBracket(bracketRef.current, character.voice_id);
+    if (staleWinnerCleared) {
+      bracketRef.current = state;
+      setBracket(state);
+      if (aliveRef.current) {
+        showFlash("This casting bracket's saved winner no longer matches the character's live voice — cleared.");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reconcile keys on the DB voice only
+  }, [character.voice_id]);
 
   // Persist the in-progress tournament so a reload doesn't lose it.
   useEffect(() => {
@@ -214,7 +234,7 @@ export function CastingStudioPanel({
         return;
       }
       onCharacterPatched(character.id, { voice_id: voiceId });
-      setBracket((b) => setWinner(b, candidate));
+      setBracket((b) => setWinner(b, candidate, voiceId));
       showFlash("✓ Voice cast and locked to character");
       if (previousVoiceId && previousVoiceId !== voiceId) {
         try {
@@ -376,6 +396,12 @@ export function CastingStudioPanel({
           {!cast && (
             <span className="chip draft" role="status">
               Not production-ready until a voice is locked
+            </span>
+          )}
+          {cast && (
+            <span className="chip active" role="status">
+              Currently cast — this character has a live locked voice. Locking a new winner replaces it (the old
+              voice is deleted).
             </span>
           )}
         </div>
