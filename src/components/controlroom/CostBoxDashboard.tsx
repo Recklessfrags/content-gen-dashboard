@@ -334,12 +334,38 @@ export function CostBoxDashboard({
                   </div>
                 ))}
               </div>
-              <p className="cost-attribution-disclosure">
-                SYSTEM NOTE: Character attribution is currently deferred. LLM token expenses
-                are grouped by provider. Mapping specific costs to individual manuals requires
-                future pipeline metadata that links executions back to character manuals.
-              </p>
             </div>
+
+            {costStats.characterSplit.length > 0 && (
+              <div className="metric-card provider-card" role="group" aria-label="Per-character cost breakdown">
+                <div className="metric-meta provider-head">
+                  <span className="metric-eyebrow">PER-CHARACTER COST</span>
+                  <span className="metric-badge">Characters</span>
+                </div>
+
+                <div className="provider-list">
+                  {costStats.characterSplit.map((character, index) => (
+                    <div className="provider-row" key={character.characterId ?? "unattributed"}>
+                      <div className="provider-row-top">
+                        <span className="provider-name">{character.label}</span>
+                        <span className="provider-amount">{formatUsd(character.amount, 3)}</span>
+                      </div>
+                      <div className="progress-container" aria-hidden="true">
+                        <div
+                          className={
+                            "progress-bar " +
+                            (index % 3 === 0 ? "cleared" : index % 3 === 1 ? "brass" : "stamp")
+                          }
+                          style={{ width: `${character.percentage}%` }}
+                        />
+                      </div>
+                      <span className="provider-share">{character.percentage}% share</span>
+                      <span className="provider-share">{character.episodeCount} eps</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
 
           <section className="cost-audit" aria-labelledby="cost-audit-title">

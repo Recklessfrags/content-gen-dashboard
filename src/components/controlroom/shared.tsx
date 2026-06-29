@@ -46,6 +46,14 @@ export type ProviderCost = {
   percentage: number;
 };
 
+export type CharacterCost = {
+  characterId: string | null;
+  label: string;
+  amount: number;
+  percentage: number;
+  episodeCount: number;
+};
+
 export type EpisodeCost = {
   episode: Episode;
   liveSpend: number;
@@ -55,6 +63,7 @@ export type EpisodeCost = {
 export type CostStats = {
   grandTotal: number;
   providerSplit: ProviderCost[];
+  characterSplit: CharacterCost[];
   episodeCosts: EpisodeCost[];
 };
 
@@ -215,7 +224,11 @@ export function providerBucket(provider: string | null) {
   return cleaned.length > 0 ? cleaned : "Deterministic / None";
 }
 
-export function computeCostStats(episodes: Episode[], receipts: CostReceipt[]): CostStats {
+export function computeCostStats(
+  episodes: Episode[],
+  receipts: CostReceipt[],
+  characters: Pick<FlatChar, "id" | "codename">[] = [],
+): CostStats {
   const receiptGroups = new Map<string, CostReceipt[]>();
   for (const receipt of receipts) {
     const existing = receiptGroups.get(receipt.episode_id);
@@ -224,6 +237,7 @@ export function computeCostStats(episodes: Episode[], receipts: CostReceipt[]): 
   }
 
   const providerTotals = new Map<string, number>();
+  const characterTotals = new Map<string | null, { amount: number; episodeCount: number }>();
   const episodeCosts: EpisodeCost[] = [];
   let grandTotal = 0;
 
@@ -244,6 +258,14 @@ export function computeCostStats(episodes: Episode[], receipts: CostReceipt[]): 
     }
 
     grandTotal += maxSpend;
+    const characterId = episode.character_id;
+    const existingCharacterTotal = characterTotals.get(characterId);
+    if (existingCharacterTotal) {
+      existingCharacterTotal.amount += maxSpend;
+      existingCharacterTotal.episodeCount += 1;
+    } else {
+      characterTotals.set(characterId, { amount: maxSpend, episodeCount: 1 });
+    }
     episodeCosts.push({
       episode,
       liveSpend: maxSpend,
@@ -260,5 +282,27 @@ export function computeCostStats(episodes: Episode[], receipts: CostReceipt[]): 
     }))
     .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
 
-  return { grandTotal, providerSplit, episodeCosts };
+  const characterNames = new Map(characters.map((character) => [character.id, character.codename]));
+  const characterSplit = Array.from(characterTotals.entries())
+    .map(([characterId, { amount, episodeCount }]) => {
+      let label = "Unattributed";
+      if (characterId !== null) {
+        if (characterNames.has(characterId)) {
+          label = characterNames.get(characterId)?.trim() || "Untitled character";
+        } else {
+          label = "Unknown character";
+        }
+      }
+
+      return {
+        characterId,
+        label,
+        amount,
+        percentage: grandTotal > 0 ? Math.round((amount / grandTotal) * 100) : 0,
+        episodeCount,
+      };
+    })
+    .sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label));
+
+  return { grandTotal, providerSplit, characterSplit, episodeCosts };
 }

@@ -647,8 +647,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       ? (chars.find((character) => character.id === activeEnqueueIdea.character_id) ?? null)
       : null;
   const costStats = useMemo(
-    () => computeCostStats(episodes, costReceipts),
-    [costReceipts, episodes],
+    () => computeCostStats(episodes, costReceipts, chars),
+    [chars, costReceipts, episodes],
   );
   const currentEditableFields = useMemo(() => (active ? editableSnapshot(active) : null), [active]);
   const savedEditableFields = activeId
