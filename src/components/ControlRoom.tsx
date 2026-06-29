@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { budgetStatus, getBudgetTarget, setBudgetTarget } from "@/lib/budget";
 import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
+import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import { createClient } from "@/lib/supabase/client";
 import {
   BIBLE_FIELDS,
@@ -135,14 +136,6 @@ function formatRevisionDate(createdAt: string) {
   return new Date(createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
 }
 
-function getFocusable(container: HTMLElement) {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), summary, [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-    ),
-  ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
-}
-
 function Icon({ name }: { name: string }) {
   const p =
     {
@@ -235,6 +228,7 @@ type DrillDownProps = {
   error: string | null;
   onClose: () => void;
   onRetry: () => void;
+  restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
 };
 
 function hasJson(value: unknown) {
@@ -1106,53 +1100,18 @@ function DrillDownPanel({
   error,
   onClose,
   onRetry,
+  restoreFocusRef,
 }: DrillDownProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    closeButtonRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-
-      if (event.key !== "Tab") return;
-
-      const panel = panelRef.current;
-      if (!panel) return;
-
-      const focusable = getFocusable(panel);
-
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const activeElement = document.activeElement;
-
-      if (!panel.contains(activeElement)) {
-        event.preventDefault();
-        first.focus();
-        return;
-      }
-
-      if (event.shiftKey && activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useFocusTrap({
+    active: true,
+    containerRef: panelRef,
+    onEscape: onClose,
+    initialFocusRef: closeButtonRef,
+    restoreFocusRef,
+  });
 
   return (
     <div
@@ -1314,6 +1273,7 @@ type HistoryDrawerProps = {
   onRetry: () => void;
   onPreview: (revision: CharacterBibleRevision) => void;
   onRestore: (revision: CharacterBibleRevision) => void;
+  restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
 };
 
 function changedFields(
@@ -1338,50 +1298,18 @@ function HistoryDrawer({
   onRetry,
   onPreview,
   onRestore,
+  restoreFocusRef,
 }: HistoryDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    closeButtonRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-
-      if (event.key !== "Tab") return;
-      const drawer = drawerRef.current;
-      if (!drawer) return;
-      const focusable = getFocusable(drawer);
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const activeElement = document.activeElement;
-
-      if (!drawer.contains(activeElement)) {
-        event.preventDefault();
-        first.focus();
-        return;
-      }
-
-      if (event.shiftKey && activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useFocusTrap({
+    active: true,
+    containerRef: drawerRef,
+    onEscape: onClose,
+    initialFocusRef: closeButtonRef,
+    restoreFocusRef,
+  });
 
   return (
     <div className="history-layer" role="presentation">
@@ -1488,52 +1416,20 @@ type RestoreDialogProps = {
   revision: CharacterBibleRevision;
   onCancel: () => void;
   onConfirm: () => void;
+  restoreFocusRef: React.RefObject<HTMLElement | null>;
 };
 
-function RestoreDialog({ revision, onCancel, onConfirm }: RestoreDialogProps) {
+function RestoreDialog({ revision, onCancel, onConfirm, restoreFocusRef }: RestoreDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    cancelButtonRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onCancel();
-        return;
-      }
-
-      if (event.key !== "Tab") return;
-      const dialog = dialogRef.current;
-      if (!dialog) return;
-      const focusable = getFocusable(dialog);
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const activeElement = document.activeElement;
-
-      if (!dialog.contains(activeElement)) {
-        event.preventDefault();
-        first.focus();
-        return;
-      }
-
-      if (event.shiftKey && activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onCancel]);
+  useFocusTrap({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: onCancel,
+    initialFocusRef: cancelButtonRef,
+    restoreFocusRef,
+  });
 
   return (
     <div className="restore-layer" role="presentation">
@@ -1568,52 +1464,25 @@ type DiscardChangesDialogProps = {
   codename: string;
   onCancel: () => void;
   onConfirm: () => void;
+  restoreFocusRef: React.RefObject<HTMLElement | null>;
 };
 
-function DiscardChangesDialog({ codename, onCancel, onConfirm }: DiscardChangesDialogProps) {
+function DiscardChangesDialog({
+  codename,
+  onCancel,
+  onConfirm,
+  restoreFocusRef,
+}: DiscardChangesDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const keepButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    keepButtonRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onCancel();
-        return;
-      }
-
-      if (event.key !== "Tab") return;
-      const dialog = dialogRef.current;
-      if (!dialog) return;
-      const focusable = getFocusable(dialog);
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const activeElement = document.activeElement;
-
-      if (!dialog.contains(activeElement)) {
-        event.preventDefault();
-        first.focus();
-        return;
-      }
-
-      if (event.shiftKey && activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onCancel]);
+  useFocusTrap({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: onCancel,
+    initialFocusRef: keepButtonRef,
+    restoreFocusRef,
+  });
 
   return (
     <div className="restore-layer" role="presentation">
@@ -1687,12 +1556,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const runButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const lastRunTriggerRef = useRef<string | null>(null);
+  const runDetailRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const receiptRequestRef = useRef(0);
   const headerHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const savebarHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const lastHistoryTriggerRef = useRef<"header" | "savebar" | null>(null);
+  const historyRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const previewRestoreButtonRef = useRef<HTMLButtonElement>(null);
   const lastRestoreTriggerRef = useRef<"history" | "preview" | null>(null);
+  const restoreDialogRestoreFocusRef = useRef<HTMLElement | null>(null);
   const characterRequestRef = useRef(0);
   const ideaRequestRef = useRef(0);
   const episodeRequestRef = useRef(0);
@@ -1700,6 +1572,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const costReceiptRequestRef = useRef(0);
   const lastManualFocusRef = useRef<HTMLElement | null>(null);
   const lastDirtyTriggerRef = useRef<HTMLElement | null>(null);
+  const discardDialogRestoreFocusRef = useRef<HTMLElement | null>(null);
   const exitFormRef = useRef<HTMLFormElement>(null);
   const ideaTitleRef = useRef<HTMLTextAreaElement>(null);
   const ideaSubmittingTitleRef = useRef<string | null>(null);
@@ -1858,12 +1731,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       cs.map((c) => (c.id === activeId ? { ...c, [field]: val } : c)),
     );
 
-  const focusAfterKeepEditing = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      (lastManualFocusRef.current ?? lastDirtyTriggerRef.current)?.focus();
-    });
-  }, []);
-
   const revertActiveEdits = useCallback(() => {
     if (!activeId) return;
     const snapshot = savedSnapshots[activeId];
@@ -1879,6 +1746,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         if (document.activeElement instanceof HTMLElement) {
           lastDirtyTriggerRef.current = document.activeElement;
         }
+        discardDialogRestoreFocusRef.current =
+          lastManualFocusRef.current ?? lastDirtyTriggerRef.current;
         setPendingDirtyAction({ run: action });
         return;
       }
@@ -1889,12 +1758,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   );
 
   const cancelDirtyAction = useCallback(() => {
+    discardDialogRestoreFocusRef.current =
+      lastManualFocusRef.current ?? lastDirtyTriggerRef.current;
     setPendingDirtyAction(null);
-    focusAfterKeepEditing();
-  }, [focusAfterKeepEditing]);
+  }, []);
 
   const confirmDirtyAction = useCallback(() => {
     const action = pendingDirtyAction;
+    discardDialogRestoreFocusRef.current =
+      lastManualFocusRef.current ?? lastDirtyTriggerRef.current;
     revertActiveEdits();
     setPendingDirtyAction(null);
     action?.run();
@@ -1925,27 +1797,21 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setIsRestoredDraft(false);
   }, [activeId]);
 
-  const restoreHistoryFocus = useCallback(() => {
+  const setHistoryRestoreFocusTarget = useCallback(() => {
     const trigger = lastHistoryTriggerRef.current;
-    window.requestAnimationFrame(() => {
-      if (trigger === "savebar") savebarHistoryButtonRef.current?.focus();
-      else headerHistoryButtonRef.current?.focus();
-    });
+    historyRestoreFocusRef.current =
+      trigger === "savebar" ? savebarHistoryButtonRef.current : headerHistoryButtonRef.current;
   }, []);
 
-  const restoreDialogFocus = useCallback(
-    (confirmed = false) => {
-      const trigger = lastRestoreTriggerRef.current;
-      window.requestAnimationFrame(() => {
-        if (!confirmed && trigger === "preview" && previewRestoreButtonRef.current) {
-          previewRestoreButtonRef.current.focus();
-          return;
-        }
-        restoreHistoryFocus();
-      });
-    },
-    [restoreHistoryFocus],
-  );
+  const setRestoreDialogFocusTarget = useCallback((confirmed = false) => {
+    const trigger = lastRestoreTriggerRef.current;
+    if (!confirmed && trigger === "preview" && previewRestoreButtonRef.current) {
+      restoreDialogRestoreFocusRef.current = previewRestoreButtonRef.current;
+      return;
+    }
+    restoreDialogRestoreFocusRef.current =
+      historyRestoreFocusRef.current ?? headerHistoryButtonRef.current;
+  }, []);
 
   const fetchRevisions = useCallback(
     async (characterId: string) => {
@@ -1974,6 +1840,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const openHistory = (trigger: "header" | "savebar") => {
     if (!active) return;
     lastHistoryTriggerRef.current = trigger;
+    setHistoryRestoreFocusTarget();
     setHistoryOpen(true);
     void fetchRevisions(active.id);
   };
@@ -1983,8 +1850,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setHistoryOpen(false);
     setRevisionsLoading(false);
     setRevisionsError(null);
-    restoreHistoryFocus();
-  }, [restoreHistoryFocus]);
+    setHistoryRestoreFocusTarget();
+  }, [setHistoryRestoreFocusTarget]);
 
   const exitPreview = useCallback(() => {
     setPreviewingRevisionId(null);
@@ -2003,12 +1870,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   };
 
   const cancelRestore = useCallback(() => {
+    setRestoreDialogFocusTarget();
     setPendingRestore(null);
-    restoreDialogFocus();
-  }, [restoreDialogFocus]);
+  }, [setRestoreDialogFocusTarget]);
 
   const confirmRestore = () => {
     if (!active || !pendingRestore) return;
+    setRestoreDialogFocusTarget(true);
     const restored = flattenRevision(pendingRestore, active);
     setChars((cs) => cs.map((c) => (c.id === active.id ? restored : c)));
     setPendingRestore(null);
@@ -2016,7 +1884,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setHistoryOpen(false);
     setIsRestoredDraft(true);
     showFlash("Draft loaded from history — click Save to write new version");
-    restoreDialogFocus(true);
   };
 
   const fetchReceipts = useCallback(
@@ -2045,6 +1912,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const openRunDetail = (episodeId: string) => {
     lastRunTriggerRef.current = episodeId;
+    runDetailRestoreFocusRef.current = runButtonRefs.current.get(episodeId) ?? null;
     setActiveEpisodeId(episodeId);
     setReceipts([]);
     void fetchReceipts(episodeId);
@@ -2057,9 +1925,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setReceipts([]);
     setReceiptsError(null);
     setReceiptsLoading(false);
-    window.requestAnimationFrame(() => {
-      if (triggerId) runButtonRefs.current.get(triggerId)?.focus();
-    });
+    runDetailRestoreFocusRef.current = triggerId
+      ? (runButtonRefs.current.get(triggerId) ?? null)
+      : null;
   }, []);
 
   // ── persist character ───────────────────────────────────────────────────
@@ -2726,6 +2594,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       }}
                       onPreview={previewRevision}
                       onRestore={requestRestore}
+                      restoreFocusRef={historyRestoreFocusRef}
                     />
                   )}
                   {pendingRestore && (
@@ -2733,6 +2602,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       revision={pendingRestore}
                       onCancel={cancelRestore}
                       onConfirm={confirmRestore}
+                      restoreFocusRef={restoreDialogRestoreFocusRef}
                     />
                   )}
                 </section>
@@ -3038,6 +2908,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   onRetry={() => {
                     void fetchReceipts(activeEpisode.episode_id);
                   }}
+                  restoreFocusRef={runDetailRestoreFocusRef}
                 />
               )}
             </div>
@@ -3071,6 +2942,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           codename={dirtyCodename}
           onCancel={cancelDirtyAction}
           onConfirm={confirmDirtyAction}
+          restoreFocusRef={discardDialogRestoreFocusRef}
         />
       )}
     </div>
