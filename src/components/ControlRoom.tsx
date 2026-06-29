@@ -31,6 +31,7 @@ import {
   clampVoiceSettings,
   clearBracket,
   composeVoiceDescription,
+  deleteVoice,
   discard,
   emptyBracket,
   generateVoicePreviews,
@@ -228,6 +229,9 @@ const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
   active: "Active",
   used: "Used",
 };
+const ENFORCE_CASTING = false; // warn-only now; flip true to hard-block enqueue of uncast characters.
+const UNCAST_ENQUEUE_WARNING =
+  "This character has no voice cast — the render will use a fallback voice. Cast a voice in the Casting Studio first.";
 
 type EnqueueSubmitResult =
   | { kind: "success" }
@@ -237,6 +241,7 @@ type EnqueueSubmitResult =
 type EnqueueIdeaPanelProps = {
   idea: WireIdea;
   character: FlatChar | null;
+  characters: FlatChar[];
   onClose: () => void;
   onSubmit: (input: JobEnqueueInput) => Promise<EnqueueSubmitResult>;
   restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
@@ -292,6 +297,7 @@ function isHttpUrl(value: string): boolean {
 function EnqueueIdeaPanel({
   idea,
   character,
+  characters,
   onClose,
   onSubmit,
   restoreFocusRef,
@@ -341,13 +347,24 @@ function EnqueueIdeaPanel({
       : null;
   const normalizedCharacterName = characterName.trim().toLowerCase();
   const normalizedLinkedCodename = character?.codename.trim().toLowerCase() ?? "";
+  // NOTE: the cast check resolves the free-text character name against the
+  // roster by exact codename. A non-matching name (typo / ad-hoc character)
+  // yields null and shows no warning. Acceptable while warn-only; before
+  // flipping ENFORCE_CASTING to a hard block, tighten this so an unresolved
+  // name doesn't silently bypass the gate.
+  const selectedCharacter =
+    normalizedCharacterName.length > 0
+      ? (characters.find((c) => c.codename.trim().toLowerCase() === normalizedCharacterName) ?? null)
+      : null;
+  const castingWarning = selectedCharacter && !isCast(selectedCharacter) ? UNCAST_ENQUEUE_WARNING : null;
+  const castingBlockError = ENFORCE_CASTING ? castingWarning : null;
   const showBrandWarning =
     (normalizedCharacterName === normalizedLinkedCodename ||
       normalizedCharacterName === "maddog" ||
       normalizedCharacterName === "mad-dog") &&
     normalizedLinkedCodename.includes("mad dog") &&
     idea.channel !== "Dark history";
-  const canSubmit = !submitting && !capError && !jsonError && !anchorError;
+  const canSubmit = !submitting && !capError && !jsonError && !anchorError && !castingBlockError;
 
   useFocusTrap({
     active: true,
@@ -372,8 +389,8 @@ function EnqueueIdeaPanel({
     if (submitting) return;
     setFormError(null);
 
-    if (capError || anchorError || !injectClaimsResult.ok || !routesResult.ok || !liveAdaptersResult.ok) {
-      setFormError(capError ?? anchorError ?? jsonError ?? "Resolve form errors before enqueueing.");
+    if (capError || anchorError || castingBlockError || !injectClaimsResult.ok || !routesResult.ok || !liveAdaptersResult.ok) {
+      setFormError(capError ?? anchorError ?? castingBlockError ?? jsonError ?? "Resolve form errors before enqueueing.");
       return;
     }
 
@@ -607,6 +624,13 @@ function EnqueueIdeaPanel({
               BRAND ALIGNMENT WARNING: Operator &apos;Mad Dog&apos; is registered under the
               &apos;Dark history&apos; channel, but this idea is routed to &apos;{idea.channel}&apos;.
               Proceed only if declassifying operations.
+            </div>
+          )}
+
+          {castingWarning && (
+            <div className="casting-enqueue-warning" role="status">
+              <span aria-hidden="true">⚠ </span>
+              {castingWarning}
             </div>
           )}
 
@@ -2726,6 +2750,7 @@ function CastingStudioPanel({
 
   const handleLock = async (candidate: AuditionCandidate) => {
     if (locking) return;
+    const previousVoiceId = character.voice_id;
     setError(null);
     setLocking(candidate.generated_voice_id);
     try {
@@ -2748,6 +2773,16 @@ function CastingStudioPanel({
       onCharacterPatched(character.id, { voice_id: voiceId });
       setBracket((b) => setWinner(b, candidate));
       showFlash("✓ Voice cast and locked to character");
+      if (previousVoiceId && previousVoiceId !== voiceId) {
+        try {
+          // Intentional: character_bible_revisions is bible-only; keeping dead
+          // voice ids needs a future voice-history table, not a schema change here.
+          await deleteVoice(supabase, previousVoiceId);
+        } catch (deleteError) {
+          console.warn("Could not remove the previous voice from the ElevenLabs library.", deleteError);
+        }
+      }
+      if (!aliveRef.current) return;
       await refreshCastsLeft();
     } catch (e) {
       if (!aliveRef.current) return;
@@ -5216,6 +5251,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         <EnqueueIdeaPanel
           idea={activeEnqueueIdea}
           character={activeEnqueueCharacter}
+          characters={chars}
           onClose={closeEnqueuePanel}
           onSubmit={enqueueJob}
           restoreFocusRef={enqueueRestoreFocusRef}

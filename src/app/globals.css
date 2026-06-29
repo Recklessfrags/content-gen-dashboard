@@ -2133,6 +2133,9 @@ body{font-family:var(--body)}
 .casting-generate-row{display:flex;align-items:center;justify-content:space-between;gap:16px;
   flex-wrap:wrap;margin-top:8px}
 .casting-credit-warning{font-family:var(--mono);font-size:12px;color:var(--brass);margin:0;max-width:46ch}
+.casting-enqueue-warning{font-family:var(--mono);font-size:12px;line-height:1.45;color:var(--brass);
+  background:rgba(201,162,75,.08);border:1px solid rgba(201,162,75,.38);border-left:3px solid var(--brass);
+  border-radius:3px;padding:10px 12px}
 .error-hint{color:var(--stamp)!important}
 
 .casting-toggle{display:inline-flex;align-items:center;gap:9px;cursor:pointer;

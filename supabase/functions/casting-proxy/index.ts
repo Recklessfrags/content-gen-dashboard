@@ -4,12 +4,13 @@
 // secret. This function is the ONLY place that secret is read. It:
 //   1. validates the caller's Supabase session (no open relay),
 //   2. enforces a soft per-user/day cap on credit-spending actions,
-//   3. proxies the three ElevenLabs calls the Casting Studio needs.
+//   3. proxies the four ElevenLabs calls the Casting Studio needs.
 //
-// Actions (JSON body discriminator): "design" | "create" | "tts".
+// Actions (JSON body discriminator): "design" | "create" | "tts" | "delete".
 //   design → POST /v1/text-to-voice/design  (spends credits; capped)
 //   create → POST /v1/text-to-voice         (spends credits; capped)
 //   tts    → POST /v1/text-to-speech/{id}   (cheap live audition; NOT capped)
+//   delete → DELETE /v1/voices/{id}         (library cleanup; NOT capped)
 //
 // Secret name: ELEVENLABS_API_KEY (set by the operator as a Supabase project
 // secret; reuse-pipeline-key vs separate-casting-key is the operator's call).
@@ -89,7 +90,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Invalid JSON body." }, 400, origin);
   }
   const action = body.action;
-  if (action !== "design" && action !== "create" && action !== "tts") {
+  if (action !== "design" && action !== "create" && action !== "tts" && action !== "delete") {
     return json({ error: "Unknown action." }, 400, origin);
   }
 
@@ -115,8 +116,12 @@ Deno.serve(async (req: Request) => {
         origin,
       );
     }
-  } else if (!String(body.voice_id ?? "").trim() || !String(body.text ?? "").trim()) {
-    return json({ error: "voice_id and text are required." }, 400, origin);
+  } else if (action === "tts") {
+    if (!String(body.voice_id ?? "").trim() || !String(body.text ?? "").trim()) {
+      return json({ error: "voice_id and text are required." }, 400, origin);
+    }
+  } else if (!String(body.voice_id ?? "").trim()) {
+    return json({ error: "voice_id is required." }, 400, origin);
   }
 
   // ── 2. soft cap (design + create only) ────────────────────────────────────
@@ -187,12 +192,25 @@ Deno.serve(async (req: Request) => {
       return json({ voice_id: data.voice_id }, 200, origin);
     }
 
-    // action === "tts"
+    if (action === "delete") {
+      // Unauthorized-by-design: gated only by a valid session (authenticated =
+      // trusted operator, matching the design/create/tts actions and the rest of
+      // the dashboard). No per-voice ownership check — any operator may delete
+      // any voice in the shared account. If the user base ever broadens beyond
+      // trusted operators, the whole proxy needs per-resource authorization.
+      const voiceId = String(body.voice_id ?? "");
+      const res = await fetch(`${EL_BASE}/v1/voices/${encodeURIComponent(voiceId)}`, {
+        method: "DELETE",
+        headers: elHeaders,
+      });
+      if (res.status === 404) return json({ ok: true }, 200, origin);
+      if (!res.ok) return await elError(res, origin);
+      return json({ ok: true }, 200, origin);
+    }
+
+    // action === "tts" (voice_id + text already validated in the pre-cap block)
     const voiceId = String(body.voice_id ?? "");
     const text = String(body.text ?? "");
-    if (!voiceId || !text) {
-      return json({ error: "voice_id and text are required." }, 400, origin);
-    }
     const voiceSettings =
       body.voice_settings && typeof body.voice_settings === "object"
         ? body.voice_settings
