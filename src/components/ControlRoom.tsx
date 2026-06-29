@@ -374,6 +374,39 @@ function computeCostStats(episodes: Episode[], receipts: CostReceipt[]): CostSta
   return { grandTotal, providerSplit, episodeCosts };
 }
 
+// Tiny decorative inline-SVG sparkline (no deps). Returns null below 2 points.
+function Sparkline({ values, variant }: { values: number[]; variant: "spend" | "runs" }) {
+  if (values.length < 2 || values.some((v) => !Number.isFinite(v))) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const n = values.length;
+  const flat = max - min === 0; // all-equal series -> center the line, don't divide by 0
+  const pts = values.map((v, i) => {
+    const x = (i / (n - 1)) * 116 + 2;
+    const y = flat ? 17 : 30 - ((v - min) / span) * 26;
+    return [Number(x.toFixed(2)), Number(y.toFixed(2))] as const;
+  });
+  const line = pts.map(([x, y]) => `${x} ${y}`).join(" L ");
+  const [lastX, lastY] = pts[n - 1];
+  const area = `M ${pts[0][0]} 34 L ${line} L ${lastX} 34 Z`;
+  const color = variant === "spend" ? "var(--brass)" : "var(--stamp)";
+  const gradId = `spark-${variant}-grad`;
+  return (
+    <svg className="sparkline-svg" viewBox="0 0 120 34" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.16" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path className="sparkline-area" d={area} fill={`url(#${gradId})`} />
+      <path className={`sparkline-stroke s-${variant}`} d={`M ${line}`} />
+      <circle className={`sparkline-dot s-${variant}`} cx={lastX} cy={lastY} r="3" />
+    </svg>
+  );
+}
+
 function OverviewDashboard({
   chars,
   ideas,
@@ -450,6 +483,25 @@ function OverviewDashboard({
       lastEpisode,
     };
   }, [costStats.grandTotal, episodes]);
+
+  // Sparkline series: episodes sorted by created_at, then cumulative spend and
+  // cumulative run count over time. Invalid timestamps sort last; <2 points -> no line.
+  const sparkSeries = useMemo(() => {
+    // Only episodes with a valid timestamp contribute to the time series.
+    const valid = episodes.filter((e) =>
+      Number.isFinite(e.created_at ? new Date(e.created_at).getTime() : NaN),
+    );
+    valid.sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+    let cumSpend = 0;
+    const spend: number[] = [];
+    valid.forEach((e) => {
+      cumSpend += typeof e.spend === "number" ? e.spend : 0;
+      spend.push(cumSpend);
+    });
+    return { spend };
+  }, [episodes]);
 
   return (
     <div className="overview" role="region" aria-label="Overview dashboard">
@@ -621,8 +673,13 @@ function OverviewDashboard({
                   <span className="metric-eyebrow">Total Operational Spend</span>
                   <span className="metric-badge">Cost</span>
                 </div>
-                <div className="metric-value metric-money">
-                  {costReceiptsLoading ? "Loading" : costReceiptsError ? "Unavailable" : formatMoney(runsStats.totalSpend)}
+                <div className="metric-row">
+                  <div className="metric-value metric-money">
+                    {costReceiptsLoading ? "Loading" : costReceiptsError ? "Unavailable" : formatMoney(runsStats.totalSpend)}
+                  </div>
+                  {!costReceiptsLoading && !costReceiptsError && (
+                    <Sparkline values={sparkSeries.spend} variant="spend" />
+                  )}
                 </div>
                 <div className="metric-breakdown">
                   <span className="metric-subtext">
