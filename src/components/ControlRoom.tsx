@@ -2992,8 +2992,7 @@ function CastingStudioPanel({
             </div>
 
             <div className="field">
-              <span className="eyebrow">Gender hint</span>
-              <div className="status-segmented-control" role="group" aria-label="Gender hint" style={{ marginTop: 8 }}>
+              <div className="status-segmented-control" role="group" aria-label="Gender hint">
                 {GENDER_OPTIONS.map((g) => (
                   <button
                     key={g.value}
