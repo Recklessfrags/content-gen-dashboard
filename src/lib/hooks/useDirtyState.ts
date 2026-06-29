@@ -1,4 +1,10 @@
-/** Compares saved and current plain-data values for unsaved edit detection. */
+/**
+ * Compares saved and current plain-data values for unsaved edit detection.
+ * CONTRACT: plain JSON-serialisable data only (strings, numbers, booleans, null,
+ * arrays, plain objects). Values JSON cannot represent — `undefined` members,
+ * `NaN`/`Infinity`, `Date`, `Map`, `Set` — are normalised and may compare equal;
+ * do not rely on this for dirty-tracking such values.
+ */
 import { useMemo } from "react";
 
 function stableStringify(value: unknown): string {

@@ -7,6 +7,8 @@ const FOCUSABLE_SELECTOR = [
   "input",
   "select",
   "textarea",
+  "summary",
+  "[contenteditable]:not([contenteditable='false'])",
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
