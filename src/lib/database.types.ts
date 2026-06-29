@@ -226,6 +226,7 @@ export type Database = {
           live_adapters: Json | null
           routes: Json
           spend: number | null
+          spend_approved: boolean
           started_at: string | null
           status: string
           stub_upstream: boolean
@@ -248,6 +249,7 @@ export type Database = {
           live_adapters?: Json | null
           routes?: Json
           spend?: number | null
+          spend_approved?: boolean
           started_at?: string | null
           status?: string
           stub_upstream?: boolean
@@ -270,6 +272,7 @@ export type Database = {
           live_adapters?: Json | null
           routes?: Json
           spend?: number | null
+          spend_approved?: boolean
           started_at?: string | null
           status?: string
           stub_upstream?: boolean
