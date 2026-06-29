@@ -257,6 +257,7 @@ type DesignResponse = {
 };
 
 type CreateResponse = { voice_id?: string; error?: string };
+type DeleteResponse = { ok?: boolean; error?: string };
 type TtsResponse = { audio_base_64?: string; media_type?: string; error?: string };
 
 export class CastingError extends Error {
@@ -352,6 +353,30 @@ export async function saveVoiceWinner(
     throw new CastingError("ElevenLabs did not return a voice id.");
   }
   return data.voice_id;
+}
+
+/**
+ * DELETE: best-effort cleanup for a previous library voice after a re-cast has
+ * already been locked to characters.voice_id. Does not spend casting credits.
+ */
+export async function deleteVoice(
+  client: CastingClient,
+  voiceId: string,
+): Promise<void> {
+  const id = voiceId.trim();
+  if (!id) {
+    throw new CastingError("voice_id is required.");
+  }
+  const { data, error } = await client.functions.invoke<DeleteResponse>(EDGE_FUNCTION, {
+    body: { action: "delete", voice_id: id },
+  });
+  if (error) {
+    const mapped = edgeErrorMessage(error, "Could not delete the previous voice.");
+    throw new CastingError(mapped.message, mapped.capReached);
+  }
+  if (data?.error) {
+    throw new CastingError(data.error);
+  }
 }
 
 /**
