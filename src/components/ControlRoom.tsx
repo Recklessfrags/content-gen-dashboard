@@ -386,7 +386,7 @@ function OverviewDashboard({
             <div className="overview-cards">
               <div
                 className={"metric-card" + (rosterStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Total characters: ${rosterStats.total}. ${rosterStats.active} active, ${rosterStats.draft} draft.`}
               >
                 <div className="metric-meta">
@@ -406,7 +406,7 @@ function OverviewDashboard({
 
               <div
                 className={"metric-card" + (rosterStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Roster integrity: ${rosterStats.activeRatio} percent active characters.`}
               >
                 <div className="metric-meta">
@@ -439,7 +439,7 @@ function OverviewDashboard({
             <div className="overview-cards">
               <div
                 className={"metric-card" + (wireStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Total logged ideas: ${wireStats.total}. ${wireStats.backlog} backlog, ${wireStats.active} active, ${wireStats.used} used.`}
               >
                 <div className="metric-meta">
@@ -461,7 +461,7 @@ function OverviewDashboard({
 
               <div
                 className={"metric-card" + (wireStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Inspiration conversion: ${wireStats.conversionRate} percent of ideas converted.`}
               >
                 <div className="metric-meta">
@@ -492,7 +492,7 @@ function OverviewDashboard({
             <div className="overview-cards">
               <div
                 className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Total pipeline runs: ${runsStats.total}. ${runsStats.cleared} cleared, ${runsStats.failed} failed, ${runsStats.active} active or other.`}
               >
                 <div className="metric-meta">
@@ -522,7 +522,7 @@ function OverviewDashboard({
 
               <div
                 className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={
                   costReceiptsLoading
                     ? "Total operational spend is loading from receipts."
@@ -551,7 +551,7 @@ function OverviewDashboard({
 
               <div
                 className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Sentinel pass rate: ${runsStats.passRate} percent. ${runsStats.passedSentinels} of ${runsStats.total} episodes passed.`}
               >
                 <div className="metric-meta">
@@ -574,7 +574,7 @@ function OverviewDashboard({
 
               <div
                 className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={
                   runsStats.lastEpisode
                     ? `Last run operated on ${formatOverviewDate(runsStats.lastEpisode.created_at)}. Subject: ${runsStats.lastEpisode.food}.`
@@ -724,7 +724,7 @@ function CostBoxDashboard({
           <section className="cost-summary" aria-label="Spend summary">
             <div
               className="metric-card hero-card"
-              tabIndex={0}
+              role="group"
               aria-label={`Running total operational spend is ${formatUsd(costStats.grandTotal)}.`}
             >
               <div className="metric-meta">
@@ -738,27 +738,24 @@ function CostBoxDashboard({
               </div>
             </div>
 
-            <div className="metric-card parked-card" tabIndex={0}>
+            <div className="metric-card parked-card redesigned" role="note">
               <div className="metric-meta">
-                <span className="metric-eyebrow">Budget Cap Status</span>
-                <span className="metric-badge">Parked</span>
+                <span className="metric-eyebrow">SYSTEM REGULATION</span>
+                <span className="metric-badge">[AWAITING PIPELINE UPGRADE]</span>
               </div>
-              <div className="budget-seam" aria-hidden="true">
-                <div className="budget-seam-bar" />
-                <span>Parked · Awaiting pipeline cap API exposure</span>
-              </div>
+              <div className="metric-value-date">BUDGET CAP ENFORCEMENT</div>
               <p className="metric-subtext">
-                Cap configuration is not exposed in a dashboard-readable table yet.
+                Spend capping is enforced directly at the content pipeline level
+                (research → assembly). Live dashboard threshold monitoring is currently
+                parked, awaiting schema exposure of the pipeline&apos;s internal threshold
+                tables.
               </p>
             </div>
 
-            <div className="metric-card provider-card" tabIndex={0}>
+            <div className="metric-card provider-card" role="group" aria-label="API provider breakdown">
               <div className="metric-meta provider-head">
-                <span className="metric-eyebrow">API Provider Breakdown</span>
-                <span className="grouping-seam" title="Character attribution requires episodes metadata upgrade.">
-                  <span className="grouping-on">Providers</span>
-                  <span className="grouping-off" aria-disabled="true">Characters Deferred</span>
-                </span>
+                <span className="metric-eyebrow">API PROVIDER BREAKDOWN</span>
+                <span className="metric-badge">Providers</span>
               </div>
 
               <div className="provider-list">
@@ -778,6 +775,11 @@ function CostBoxDashboard({
                   </div>
                 ))}
               </div>
+              <p className="cost-attribution-disclosure">
+                SYSTEM NOTE: Character attribution is currently deferred. LLM token expenses
+                are grouped by provider. Mapping specific costs to individual manuals requires
+                future pipeline metadata that links executions back to character manuals.
+              </p>
             </div>
           </section>
 
@@ -791,7 +793,6 @@ function CostBoxDashboard({
                 <article
                   className={"audit-card" + (isInFlight ? " in-flight" : "")}
                   key={episode.episode_id}
-                  tabIndex={0}
                 >
                   <div className="audit-main">
                     <div className="audit-title">
@@ -1670,6 +1671,18 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   // ── render ─────────────────────────────────────────────────────────────────
   return (
     <div className="cr">
+      <div className="toast-region" aria-atomic="true">
+        {flash && (
+          <div
+            className={"toast " + (flash.err ? "toast--error" : "toast--success")}
+            role={flash.err ? "alert" : "status"}
+            aria-live={flash.err ? "assertive" : "polite"}
+          >
+            {flash.msg}
+          </div>
+        )}
+      </div>
+
       <nav className="rail">
         <div className="brand">
           CONTROL<b>·</b>ROOM
@@ -1917,9 +1930,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       <button className="btn ghost" onClick={() => setView("wire")}>
                         Log an idea →
                       </button>
-                      <span className={"flash" + (flash ? " show" : "") + (flash?.err ? " err" : "")}>
-                        {flash?.msg}
-                      </span>
                     </div>
                   )}
                   {historyOpen && (

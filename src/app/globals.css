@@ -1096,67 +1096,30 @@ body{font-family:var(--body)}
   position:relative;
   overflow:hidden;
 }
-.budget-seam{
-  border:1px solid var(--line);
-  background:rgba(21,24,30,.25);
-  border-radius:3px;
-  min-height:48px;
-  padding:12px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  justify-content:center;
-  position:relative;
+/* Honest "deferred/parked" disclosure card — not a control (T2-8). */
+.parked-card.redesigned{
+  border:1px dashed var(--line-soft);
+  background:rgba(21,24,30,.2);
+  cursor:default;
 }
-.budget-seam-bar{
-  height:7px;
-  border:1px solid var(--line);
-  border-radius:999px;
-  background:var(--line-soft);
-  overflow:hidden;
+.parked-card.redesigned:hover{
+  background:rgba(21,24,30,.2);
+  border-color:var(--line-soft);
 }
-.budget-seam-bar::after{
-  content:"";
-  display:block;
-  width:0;
-  height:100%;
-  background:var(--brass);
-}
-.budget-seam span{
+/* Static character-attribution footnote under the provider breakdown (T2-8).
+   Uses --paper-dim (AA-safe) and an 11px floor rather than the spec's faint 10px. */
+.cost-attribution-disclosure{
   font-family:var(--mono);
-  font-size:12px;
-  letter-spacing:.06em;
-  text-transform:uppercase;
-  color:var(--paper-faint);
+  font-size:11px;
+  line-height:1.45;
+  color:var(--paper-dim);
+  margin-top:14px;
+  padding-top:10px;
+  border-top:1px dashed var(--line-soft);
 }
 .provider-head{
   align-items:flex-start;
   flex-wrap:wrap;
-}
-.grouping-seam{
-  display:flex;
-  align-items:center;
-  gap:4px;
-  flex-wrap:wrap;
-  font-family:var(--mono);
-  font-size:12px;
-  letter-spacing:.04em;
-  text-transform:uppercase;
-}
-.grouping-on,.grouping-off{
-  border:1px solid var(--line);
-  border-radius:2px;
-  padding:3px 6px;
-  white-space:nowrap;
-}
-.grouping-on{
-  color:var(--paper);
-  background:var(--ink);
-}
-.grouping-off{
-  color:var(--paper-faint);
-  border-style:dashed;
-  opacity:.7;
 }
 .provider-list{
   display:flex;
@@ -1337,13 +1300,6 @@ body{font-family:var(--body)}
 @media (max-width:340px){
   .hero-value{
     font-size:28px;
-  }
-  .grouping-seam{
-    width:100%;
-  }
-  .grouping-on,.grouping-off{
-    max-width:100%;
-    white-space:normal;
   }
 }
 @media (prefers-reduced-motion:reduce){
