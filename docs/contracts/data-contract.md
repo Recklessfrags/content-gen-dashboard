@@ -119,13 +119,16 @@ Discovered already-present in the shared project. **Do not recreate or alter.**
 | `message` | text NULL | |
 | `spend` | numeric NOT NULL | `default 0` |
 | `sentinels` | jsonb NOT NULL | `default '[]'` — array of gate verdicts (`stage`, `provider`, `verdict`, `reason`, …) |
+| `character_id` | uuid NULL | **pipeline-stamped** per run (`= characters.id`); **loose uuid, NO FK** (a dashboard character delete never blocks a historical row). null when a job has no `character`. |
 | `created_at` | timestamptz NOT NULL | `default now()` |
 | `updated_at` | timestamptz NOT NULL | `default now()` |
 
-> **No `owner`, no `character_id`.** There is **no per-character linkage** in this
-> schema. The dashboard cannot filter episodes "by active character" without a
-> change to the pipeline's table — out of scope for this repo. See open decision
-> **D-1** in `docs/HANDOFF.md`.
+> **Per-character linkage is now LIVE** (pipeline migration `0006`, confirmed on the HQ
+> 2026-06-29). The worker resolves `jobs.character` → `characters.id` at episode-begin
+> and stamps `episodes.character_id`. This **unblocks Tier-2 per-character cost** (group
+> `episodes`/`receipts` spend by `character_id` in the Cost Box). It is pipeline-owned +
+> read-only for the dashboard, like the rest of the row. (Supersedes the earlier
+> "no per-character linkage" note / decision **D-1**.)
 
 **RLS:** enabled. Added by this dashboard: `episodes_read` = `select to authenticated
 using (true)`. **No** insert/update/delete policies — clients can never write.
@@ -191,8 +194,25 @@ update of the parked one — the parked `ready_for_review` row stays as the audi
 isn't a 409. A **publish** approval re-enqueue sets **both** `publish_approved=true`
 **and** `spend_approved=true` ("approve & go", so the live re-run doesn't re-park at the
 spend gate). Park kind (spend vs publish) is told apart by the **parked stage in the
-run's last receipt** — the dashboard infers it (`detectParkKind`) until/unless the
-pipeline exposes an explicit `review_kind`/`park_reason` field (open HQ ask).
+run's last receipt** — the dashboard infers it (`detectParkKind`) **until the pipeline's
+`park_kind` column lands** (see below), at which point the dashboard reads the column and
+drops the regex inference.
+
+> **Confirmed incoming — pipeline-owned, bare `0016`, NOT yet applied** (HQ 2026-06-29;
+> pipeline will ping when live). Three new `jobs` columns:
+> - **`park_kind text`** — structured spend-vs-publish discriminator (replaces
+>   `detectParkKind` regex).
+> - **`publish_only boolean not null default false`** + **`source_episode_id text`** —
+>   the **resume-to-distribution** path: when set, the worker SKIPS research→assembly and
+>   runs only Distribution against `source_episode_id`'s existing manifest + rendered MP4
+>   (posts the exact reviewed cut, no re-render, no double-spend). The dashboard's
+>   publish-approval button should switch from the both-flags re-enqueue to this safe path
+>   once the columns are live.
+>
+> **Error reasons:** `jobs.error` carries the full human-readable string (e.g.
+> `parked: exhausted: word_count …`, `parked: blocked: duration …`); its prefix
+> (`blocked` / `exhausted` / `approval_required`) is a stable discriminator. The run-queue
+> renders `jobs.error`; the final receipt's `verdict`/`reason` is the drill-down detail.
 
 > **Re-render caveat (operator-facing copy must say this):** a publish-approval
 > re-enqueue re-runs the pipeline **live** — it spends again and `script_writer`
