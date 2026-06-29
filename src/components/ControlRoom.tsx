@@ -30,6 +30,12 @@ type FlatChar = {
 
 type View = "roster" | "wire" | "runs" | "overview" | "cost";
 type CostReceipt = Pick<Receipt, "episode_id" | "seq" | "provider" | "stage" | "spend_so_far">;
+type IdeaWriteState = "saving" | "failed";
+type WireIdea = Idea & {
+  clientKey?: string;
+  clientWriteState?: IdeaWriteState;
+  clientError?: string;
+};
 
 type ProviderCost = {
   name: string;
@@ -654,12 +660,14 @@ function CostBoxDashboard({
   loading,
   error,
   receiptsLoaded,
+  onRetry,
 }: {
   episodes: Episode[];
   costStats: CostStats;
   loading: boolean;
   error: string | null;
   receiptsLoaded: boolean;
+  onRetry: () => void;
 }) {
   if (loading) {
     return (
@@ -688,6 +696,9 @@ function CostBoxDashboard({
           <div className="cost-state">
             <h3>Cost Box Unavailable</h3>
             <p>Couldn&apos;t read the pipeline receipts source: {error}</p>
+            <button className="btn" type="button" onClick={onRetry}>
+              Retry Connection
+            </button>
           </div>
         </div>
       </div>
@@ -1403,9 +1414,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [ideasLoading, setIdeasLoading] = useState(true);
+  const [ideasError, setIdeasError] = useState<string | null>(null);
+  const [episodesLoading, setEpisodesLoading] = useState(true);
+  const [episodesError, setEpisodesError] = useState<string | null>(null);
 
   const [chars, setChars] = useState<FlatChar[]>([]);
-  const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [ideas, setIdeas] = useState<WireIdea[]>([]);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [costReceipts, setCostReceipts] = useState<CostReceipt[]>([]);
   const [costReceiptsLoading, setCostReceiptsLoading] = useState(true);
@@ -1428,6 +1443,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [isRestoredDraft, setIsRestoredDraft] = useState(false);
   const [view, setView] = useState<View>("roster");
   const [draftIdea, setDraftIdea] = useState("");
+  const [draftIdeaNote, setDraftIdeaNote] = useState("");
+  const [ideaNoteFocused, setIdeaNoteFocused] = useState(false);
+  const [ideaSubmittingTitle, setIdeaSubmittingTitle] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -1441,11 +1459,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const lastHistoryTriggerRef = useRef<"header" | "savebar" | null>(null);
   const previewRestoreButtonRef = useRef<HTMLButtonElement>(null);
   const lastRestoreTriggerRef = useRef<"history" | "preview" | null>(null);
+  const characterRequestRef = useRef(0);
+  const ideaRequestRef = useRef(0);
+  const episodeRequestRef = useRef(0);
   const revisionRequestRef = useRef(0);
   const costReceiptRequestRef = useRef(0);
   const lastManualFocusRef = useRef<HTMLElement | null>(null);
   const lastDirtyTriggerRef = useRef<HTMLElement | null>(null);
   const exitFormRef = useRef<HTMLFormElement>(null);
+  const ideaTitleRef = useRef<HTMLTextAreaElement>(null);
+  const ideaSubmittingTitleRef = useRef<string | null>(null);
   const showFlash = (msg: string, err = false) => {
     setFlash({ msg, err });
     if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -1467,65 +1490,118 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return () => window.removeEventListener("focusin", handleFocusIn);
   }, []);
 
-  // ── initial load ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [c, i, e] = await Promise.all([
-        supabase.from("characters").select("*").order("created_at", { ascending: true }),
-        supabase.from("ideas").select("*").order("created_at", { ascending: false }),
-        supabase.from("episodes").select("*").order("created_at", { ascending: false }),
-      ]);
-      if (cancelled) return;
-      const firstErr = c.error || i.error || e.error;
-      if (firstErr) {
-        setLoadError(firstErr.message);
-        setLoading(false);
-        return;
-      }
-      const flat = (c.data as Character[]).map(flatten);
-      setChars(flat);
-      setSavedSnapshots(savedSnapshotsById(flat));
-      setIdeas((i.data as Idea[]) ?? []);
-      setEpisodes((e.data as Episode[]) ?? []);
-      setActiveId(flat[0]?.id ?? null);
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const fetchCharacters = useCallback(async () => {
+    const requestId = characterRequestRef.current + 1;
+    characterRequestRef.current = requestId;
+    setLoading(true);
+    setLoadError(null);
+
+    const { data, error } = await supabase
+      .from("characters")
+      .select("*")
+      .order("created_at", { ascending: true })
+      .returns<Character[]>();
+
+    if (characterRequestRef.current !== requestId) return;
+    setLoading(false);
+    if (error) {
+      setChars([]);
+      setSavedSnapshots({});
+      setActiveId(null);
+      setLoadError(error.message);
+      return;
+    }
+
+    const flat = (data ?? []).map(flatten);
+    setChars(flat);
+    setSavedSnapshots(savedSnapshotsById(flat));
+    setActiveId((current) =>
+      current && flat.some((character) => character.id === current)
+        ? current
+        : (flat[0]?.id ?? null),
+    );
   }, [supabase]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchIdeas = useCallback(async () => {
+    const requestId = ideaRequestRef.current + 1;
+    ideaRequestRef.current = requestId;
+    setIdeasLoading(true);
+    setIdeasError(null);
+
+    const { data, error } = await supabase
+      .from("ideas")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .returns<Idea[]>();
+
+    if (ideaRequestRef.current !== requestId) return;
+    setIdeasLoading(false);
+    if (error) {
+      setIdeasError(error.message);
+      return;
+    }
+
+    setIdeas((current) => {
+      const localOnly = current.filter((idea) => idea.clientWriteState);
+      const localIds = new Set(localOnly.map((idea) => idea.id));
+      const remote = (data ?? []).filter((idea) => !localIds.has(idea.id));
+      return [...localOnly, ...remote];
+    });
+  }, [supabase]);
+
+  const fetchEpisodes = useCallback(async () => {
+    const requestId = episodeRequestRef.current + 1;
+    episodeRequestRef.current = requestId;
+    setEpisodesLoading(true);
+    setEpisodesError(null);
+
+    const { data, error } = await supabase
+      .from("episodes")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .returns<Episode[]>();
+
+    if (episodeRequestRef.current !== requestId) return;
+    setEpisodesLoading(false);
+    if (error) {
+      setEpisodes([]);
+      setEpisodesError(error.message);
+      return;
+    }
+    setEpisodes(data ?? []);
+  }, [supabase]);
+
+  const fetchCostReceipts = useCallback(async () => {
     const requestId = costReceiptRequestRef.current + 1;
     costReceiptRequestRef.current = requestId;
     setCostReceiptsLoading(true);
     setCostReceiptsError(null);
 
-    (async () => {
-      const { data, error } = await supabase
-        .from("receipts")
-        .select("episode_id,seq,provider,stage,spend_so_far")
-        .order("episode_id", { ascending: true })
-        .order("seq", { ascending: true })
-        .returns<CostReceipt[]>();
+    const { data, error } = await supabase
+      .from("receipts")
+      .select("episode_id,seq,provider,stage,spend_so_far")
+      .order("episode_id", { ascending: true })
+      .order("seq", { ascending: true })
+      .returns<CostReceipt[]>();
 
-      if (cancelled || costReceiptRequestRef.current !== requestId) return;
-      setCostReceiptsLoading(false);
-      setCostReceiptsLoaded(true);
-      if (error) {
-        setCostReceipts([]);
-        setCostReceiptsError(error.message);
-        return;
-      }
-      setCostReceipts(data ?? []);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    if (costReceiptRequestRef.current !== requestId) return;
+    setCostReceiptsLoading(false);
+    setCostReceiptsLoaded(true);
+    if (error) {
+      setCostReceipts([]);
+      setCostReceiptsError(error.message);
+      return;
+    }
+    setCostReceipts(data ?? []);
   }, [supabase]);
+
+  // ── initial load ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    void fetchCharacters();
+    void fetchIdeas();
+    void fetchEpisodes();
+    void fetchCostReceipts();
+  }, [fetchCharacters, fetchCostReceipts, fetchEpisodes, fetchIdeas]);
 
   const active = chars.find((c) => c.id === activeId) ?? null;
   const previewingRevision =
@@ -1835,32 +1911,136 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   };
 
   // ── ideas (the wire) ──────────────────────────────────────────────────────
-  const logIdea = async () => {
-    const t = draftIdea.trim();
-    if (!t) return;
-    setDraftIdea("");
+  const makeTempIdeaId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  const startIdeaInsert = async (
+    tempId: string,
+    title: string,
+    note: string,
+    characterId: string | null,
+    channel: string,
+  ) => {
+    if (ideaSubmittingTitleRef.current === title) return;
+    ideaSubmittingTitleRef.current = title;
+    setIdeaSubmittingTitle(title);
+
+    setIdeas((xs) =>
+      xs.map((idea) =>
+        idea.id === tempId
+          ? { ...idea, clientWriteState: "saving", clientError: undefined }
+          : idea,
+      ),
+    );
+
     const { data, error } = await supabase
       .from("ideas")
       .insert({
-        title: t,
-        note: "",
-        character_id: activeId,
-        channel: CHANNELS[0],
+        title,
+        note,
+        character_id: characterId,
+        channel,
         status: "backlog",
       })
       .select("*")
       .single();
+
+    ideaSubmittingTitleRef.current = null;
+    setIdeaSubmittingTitle(null);
+
     if (error || !data) {
-      showFlash("Could not log idea — " + (error?.message ?? ""), true);
-      setDraftIdea(t);
+      const message = error?.message ?? "Unknown database error";
+      showFlash("Could not log idea — " + message, true);
+      setIdeas((xs) =>
+        xs.map((idea) =>
+          idea.id === tempId
+            ? { ...idea, clientWriteState: "failed", clientError: message }
+            : idea,
+        ),
+      );
       return;
     }
-    setIdeas((xs) => [data as Idea, ...xs]);
+
+    const savedIdea: WireIdea = { ...(data as Idea), clientKey: tempId };
+    // Dedup-aware swap: if a concurrent refetch already supplied the real row
+    // while this insert was in flight, drop that duplicate and keep only the
+    // swapped optimistic card (stable key = tempId). Prevents two cards sharing
+    // the same real id when "retry"/refetch overlaps an in-flight insert.
+    setIdeas((xs) => {
+      const withoutDup = xs.filter(
+        (idea) => idea.id !== savedIdea.id || idea.id === tempId,
+      );
+      return withoutDup.map((idea) => (idea.id === tempId ? savedIdea : idea));
+    });
+  };
+
+  const logIdea = async () => {
+    const title = draftIdea.trim();
+    const note = draftIdeaNote.trim();
+    if (!title || ideaSubmittingTitleRef.current === title) return;
+
+    const tempId = makeTempIdeaId();
+    const optimisticIdea: WireIdea = {
+      id: tempId,
+      owner: "",
+      title,
+      note,
+      character_id: activeId,
+      channel: CHANNELS[0],
+      status: "backlog",
+      created_at: new Date().toISOString(),
+      clientKey: tempId,
+      clientWriteState: "saving",
+    };
+
+    setIdeasError(null);
+    setIdeasLoading(false);
+    setIdeas((xs) => [optimisticIdea, ...xs]);
+    setDraftIdea("");
+    setDraftIdeaNote("");
+    window.requestAnimationFrame(() => {
+      ideaTitleRef.current?.focus();
+    });
+    await startIdeaInsert(tempId, title, note, optimisticIdea.character_id, optimisticIdea.channel);
+  };
+
+  const retryIdea = (idea: WireIdea) => {
+    if (!idea.clientWriteState || idea.clientWriteState !== "failed") return;
+    void startIdeaInsert(
+      idea.id,
+      idea.title.trim(),
+      idea.note.trim(),
+      idea.character_id,
+      idea.channel,
+    );
+  };
+
+  const dismissIdea = (id: string) => {
+    setIdeas((xs) => xs.filter((idea) => idea.id !== id));
+  };
+
+  const handleIdeaTitleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      void logIdea();
+      return;
+    }
+
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void logIdea();
+    }
+  };
+
+  const handleIdeaNoteKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      void logIdea();
+    }
   };
 
   const cycleStatus = async (id: string) => {
     const idea = ideas.find((x) => x.id === id);
-    if (!idea) return;
+    if (!idea || idea.clientWriteState) return;
     const next: IdeaStatus = STATUS_CYCLE[idea.status];
     setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, status: next } : x)));
     const { error } = await supabase.from("ideas").update({ status: next }).eq("id", id);
@@ -1873,6 +2053,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const setIdeaField = async (id: string, f: "character_id" | "channel", v: string) => {
     const prev = ideas.find((x) => x.id === id);
+    if (!prev || prev.clientWriteState) return;
     setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, [f]: v } : x)));
     const { error } = await supabase.from("ideas").update({ [f]: v }).eq("id", id);
     if (error && prev) {
@@ -1882,6 +2063,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   };
 
   const openIdeas = ideas.filter((i) => i.status !== "used").length;
+  const ideaCaptureDisabled = Boolean(ideaSubmittingTitle);
+  const canSubmitIdea = draftIdea.trim().length > 0 && !ideaCaptureDisabled;
   const dirtyCodename = active?.codename.trim() ? active.codename : "Untitled";
   const mobileActiveManuals = useMemo(
     () =>
@@ -2046,6 +2229,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         <div className="empty">
           <h3>Comms down</h3>
           <p>Couldn&apos;t reach the database: {loadError}</p>
+          <button className="btn" type="button" onClick={() => void fetchCharacters()}>
+            Retry Roster
+          </button>
         </div>
       ) : (
         <>
@@ -2311,83 +2497,193 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               </div>
               <div className="cap">
                 <span className="eyebrow">
-                  Inspiration just hit — get it down before it&apos;s gone
+                  TRANSMITTING FREQUENCY · LOG NEW BEAT
                 </span>
-                <div className="row" style={{ marginTop: 9 }}>
-                  <input
+                <div className="field" style={{ marginTop: 12 }}>
+                  <textarea
+                    ref={ideaTitleRef}
+                    rows={2}
                     value={draftIdea}
-                    placeholder="An idea, a headline, a half-thought…"
+                    placeholder={'Dossier title (e.g. "Acoustic Kitty target extraction")...'}
                     onChange={(e) => setDraftIdea(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && logIdea()}
-                    aria-label="New idea"
+                    onKeyDown={handleIdeaTitleKeyDown}
+                    disabled={ideaCaptureDisabled}
+                    aria-label="New idea title"
+                    style={{ resize: "vertical" }}
                   />
-                  <button className="btn" onClick={logIdea}>
-                    Log it
+                </div>
+                <div className="field" style={{ marginTop: 10 }}>
+                  <textarea
+                    rows={ideaNoteFocused || draftIdeaNote ? 4 : 1}
+                    value={draftIdeaNote}
+                    placeholder="Tactical notes, dialogue fragments, or scene beats (optional)..."
+                    onChange={(e) => setDraftIdeaNote(e.target.value)}
+                    onFocus={() => setIdeaNoteFocused(true)}
+                    onBlur={() => setIdeaNoteFocused(false)}
+                    onKeyDown={handleIdeaNoteKeyDown}
+                    disabled={ideaCaptureDisabled}
+                    aria-label="New idea note"
+                    style={{ resize: "vertical" }}
+                  />
+                </div>
+                <div className="row" style={{ marginTop: 10, alignItems: "center" }}>
+                  <select
+                    className="tag-select"
+                    value={activeId ?? ""}
+                    disabled
+                    aria-label="Idea character assignment"
+                  >
+                    {active ? (
+                      <option value={active.id}>{active.codename || "Untitled"}</option>
+                    ) : (
+                      <option value="">No dossier assigned</option>
+                    )}
+                  </select>
+                  <select
+                    className="tag-select"
+                    value={CHANNELS[0]}
+                    disabled
+                    aria-label="Idea channel assignment"
+                  >
+                    <option value={CHANNELS[0]}>{CHANNELS[0]}</option>
+                  </select>
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => void logIdea()}
+                    disabled={!canSubmitIdea}
+                  >
+                    {ideaSubmittingTitle ? "TRANSMITTING..." : "LOG IT"}
                   </button>
                 </div>
               </div>
-              {ideas.length === 0 ? (
+              {ideasError && ideas.length > 0 && (
+                <div className="cap" role="alert">
+                  <span className="eyebrow">Wire read degraded</span>
+                  <div className="row" style={{ marginTop: 9, alignItems: "center" }}>
+                    <span className="note">Couldn&apos;t refresh logged ideas: {ideasError}</span>
+                    <button className="btn" type="button" onClick={() => void fetchIdeas()}>
+                      Retry Wire
+                    </button>
+                  </div>
+                </div>
+              )}
+              {ideasLoading && ideas.length === 0 ? (
+                <div className="loading">
+                  <span className="spin" /> Loading wire queue…
+                </div>
+              ) : ideasError && ideas.length === 0 ? (
+                <div className="empty">
+                  <h3>Wire unavailable</h3>
+                  <p>Couldn&apos;t read logged ideas: {ideasError}</p>
+                  <button className="btn" type="button" onClick={() => void fetchIdeas()}>
+                    Retry Wire
+                  </button>
+                </div>
+              ) : ideas.length === 0 ? (
                 <div className="empty">
                   <h3>The wire&apos;s quiet</h3>
                   <p>Nothing logged yet. Drop the next idea above the moment it lands.</p>
                 </div>
               ) : (
                 <div className="wire-list">
-                  {ideas.map((i) => (
-                    <div
-                      key={i.id}
-                      className="icard"
-                      style={{
-                        borderLeftColor:
-                          i.status === "active"
+                  {ideas.map((i) => {
+                    const writeState = i.clientWriteState;
+                    const isWriteBlocked = Boolean(writeState);
+                    const borderLeftColor =
+                      writeState === "failed"
+                        ? "var(--stamp)"
+                        : writeState === "saving"
+                          ? "var(--line-soft)"
+                          : i.status === "active"
                             ? "var(--brass)"
                             : i.status === "used"
                               ? "var(--cleared)"
-                              : "var(--line)",
-                      }}
-                    >
-                      <div className="body">
-                        <div className="title">{i.title}</div>
-                        {i.note && <div className="note">{i.note}</div>}
-                        <div className="tags">
-                          <button
-                            className={"statusbtn s-" + i.status}
-                            onClick={() => cycleStatus(i.id)}
-                          >
-                            {STATUS_LABEL[i.status]}
-                          </button>
-                          <select
-                            className="tag-select"
-                            value={i.character_id ?? ""}
-                            onChange={(e) =>
-                              setIdeaField(i.id, "character_id", e.target.value)
-                            }
-                            aria-label="Assign character"
-                          >
-                            {chars.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.codename || "Untitled"}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            className="tag-select"
-                            value={i.channel}
-                            onChange={(e) =>
-                              setIdeaField(i.id, "channel", e.target.value)
-                            }
-                            aria-label="Assign channel"
-                          >
-                            {CHANNELS.map((ch) => (
-                              <option key={ch} value={ch}>
-                                {ch}
-                              </option>
-                            ))}
-                          </select>
+                              : "var(--line)";
+                    return (
+                      <div
+                        key={i.clientKey ?? i.id}
+                        className="icard"
+                        aria-busy={writeState === "saving"}
+                        style={{
+                          borderLeftColor,
+                          borderColor: writeState === "failed" ? "var(--stamp-deep)" : undefined,
+                          opacity: writeState === "saving" ? 0.65 : undefined,
+                        }}
+                      >
+                        <div className="body">
+                          <div className="title">{i.title}</div>
+                          {i.note && <div className="note">{i.note}</div>}
+                          <div className="tags">
+                            {writeState === "saving" ? (
+                              <span className="statusbtn">[TRANSMITTING...]</span>
+                            ) : writeState === "failed" ? (
+                              <>
+                                <button
+                                  className="statusbtn"
+                                  type="button"
+                                  onClick={() => retryIdea(i)}
+                                  disabled={ideaCaptureDisabled}
+                                >
+                                  [TRANSMISSION FAILED - RETRY]
+                                </button>
+                                <button
+                                  className="statusbtn"
+                                  type="button"
+                                  onClick={() => dismissIdea(i.id)}
+                                >
+                                  Dismiss
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                className={"statusbtn s-" + i.status}
+                                type="button"
+                                onClick={() => cycleStatus(i.id)}
+                              >
+                                {STATUS_LABEL[i.status]}
+                              </button>
+                            )}
+                            <select
+                              className="tag-select"
+                              value={i.character_id ?? ""}
+                              onChange={(e) =>
+                                setIdeaField(i.id, "character_id", e.target.value)
+                              }
+                              disabled={isWriteBlocked}
+                              aria-label="Assign character"
+                            >
+                              {chars.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.codename || "Untitled"}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              className="tag-select"
+                              value={i.channel}
+                              onChange={(e) =>
+                                setIdeaField(i.id, "channel", e.target.value)
+                              }
+                              disabled={isWriteBlocked}
+                              aria-label="Assign channel"
+                            >
+                              {CHANNELS.map((ch) => (
+                                <option key={ch} value={ch}>
+                                  {ch}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {writeState === "failed" && i.clientError && (
+                            <div className="note" role="alert" style={{ color: "var(--stamp)" }}>
+                              {i.clientError}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2398,12 +2694,26 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               <div className="col-head">
                 <h2>Runs</h2>
                 <span className="count">
-                  pipeline output · {episodes.length} episode
-                  {episodes.length === 1 ? "" : "s"}
+                  {episodesLoading
+                    ? "loading pipeline output"
+                    : `pipeline output · ${episodes.length} episode${episodes.length === 1 ? "" : "s"}`}
                 </span>
               </div>
               <div className="cap"><span className="eyebrow">Operation-wide pipeline output — every character&apos;s finished episodes.</span></div>
-              {episodes.length === 0 ? (
+              {episodesLoading ? (
+                <div className="loading">
+                  <span className="spin" /> Loading pipeline output…
+                </div>
+              ) : episodesError ? (
+                <div className="empty">
+                  <Icon name="runs" />
+                  <h3>Runs unavailable</h3>
+                  <p>Couldn&apos;t read pipeline episodes: {episodesError}</p>
+                  <button className="btn" type="button" onClick={() => void fetchEpisodes()}>
+                    Retry Runs
+                  </button>
+                </div>
+              ) : episodes.length === 0 ? (
                 <div className="empty">
                   <Icon name="runs" />
                   <h3>No runs yet</h3>
@@ -2486,6 +2796,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               loading={costReceiptsLoading}
               error={costReceiptsError}
               receiptsLoaded={costReceiptsLoaded}
+              onRetry={() => void fetchCostReceipts()}
             />
           )}
         </>
