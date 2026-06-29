@@ -1,11 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
+import type { SupabaseCompatibleDatabase } from "@/lib/supabase/compat";
 import { cookies } from "next/headers";
 
 // Server-side Supabase client for Server Components / Route Handlers / Actions.
-export async function createClient() {
+// The SupabaseCompatibleDatabase cast works around a supabase-js Insert/Update
+// inference bug — see compat.ts.
+export async function createClient(): Promise<SupabaseClient<SupabaseCompatibleDatabase>> {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -31,5 +36,5 @@ export async function createClient() {
         },
       },
     },
-  );
+  ) as unknown as SupabaseClient<SupabaseCompatibleDatabase>;
 }
