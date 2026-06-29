@@ -30,6 +30,21 @@ type FlatChar = {
 } & { [K in (typeof BIBLE_FIELDS)[number]]: string };
 
 type View = "roster" | "wire" | "runs" | "overview" | "cost";
+const VIEW_KEYS: View[] = ["roster", "wire", "runs", "overview", "cost"];
+function isView(value: string | null): value is View {
+  return value !== null && (VIEW_KEYS as string[]).includes(value);
+}
+// Active view persisted in the URL (?view=) so a refresh restores it.
+function readViewFromUrl(): View | null {
+  if (typeof window === "undefined") return null;
+  const value = new URLSearchParams(window.location.search).get("view");
+  return isView(value) ? value : null;
+}
+function viewUrl(view: View): string {
+  const params = new URLSearchParams(window.location.search);
+  params.set("view", view);
+  return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+}
 type CostReceipt = Pick<Receipt, "episode_id" | "seq" | "provider" | "stage" | "spend_so_far">;
 type IdeaWriteState = "saving" | "failed";
 type WireIdea = Idea & {
@@ -62,6 +77,7 @@ type EditableCharacterFields = Pick<FlatChar, "codename" | "concept" | "status">
 
 type PendingDirtyAction = {
   run: () => void;
+  cancel?: () => void;
 };
 
 function flatten(row: Character): FlatChar {
@@ -1762,14 +1778,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, [activeId, savedSnapshots]);
 
   const guardDirtyAction = useCallback(
-    (action: () => void) => {
+    (action: () => void, cancel?: () => void) => {
       if (dirty && active) {
         if (document.activeElement instanceof HTMLElement) {
           lastDirtyTriggerRef.current = document.activeElement;
         }
         discardDialogRestoreFocusRef.current =
           lastManualFocusRef.current ?? lastDirtyTriggerRef.current;
-        setPendingDirtyAction({ run: action });
+        setPendingDirtyAction({ run: action, cancel });
         return;
       }
 
@@ -1781,8 +1797,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const cancelDirtyAction = useCallback(() => {
     discardDialogRestoreFocusRef.current =
       lastManualFocusRef.current ?? lastDirtyTriggerRef.current;
+    const pending = pendingDirtyAction;
     setPendingDirtyAction(null);
-  }, []);
+    pending?.cancel?.();
+  }, [pendingDirtyAction]);
 
   const confirmDirtyAction = useCallback(() => {
     const action = pendingDirtyAction;
@@ -1804,10 +1822,45 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const guardedSetView = useCallback(
     (nextView: View) => {
       if (nextView === view) return;
-      guardDirtyAction(() => setView(nextView));
+      // In-app nav: push a history entry (after the dirty guard approves) so
+      // the URL reflects the view AND browser back/forward moves between views.
+      guardDirtyAction(() => {
+        setView(nextView);
+        if (typeof window !== "undefined") {
+          window.history.pushState(null, "", viewUrl(nextView));
+        }
+      });
     },
     [guardDirtyAction, view],
   );
+
+  // Restore the active view from the URL on mount (client-only effect, not a
+  // lazy state initializer, to avoid an SSR/hydration mismatch). Normalize the
+  // URL so the first history entry carries the resolved ?view= param.
+  useEffect(() => {
+    const fromUrl = readViewFromUrl();
+    if (fromUrl && fromUrl !== view) setView(fromUrl);
+    window.history.replaceState(null, "", viewUrl(fromUrl ?? view));
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Browser back/forward: sync the view to the URL. Routed through the dirty
+  // guard (no pushState here — the browser already changed history). If the user
+  // chooses "keep editing", revert the URL to the still-current view so URL and
+  // view stay consistent.
+  useEffect(() => {
+    const onPopState = () => {
+      const fromUrl = readViewFromUrl() ?? "roster";
+      if (fromUrl === view) return;
+      guardDirtyAction(
+        () => setView(fromUrl),
+        () => window.history.replaceState(null, "", viewUrl(view)),
+      );
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [guardDirtyAction, view]);
 
   useEffect(() => {
     setHistoryOpen(false);
@@ -2020,6 +2073,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setSavedSnapshots((snapshots) => ({ ...snapshots, [flat.id]: editableSnapshot(flat) }));
     setActiveId(flat.id);
     setView("roster");
+    // Keep the URL in sync with this programmatic view switch (a refresh would
+    // otherwise restore a stale ?view=).
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", viewUrl("roster"));
+    }
   };
 
   const guardedAddChar = () => {
