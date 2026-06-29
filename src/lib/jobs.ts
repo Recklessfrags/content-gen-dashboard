@@ -82,6 +82,7 @@ export type JobEnqueueInput = {
   live_adapters: Json | null;
   stub_upstream: boolean;
   spend_approved: boolean;
+  publish_approved?: boolean;
   idempotency_key?: string | null;
 };
 
@@ -216,6 +217,7 @@ export function buildJobInsert(
     live_adapters: input.live_adapters,
     stub_upstream: input.stub_upstream,
     spend_approved: input.spend_approved,
+    publish_approved: input.publish_approved ?? false,
     idempotency_key:
       input.idempotency_key === undefined
         ? idempotencyKeyFor(input)
@@ -244,9 +246,30 @@ export function buildSpendApprovalReenqueue(
 }
 
 /**
+ * Assumed; confirmed-pending on the HQ: publish approval must carry both
+ * publish_approved and spend_approved because the fresh re-run re-hits the
+ * spend gate before it can reach the publish step.
+ */
+export function buildPublishApprovalReenqueue(
+  originalInput: JobEnqueueInput,
+): TablesInsert<"jobs"> {
+  const input = {
+    ...originalInput,
+    publish_approved: true,
+    spend_approved: true,
+    idempotency_key: null,
+  };
+
+  return {
+    ...buildJobInsert(input),
+    idempotency_key: null,
+  };
+}
+
+/**
  * Maps a parked receipt stage to the review flavor. Assembly/cost-guard/
- * render-cost stages are spend parks; distribution/publish/post/buffer stages
- * are publish parks. Unknown or missing stages remain unknown.
+ * render-cost stages are spend parks; distribution/publish/buffer/posting/
+ * whole-word post stages are publish parks. Unknown or missing stages remain unknown.
  */
 export function detectParkKind(
   lastReceiptStage: string | null | undefined,
@@ -266,10 +289,10 @@ export function detectParkKind(
   }
 
   if (
-    normalized.includes("distribution") ||
-    normalized.includes("publish") ||
-    normalized.includes("post") ||
-    normalized.includes("buffer")
+    /(?:^|[^a-z0-9])(distribution|publish|publishing|buffer|posting)(?:$|[^a-z0-9])/.test(
+      normalized,
+    ) ||
+    /(?:^|[^a-z0-9])post(?:$|[^a-z0-9-])/.test(normalized)
   ) {
     return "publish";
   }

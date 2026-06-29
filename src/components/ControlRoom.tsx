@@ -7,6 +7,7 @@ import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import {
+  buildPublishApprovalReenqueue,
   buildSpendApprovalReenqueue,
   buildJobInsert,
   classifyJobStatus,
@@ -14,7 +15,6 @@ import {
   EPISODE_CAP_MAX,
   EPISODE_CAP_MIN,
   isActionableStatus,
-  isInFlightStatus as isJobInFlightStatus,
   isTerminalStatus,
   idempotencyKeyFor,
   isValidEpisodeCap,
@@ -657,6 +657,7 @@ function jobInputFromRow(
   job: QueueJob,
   overrides: {
     spendApproved?: boolean;
+    publishApproved?: boolean;
     idempotencyKey?: string | null;
   } = {},
 ): JobEnqueueInput {
@@ -671,6 +672,7 @@ function jobInputFromRow(
     live_adapters: job.live_adapters,
     stub_upstream: job.stub_upstream,
     spend_approved: overrides.spendApproved ?? job.spend_approved,
+    publish_approved: overrides.publishApproved ?? job.publish_approved,
     idempotency_key:
       "idempotencyKey" in overrides ? overrides.idempotencyKey : job.idempotency_key,
   };
@@ -2428,7 +2430,7 @@ function DiscardChangesDialog({
 
 type QueueActionDialogProps = {
   job: QueueJob;
-  action: "spend" | "stale";
+  action: "spend" | "publish" | "stale";
   submitting: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -2446,8 +2448,17 @@ function QueueActionDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const isSpend = action === "spend";
-  const title = isSpend ? "APPROVE SPEND LIMITS" : "RE-RUN STRANDED JOB";
-  const descriptionId = isSpend ? "spend-approval-desc" : "stale-rerun-desc";
+  const isPublish = action === "publish";
+  const title = isSpend
+    ? "APPROVE SPEND LIMITS"
+    : isPublish
+      ? "APPROVE PUBLISH"
+      : "RE-RUN STRANDED JOB";
+  const descriptionId = isSpend
+    ? "spend-approval-desc"
+    : isPublish
+      ? "publish-approval-desc"
+      : "stale-rerun-desc";
 
   useFocusTrap({
     active: true,
@@ -2475,7 +2486,17 @@ function QueueActionDialog({
             You are about to authorize extra-budgetary spend for topic:{" "}
             <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
             re-enqueue the job with spend_approved=true. A hard-cap check still protects
-            against runaway loops.
+            against runaway loops. This re-runs the script live; you are approving the
+            plan type, not a byte-identical render.
+          </p>
+        ) : isPublish ? (
+          <p id={descriptionId} className="spend-approval-copy">
+            You are about to approve publishing for topic:{" "}
+            <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
+            re-enqueue the job with publish_approved=true and spend_approved=true. Posts
+            only fire if a publish adapter is wired; none is wired yet, so this will park
+            safely and no real post fires. This re-runs the script live; you are approving
+            the plan type, not a byte-identical render.
           </p>
         ) : (
           <p id={descriptionId} className="spend-approval-copy">
@@ -2497,10 +2518,14 @@ function QueueActionDialog({
             {submitting
               ? isSpend
                 ? "TRANSMITTING APPROVAL..."
-                : "TRANSMITTING RE-RUN..."
+                : isPublish
+                  ? "TRANSMITTING PUBLISH APPROVAL..."
+                  : "TRANSMITTING RE-RUN..."
               : isSpend
                 ? "AUTHORIZE & CONTINUE"
-                : "RE-RUN JOB"}
+                : isPublish
+                  ? "APPROVE & PUBLISH"
+                  : "RE-RUN JOB"}
           </button>
         </div>
       </div>
@@ -2556,7 +2581,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [adding, setAdding] = useState(false);
   const [pendingQueueAction, setPendingQueueAction] = useState<{
     job: QueueJob;
-    action: "spend" | "stale";
+    action: "spend" | "publish" | "stale";
   } | null>(null);
   const [queueActionSubmitting, setQueueActionSubmitting] = useState(false);
 
@@ -3181,7 +3206,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const requestQueueAction = (
     job: QueueJob,
-    action: "spend" | "stale",
+    action: "spend" | "publish" | "stale",
     trigger: HTMLButtonElement,
   ) => {
     queueActionRestoreFocusRef.current = trigger;
@@ -3199,7 +3224,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setQueueActionSubmitting(true);
     const { job, action } = pendingQueueAction;
     const input =
-      action === "spend"
+      action === "spend" || action === "publish"
         ? jobInputFromRow(job)
         : jobInputFromRow(job, {
             idempotencyKey: `job_rerun_${job.id}_${Date.now()}`,
@@ -3207,10 +3232,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
     let payload: ReturnType<typeof buildJobInsert>;
     try {
-      payload =
-        action === "spend"
-          ? buildSpendApprovalReenqueue(input)
-          : buildJobInsert(input);
+      if (action === "spend") {
+        payload = buildSpendApprovalReenqueue(input);
+      } else if (action === "publish") {
+        payload = buildPublishApprovalReenqueue(input);
+      } else {
+        payload = buildJobInsert(input);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid job enqueue payload";
       setQueueActionSubmitting(false);
@@ -3225,6 +3253,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       showFlash(
         action === "spend"
           ? "Spend approval failed — " + error.message
+          : action === "publish"
+            ? "Publish approval failed — " + error.message
           : "Re-run failed — " + error.message,
         true,
       );
@@ -3235,6 +3265,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     showFlash(
       action === "spend"
         ? "✓ Spend approved. Job re-entered the pipeline."
+        : action === "publish"
+          ? "✓ Publish approved. Job re-entered the pipeline."
         : "✓ Stranded job re-queued for execution",
     );
     void fetchJobs();
@@ -4294,7 +4326,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     const cardClass =
                       "icard job-card status-" +
                       status +
-                      (status === "running" && isJobInFlightStatus(status) ? " running-pulse" : "");
+                      (status === "running" ? " running-pulse" : "");
 
                     return (
                       <article
@@ -4332,15 +4364,23 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                                   <p>Reading latest receipt to classify the parked gate.</p>
                                 </div>
                               ) : park?.kind === "publish" ? (
-                                <div className="publish-park-note" role="note">
+                                <div className="job-review-panel">
                                   <h4>Publish Park Detected</h4>
                                   <p>
-                                    Distribution channel approval is currently pipeline-managed.
-                                    This card is read-only until distribution webhook integration is
-                                    finalized.
+                                    Distribution is waiting on human approval.
+                                    {park.stage ? ` Last receipt stage: ${park.stage}.` : ""}
                                   </p>
-                                  <button className="btn ghost compact" type="button" disabled>
-                                    Awaiting publish (pipeline-side)
+                                  <p className="queue-card-substatus">
+                                    No Buffer adapter is wired yet; approval parks safely before any real post.
+                                  </p>
+                                  <button
+                                    className="btn compact"
+                                    type="button"
+                                    onClick={(event) =>
+                                      requestQueueAction(job, "publish", event.currentTarget)
+                                    }
+                                  >
+                                    Approve &amp; publish
                                   </button>
                                 </div>
                               ) : park?.kind === "spend" ? (
@@ -4361,12 +4401,21 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                                   </button>
                                 </div>
                               ) : (
-                                <div className="publish-park-note" role="note">
+                                <div className="job-review-panel">
                                   <h4>Review Park Unresolved</h4>
                                   <p>
                                     No episode receipt could classify this parked job yet.
                                     {park?.error ? ` Receipt read failed: ${park.error}` : ""}
                                   </p>
+                                  <button
+                                    className="btn compact"
+                                    type="button"
+                                    onClick={(event) =>
+                                      requestQueueAction(job, "spend", event.currentTarget)
+                                    }
+                                  >
+                                    Approve spend &amp; continue safely
+                                  </button>
                                 </div>
                               )}
                             </>
