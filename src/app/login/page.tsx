@@ -1,41 +1,27 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { signIn, signUp, type AuthState } from "./actions";
+import { useActionState } from "react";
+import { signIn, type AuthState } from "./actions";
 
 const initial: AuthState = {};
-type Mode = "in" | "up";
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<Mode>("in");
-
   return (
     <div className="login-wrap">
-      <LoginForm key={mode} mode={mode} setMode={setMode} />
+      <LoginForm />
     </div>
   );
 }
 
-function LoginForm({
-  mode,
-  setMode,
-}: {
-  mode: Mode;
-  setMode: (mode: Mode) => void;
-}) {
-  const action = mode === "in" ? signIn : signUp;
-  const [state, formAction, pending] = useActionState(action, initial);
+function LoginForm() {
+  const [state, formAction, pending] = useActionState(signIn, initial);
 
   return (
     <div className="login-card">
       <h1 className="brandline">
         Control<b>·</b>Room
       </h1>
-      <p className="tagline">
-        {mode === "in"
-          ? "Sign in to run the operation."
-          : "Create your operator account."}
-      </p>
+      <p className="tagline">Sign in to run the operation.</p>
       <form action={formAction}>
         <label htmlFor="email">
           <span className="lbl">Email</span>
@@ -54,17 +40,13 @@ function LoginForm({
             id="password"
             type="password"
             name="password"
-            autoComplete={mode === "in" ? "current-password" : "new-password"}
+            autoComplete="current-password"
             required
             placeholder="••••••••"
           />
         </label>
         <button className="btn" type="submit" disabled={pending}>
-          {pending
-            ? "Working…"
-            : mode === "in"
-              ? "Sign in"
-              : "Create account"}
+          {pending ? "Working…" : "Sign in"}
         </button>
       </form>
       {state.error && (
@@ -72,16 +54,6 @@ function LoginForm({
           {state.error}
         </div>
       )}
-      <button
-        type="button"
-        className="toggle"
-        onClick={() => setMode(mode === "in" ? "up" : "in")}
-        disabled={pending}
-      >
-        {mode === "in"
-          ? "Need an account? Create one"
-          : "Already have an account? Sign in"}
-      </button>
     </div>
   );
 }

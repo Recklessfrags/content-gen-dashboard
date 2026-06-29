@@ -28,15 +28,33 @@ const TTS_MODEL = "eleven_multilingual_v2";
 const DAILY_CAP = 25;
 const SAMPLE_MIN = 100;
 const SAMPLE_MAX = 1000;
+const CASTING_ALLOWED_ORIGINS = Deno.env.get("CASTING_ALLOWED_ORIGINS");
+const allowedOrigins = CASTING_ALLOWED_ORIGINS
+  ? new Set(
+      CASTING_ALLOWED_ORIGINS.split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    )
+  : null;
 
 function corsHeaders(origin: string | null): Record<string, string> {
-  return {
-    "Access-Control-Allow-Origin": origin ?? "*",
+  const headers: Record<string, string> = {
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     Vary: "Origin",
   };
+
+  // Setting CASTING_ALLOWED_ORIGINS enables strict CORS mode; production should set it.
+  if (allowedOrigins) {
+    if (origin && allowedOrigins.has(origin)) {
+      headers["Access-Control-Allow-Origin"] = origin;
+    }
+  } else {
+    headers["Access-Control-Allow-Origin"] = origin ?? "*";
+  }
+
+  return headers;
 }
 
 function json(
