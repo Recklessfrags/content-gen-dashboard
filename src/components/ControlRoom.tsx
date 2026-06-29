@@ -231,7 +231,7 @@ const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
 };
 const ENFORCE_CASTING = false; // warn-only now; flip true to hard-block enqueue of uncast characters.
 const UNCAST_ENQUEUE_WARNING =
-  "⚠ This character has no voice cast — the render will use a fallback voice. Cast a voice in the Casting Studio first.";
+  "This character has no voice cast — the render will use a fallback voice. Cast a voice in the Casting Studio first.";
 
 type EnqueueSubmitResult =
   | { kind: "success" }
@@ -347,6 +347,11 @@ function EnqueueIdeaPanel({
       : null;
   const normalizedCharacterName = characterName.trim().toLowerCase();
   const normalizedLinkedCodename = character?.codename.trim().toLowerCase() ?? "";
+  // NOTE: the cast check resolves the free-text character name against the
+  // roster by exact codename. A non-matching name (typo / ad-hoc character)
+  // yields null and shows no warning. Acceptable while warn-only; before
+  // flipping ENFORCE_CASTING to a hard block, tighten this so an unresolved
+  // name doesn't silently bypass the gate.
   const selectedCharacter =
     normalizedCharacterName.length > 0
       ? (characters.find((c) => c.codename.trim().toLowerCase() === normalizedCharacterName) ?? null)
@@ -624,6 +629,7 @@ function EnqueueIdeaPanel({
 
           {castingWarning && (
             <div className="casting-enqueue-warning" role="status">
+              <span aria-hidden="true">⚠ </span>
               {castingWarning}
             </div>
           )}

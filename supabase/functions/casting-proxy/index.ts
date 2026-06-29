@@ -193,6 +193,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "delete") {
+      // Unauthorized-by-design: gated only by a valid session (authenticated =
+      // trusted operator, matching the design/create/tts actions and the rest of
+      // the dashboard). No per-voice ownership check — any operator may delete
+      // any voice in the shared account. If the user base ever broadens beyond
+      // trusted operators, the whole proxy needs per-resource authorization.
       const voiceId = String(body.voice_id ?? "");
       const res = await fetch(`${EL_BASE}/v1/voices/${encodeURIComponent(voiceId)}`, {
         method: "DELETE",
@@ -203,12 +208,9 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true }, 200, origin);
     }
 
-    // action === "tts"
+    // action === "tts" (voice_id + text already validated in the pre-cap block)
     const voiceId = String(body.voice_id ?? "");
     const text = String(body.text ?? "");
-    if (!voiceId || !text) {
-      return json({ error: "voice_id and text are required." }, 400, origin);
-    }
     const voiceSettings =
       body.voice_settings && typeof body.voice_settings === "object"
         ? body.voice_settings
