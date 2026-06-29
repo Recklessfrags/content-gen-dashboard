@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { budgetStatus, getBudgetTarget, setBudgetTarget } from "@/lib/budget";
+import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
+import { useDirtyState } from "@/lib/hooks/useDirtyState";
+import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import { createClient } from "@/lib/supabase/client";
 import {
   BIBLE_FIELDS,
   CHANNELS,
-  STATUS_CYCLE,
-  STATUS_LABEL,
   type Bible,
   type Character,
   type CharacterBibleRevision,
@@ -28,7 +30,41 @@ type FlatChar = {
 } & { [K in (typeof BIBLE_FIELDS)[number]]: string };
 
 type View = "roster" | "wire" | "runs" | "overview" | "cost";
+const VIEW_KEYS: View[] = ["roster", "wire", "runs", "overview", "cost"];
+const VIEW_NAV_ITEMS: ReadonlyArray<{ key: View; label: string }> = [
+  { key: "roster", label: "Roster" },
+  { key: "wire", label: "The Wire" },
+  { key: "runs", label: "Runs" },
+  { key: "overview", label: "Overview" },
+  { key: "cost", label: "Cost" },
+];
+const PRIMARY_VIEW_PANEL_ID = "control-room-primary-view-panel";
+
+function viewTabId(view: View) {
+  return `control-room-tab-${view}`;
+}
+
+function isView(value: string | null): value is View {
+  return value !== null && (VIEW_KEYS as string[]).includes(value);
+}
+// Active view persisted in the URL (?view=) so a refresh restores it.
+function readViewFromUrl(): View | null {
+  if (typeof window === "undefined") return null;
+  const value = new URLSearchParams(window.location.search).get("view");
+  return isView(value) ? value : null;
+}
+function viewUrl(view: View): string {
+  const params = new URLSearchParams(window.location.search);
+  params.set("view", view);
+  return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+}
 type CostReceipt = Pick<Receipt, "episode_id" | "seq" | "provider" | "stage" | "spend_so_far">;
+type IdeaWriteState = "saving" | "failed";
+type WireIdea = Idea & {
+  clientKey?: string;
+  clientWriteState?: IdeaWriteState;
+  clientError?: string;
+};
 
 type ProviderCost = {
   name: string;
@@ -48,6 +84,15 @@ type CostStats = {
   episodeCosts: EpisodeCost[];
 };
 
+type EditableCharacterFields = Pick<FlatChar, "codename" | "concept" | "status"> & {
+  bible: Bible;
+};
+
+type PendingDirtyAction = {
+  run: () => void;
+  cancel?: () => void;
+};
+
 function flatten(row: Character): FlatChar {
   const bible = row.bible || {};
   const flat: Record<string, string> & Pick<FlatChar, "status"> = {
@@ -65,6 +110,30 @@ function toBible(c: FlatChar): Bible {
   const bible: Bible = {};
   for (const f of BIBLE_FIELDS) bible[f] = c[f] ?? "";
   return bible;
+}
+
+function editableSnapshot(c: FlatChar): EditableCharacterFields {
+  return {
+    codename: c.codename,
+    concept: c.concept,
+    status: c.status,
+    bible: toBible(c),
+  };
+}
+
+function savedSnapshotsById(chars: FlatChar[]): Record<string, EditableCharacterFields> {
+  return Object.fromEntries(chars.map((c) => [c.id, editableSnapshot(c)]));
+}
+
+function applyEditableSnapshot(c: FlatChar, snapshot: EditableCharacterFields): FlatChar {
+  const next: FlatChar = {
+    ...c,
+    codename: snapshot.codename,
+    concept: snapshot.concept,
+    status: snapshot.status,
+  };
+  for (const f of BIBLE_FIELDS) next[f] = snapshot.bible[f] ?? "";
+  return next;
 }
 
 function flattenRevision(row: CharacterBibleRevision, character: Pick<FlatChar, "id" | "created_at">): FlatChar {
@@ -90,16 +159,15 @@ const FIELD_LABELS: Record<(typeof BIBLE_FIELDS)[number], string> = {
   runtime: "Runtime target",
 };
 
+const IDEA_STATUS_OPTIONS: IdeaStatus[] = ["backlog", "active", "used"];
+const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
+  backlog: "Backlog",
+  active: "Active",
+  used: "Used",
+};
+
 function formatRevisionDate(createdAt: string) {
   return new Date(createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
-}
-
-function getFocusable(container: HTMLElement) {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), summary, [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-    ),
-  ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
 }
 
 function Icon({ name }: { name: string }) {
@@ -129,41 +197,60 @@ function Icon({ name }: { name: string }) {
 
 // Module-level so editing a textarea does not remount the input (focus-safe).
 function Field({
+  id,
   label,
   hint,
   value,
   onChange,
   rows = 3,
+  multiline = rows > 1,
   mono,
   readOnly = false,
   locked = false,
 }: {
+  id: string;
   label: string;
   hint?: string;
   value: string;
   onChange: (v: string) => void;
   rows?: number;
+  multiline?: boolean;
   mono?: boolean;
   readOnly?: boolean;
   locked?: boolean;
 }) {
+  const controlStyle = mono ? { fontFamily: "var(--mono)", fontSize: "12.5px" } : undefined;
+
   return (
     <div className="field">
-      <label>
+      <label htmlFor={id}>
         <span className="eyebrow">{label}</span>
         <span className="field-label-side">
           {locked && <span className="badge lock-badge">LOCKED - PREVIEW</span>}
           {hint && <span className="hint">{hint}</span>}
         </span>
       </label>
-      <textarea
-        rows={rows}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        readOnly={readOnly}
-        aria-readonly={readOnly}
-        style={mono ? { fontFamily: "var(--mono)", fontSize: "12.5px" } : undefined}
-      />
+      {multiline ? (
+        <textarea
+          id={id}
+          rows={rows}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={readOnly}
+          aria-readonly={readOnly}
+          style={controlStyle}
+        />
+      ) : (
+        <input
+          id={id}
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={readOnly}
+          aria-readonly={readOnly}
+          style={controlStyle}
+        />
+      )}
     </div>
   );
 }
@@ -175,6 +262,7 @@ type DrillDownProps = {
   error: string | null;
   onClose: () => void;
   onRetry: () => void;
+  restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
 };
 
 function hasJson(value: unknown) {
@@ -209,6 +297,17 @@ function formatUsd(value: number, digits = 2) {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(value)} USD`;
+}
+
+function fieldControlId(characterId: string | null, label: string) {
+  const scopedCharacterId = (characterId ?? "no-character").replace(/[^a-zA-Z0-9_-]/g, "-");
+  const scopedLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return `field-${scopedCharacterId}-${scopedLabel || "manual"}`;
+}
+
+function markdownFilename(codename: string) {
+  const trimmed = codename.trim();
+  return `${trimmed.length > 0 ? trimmed.replace(/[\\/]+/g, "-") : "Untitled"}.md`;
 }
 
 function formatOverviewDate(createdAt: string) {
@@ -288,6 +387,39 @@ function computeCostStats(episodes: Episode[], receipts: CostReceipt[]): CostSta
   return { grandTotal, providerSplit, episodeCosts };
 }
 
+// Tiny decorative inline-SVG sparkline (no deps). Returns null below 2 points.
+function Sparkline({ values, variant }: { values: number[]; variant: "spend" | "runs" }) {
+  if (values.length < 2 || values.some((v) => !Number.isFinite(v))) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const n = values.length;
+  const flat = max - min === 0; // all-equal series -> center the line, don't divide by 0
+  const pts = values.map((v, i) => {
+    const x = (i / (n - 1)) * 116 + 2;
+    const y = flat ? 17 : 30 - ((v - min) / span) * 26;
+    return [Number(x.toFixed(2)), Number(y.toFixed(2))] as const;
+  });
+  const line = pts.map(([x, y]) => `${x} ${y}`).join(" L ");
+  const [lastX, lastY] = pts[n - 1];
+  const area = `M ${pts[0][0]} 34 L ${line} L ${lastX} 34 Z`;
+  const color = variant === "spend" ? "var(--brass)" : "var(--stamp)";
+  const gradId = `spark-${variant}-grad`;
+  return (
+    <svg className="sparkline-svg" viewBox="0 0 120 34" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.16" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path className="sparkline-area" d={area} fill={`url(#${gradId})`} />
+      <path className={`sparkline-stroke s-${variant}`} d={`M ${line}`} />
+      <circle className={`sparkline-dot s-${variant}`} cx={lastX} cy={lastY} r="3" />
+    </svg>
+  );
+}
+
 function OverviewDashboard({
   chars,
   ideas,
@@ -365,6 +497,25 @@ function OverviewDashboard({
     };
   }, [costStats.grandTotal, episodes]);
 
+  // Sparkline series: episodes sorted by created_at, then cumulative spend and
+  // cumulative run count over time. Invalid timestamps sort last; <2 points -> no line.
+  const sparkSeries = useMemo(() => {
+    // Only episodes with a valid timestamp contribute to the time series.
+    const valid = episodes.filter((e) =>
+      Number.isFinite(e.created_at ? new Date(e.created_at).getTime() : NaN),
+    );
+    valid.sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+    let cumSpend = 0;
+    const spend: number[] = [];
+    valid.forEach((e) => {
+      cumSpend += typeof e.spend === "number" ? e.spend : 0;
+      spend.push(cumSpend);
+    });
+    return { spend };
+  }, [episodes]);
+
   return (
     <div className="overview" role="region" aria-label="Overview dashboard">
       <div className="col-head">
@@ -386,7 +537,7 @@ function OverviewDashboard({
             <div className="overview-cards">
               <div
                 className={"metric-card" + (rosterStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Total characters: ${rosterStats.total}. ${rosterStats.active} active, ${rosterStats.draft} draft.`}
               >
                 <div className="metric-meta">
@@ -406,7 +557,7 @@ function OverviewDashboard({
 
               <div
                 className={"metric-card" + (rosterStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Roster integrity: ${rosterStats.activeRatio} percent active characters.`}
               >
                 <div className="metric-meta">
@@ -439,7 +590,7 @@ function OverviewDashboard({
             <div className="overview-cards">
               <div
                 className={"metric-card" + (wireStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Total logged ideas: ${wireStats.total}. ${wireStats.backlog} backlog, ${wireStats.active} active, ${wireStats.used} used.`}
               >
                 <div className="metric-meta">
@@ -461,7 +612,7 @@ function OverviewDashboard({
 
               <div
                 className={"metric-card" + (wireStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Inspiration conversion: ${wireStats.conversionRate} percent of ideas converted.`}
               >
                 <div className="metric-meta">
@@ -492,7 +643,7 @@ function OverviewDashboard({
             <div className="overview-cards">
               <div
                 className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Total pipeline runs: ${runsStats.total}. ${runsStats.cleared} cleared, ${runsStats.failed} failed, ${runsStats.active} active or other.`}
               >
                 <div className="metric-meta">
@@ -522,7 +673,7 @@ function OverviewDashboard({
 
               <div
                 className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={
                   costReceiptsLoading
                     ? "Total operational spend is loading from receipts."
@@ -535,8 +686,13 @@ function OverviewDashboard({
                   <span className="metric-eyebrow">Total Operational Spend</span>
                   <span className="metric-badge">Cost</span>
                 </div>
-                <div className="metric-value metric-money">
-                  {costReceiptsLoading ? "Loading" : costReceiptsError ? "Unavailable" : formatMoney(runsStats.totalSpend)}
+                <div className="metric-row">
+                  <div className="metric-value metric-money">
+                    {costReceiptsLoading ? "Loading" : costReceiptsError ? "Unavailable" : formatMoney(runsStats.totalSpend)}
+                  </div>
+                  {!costReceiptsLoading && !costReceiptsError && (
+                    <Sparkline values={sparkSeries.spend} variant="spend" />
+                  )}
                 </div>
                 <div className="metric-breakdown">
                   <span className="metric-subtext">
@@ -551,7 +707,7 @@ function OverviewDashboard({
 
               <div
                 className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={`Sentinel pass rate: ${runsStats.passRate} percent. ${runsStats.passedSentinels} of ${runsStats.total} episodes passed.`}
               >
                 <div className="metric-meta">
@@ -574,7 +730,7 @@ function OverviewDashboard({
 
               <div
                 className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
-                tabIndex={0}
+                role="group"
                 aria-label={
                   runsStats.lastEpisode
                     ? `Last run operated on ${formatOverviewDate(runsStats.lastEpisode.created_at)}. Subject: ${runsStats.lastEpisode.food}.`
@@ -615,19 +771,190 @@ function OverviewDashboard({
   );
 }
 
+function CostSkeleton() {
+  return (
+    <div
+      className="cost-skeleton cost-grid"
+      aria-hidden="true"
+      tabIndex={-1}
+    >
+      <section className="cost-summary">
+        <div className="skeleton skeleton-card skeleton-hero-card">
+          <div className="skeleton-row">
+            <span className="skeleton skeleton-text skeleton-short" />
+            <span className="skeleton skeleton-text skeleton-badge" />
+          </div>
+          <span className="skeleton skeleton-bar skeleton-money" />
+          <span className="skeleton skeleton-text skeleton-wide" />
+        </div>
+        <div className="skeleton skeleton-card skeleton-parked-card">
+          <span className="skeleton skeleton-text skeleton-short" />
+          <span className="skeleton skeleton-bar" />
+          <span className="skeleton skeleton-text skeleton-wide" />
+          <span className="skeleton skeleton-text" />
+        </div>
+        <div className="skeleton skeleton-card skeleton-provider-card">
+          <span className="skeleton skeleton-text skeleton-short" />
+          {[0, 1, 2].map((row) => (
+            <div className="skeleton-provider-row" key={row}>
+              <div className="skeleton-row">
+                <span className="skeleton skeleton-text" />
+                <span className="skeleton skeleton-text skeleton-badge" />
+              </div>
+              <span className="skeleton skeleton-bar" />
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="cost-audit skeleton-audit-panel">
+        <div className="cost-panel-head">
+          <span className="skeleton skeleton-text skeleton-short" />
+          <span className="skeleton skeleton-text skeleton-badge" />
+        </div>
+        <div className="audit-list">
+          {[0, 1, 2, 3].map((row) => (
+            <div className="skeleton skeleton-card skeleton-audit-card" key={row}>
+              <div className="skeleton-row">
+                <span className="skeleton skeleton-text skeleton-wide" />
+                <span className="skeleton skeleton-text skeleton-badge" />
+              </div>
+              <span className="skeleton skeleton-text" />
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function HistorySkeleton() {
+  return (
+    <div
+      className="history-skeleton revision-list"
+      aria-hidden="true"
+      tabIndex={-1}
+    >
+      {[0, 1, 2].map((row) => (
+        <div className="skeleton skeleton-card skeleton-revision-card" key={row}>
+          <div className="skeleton-row">
+            <span className="skeleton skeleton-text" />
+            <span className="skeleton skeleton-text skeleton-badge" />
+          </div>
+          <div className="skeleton-revision-identity">
+            <span className="skeleton skeleton-text skeleton-wide" />
+            <span className="skeleton skeleton-text" />
+          </div>
+          <span className="skeleton skeleton-text skeleton-wide" />
+          <div className="skeleton-row">
+            <span className="skeleton skeleton-text skeleton-button" />
+            <span className="skeleton skeleton-text skeleton-button" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RunDetailSkeleton() {
+  return (
+    <div
+      className="timeline skeleton-timeline"
+      aria-hidden="true"
+      tabIndex={-1}
+    >
+      {[0, 1, 2].map((row) => (
+        <div className="timeline-item" key={row}>
+          <div className="timeline-node none skeleton-node" />
+          <div className="receipt-card none skeleton-receipt-card">
+            <div className="receipt-card-header">
+              <span className="skeleton skeleton-text skeleton-wide" />
+              <span className="skeleton skeleton-text skeleton-badge" />
+            </div>
+            <div className="receipt-meta-row">
+              <span className="skeleton skeleton-text skeleton-button" />
+              <span className="skeleton skeleton-text skeleton-button" />
+            </div>
+            <span className="skeleton skeleton-bar" />
+            <span className="skeleton skeleton-text skeleton-wide" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CostBoxDashboard({
   episodes,
   costStats,
   loading,
   error,
   receiptsLoaded,
+  onRetry,
 }: {
   episodes: Episode[];
   costStats: CostStats;
   loading: boolean;
   error: string | null;
   receiptsLoaded: boolean;
+  onRetry: () => void;
 }) {
+  const [budgetTarget, setBudgetTargetState] = useState<number | null>(null);
+  const [budgetInput, setBudgetInput] = useState("");
+
+  useEffect(() => {
+    const storedTarget = getBudgetTarget();
+    setBudgetTargetState(storedTarget);
+    setBudgetInput(storedTarget === null ? "" : String(storedTarget));
+  }, []);
+
+  const currentBudgetStatus = budgetStatus(costStats.grandTotal, budgetTarget);
+  const budgetPercent =
+    currentBudgetStatus.ratio === null
+      ? null
+      : Math.min(Math.round(currentBudgetStatus.ratio * 100), 999);
+  const budgetProgressWidth =
+    currentBudgetStatus.ratio === null
+      ? 0
+      : Math.min(Math.max(currentBudgetStatus.ratio * 100, 0), 100);
+
+  const updateBudgetTarget = (rawValue: string) => {
+    setBudgetInput(rawValue);
+    const trimmedValue = rawValue.trim();
+    if (trimmedValue.length === 0) {
+      setBudgetTarget(null);
+      setBudgetTargetState(null);
+      return;
+    }
+
+    const parsedValue = Number(trimmedValue);
+    if (!Number.isFinite(parsedValue) || parsedValue <= 0) return;
+
+    setBudgetTarget(parsedValue);
+    setBudgetTargetState(parsedValue);
+  };
+
+  const handleBudgetTargetBlur = (rawValue: string) => {
+    const trimmedValue = rawValue.trim();
+    if (trimmedValue.length === 0) {
+      updateBudgetTarget(rawValue);
+      return;
+    }
+
+    const parsedValue = Number(trimmedValue);
+    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+      setBudgetInput(budgetTarget === null ? "" : String(budgetTarget));
+      return;
+    }
+
+    updateBudgetTarget(rawValue);
+  };
+
+  const clearBudgetTarget = () => {
+    setBudgetInput("");
+    setBudgetTarget(null);
+    setBudgetTargetState(null);
+  };
+
   if (loading) {
     return (
       <div className="cost" role="region" aria-label="Spend governance workspace">
@@ -636,9 +963,7 @@ function CostBoxDashboard({
           <span className="count">loading receipts</span>
         </div>
         <div className="cost-content">
-          <div className="loading cost-loading">
-            <span className="spin" /> Loading spend receipts…
-          </div>
+          <CostSkeleton />
         </div>
       </div>
     );
@@ -655,6 +980,9 @@ function CostBoxDashboard({
           <div className="cost-state">
             <h3>Cost Box Unavailable</h3>
             <p>Couldn&apos;t read the pipeline receipts source: {error}</p>
+            <button className="btn" type="button" onClick={onRetry}>
+              Retry Connection
+            </button>
           </div>
         </div>
       </div>
@@ -723,42 +1051,94 @@ function CostBoxDashboard({
         <div className="cost-grid">
           <section className="cost-summary" aria-label="Spend summary">
             <div
-              className="metric-card hero-card"
-              tabIndex={0}
-              aria-label={`Running total operational spend is ${formatUsd(costStats.grandTotal)}.`}
+              className={"metric-card hero-card" + (currentBudgetStatus.over ? " breached" : "")}
+              role="group"
+              aria-label={
+                currentBudgetStatus.over && budgetTarget !== null
+                  ? `Running total operational spend is ${formatUsd(costStats.grandTotal)}. Operational spend has breached the local target of ${formatUsd(budgetTarget)}.`
+                  : `Running total operational spend is ${formatUsd(costStats.grandTotal)}.`
+              }
             >
               <div className="metric-meta">
                 <span className="metric-eyebrow">Running Total Operational Spend</span>
-                <span className="metric-badge">USD</span>
+                <span className={currentBudgetStatus.over ? "metric-badge alert-badge" : "metric-badge"}>
+                  {currentBudgetStatus.over ? "[LIMIT EXCEEDED]" : "USD"}
+                </span>
               </div>
               <div className="metric-value hero-value">{formatUsd(costStats.grandTotal)}</div>
               <div className="metric-breakdown">
-                <span className="pulse-dot" aria-hidden="true" />
+                <span
+                  className={"pulse-dot" + (currentBudgetStatus.over ? " breached" : "")}
+                  aria-hidden="true"
+                />
                 Live &amp; In-Flight Aware · Includes running pipeline operations
+              </div>
+              {budgetTarget !== null && (
+                <div className="budget-target-status">
+                  <div className="progress-container" aria-hidden="true">
+                    <div
+                      className={"progress-bar " + (currentBudgetStatus.over ? "stamp" : "cleared")}
+                      style={{ width: `${budgetProgressWidth}%` }}
+                    />
+                  </div>
+                  <span className={currentBudgetStatus.over ? "budget-warning-text" : "metric-subtext"}>
+                    {currentBudgetStatus.over
+                      ? `Operational spend has breached your local target of ${formatUsd(budgetTarget)}.`
+                      : `${budgetPercent}% of local target ${formatUsd(budgetTarget)}.`}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="metric-card budget-target-card" role="group" aria-labelledby="budget-target-title">
+              <div className="metric-meta">
+                <span className="metric-eyebrow">LOCAL SPEND GOVERNANCE</span>
+                <span className="metric-badge">Browser Local</span>
+              </div>
+              <label className="budget-target-label" htmlFor="budget-target-input" id="budget-target-title">
+                SET TARGET GOAL (USD)
+              </label>
+              <div className="budget-target-controls">
+                <input
+                  id="budget-target-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={budgetInput}
+                  placeholder="No local target set..."
+                  onChange={(event) => updateBudgetTarget(event.target.value)}
+                  onBlur={(event) => handleBudgetTargetBlur(event.target.value)}
+                />
+                <button
+                  className="btn ghost"
+                  type="button"
+                  onClick={clearBudgetTarget}
+                  disabled={budgetTarget === null && budgetInput.trim().length === 0}
+                >
+                  Clear
+                </button>
               </div>
             </div>
 
-            <div className="metric-card parked-card" tabIndex={0}>
+            <div className="metric-card parked-card redesigned" role="note">
               <div className="metric-meta">
-                <span className="metric-eyebrow">Budget Cap Status</span>
-                <span className="metric-badge">Parked</span>
+                <span className="metric-eyebrow">SYSTEM REGULATION</span>
+                <span className="metric-badge">[AWAITING PIPELINE UPGRADE]</span>
               </div>
-              <div className="budget-seam" aria-hidden="true">
-                <div className="budget-seam-bar" />
-                <span>Parked · Awaiting pipeline cap API exposure</span>
-              </div>
+              <div className="metric-value-date">BUDGET CAP ENFORCEMENT</div>
               <p className="metric-subtext">
-                Cap configuration is not exposed in a dashboard-readable table yet.
+                Spend capping is enforced directly at the content pipeline level
+                (research → assembly). Live dashboard threshold monitoring is currently
+                parked, awaiting schema exposure of the pipeline&apos;s internal threshold
+                tables.
               </p>
             </div>
 
-            <div className="metric-card provider-card" tabIndex={0}>
+            <div className="metric-card provider-card" role="group" aria-label="API provider breakdown">
               <div className="metric-meta provider-head">
-                <span className="metric-eyebrow">API Provider Breakdown</span>
-                <span className="grouping-seam" title="Character attribution requires episodes metadata upgrade.">
-                  <span className="grouping-on">Providers</span>
-                  <span className="grouping-off" aria-disabled="true">Characters Deferred</span>
-                </span>
+                <span className="metric-eyebrow">API PROVIDER BREAKDOWN</span>
+                <span className="metric-badge">Providers</span>
               </div>
 
               <div className="provider-list">
@@ -778,6 +1158,11 @@ function CostBoxDashboard({
                   </div>
                 ))}
               </div>
+              <p className="cost-attribution-disclosure">
+                SYSTEM NOTE: Character attribution is currently deferred. LLM token expenses
+                are grouped by provider. Mapping specific costs to individual manuals requires
+                future pipeline metadata that links executions back to character manuals.
+              </p>
             </div>
           </section>
 
@@ -791,7 +1176,6 @@ function CostBoxDashboard({
                 <article
                   className={"audit-card" + (isInFlight ? " in-flight" : "")}
                   key={episode.episode_id}
-                  tabIndex={0}
                 >
                   <div className="audit-main">
                     <div className="audit-title">
@@ -823,53 +1207,18 @@ function DrillDownPanel({
   error,
   onClose,
   onRetry,
+  restoreFocusRef,
 }: DrillDownProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    closeButtonRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-
-      if (event.key !== "Tab") return;
-
-      const panel = panelRef.current;
-      if (!panel) return;
-
-      const focusable = getFocusable(panel);
-
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const activeElement = document.activeElement;
-
-      if (!panel.contains(activeElement)) {
-        event.preventDefault();
-        first.focus();
-        return;
-      }
-
-      if (event.shiftKey && activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useFocusTrap({
+    active: true,
+    containerRef: panelRef,
+    onEscape: onClose,
+    initialFocusRef: closeButtonRef,
+    restoreFocusRef,
+  });
 
   return (
     <div
@@ -908,9 +1257,7 @@ function DrillDownPanel({
 
       <div className="drilldown-content">
         {loading ? (
-          <div className="loading">
-            <span className="spin" /> Loading run receipts…
-          </div>
+          <RunDetailSkeleton />
         ) : error ? (
           <div className="empty">
             <h3>Comms Down</h3>
@@ -1029,10 +1376,14 @@ type HistoryDrawerProps = {
   loading: boolean;
   error: string | null;
   previewingRevisionId: string | null;
+  focusTrapActive: boolean;
   onClose: () => void;
   onRetry: () => void;
   onPreview: (revision: CharacterBibleRevision) => void;
   onRestore: (revision: CharacterBibleRevision) => void;
+  onCompare: (revision: CharacterBibleRevision, trigger: HTMLButtonElement) => void;
+  initialFocusRef?: React.RefObject<HTMLButtonElement | null>;
+  restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
 };
 
 function changedFields(
@@ -1048,59 +1399,173 @@ function changedFields(
   return `+${changed.length} edits: ${changed.slice(0, 3).join(", ")}`;
 }
 
+type CompareFieldKey = "codename" | "concept" | "status" | (typeof BIBLE_FIELDS)[number];
+type CompareFieldStatus = "unchanged" | "modified" | "added" | "removed";
+type CompareLayout = "split" | "inline";
+type DiffState = "same" | "inserted" | "deleted";
+
+type CompareFieldDefinition = {
+  key: CompareFieldKey;
+  label: string;
+};
+
+type DiffToken = {
+  value: string;
+  state: DiffState;
+};
+
+type FieldComparison = {
+  field: CompareFieldDefinition;
+  currentValue: string;
+  revisionValue: string;
+  status: CompareFieldStatus;
+  currentDiff: DiffToken[];
+  revisionDiff: DiffToken[];
+};
+
+const COMPARE_FIELDS: CompareFieldDefinition[] = [
+  { key: "codename", label: "Codename" },
+  { key: "concept", label: "One-line concept" },
+  { key: "status", label: "Status" },
+  ...BIBLE_FIELDS.map((field) => ({ key: field, label: FIELD_LABELS[field] })),
+];
+
+function statusLabel(status: CharacterStatus): string {
+  return status === "active" ? "Active" : "Draft";
+}
+
+function compareValue(character: FlatChar, key: CompareFieldKey): string {
+  if (key === "status") return statusLabel(character.status);
+  return character[key] ?? "";
+}
+
+function fieldStatus(currentValue: string, revisionValue: string): CompareFieldStatus {
+  if (currentValue === revisionValue) return "unchanged";
+  if (currentValue.trim() !== "" && revisionValue.trim() === "") return "added";
+  if (currentValue.trim() === "" && revisionValue.trim() !== "") return "removed";
+  return "modified";
+}
+
+function tokenizeDiffValue(value: string): string[] {
+  return value.match(/\s+|[^\s]+/g) ?? [];
+}
+
+function diffText(revisionValue: string, currentValue: string) {
+  const revisionTokens = tokenizeDiffValue(revisionValue);
+  const currentTokens = tokenizeDiffValue(currentValue);
+  const table = Array.from({ length: revisionTokens.length + 1 }, () =>
+    Array.from({ length: currentTokens.length + 1 }, () => 0),
+  );
+
+  for (let revisionIndex = 1; revisionIndex <= revisionTokens.length; revisionIndex += 1) {
+    for (let currentIndex = 1; currentIndex <= currentTokens.length; currentIndex += 1) {
+      if (revisionTokens[revisionIndex - 1] === currentTokens[currentIndex - 1]) {
+        table[revisionIndex][currentIndex] = table[revisionIndex - 1][currentIndex - 1] + 1;
+      } else {
+        table[revisionIndex][currentIndex] = Math.max(
+          table[revisionIndex - 1][currentIndex],
+          table[revisionIndex][currentIndex - 1],
+        );
+      }
+    }
+  }
+
+  const revisionDiff: DiffToken[] = [];
+  const currentDiff: DiffToken[] = [];
+  let revisionIndex = revisionTokens.length;
+  let currentIndex = currentTokens.length;
+
+  while (revisionIndex > 0 || currentIndex > 0) {
+    if (
+      revisionIndex > 0 &&
+      currentIndex > 0 &&
+      revisionTokens[revisionIndex - 1] === currentTokens[currentIndex - 1]
+    ) {
+      const value = revisionTokens[revisionIndex - 1];
+      revisionDiff.push({ value, state: "same" });
+      currentDiff.push({ value, state: "same" });
+      revisionIndex -= 1;
+      currentIndex -= 1;
+    } else if (
+      currentIndex > 0 &&
+      (revisionIndex === 0 ||
+        table[revisionIndex][currentIndex - 1] >= table[revisionIndex - 1][currentIndex])
+    ) {
+      currentDiff.push({ value: currentTokens[currentIndex - 1], state: "inserted" });
+      currentIndex -= 1;
+    } else if (revisionIndex > 0) {
+      revisionDiff.push({ value: revisionTokens[revisionIndex - 1], state: "deleted" });
+      revisionIndex -= 1;
+    }
+  }
+
+  return {
+    currentDiff: currentDiff.reverse(),
+    revisionDiff: revisionDiff.reverse(),
+  };
+}
+
+function buildComparisons(current: FlatChar, revision: CharacterBibleRevision): FieldComparison[] {
+  const revisionFlat = flattenRevision(revision, current);
+  return COMPARE_FIELDS.map((field) => {
+    const currentValue = compareValue(current, field.key);
+    const revisionValue = compareValue(revisionFlat, field.key);
+    const { currentDiff, revisionDiff } = diffText(revisionValue, currentValue);
+
+    return {
+      field,
+      currentValue,
+      revisionValue,
+      status: fieldStatus(currentValue, revisionValue),
+      currentDiff,
+      revisionDiff,
+    };
+  });
+}
+
+function renderDiff(tokens: DiffToken[], emptyLabel: string) {
+  if (tokens.length === 0) return <span>{emptyLabel}</span>;
+
+  return tokens.map((token, index) => {
+    if (token.state === "same") {
+      return <React.Fragment key={`${index}-${token.state}`}>{token.value}</React.Fragment>;
+    }
+
+    return (
+      <span
+        key={`${index}-${token.state}`}
+        className={token.state === "inserted" ? "diff-ins" : "diff-del"}
+      >
+        {token.value}
+      </span>
+    );
+  });
+}
+
 function HistoryDrawer({
   revisions,
   loading,
   error,
   previewingRevisionId,
+  focusTrapActive,
   onClose,
   onRetry,
   onPreview,
   onRestore,
+  onCompare,
+  initialFocusRef,
+  restoreFocusRef,
 }: HistoryDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    closeButtonRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-
-      if (event.key !== "Tab") return;
-      const drawer = drawerRef.current;
-      if (!drawer) return;
-      const focusable = getFocusable(drawer);
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const activeElement = document.activeElement;
-
-      if (!drawer.contains(activeElement)) {
-        event.preventDefault();
-        first.focus();
-        return;
-      }
-
-      if (event.shiftKey && activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useFocusTrap({
+    active: focusTrapActive,
+    containerRef: drawerRef,
+    onEscape: onClose,
+    initialFocusRef: initialFocusRef ?? closeButtonRef,
+    restoreFocusRef,
+  });
 
   return (
     <div className="history-layer" role="presentation">
@@ -1142,9 +1607,7 @@ function HistoryDrawer({
 
         <div className="history-body">
           {loading ? (
-            <div className="loading history-loading">
-              <span className="spin" /> Loading version history…
-            </div>
+            <HistorySkeleton />
           ) : error ? (
             <div className="history-error">
               <h3>History unavailable</h3>
@@ -1185,6 +1648,16 @@ function HistoryDrawer({
                       <button
                         className="btn ghost"
                         type="button"
+                        onClick={(event) => onCompare(revision, event.currentTarget)}
+                        aria-label={`Compare current bible to revision from ${formatRevisionDate(
+                          revision.created_at,
+                        )}`}
+                      >
+                        Compare
+                      </button>
+                      <button
+                        className="btn ghost"
+                        type="button"
                         onClick={() => onPreview(revision)}
                         aria-pressed={isPreviewing}
                       >
@@ -1205,56 +1678,183 @@ function HistoryDrawer({
   );
 }
 
+type CompareDialogProps = {
+  current: FlatChar;
+  revision: CharacterBibleRevision;
+  onClose: () => void;
+  onRestore: (revision: CharacterBibleRevision) => void;
+  restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
+};
+
+function CompareDialog({
+  current,
+  revision,
+  onClose,
+  onRestore,
+  restoreFocusRef,
+}: CompareDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const returnButtonRef = useRef<HTMLButtonElement>(null);
+  const [layout, setLayout] = useState<CompareLayout>("split");
+  const comparisons = useMemo(() => buildComparisons(current, revision), [current, revision]);
+  const hasDifferences = comparisons.some((comparison) => comparison.status !== "unchanged");
+  const formattedDate = formatRevisionDate(revision.created_at);
+
+  useFocusTrap({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: onClose,
+    initialFocusRef: returnButtonRef,
+    restoreFocusRef,
+  });
+
+  const handleLayerMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) onClose();
+  };
+
+  return (
+    <div className="compare-layer" role="presentation" onMouseDown={handleLayerMouseDown}>
+      <div
+        ref={dialogRef}
+        className="compare-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Dossier Revision Comparison"
+      >
+        <div className="compare-head">
+          <h2>Dossier Revision Comparison</h2>
+          <p>
+            Comparing live manual draft of {current.codename || "Untitled"} against archive
+            snapshot from {formattedDate}
+          </p>
+        </div>
+
+        <div className="compare-toolbar">
+          <div role="tablist" aria-label="Comparison layout">
+            <button
+              className="btn ghost"
+              type="button"
+              role="tab"
+              aria-selected={layout === "split"}
+              onClick={() => setLayout("split")}
+            >
+              Side-by-Side Layout
+            </button>
+            <button
+              className="btn ghost"
+              type="button"
+              role="tab"
+              aria-selected={layout === "inline"}
+              onClick={() => setLayout("inline")}
+            >
+              Inline Diff Layout
+            </button>
+          </div>
+          <span className="count">
+            {hasDifferences
+              ? `${comparisons.filter((comparison) => comparison.status !== "unchanged").length} modified`
+              : "No differences"}
+          </span>
+        </div>
+
+        <div className="compare-body">
+          {!hasDifferences && (
+            <div className="compare-field unchanged" role="status">
+              <div className="compare-field-header">
+                <label>No differences</label>
+                <span className="chip">[ UNCHANGED ]</span>
+              </div>
+              <div className="compare-column">
+                Current live manual draft matches this archive snapshot across every compared field.
+              </div>
+            </div>
+          )}
+
+          {comparisons.map((comparison) => {
+            const changed = comparison.status !== "unchanged";
+            const chip = changed ? "[ MODIFIED ]" : "[ UNCHANGED ]";
+            const currentColumnClass =
+              "compare-column" +
+              (comparison.status === "added" || comparison.status === "modified" ? " added" : "");
+            const revisionColumnClass =
+              "compare-column" +
+              (comparison.status === "removed" || comparison.status === "modified"
+                ? " removed"
+                : "");
+
+            return (
+              <section
+                key={comparison.field.key}
+                className={"compare-field" + (!changed ? " unchanged" : "")}
+                aria-label={`${comparison.field.label}: ${comparison.status}`}
+              >
+                <div className="compare-field-header">
+                  <label>{comparison.field.label}</label>
+                  <span className="chip">{chip}</span>
+                </div>
+
+                {layout === "split" ? (
+                  <div className="compare-split">
+                    <div className={currentColumnClass}>
+                      <strong>Current</strong>
+                      {"\n"}
+                      {renderDiff(comparison.currentDiff, "Empty")}
+                    </div>
+                    <div className={revisionColumnClass}>
+                      <strong>Revision</strong>
+                      {"\n"}
+                      {renderDiff(comparison.revisionDiff, "Empty")}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="compare-split" style={{ gridTemplateColumns: "1fr" }}>
+                    <div className="compare-column">
+                      <strong>Current</strong>
+                      {"\n"}
+                      {renderDiff(comparison.currentDiff, "Empty")}
+                      {"\n\n"}
+                      <strong>Revision</strong>
+                      {"\n"}
+                      {renderDiff(comparison.revisionDiff, "Empty")}
+                    </div>
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
+
+        <div className="compare-foot">
+          <button className="btn" type="button" onClick={() => onRestore(revision)}>
+            RESTORE THIS VERSION
+          </button>
+          <button ref={returnButtonRef} className="btn ghost" type="button" onClick={onClose}>
+            BACK TO HISTORY
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type RestoreDialogProps = {
   revision: CharacterBibleRevision;
   onCancel: () => void;
   onConfirm: () => void;
+  restoreFocusRef: React.RefObject<HTMLElement | null>;
 };
 
-function RestoreDialog({ revision, onCancel, onConfirm }: RestoreDialogProps) {
+function RestoreDialog({ revision, onCancel, onConfirm, restoreFocusRef }: RestoreDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    cancelButtonRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onCancel();
-        return;
-      }
-
-      if (event.key !== "Tab") return;
-      const dialog = dialogRef.current;
-      if (!dialog) return;
-      const focusable = getFocusable(dialog);
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const activeElement = document.activeElement;
-
-      if (!dialog.contains(activeElement)) {
-        event.preventDefault();
-        first.focus();
-        return;
-      }
-
-      if (event.shiftKey && activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onCancel]);
+  useFocusTrap({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: onCancel,
+    initialFocusRef: cancelButtonRef,
+    restoreFocusRef,
+  });
 
   return (
     <div className="restore-layer" role="presentation">
@@ -1285,14 +1885,70 @@ function RestoreDialog({ revision, onCancel, onConfirm }: RestoreDialogProps) {
   );
 }
 
+type DiscardChangesDialogProps = {
+  codename: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  restoreFocusRef: React.RefObject<HTMLElement | null>;
+};
+
+function DiscardChangesDialog({
+  codename,
+  onCancel,
+  onConfirm,
+  restoreFocusRef,
+}: DiscardChangesDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const keepButtonRef = useRef<HTMLButtonElement>(null);
+
+  useFocusTrap({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: onCancel,
+    initialFocusRef: keepButtonRef,
+    restoreFocusRef,
+  });
+
+  return (
+    <div className="restore-layer" role="presentation">
+      <div
+        ref={dialogRef}
+        className="restore-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="discard-title"
+        aria-describedby="discard-desc"
+      >
+        <h2 id="discard-title">UNSAVED CHANGES IN BUFFER</h2>
+        <p id="discard-desc">
+          You have uncommitted modifications in the field manual for {codename}.
+          Leaving this screen will erase these changes permanently.
+        </p>
+        <div className="restore-actions">
+          <button className="btn ghost" type="button" onClick={onConfirm}>
+            DISCARD CHANGES
+          </button>
+          <button ref={keepButtonRef} className="btn" type="button" onClick={onCancel}>
+            KEEP EDITING
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const supabase = useMemo(() => createClient(), []);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [ideasLoading, setIdeasLoading] = useState(true);
+  const [ideasError, setIdeasError] = useState<string | null>(null);
+  const [episodesLoading, setEpisodesLoading] = useState(true);
+  const [episodesError, setEpisodesError] = useState<string | null>(null);
 
   const [chars, setChars] = useState<FlatChar[]>([]);
-  const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [ideas, setIdeas] = useState<WireIdea[]>([]);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [costReceipts, setCostReceipts] = useState<CostReceipt[]>([]);
   const [costReceiptsLoading, setCostReceiptsLoading] = useState(true);
@@ -1304,94 +1960,189 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [receiptsError, setReceiptsError] = useState<string | null>(null);
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [savedSnapshots, setSavedSnapshots] = useState<Record<string, EditableCharacterFields>>({});
   const [historyOpen, setHistoryOpen] = useState(false);
   const [revisions, setRevisions] = useState<CharacterBibleRevision[]>([]);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [revisionsError, setRevisionsError] = useState<string | null>(null);
   const [previewingRevisionId, setPreviewingRevisionId] = useState<string | null>(null);
+  const [compareRevision, setCompareRevision] = useState<CharacterBibleRevision | null>(null);
   const [pendingRestore, setPendingRestore] = useState<CharacterBibleRevision | null>(null);
+  const [pendingDirtyAction, setPendingDirtyAction] = useState<PendingDirtyAction | null>(null);
   const [isRestoredDraft, setIsRestoredDraft] = useState(false);
   const [view, setView] = useState<View>("roster");
   const [draftIdea, setDraftIdea] = useState("");
+  const [draftIdeaNote, setDraftIdeaNote] = useState("");
+  const [ideaNoteFocused, setIdeaNoteFocused] = useState(false);
+  const [ideaSubmittingTitle, setIdeaSubmittingTitle] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewTabRefs = useRef<Record<View, HTMLButtonElement | null>>({
+    roster: null,
+    wire: null,
+    runs: null,
+    overview: null,
+    cost: null,
+  });
   const runButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const lastRunTriggerRef = useRef<string | null>(null);
+  const runDetailRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const receiptRequestRef = useRef(0);
   const headerHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const savebarHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const lastHistoryTriggerRef = useRef<"header" | "savebar" | null>(null);
+  const historyRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
+  const compareRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const previewRestoreButtonRef = useRef<HTMLButtonElement>(null);
   const lastRestoreTriggerRef = useRef<"history" | "preview" | null>(null);
+  const restoreDialogRestoreFocusRef = useRef<HTMLElement | null>(null);
+  const characterRequestRef = useRef(0);
+  const ideaRequestRef = useRef(0);
+  const episodeRequestRef = useRef(0);
   const revisionRequestRef = useRef(0);
   const costReceiptRequestRef = useRef(0);
+  const lastManualFocusRef = useRef<HTMLElement | null>(null);
+  const lastDirtyTriggerRef = useRef<HTMLElement | null>(null);
+  const discardDialogRestoreFocusRef = useRef<HTMLElement | null>(null);
+  const exitFormRef = useRef<HTMLFormElement>(null);
+  const ideaTitleRef = useRef<HTMLTextAreaElement>(null);
+  const ideaSubmittingTitleRef = useRef<string | null>(null);
   const showFlash = (msg: string, err = false) => {
     setFlash({ msg, err });
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 2200);
   };
 
-  // ── initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [c, i, e] = await Promise.all([
-        supabase.from("characters").select("*").order("created_at", { ascending: true }),
-        supabase.from("ideas").select("*").order("created_at", { ascending: false }),
-        supabase.from("episodes").select("*").order("created_at", { ascending: false }),
-      ]);
-      if (cancelled) return;
-      const firstErr = c.error || i.error || e.error;
-      if (firstErr) {
-        setLoadError(firstErr.message);
-        setLoading(false);
-        return;
+    const handleFocusIn = (event: FocusEvent) => {
+      if (
+        event.target instanceof HTMLElement &&
+        (event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLInputElement) &&
+        event.target.closest(".sheet")
+      ) {
+        lastManualFocusRef.current = event.target;
       }
-      const flat = (c.data as Character[]).map(flatten);
-      setChars(flat);
-      setIdeas((i.data as Idea[]) ?? []);
-      setEpisodes((e.data as Episode[]) ?? []);
-      setActiveId(flat[0]?.id ?? null);
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
     };
+
+    window.addEventListener("focusin", handleFocusIn);
+    return () => window.removeEventListener("focusin", handleFocusIn);
+  }, []);
+
+  const fetchCharacters = useCallback(async () => {
+    const requestId = characterRequestRef.current + 1;
+    characterRequestRef.current = requestId;
+    setLoading(true);
+    setLoadError(null);
+
+    const { data, error } = await supabase
+      .from("characters")
+      .select("*")
+      .order("created_at", { ascending: true })
+      .returns<Character[]>();
+
+    if (characterRequestRef.current !== requestId) return;
+    setLoading(false);
+    if (error) {
+      setChars([]);
+      setSavedSnapshots({});
+      setActiveId(null);
+      setLoadError(error.message);
+      return;
+    }
+
+    const flat = (data ?? []).map(flatten);
+    setChars(flat);
+    setSavedSnapshots(savedSnapshotsById(flat));
+    setActiveId((current) =>
+      current && flat.some((character) => character.id === current)
+        ? current
+        : (flat[0]?.id ?? null),
+    );
   }, [supabase]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchIdeas = useCallback(async () => {
+    const requestId = ideaRequestRef.current + 1;
+    ideaRequestRef.current = requestId;
+    setIdeasLoading(true);
+    setIdeasError(null);
+
+    const { data, error } = await supabase
+      .from("ideas")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .returns<Idea[]>();
+
+    if (ideaRequestRef.current !== requestId) return;
+    setIdeasLoading(false);
+    if (error) {
+      setIdeasError(error.message);
+      return;
+    }
+
+    setIdeas((current) => {
+      const localOnly = current.filter((idea) => idea.clientWriteState);
+      const localIds = new Set(localOnly.map((idea) => idea.id));
+      const remote = (data ?? []).filter((idea) => !localIds.has(idea.id));
+      return [...localOnly, ...remote];
+    });
+  }, [supabase]);
+
+  const fetchEpisodes = useCallback(async () => {
+    const requestId = episodeRequestRef.current + 1;
+    episodeRequestRef.current = requestId;
+    setEpisodesLoading(true);
+    setEpisodesError(null);
+
+    const { data, error } = await supabase
+      .from("episodes")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .returns<Episode[]>();
+
+    if (episodeRequestRef.current !== requestId) return;
+    setEpisodesLoading(false);
+    if (error) {
+      setEpisodes([]);
+      setEpisodesError(error.message);
+      return;
+    }
+    setEpisodes(data ?? []);
+  }, [supabase]);
+
+  const fetchCostReceipts = useCallback(async () => {
     const requestId = costReceiptRequestRef.current + 1;
     costReceiptRequestRef.current = requestId;
     setCostReceiptsLoading(true);
     setCostReceiptsError(null);
 
-    (async () => {
-      const { data, error } = await supabase
-        .from("receipts")
-        .select("episode_id,seq,provider,stage,spend_so_far")
-        .order("episode_id", { ascending: true })
-        .order("seq", { ascending: true })
-        .returns<CostReceipt[]>();
+    const { data, error } = await supabase
+      .from("receipts")
+      .select("episode_id,seq,provider,stage,spend_so_far")
+      .order("episode_id", { ascending: true })
+      .order("seq", { ascending: true })
+      .returns<CostReceipt[]>();
 
-      if (cancelled || costReceiptRequestRef.current !== requestId) return;
-      setCostReceiptsLoading(false);
-      setCostReceiptsLoaded(true);
-      if (error) {
-        setCostReceipts([]);
-        setCostReceiptsError(error.message);
-        return;
-      }
-      setCostReceipts(data ?? []);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    if (costReceiptRequestRef.current !== requestId) return;
+    setCostReceiptsLoading(false);
+    setCostReceiptsLoaded(true);
+    if (error) {
+      setCostReceipts([]);
+      setCostReceiptsError(error.message);
+      return;
+    }
+    setCostReceipts(data ?? []);
   }, [supabase]);
+
+  // ── initial load ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    void fetchCharacters();
+    void fetchIdeas();
+    void fetchEpisodes();
+    void fetchCostReceipts();
+  }, [fetchCharacters, fetchCostReceipts, fetchEpisodes, fetchIdeas]);
 
   const active = chars.find((c) => c.id === activeId) ?? null;
   const previewingRevision =
@@ -1403,42 +2154,186 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     () => computeCostStats(episodes, costReceipts),
     [costReceipts, episodes],
   );
+  const currentEditableFields = useMemo(() => (active ? editableSnapshot(active) : null), [active]);
+  const savedEditableFields = activeId
+    ? (savedSnapshots[activeId] ?? currentEditableFields)
+    : null;
+  const dirty = useDirtyState(currentEditableFields, savedEditableFields);
 
   const set = (field: keyof FlatChar, val: string) =>
     setChars((cs) =>
       cs.map((c) => (c.id === activeId ? { ...c, [field]: val } : c)),
     );
 
+  const revertActiveEdits = useCallback(() => {
+    if (!activeId) return;
+    const snapshot = savedSnapshots[activeId];
+    if (!snapshot) return;
+    setChars((cs) => cs.map((c) => (c.id === activeId ? applyEditableSnapshot(c, snapshot) : c)));
+    setPreviewingRevisionId(null);
+    setIsRestoredDraft(false);
+  }, [activeId, savedSnapshots]);
+
+  const guardDirtyAction = useCallback(
+    (action: () => void, cancel?: () => void) => {
+      if (dirty && active) {
+        if (document.activeElement instanceof HTMLElement) {
+          lastDirtyTriggerRef.current = document.activeElement;
+        }
+        discardDialogRestoreFocusRef.current =
+          lastManualFocusRef.current ?? lastDirtyTriggerRef.current;
+        setPendingDirtyAction({ run: action, cancel });
+        return;
+      }
+
+      action();
+    },
+    [active, dirty],
+  );
+
+  const cancelDirtyAction = useCallback(() => {
+    discardDialogRestoreFocusRef.current =
+      lastManualFocusRef.current ?? lastDirtyTriggerRef.current;
+    const pending = pendingDirtyAction;
+    setPendingDirtyAction(null);
+    pending?.cancel?.();
+  }, [pendingDirtyAction]);
+
+  const confirmDirtyAction = useCallback(() => {
+    const action = pendingDirtyAction;
+    discardDialogRestoreFocusRef.current =
+      lastManualFocusRef.current ?? lastDirtyTriggerRef.current;
+    revertActiveEdits();
+    setPendingDirtyAction(null);
+    action?.run();
+  }, [pendingDirtyAction, revertActiveEdits]);
+
+  const guardedSetActiveId = useCallback(
+    (nextId: string) => {
+      if (nextId === activeId) return;
+      guardDirtyAction(() => setActiveId(nextId));
+    },
+    [activeId, guardDirtyAction],
+  );
+
+  const guardedSetView = useCallback(
+    (nextView: View, cancel?: () => void) => {
+      if (nextView === view) return;
+      // In-app nav: push a history entry (after the dirty guard approves) so
+      // the URL reflects the view AND browser back/forward moves between views.
+      guardDirtyAction(() => {
+        setView(nextView);
+        if (typeof window !== "undefined") {
+          window.history.pushState(null, "", viewUrl(nextView));
+        }
+      }, cancel);
+    },
+    [guardDirtyAction, view],
+  );
+
+  const focusSelectedViewTab = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      viewTabRefs.current[view]?.focus();
+    });
+  }, [view]);
+
+  const activateViewTab = useCallback(
+    (nextView: View) => {
+      guardedSetView(nextView, focusSelectedViewTab);
+    },
+    [focusSelectedViewTab, guardedSetView],
+  );
+
+  const focusViewTab = useCallback((nextView: View) => {
+    viewTabRefs.current[nextView]?.focus();
+  }, []);
+
+  const handleViewTabKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>, currentView: View) => {
+      const currentIndex = VIEW_KEYS.indexOf(currentView);
+      if (currentIndex === -1) return;
+
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const direction = event.key === "ArrowDown" ? 1 : -1;
+        const nextIndex = (currentIndex + direction + VIEW_KEYS.length) % VIEW_KEYS.length;
+        focusViewTab(VIEW_KEYS[nextIndex]);
+        return;
+      }
+
+      if (event.key === "Home") {
+        event.preventDefault();
+        focusViewTab(VIEW_KEYS[0]);
+        return;
+      }
+
+      if (event.key === "End") {
+        event.preventDefault();
+        focusViewTab(VIEW_KEYS[VIEW_KEYS.length - 1]);
+        return;
+      }
+
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        activateViewTab(currentView);
+      }
+    },
+    [activateViewTab, focusViewTab],
+  );
+
+  // Restore the active view from the URL on mount (client-only effect, not a
+  // lazy state initializer, to avoid an SSR/hydration mismatch). Normalize the
+  // URL so the first history entry carries the resolved ?view= param.
+  useEffect(() => {
+    const fromUrl = readViewFromUrl();
+    if (fromUrl && fromUrl !== view) setView(fromUrl);
+    window.history.replaceState(null, "", viewUrl(fromUrl ?? view));
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Browser back/forward: sync the view to the URL. Routed through the dirty
+  // guard (no pushState here — the browser already changed history). If the user
+  // chooses "keep editing", revert the URL to the still-current view so URL and
+  // view stay consistent.
+  useEffect(() => {
+    const onPopState = () => {
+      const fromUrl = readViewFromUrl() ?? "roster";
+      if (fromUrl === view) return;
+      guardDirtyAction(
+        () => setView(fromUrl),
+        () => window.history.replaceState(null, "", viewUrl(view)),
+      );
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [guardDirtyAction, view]);
+
   useEffect(() => {
     setHistoryOpen(false);
     setRevisions([]);
     setRevisionsError(null);
     setPreviewingRevisionId(null);
+    setCompareRevision(null);
     setPendingRestore(null);
     setIsRestoredDraft(false);
   }, [activeId]);
 
-  const restoreHistoryFocus = useCallback(() => {
+  const setHistoryRestoreFocusTarget = useCallback(() => {
     const trigger = lastHistoryTriggerRef.current;
-    window.requestAnimationFrame(() => {
-      if (trigger === "savebar") savebarHistoryButtonRef.current?.focus();
-      else headerHistoryButtonRef.current?.focus();
-    });
+    historyRestoreFocusRef.current =
+      trigger === "savebar" ? savebarHistoryButtonRef.current : headerHistoryButtonRef.current;
   }, []);
 
-  const restoreDialogFocus = useCallback(
-    (confirmed = false) => {
-      const trigger = lastRestoreTriggerRef.current;
-      window.requestAnimationFrame(() => {
-        if (!confirmed && trigger === "preview" && previewRestoreButtonRef.current) {
-          previewRestoreButtonRef.current.focus();
-          return;
-        }
-        restoreHistoryFocus();
-      });
-    },
-    [restoreHistoryFocus],
-  );
+  const setRestoreDialogFocusTarget = useCallback((confirmed = false) => {
+    const trigger = lastRestoreTriggerRef.current;
+    if (!confirmed && trigger === "preview" && previewRestoreButtonRef.current) {
+      restoreDialogRestoreFocusRef.current = previewRestoreButtonRef.current;
+      return;
+    }
+    restoreDialogRestoreFocusRef.current =
+      historyRestoreFocusRef.current ?? headerHistoryButtonRef.current;
+  }, []);
 
   const fetchRevisions = useCallback(
     async (characterId: string) => {
@@ -1467,6 +2362,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const openHistory = (trigger: "header" | "savebar") => {
     if (!active) return;
     lastHistoryTriggerRef.current = trigger;
+    compareRestoreFocusRef.current = null;
+    setHistoryRestoreFocusTarget();
     setHistoryOpen(true);
     void fetchRevisions(active.id);
   };
@@ -1474,32 +2371,55 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const closeHistory = useCallback(() => {
     revisionRequestRef.current += 1;
     setHistoryOpen(false);
+    setCompareRevision(null);
+    compareRestoreFocusRef.current = null;
     setRevisionsLoading(false);
     setRevisionsError(null);
-    restoreHistoryFocus();
-  }, [restoreHistoryFocus]);
+    setHistoryRestoreFocusTarget();
+  }, [setHistoryRestoreFocusTarget]);
 
   const exitPreview = useCallback(() => {
     setPreviewingRevisionId(null);
   }, []);
 
   const previewRevision = (revision: CharacterBibleRevision) => {
-    setPreviewingRevisionId(revision.id);
+    guardDirtyAction(() => setPreviewingRevisionId(revision.id));
   };
 
+  const compareWithRevision = (
+    revision: CharacterBibleRevision,
+    trigger: HTMLButtonElement,
+  ) => {
+    compareRestoreFocusRef.current = trigger;
+    setCompareRevision(revision);
+  };
+
+  const closeCompare = useCallback(() => {
+    setCompareRevision(null);
+  }, []);
+
   const requestRestore = (revision: CharacterBibleRevision) => {
-    lastRestoreTriggerRef.current = historyOpen ? "history" : "preview";
+    guardDirtyAction(() => {
+      lastRestoreTriggerRef.current = historyOpen ? "history" : "preview";
+      setHistoryOpen(false);
+      setPendingRestore(revision);
+    });
+  };
+
+  const requestRestoreFromCompare = (revision: CharacterBibleRevision) => {
+    setCompareRevision(null);
     setHistoryOpen(false);
-    setPendingRestore(revision);
+    requestRestore(revision);
   };
 
   const cancelRestore = useCallback(() => {
+    setRestoreDialogFocusTarget();
     setPendingRestore(null);
-    restoreDialogFocus();
-  }, [restoreDialogFocus]);
+  }, [setRestoreDialogFocusTarget]);
 
   const confirmRestore = () => {
     if (!active || !pendingRestore) return;
+    setRestoreDialogFocusTarget(true);
     const restored = flattenRevision(pendingRestore, active);
     setChars((cs) => cs.map((c) => (c.id === active.id ? restored : c)));
     setPendingRestore(null);
@@ -1507,7 +2427,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setHistoryOpen(false);
     setIsRestoredDraft(true);
     showFlash("Draft loaded from history — click Save to write new version");
-    restoreDialogFocus(true);
   };
 
   const fetchReceipts = useCallback(
@@ -1536,6 +2455,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const openRunDetail = (episodeId: string) => {
     lastRunTriggerRef.current = episodeId;
+    runDetailRestoreFocusRef.current = runButtonRefs.current.get(episodeId) ?? null;
     setActiveEpisodeId(episodeId);
     setReceipts([]);
     void fetchReceipts(episodeId);
@@ -1548,14 +2468,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setReceipts([]);
     setReceiptsError(null);
     setReceiptsLoading(false);
-    window.requestAnimationFrame(() => {
-      if (triggerId) runButtonRefs.current.get(triggerId)?.focus();
-    });
+    runDetailRestoreFocusRef.current = triggerId
+      ? (runButtonRefs.current.get(triggerId) ?? null)
+      : null;
   }, []);
 
   // ── persist character ───────────────────────────────────────────────────
   const save = async () => {
-    if (!active || saving) return;
+    if (!active || saving || !dirty) return;
     const snapshot = {
       character_id: active.id,
       codename: active.codename,
@@ -1578,6 +2498,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       showFlash("Save failed — " + error.message, true);
       return;
     }
+
+    setSavedSnapshots((snapshots) => ({
+      ...snapshots,
+      [snapshot.character_id]: {
+        codename: snapshot.codename,
+        concept: snapshot.concept,
+        status: snapshot.status,
+        bible: snapshot.bible,
+      },
+    }));
 
     const { error: revisionError } = await supabase
       .from("character_bible_revisions")
@@ -1609,8 +2539,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }
     const flat = flatten(data as Character);
     setChars((cs) => [...cs, flat]);
+    setSavedSnapshots((snapshots) => ({ ...snapshots, [flat.id]: editableSnapshot(flat) }));
     setActiveId(flat.id);
     setView("roster");
+    // Keep the URL in sync with this programmatic view switch (a refresh would
+    // otherwise restore a stale ?view=).
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", viewUrl("roster"));
+    }
+  };
+
+  const guardedAddChar = () => {
+    guardDirtyAction(() => {
+      void addChar();
+    });
   };
 
   const toggleStatus = () => {
@@ -1618,36 +2560,151 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     set("status", active.status === "active" ? "draft" : "active");
   };
 
+  const handleExport = () => {
+    if (!active) return;
+    const markdown = bibleToMarkdown({
+      codename: active.codename,
+      concept: active.concept,
+      status: active.status,
+      bible: toBible(active),
+    });
+    downloadMarkdown(markdownFilename(active.codename), markdown);
+  };
+
   // ── ideas (the wire) ──────────────────────────────────────────────────────
-  const logIdea = async () => {
-    const t = draftIdea.trim();
-    if (!t) return;
-    setDraftIdea("");
+  const makeTempIdeaId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  const startIdeaInsert = async (
+    tempId: string,
+    title: string,
+    note: string,
+    characterId: string | null,
+    channel: string,
+  ) => {
+    if (ideaSubmittingTitleRef.current === title) return;
+    ideaSubmittingTitleRef.current = title;
+    setIdeaSubmittingTitle(title);
+
+    setIdeas((xs) =>
+      xs.map((idea) =>
+        idea.id === tempId
+          ? { ...idea, clientWriteState: "saving", clientError: undefined }
+          : idea,
+      ),
+    );
+
     const { data, error } = await supabase
       .from("ideas")
       .insert({
-        title: t,
-        note: "",
-        character_id: activeId,
-        channel: CHANNELS[0],
+        title,
+        note,
+        character_id: characterId,
+        channel,
         status: "backlog",
       })
       .select("*")
       .single();
+
+    ideaSubmittingTitleRef.current = null;
+    setIdeaSubmittingTitle(null);
+
     if (error || !data) {
-      showFlash("Could not log idea — " + (error?.message ?? ""), true);
-      setDraftIdea(t);
+      const message = error?.message ?? "Unknown database error";
+      showFlash("Could not log idea — " + message, true);
+      setIdeas((xs) =>
+        xs.map((idea) =>
+          idea.id === tempId
+            ? { ...idea, clientWriteState: "failed", clientError: message }
+            : idea,
+        ),
+      );
       return;
     }
-    setIdeas((xs) => [data as Idea, ...xs]);
+
+    const savedIdea: WireIdea = { ...(data as Idea), clientKey: tempId };
+    // Dedup-aware swap: if a concurrent refetch already supplied the real row
+    // while this insert was in flight, drop that duplicate and keep only the
+    // swapped optimistic card (stable key = tempId). Prevents two cards sharing
+    // the same real id when "retry"/refetch overlaps an in-flight insert.
+    setIdeas((xs) => {
+      const withoutDup = xs.filter(
+        (idea) => idea.id !== savedIdea.id || idea.id === tempId,
+      );
+      return withoutDup.map((idea) => (idea.id === tempId ? savedIdea : idea));
+    });
   };
 
-  const cycleStatus = async (id: string) => {
+  const logIdea = async () => {
+    const title = draftIdea.trim();
+    const note = draftIdeaNote.trim();
+    if (!title || ideaSubmittingTitleRef.current === title) return;
+
+    const tempId = makeTempIdeaId();
+    const optimisticIdea: WireIdea = {
+      id: tempId,
+      owner: "",
+      title,
+      note,
+      character_id: activeId,
+      channel: CHANNELS[0],
+      status: "backlog",
+      created_at: new Date().toISOString(),
+      clientKey: tempId,
+      clientWriteState: "saving",
+    };
+
+    setIdeasError(null);
+    setIdeasLoading(false);
+    setIdeas((xs) => [optimisticIdea, ...xs]);
+    setDraftIdea("");
+    setDraftIdeaNote("");
+    window.requestAnimationFrame(() => {
+      ideaTitleRef.current?.focus();
+    });
+    await startIdeaInsert(tempId, title, note, optimisticIdea.character_id, optimisticIdea.channel);
+  };
+
+  const retryIdea = (idea: WireIdea) => {
+    if (!idea.clientWriteState || idea.clientWriteState !== "failed") return;
+    void startIdeaInsert(
+      idea.id,
+      idea.title.trim(),
+      idea.note.trim(),
+      idea.character_id,
+      idea.channel,
+    );
+  };
+
+  const dismissIdea = (id: string) => {
+    setIdeas((xs) => xs.filter((idea) => idea.id !== id));
+  };
+
+  const handleIdeaTitleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      void logIdea();
+      return;
+    }
+
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void logIdea();
+    }
+  };
+
+  const handleIdeaNoteKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      void logIdea();
+    }
+  };
+
+  const setIdeaStatus = async (id: string, targetStatus: IdeaStatus) => {
     const idea = ideas.find((x) => x.id === id);
-    if (!idea) return;
-    const next: IdeaStatus = STATUS_CYCLE[idea.status];
-    setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, status: next } : x)));
-    const { error } = await supabase.from("ideas").update({ status: next }).eq("id", id);
+    if (!idea || idea.clientWriteState) return;
+    if (idea.status === targetStatus) return;
+    setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, status: targetStatus } : x)));
+    const { error } = await supabase.from("ideas").update({ status: targetStatus }).eq("id", id);
     if (error) {
       // revert on failure
       setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, status: idea.status } : x)));
@@ -1657,8 +2714,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const setIdeaField = async (id: string, f: "character_id" | "channel", v: string) => {
     const prev = ideas.find((x) => x.id === id);
-    setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, [f]: v } : x)));
-    const { error } = await supabase.from("ideas").update({ [f]: v }).eq("id", id);
+    if (!prev || prev.clientWriteState) return;
+    const valueToPersist = f === "character_id" && v === "" ? null : v;
+    setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, [f]: valueToPersist } : x)));
+    const { error } = await supabase.from("ideas").update({ [f]: valueToPersist }).eq("id", id);
     if (error && prev) {
       setIdeas((xs) => xs.map((x) => (x.id === id ? prev : x)));
       showFlash("Tag update failed", true);
@@ -1666,35 +2725,159 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   };
 
   const openIdeas = ideas.filter((i) => i.status !== "used").length;
+  const ideaCaptureDisabled = Boolean(ideaSubmittingTitle);
+  const canSubmitIdea = draftIdea.trim().length > 0 && !ideaCaptureDisabled;
+  const dirtyCodename = active?.codename.trim() ? active.codename : "Untitled";
+  const mobileActiveManuals = useMemo(
+    () =>
+      chars
+        .filter((c) => c.status === "active")
+        .sort((a, b) => Number(b.id === activeId) - Number(a.id === activeId)),
+    [activeId, chars],
+  );
+  const mobileDraftManuals = useMemo(
+    () =>
+      chars
+        .filter((c) => c.status === "draft")
+        .sort((a, b) => Number(b.id === activeId) - Number(a.id === activeId)),
+    [activeId, chars],
+  );
+
+  const handleExitSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    if (!dirty || !active) return;
+    event.preventDefault();
+    guardDirtyAction(() => {
+      exitFormRef.current?.submit();
+    });
+  };
+
+  const mobileRoster = (
+    <div className="mobile-roster">
+      <label className="eyebrow" htmlFor="mobile-roster-select">
+        SELECT DOSSIER
+      </label>
+      <select
+        id="mobile-roster-select"
+        className="mobile-roster-select"
+        value={activeId ?? ""}
+        onChange={(event) => {
+          if (event.target.value) guardedSetActiveId(event.target.value);
+        }}
+        disabled={chars.length === 0 || saving}
+        aria-label="Select dossier"
+      >
+        {chars.length === 0 ? (
+          <option value="">NO DOSSIERS ON FILE</option>
+        ) : (
+          <>
+            <optgroup label="ACTIVE FIELD MANUALS">
+              {mobileActiveManuals.map((c) => (
+                <option key={c.id} value={c.id}>
+                  ● {c.codename || "Untitled"}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="DRAFT FIELD MANUALS">
+              {mobileDraftManuals.map((c) => (
+                <option key={c.id} value={c.id}>
+                  ○ {c.codename || "Untitled"}
+                </option>
+              ))}
+            </optgroup>
+          </>
+        )}
+      </select>
+      <button
+        className="mobile-roster-new"
+        type="button"
+        onClick={guardedAddChar}
+        disabled={adding || saving}
+        aria-label="Create new character"
+      >
+        {adding ? "CREATING..." : "+ NEW"}
+      </button>
+    </div>
+  );
 
   // ── render ─────────────────────────────────────────────────────────────────
   return (
     <div className="cr">
+      <div className="toast-region" aria-atomic="true">
+        {flash && (
+          <div
+            className={"toast " + (flash.err ? "toast--error" : "toast--success")}
+            role={flash.err ? "alert" : "status"}
+            aria-live={flash.err ? "assertive" : "polite"}
+          >
+            {flash.msg}
+          </div>
+        )}
+      </div>
+
       <nav className="rail">
-        <div className="brand">
+        <div className="brand" style={{ marginBottom: "8px" }}>
           CONTROL<b>·</b>ROOM
         </div>
-        {(
-          [
-            ["roster", "Roster"],
-            ["wire", "The Wire"],
-            ["runs", "Runs"],
-            ["overview", "Overview"],
-            ["cost", "Cost"],
-          ] as const
-        ).map(([k, lbl]) => (
-          <button
-            key={k}
-            className={"navbtn" + (view === k ? " on" : "")}
-            onClick={() => setView(k)}
-            aria-pressed={view === k}
-          >
-            <Icon name={k} />
-            <span>{lbl}</span>
-            <div className="dot" />
-          </button>
-        ))}
-        <form action="/auth/signout" method="post" className="railspacer">
+        <button
+          className={"chip " + (active?.status === "draft" ? "draft" : active ? "active" : "")}
+          type="button"
+          onClick={() => guardedSetView("roster")}
+          disabled={!active}
+          title={active ? `ACTIVE: ${active.codename || "Untitled"}${dirty ? "*" : ""}` : "No active operator"}
+          aria-label={
+            active
+              ? `Current operator: ${active.codename || "Untitled"}${dirty ? ", unsaved changes" : ""}. Return to roster.`
+              : "No active operator"
+          }
+          style={{
+            width: "68px",
+            minHeight: "30px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            background: "transparent",
+          }}
+        >
+          {active ? (
+            <>
+              <span aria-hidden="true">{active.status === "active" ? "● " : "○ "}</span>
+              ACTIVE: {active.codename || "Untitled"}
+              {dirty ? "*" : ""}
+            </>
+          ) : (
+            "NO ACTIVE"
+          )}
+        </button>
+        <div role="tablist" aria-orientation="vertical" aria-label="Primary views">
+          {VIEW_NAV_ITEMS.map(({ key: k, label }) => (
+            <button
+              key={k}
+              ref={(node) => {
+                viewTabRefs.current[k] = node;
+              }}
+              id={viewTabId(k)}
+              className={"navbtn" + (view === k ? " on" : "")}
+              type="button"
+              role="tab"
+              aria-selected={view === k}
+              aria-controls={PRIMARY_VIEW_PANEL_ID}
+              tabIndex={view === k ? 0 : -1}
+              onClick={() => activateViewTab(k)}
+              onKeyDown={(event) => handleViewTabKeyDown(event, k)}
+            >
+              <Icon name={k} />
+              <span>{label}</span>
+              <div className="dot" />
+            </button>
+          ))}
+        </div>
+        <form
+          ref={exitFormRef}
+          action="/auth/signout"
+          method="post"
+          className="railspacer"
+          onSubmit={handleExitSubmit}
+        >
           <button className="navbtn" type="submit" title={`Sign out · ${userEmail}`}>
             <Icon name="exit" />
             <span>Exit</span>
@@ -1703,17 +2886,26 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         </form>
       </nav>
 
-      {loading ? (
-        <div className="loading">
-          <span className="spin" /> Loading field manuals…
-        </div>
-      ) : loadError ? (
-        <div className="empty">
-          <h3>Comms down</h3>
-          <p>Couldn&apos;t reach the database: {loadError}</p>
-        </div>
-      ) : (
-        <>
+      <main
+        id={PRIMARY_VIEW_PANEL_ID}
+        role="tabpanel"
+        aria-labelledby={viewTabId(view)}
+        tabIndex={0}
+      >
+        {loading ? (
+          <div className="loading">
+            <span className="spin" /> Loading field manuals…
+          </div>
+        ) : loadError ? (
+          <div className="empty">
+            <h3>Comms down</h3>
+            <p>Couldn&apos;t reach the database: {loadError}</p>
+            <button className="btn" type="button" onClick={() => void fetchCharacters()}>
+              Retry Roster
+            </button>
+          </div>
+        ) : (
+          <>
           {view === "roster" && (
             <div className="main">
               <aside className="roster">
@@ -1726,9 +2918,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     <button
                       key={c.id}
                       className={"pcard" + (c.id === activeId ? " on" : "")}
-                      onClick={() => setActiveId(c.id)}
+                      onClick={() => guardedSetActiveId(c.id)}
                     >
-                      <div className="codename">{c.codename || "Untitled"}</div>
+                      <div className="codename">
+                        {c.codename || "Untitled"}
+                        {c.id === activeId && dirty ? "*" : ""}
+                      </div>
                       <div className="concept">
                         {c.concept || "No concept logged yet."}
                       </div>
@@ -1742,7 +2937,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       </div>
                     </button>
                   ))}
-                  <button className="addbtn" onClick={addChar} disabled={adding}>
+                  <button className="addbtn" onClick={guardedAddChar} disabled={adding}>
                     {adding ? "Creating…" : "+ New character"}
                   </button>
                 </div>
@@ -1750,6 +2945,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
               {active && displayedActive ? (
                 <section className={"dossier" + (historyOpen ? " history-open" : "")}>
+                  {mobileRoster}
                   {previewingRevision && (
                     <div className="preview-banner" role="status">
                       <div className="preview-banner-copy">
@@ -1802,23 +2998,28 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
                   <div className={"sheet" + (previewingRevision ? " preview-active" : "")}>
                     <Field
+                      id={fieldControlId(activeId, "codename")}
                       label="Codename"
                       value={displayedActive.codename}
                       onChange={(v) => set("codename", v)}
                       rows={1}
+                      multiline={false}
                       readOnly={Boolean(previewingRevision)}
                       locked={Boolean(previewingRevision)}
                     />
                     <Field
+                      id={fieldControlId(activeId, "concept")}
                       label="One-line concept"
                       hint="The logline the writer reads first"
                       value={displayedActive.concept}
                       onChange={(v) => set("concept", v)}
                       rows={2}
+                      multiline={false}
                       readOnly={Boolean(previewingRevision)}
                       locked={Boolean(previewingRevision)}
                     />
                     <Field
+                      id={fieldControlId(activeId, "voice")}
                       label="Voice & identity"
                       hint="Who they are — keep it original, never a real person"
                       value={displayedActive.voice}
@@ -1829,6 +3030,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     />
                     <div className="grid2">
                       <Field
+                        id={fieldControlId(activeId, "cadence")}
                         label="Cadence & delivery"
                         value={displayedActive.cadence}
                         onChange={(v) => set("cadence", v)}
@@ -1837,6 +3039,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         locked={Boolean(previewingRevision)}
                       />
                       <Field
+                        id={fieldControlId(activeId, "vocab")}
                         label="Vocabulary & catchphrases"
                         value={displayedActive.vocab}
                         onChange={(v) => set("vocab", v)}
@@ -1846,6 +3049,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       />
                     </div>
                     <Field
+                      id={fieldControlId(activeId, "offlimits")}
                       label="Off-limits"
                       hint="Hard rules — what they never say (keeps you monetizable & on-brand)"
                       value={displayedActive.offlimits}
@@ -1855,6 +3059,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       locked={Boolean(previewingRevision)}
                     />
                     <Field
+                      id={fieldControlId(activeId, "lines")}
                       label="Gold-standard lines"
                       hint="2–4 example lines — the writer imitates these more than any instruction"
                       value={displayedActive.lines}
@@ -1866,6 +3071,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     />
                     <div className="grid2">
                       <Field
+                        id={fieldControlId(activeId, "beats")}
                         label="Beat template"
                         value={displayedActive.beats}
                         onChange={(v) => set("beats", v)}
@@ -1875,11 +3081,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         locked={Boolean(previewingRevision)}
                       />
                       <Field
+                        id={fieldControlId(activeId, "runtime")}
                         label="Runtime target"
                         hint="Enforced at script + render"
                         value={displayedActive.runtime}
                         onChange={(v) => set("runtime", v)}
                         rows={2}
+                        multiline={false}
                         readOnly={Boolean(previewingRevision)}
                         locked={Boolean(previewingRevision)}
                       />
@@ -1894,10 +3102,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                           Save dossier to make these changes live.
                         </div>
                       )}
+                      {dirty && (
+                        <span className="savebar-dirty-label chip draft" role="status">
+                          • UNPERSISTED CHANGES IN BUFFER
+                        </span>
+                      )}
                       <button
                         className={"btn" + (isRestoredDraft ? " save-highlight" : "")}
                         onClick={save}
-                        disabled={saving}
+                        disabled={saving || !dirty}
                       >
                         {saving ? "Saving…" : "Save dossier"}
                       </button>
@@ -1914,12 +3127,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       >
                         View History
                       </button>
-                      <button className="btn ghost" onClick={() => setView("wire")}>
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        onClick={handleExport}
+                        disabled={saving || loading || !active}
+                      >
+                        EXPORT MANUAL (MD)
+                      </button>
+                      <button className="btn ghost" onClick={() => guardedSetView("wire")}>
                         Log an idea →
                       </button>
-                      <span className={"flash" + (flash ? " show" : "") + (flash?.err ? " err" : "")}>
-                        {flash?.msg}
-                      </span>
                     </div>
                   )}
                   {historyOpen && (
@@ -1928,12 +3146,25 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       loading={revisionsLoading}
                       error={revisionsError}
                       previewingRevisionId={previewingRevisionId}
+                      focusTrapActive={!compareRevision}
                       onClose={closeHistory}
                       onRetry={() => {
                         void fetchRevisions(active.id);
                       }}
                       onPreview={previewRevision}
                       onRestore={requestRestore}
+                      onCompare={compareWithRevision}
+                      initialFocusRef={compareRestoreFocusRef}
+                      restoreFocusRef={historyRestoreFocusRef}
+                    />
+                  )}
+                  {compareRevision && (
+                    <CompareDialog
+                      current={active}
+                      revision={compareRevision}
+                      onClose={closeCompare}
+                      onRestore={requestRestoreFromCompare}
+                      restoreFocusRef={compareRestoreFocusRef}
                     />
                   )}
                   {pendingRestore && (
@@ -1941,16 +3172,18 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       revision={pendingRestore}
                       onCancel={cancelRestore}
                       onConfirm={confirmRestore}
+                      restoreFocusRef={restoreDialogRestoreFocusRef}
                     />
                   )}
                 </section>
               ) : (
                 <section className="dossier">
+                  {mobileRoster}
                   <div className="empty">
                     <Icon name="roster" />
                     <h3>No characters yet</h3>
                     <p>Create your first character to start building a field manual.</p>
-                    <button className="btn" onClick={addChar} disabled={adding}>
+                    <button className="btn" onClick={guardedAddChar} disabled={adding}>
                       {adding ? "Creating…" : "+ New character"}
                     </button>
                   </div>
@@ -1969,83 +3202,241 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               </div>
               <div className="cap">
                 <span className="eyebrow">
-                  Inspiration just hit — get it down before it&apos;s gone
+                  TRANSMITTING FREQUENCY · LOG NEW BEAT
                 </span>
-                <div className="row" style={{ marginTop: 9 }}>
-                  <input
+                <div className="field" style={{ marginTop: 12 }}>
+                  <textarea
+                    ref={ideaTitleRef}
+                    rows={2}
                     value={draftIdea}
-                    placeholder="An idea, a headline, a half-thought…"
+                    placeholder={'Dossier title (e.g. "Acoustic Kitty target extraction")...'}
                     onChange={(e) => setDraftIdea(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && logIdea()}
-                    aria-label="New idea"
+                    onKeyDown={handleIdeaTitleKeyDown}
+                    disabled={ideaCaptureDisabled}
+                    aria-label="New idea title"
+                    style={{ resize: "vertical" }}
                   />
-                  <button className="btn" onClick={logIdea}>
-                    Log it
+                </div>
+                <div className="field" style={{ marginTop: 10 }}>
+                  <textarea
+                    rows={ideaNoteFocused || draftIdeaNote ? 4 : 1}
+                    value={draftIdeaNote}
+                    placeholder="Tactical notes, dialogue fragments, or scene beats (optional)..."
+                    onChange={(e) => setDraftIdeaNote(e.target.value)}
+                    onFocus={() => setIdeaNoteFocused(true)}
+                    onBlur={() => setIdeaNoteFocused(false)}
+                    onKeyDown={handleIdeaNoteKeyDown}
+                    disabled={ideaCaptureDisabled}
+                    aria-label="New idea note"
+                    style={{ resize: "vertical" }}
+                  />
+                </div>
+                <div className="row" style={{ marginTop: 10, alignItems: "center" }}>
+                  <select
+                    className="tag-select"
+                    value={activeId ?? ""}
+                    disabled
+                    aria-label="Idea character assignment"
+                  >
+                    {active ? (
+                      <option value={active.id}>{active.codename || "Untitled"}</option>
+                    ) : (
+                      <option value="">No dossier assigned</option>
+                    )}
+                  </select>
+                  <select
+                    className="tag-select"
+                    value={CHANNELS[0]}
+                    disabled
+                    aria-label="Idea channel assignment"
+                  >
+                    <option value={CHANNELS[0]}>{CHANNELS[0]}</option>
+                  </select>
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => void logIdea()}
+                    disabled={!canSubmitIdea}
+                  >
+                    {ideaSubmittingTitle ? "TRANSMITTING..." : "LOG IT"}
                   </button>
                 </div>
               </div>
-              {ideas.length === 0 ? (
+              {ideasError && ideas.length > 0 && (
+                <div className="cap" role="alert">
+                  <span className="eyebrow">Wire read degraded</span>
+                  <div className="row" style={{ marginTop: 9, alignItems: "center" }}>
+                    <span className="note">Couldn&apos;t refresh logged ideas: {ideasError}</span>
+                    <button className="btn" type="button" onClick={() => void fetchIdeas()}>
+                      Retry Wire
+                    </button>
+                  </div>
+                </div>
+              )}
+              {ideasLoading && ideas.length === 0 ? (
+                <div className="loading">
+                  <span className="spin" /> Loading wire queue…
+                </div>
+              ) : ideasError && ideas.length === 0 ? (
+                <div className="empty">
+                  <h3>Wire unavailable</h3>
+                  <p>Couldn&apos;t read logged ideas: {ideasError}</p>
+                  <button className="btn" type="button" onClick={() => void fetchIdeas()}>
+                    Retry Wire
+                  </button>
+                </div>
+              ) : ideas.length === 0 ? (
                 <div className="empty">
                   <h3>The wire&apos;s quiet</h3>
                   <p>Nothing logged yet. Drop the next idea above the moment it lands.</p>
                 </div>
               ) : (
                 <div className="wire-list">
-                  {ideas.map((i) => (
-                    <div
-                      key={i.id}
-                      className="icard"
-                      style={{
-                        borderLeftColor:
-                          i.status === "active"
+                  {ideas.map((i) => {
+                    const writeState = i.clientWriteState;
+                    const isWriteBlocked = Boolean(writeState);
+                    const currentDossier = activeId
+                      ? chars.find((c) => c.id === activeId)
+                      : undefined;
+                    const groupedDossiers = chars.filter((c) => c.id !== currentDossier?.id);
+                    const activeDossiers = groupedDossiers.filter((c) => c.status === "active");
+                    const draftDossiers = groupedDossiers.filter((c) => c.status !== "active");
+                    const borderLeftColor =
+                      writeState === "failed"
+                        ? "var(--stamp)"
+                        : writeState === "saving"
+                          ? "var(--line-soft)"
+                          : i.status === "active"
                             ? "var(--brass)"
                             : i.status === "used"
                               ? "var(--cleared)"
-                              : "var(--line)",
-                      }}
-                    >
-                      <div className="body">
-                        <div className="title">{i.title}</div>
-                        {i.note && <div className="note">{i.note}</div>}
-                        <div className="tags">
-                          <button
-                            className={"statusbtn s-" + i.status}
-                            onClick={() => cycleStatus(i.id)}
-                          >
-                            {STATUS_LABEL[i.status]}
-                          </button>
-                          <select
-                            className="tag-select"
-                            value={i.character_id ?? ""}
-                            onChange={(e) =>
-                              setIdeaField(i.id, "character_id", e.target.value)
-                            }
-                            aria-label="Assign character"
-                          >
-                            {chars.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.codename || "Untitled"}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            className="tag-select"
-                            value={i.channel}
-                            onChange={(e) =>
-                              setIdeaField(i.id, "channel", e.target.value)
-                            }
-                            aria-label="Assign channel"
-                          >
-                            {CHANNELS.map((ch) => (
-                              <option key={ch} value={ch}>
-                                {ch}
-                              </option>
-                            ))}
-                          </select>
+                              : "var(--line)";
+                    return (
+                      <div
+                        key={i.clientKey ?? i.id}
+                        className="icard"
+                        aria-busy={writeState === "saving"}
+                        style={{
+                          borderLeftColor,
+                          borderColor: writeState === "failed" ? "var(--stamp-deep)" : undefined,
+                          opacity: writeState === "saving" ? 0.65 : undefined,
+                        }}
+                      >
+                        <div className="body">
+                          <div className="title">{i.title}</div>
+                          {i.note && <div className="note">{i.note}</div>}
+                          <div className="tags">
+                            {writeState === "saving" ? (
+                              <span className="statusbtn">[TRANSMITTING...]</span>
+                            ) : writeState === "failed" ? (
+                              <>
+                                <button
+                                  className="statusbtn"
+                                  type="button"
+                                  onClick={() => retryIdea(i)}
+                                  disabled={ideaCaptureDisabled}
+                                >
+                                  [TRANSMISSION FAILED - RETRY]
+                                </button>
+                                <button
+                                  className="statusbtn"
+                                  type="button"
+                                  onClick={() => dismissIdea(i.id)}
+                                >
+                                  Dismiss
+                                </button>
+                              </>
+                            ) : (
+                              <div
+                                className="status-segmented-control"
+                                role="group"
+                                aria-label="Update idea status"
+                              >
+                                {IDEA_STATUS_OPTIONS.map((status) => {
+                                  const isActiveStatus = i.status === status;
+                                  return (
+                                    <button
+                                      key={status}
+                                      className={
+                                        "segment-btn" +
+                                        (isActiveStatus ? " active-segment s-" + status : "")
+                                      }
+                                      type="button"
+                                      aria-pressed={isActiveStatus}
+                                      disabled={isWriteBlocked}
+                                      onClick={() => setIdeaStatus(i.id, status)}
+                                    >
+                                      {IDEA_STATUS_LABELS[status]}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            <select
+                              className="tag-select"
+                              value={chars.length === 0 ? "" : i.character_id ?? ""}
+                              onChange={(e) =>
+                                setIdeaField(i.id, "character_id", e.target.value)
+                              }
+                              disabled={isWriteBlocked || chars.length === 0}
+                              aria-label="Assign character"
+                            >
+                              {chars.length === 0 ? (
+                                <option value="">[ No characters on file ]</option>
+                              ) : (
+                                <>
+                                  <option value="">[ -- Unassigned -- ]</option>
+                                  {currentDossier && (
+                                    <option value={currentDossier.id}>
+                                      ⚡ Current Dossier: {currentDossier.codename || "Untitled"}
+                                    </option>
+                                  )}
+                                  {activeDossiers.length > 0 && (
+                                    <optgroup label="Active Field Manuals">
+                                      {activeDossiers.map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                          ● {c.codename || "Untitled"}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                  {draftDossiers.length > 0 && (
+                                    <optgroup label="Draft Field Manuals">
+                                      {draftDossiers.map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                          ○ {c.codename || "Untitled"}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                </>
+                              )}
+                            </select>
+                            <select
+                              className="tag-select"
+                              value={i.channel}
+                              onChange={(e) =>
+                                setIdeaField(i.id, "channel", e.target.value)
+                              }
+                              disabled={isWriteBlocked}
+                              aria-label="Assign channel"
+                            >
+                              {CHANNELS.map((ch) => (
+                                <option key={ch} value={ch}>
+                                  {ch}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {writeState === "failed" && i.clientError && (
+                            <div className="note" role="alert" style={{ color: "var(--stamp)" }}>
+                              {i.clientError}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2056,12 +3447,26 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               <div className="col-head">
                 <h2>Runs</h2>
                 <span className="count">
-                  pipeline output · {episodes.length} episode
-                  {episodes.length === 1 ? "" : "s"}
+                  {episodesLoading
+                    ? "loading pipeline output"
+                    : `pipeline output · ${episodes.length} episode${episodes.length === 1 ? "" : "s"}`}
                 </span>
               </div>
               <div className="cap"><span className="eyebrow">Operation-wide pipeline output — every character&apos;s finished episodes.</span></div>
-              {episodes.length === 0 ? (
+              {episodesLoading ? (
+                <div className="loading">
+                  <span className="spin" /> Loading pipeline output…
+                </div>
+              ) : episodesError ? (
+                <div className="empty">
+                  <Icon name="runs" />
+                  <h3>Runs unavailable</h3>
+                  <p>Couldn&apos;t read pipeline episodes: {episodesError}</p>
+                  <button className="btn" type="button" onClick={() => void fetchEpisodes()}>
+                    Retry Runs
+                  </button>
+                </div>
+              ) : episodes.length === 0 ? (
                 <div className="empty">
                   <Icon name="runs" />
                   <h3>No runs yet</h3>
@@ -2121,6 +3526,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   onRetry={() => {
                     void fetchReceipts(activeEpisode.episode_id);
                   }}
+                  restoreFocusRef={runDetailRestoreFocusRef}
                 />
               )}
             </div>
@@ -2144,9 +3550,19 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               loading={costReceiptsLoading}
               error={costReceiptsError}
               receiptsLoaded={costReceiptsLoaded}
+              onRetry={() => void fetchCostReceipts()}
             />
           )}
-        </>
+          </>
+        )}
+      </main>
+      {pendingDirtyAction && active && (
+        <DiscardChangesDialog
+          codename={dirtyCodename}
+          onCancel={cancelDirtyAction}
+          onConfirm={confirmDirtyAction}
+          restoreFocusRef={discardDialogRestoreFocusRef}
+        />
       )}
     </div>
   );
