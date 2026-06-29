@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { budgetStatus, getBudgetTarget, setBudgetTarget } from "@/lib/budget";
+import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -168,41 +170,60 @@ function Icon({ name }: { name: string }) {
 
 // Module-level so editing a textarea does not remount the input (focus-safe).
 function Field({
+  id,
   label,
   hint,
   value,
   onChange,
   rows = 3,
+  multiline = rows > 1,
   mono,
   readOnly = false,
   locked = false,
 }: {
+  id: string;
   label: string;
   hint?: string;
   value: string;
   onChange: (v: string) => void;
   rows?: number;
+  multiline?: boolean;
   mono?: boolean;
   readOnly?: boolean;
   locked?: boolean;
 }) {
+  const controlStyle = mono ? { fontFamily: "var(--mono)", fontSize: "12.5px" } : undefined;
+
   return (
     <div className="field">
-      <label>
+      <label htmlFor={id}>
         <span className="eyebrow">{label}</span>
         <span className="field-label-side">
           {locked && <span className="badge lock-badge">LOCKED - PREVIEW</span>}
           {hint && <span className="hint">{hint}</span>}
         </span>
       </label>
-      <textarea
-        rows={rows}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        readOnly={readOnly}
-        aria-readonly={readOnly}
-        style={mono ? { fontFamily: "var(--mono)", fontSize: "12.5px" } : undefined}
-      />
+      {multiline ? (
+        <textarea
+          id={id}
+          rows={rows}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={readOnly}
+          aria-readonly={readOnly}
+          style={controlStyle}
+        />
+      ) : (
+        <input
+          id={id}
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={readOnly}
+          aria-readonly={readOnly}
+          style={controlStyle}
+        />
+      )}
     </div>
   );
 }
@@ -248,6 +269,17 @@ function formatUsd(value: number, digits = 2) {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(value)} USD`;
+}
+
+function fieldControlId(characterId: string | null, label: string) {
+  const scopedCharacterId = (characterId ?? "no-character").replace(/[^a-zA-Z0-9_-]/g, "-");
+  const scopedLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return `field-${scopedCharacterId}-${scopedLabel || "manual"}`;
+}
+
+function markdownFilename(codename: string) {
+  const trimmed = codename.trim();
+  return `${trimmed.length > 0 ? trimmed.replace(/[\\/]+/g, "-") : "Untitled"}.md`;
 }
 
 function formatOverviewDate(createdAt: string) {
@@ -654,6 +686,118 @@ function OverviewDashboard({
   );
 }
 
+function CostSkeleton() {
+  return (
+    <div
+      className="cost-skeleton cost-grid"
+      aria-hidden="true"
+      tabIndex={-1}
+    >
+      <section className="cost-summary">
+        <div className="skeleton skeleton-card skeleton-hero-card">
+          <div className="skeleton-row">
+            <span className="skeleton skeleton-text skeleton-short" />
+            <span className="skeleton skeleton-text skeleton-badge" />
+          </div>
+          <span className="skeleton skeleton-bar skeleton-money" />
+          <span className="skeleton skeleton-text skeleton-wide" />
+        </div>
+        <div className="skeleton skeleton-card skeleton-parked-card">
+          <span className="skeleton skeleton-text skeleton-short" />
+          <span className="skeleton skeleton-bar" />
+          <span className="skeleton skeleton-text skeleton-wide" />
+          <span className="skeleton skeleton-text" />
+        </div>
+        <div className="skeleton skeleton-card skeleton-provider-card">
+          <span className="skeleton skeleton-text skeleton-short" />
+          {[0, 1, 2].map((row) => (
+            <div className="skeleton-provider-row" key={row}>
+              <div className="skeleton-row">
+                <span className="skeleton skeleton-text" />
+                <span className="skeleton skeleton-text skeleton-badge" />
+              </div>
+              <span className="skeleton skeleton-bar" />
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="cost-audit skeleton-audit-panel">
+        <div className="cost-panel-head">
+          <span className="skeleton skeleton-text skeleton-short" />
+          <span className="skeleton skeleton-text skeleton-badge" />
+        </div>
+        <div className="audit-list">
+          {[0, 1, 2, 3].map((row) => (
+            <div className="skeleton skeleton-card skeleton-audit-card" key={row}>
+              <div className="skeleton-row">
+                <span className="skeleton skeleton-text skeleton-wide" />
+                <span className="skeleton skeleton-text skeleton-badge" />
+              </div>
+              <span className="skeleton skeleton-text" />
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function HistorySkeleton() {
+  return (
+    <div
+      className="history-skeleton revision-list"
+      aria-hidden="true"
+      tabIndex={-1}
+    >
+      {[0, 1, 2].map((row) => (
+        <div className="skeleton skeleton-card skeleton-revision-card" key={row}>
+          <div className="skeleton-row">
+            <span className="skeleton skeleton-text" />
+            <span className="skeleton skeleton-text skeleton-badge" />
+          </div>
+          <div className="skeleton-revision-identity">
+            <span className="skeleton skeleton-text skeleton-wide" />
+            <span className="skeleton skeleton-text" />
+          </div>
+          <span className="skeleton skeleton-text skeleton-wide" />
+          <div className="skeleton-row">
+            <span className="skeleton skeleton-text skeleton-button" />
+            <span className="skeleton skeleton-text skeleton-button" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RunDetailSkeleton() {
+  return (
+    <div
+      className="timeline skeleton-timeline"
+      aria-hidden="true"
+      tabIndex={-1}
+    >
+      {[0, 1, 2].map((row) => (
+        <div className="timeline-item" key={row}>
+          <div className="timeline-node none skeleton-node" />
+          <div className="receipt-card none skeleton-receipt-card">
+            <div className="receipt-card-header">
+              <span className="skeleton skeleton-text skeleton-wide" />
+              <span className="skeleton skeleton-text skeleton-badge" />
+            </div>
+            <div className="receipt-meta-row">
+              <span className="skeleton skeleton-text skeleton-button" />
+              <span className="skeleton skeleton-text skeleton-button" />
+            </div>
+            <span className="skeleton skeleton-bar" />
+            <span className="skeleton skeleton-text skeleton-wide" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CostBoxDashboard({
   episodes,
   costStats,
@@ -669,6 +813,47 @@ function CostBoxDashboard({
   receiptsLoaded: boolean;
   onRetry: () => void;
 }) {
+  const [budgetTarget, setBudgetTargetState] = useState<number | null>(null);
+  const [budgetInput, setBudgetInput] = useState("");
+
+  useEffect(() => {
+    const storedTarget = getBudgetTarget();
+    setBudgetTargetState(storedTarget);
+    setBudgetInput(storedTarget === null ? "" : String(storedTarget));
+  }, []);
+
+  const currentBudgetStatus = budgetStatus(costStats.grandTotal, budgetTarget);
+  const budgetPercent =
+    currentBudgetStatus.ratio === null
+      ? null
+      : Math.min(Math.round(currentBudgetStatus.ratio * 100), 999);
+  const budgetProgressWidth =
+    currentBudgetStatus.ratio === null
+      ? 0
+      : Math.min(Math.max(currentBudgetStatus.ratio * 100, 0), 100);
+
+  const updateBudgetTarget = (rawValue: string) => {
+    setBudgetInput(rawValue);
+    const trimmedValue = rawValue.trim();
+    if (trimmedValue.length === 0) {
+      setBudgetTarget(null);
+      setBudgetTargetState(null);
+      return;
+    }
+
+    const parsedValue = Number(trimmedValue);
+    if (!Number.isFinite(parsedValue) || parsedValue <= 0) return;
+
+    setBudgetTarget(parsedValue);
+    setBudgetTargetState(parsedValue);
+  };
+
+  const clearBudgetTarget = () => {
+    setBudgetInput("");
+    setBudgetTarget(null);
+    setBudgetTargetState(null);
+  };
+
   if (loading) {
     return (
       <div className="cost" role="region" aria-label="Spend governance workspace">
@@ -677,9 +862,7 @@ function CostBoxDashboard({
           <span className="count">loading receipts</span>
         </div>
         <div className="cost-content">
-          <div className="loading cost-loading">
-            <span className="spin" /> Loading spend receipts…
-          </div>
+          <CostSkeleton />
         </div>
       </div>
     );
@@ -767,18 +950,73 @@ function CostBoxDashboard({
         <div className="cost-grid">
           <section className="cost-summary" aria-label="Spend summary">
             <div
-              className="metric-card hero-card"
+              className={"metric-card hero-card" + (currentBudgetStatus.over ? " breached" : "")}
               role="group"
-              aria-label={`Running total operational spend is ${formatUsd(costStats.grandTotal)}.`}
+              aria-label={
+                currentBudgetStatus.over && budgetTarget !== null
+                  ? `Running total operational spend is ${formatUsd(costStats.grandTotal)}. Operational spend has breached the local target of ${formatUsd(budgetTarget)}.`
+                  : `Running total operational spend is ${formatUsd(costStats.grandTotal)}.`
+              }
             >
               <div className="metric-meta">
                 <span className="metric-eyebrow">Running Total Operational Spend</span>
-                <span className="metric-badge">USD</span>
+                <span className={currentBudgetStatus.over ? "metric-badge alert-badge" : "metric-badge"}>
+                  {currentBudgetStatus.over ? "[LIMIT EXCEEDED]" : "USD"}
+                </span>
               </div>
               <div className="metric-value hero-value">{formatUsd(costStats.grandTotal)}</div>
               <div className="metric-breakdown">
-                <span className="pulse-dot" aria-hidden="true" />
+                <span
+                  className={"pulse-dot" + (currentBudgetStatus.over ? " breached" : "")}
+                  aria-hidden="true"
+                />
                 Live &amp; In-Flight Aware · Includes running pipeline operations
+              </div>
+              {budgetTarget !== null && (
+                <div className="budget-target-status">
+                  <div className="progress-container" aria-hidden="true">
+                    <div
+                      className={"progress-bar " + (currentBudgetStatus.over ? "stamp" : "cleared")}
+                      style={{ width: `${budgetProgressWidth}%` }}
+                    />
+                  </div>
+                  <span className={currentBudgetStatus.over ? "budget-warning-text" : "metric-subtext"}>
+                    {currentBudgetStatus.over
+                      ? `Operational spend has breached your local target of ${formatMoney(budgetTarget)}.`
+                      : `${budgetPercent}% of local target ${formatMoney(budgetTarget)}.`}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="metric-card budget-target-card" role="group" aria-labelledby="budget-target-title">
+              <div className="metric-meta">
+                <span className="metric-eyebrow">LOCAL SPEND GOVERNANCE</span>
+                <span className="metric-badge">Browser Local</span>
+              </div>
+              <label className="budget-target-label" htmlFor="budget-target-input" id="budget-target-title">
+                SET TARGET GOAL (USD)
+              </label>
+              <div className="budget-target-controls">
+                <input
+                  id="budget-target-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={budgetInput}
+                  placeholder="No local target set..."
+                  onChange={(event) => updateBudgetTarget(event.target.value)}
+                  onBlur={(event) => updateBudgetTarget(event.target.value)}
+                />
+                <button
+                  className="btn ghost"
+                  type="button"
+                  onClick={clearBudgetTarget}
+                  disabled={budgetTarget === null && budgetInput.trim().length === 0}
+                >
+                  Clear
+                </button>
               </div>
             </div>
 
@@ -953,9 +1191,7 @@ function DrillDownPanel({
 
       <div className="drilldown-content">
         {loading ? (
-          <div className="loading">
-            <span className="spin" /> Loading run receipts…
-          </div>
+          <RunDetailSkeleton />
         ) : error ? (
           <div className="empty">
             <h3>Comms Down</h3>
@@ -1187,9 +1423,7 @@ function HistoryDrawer({
 
         <div className="history-body">
           {loading ? (
-            <div className="loading history-loading">
-              <span className="spin" /> Loading version history…
-            </div>
+            <HistorySkeleton />
           ) : error ? (
             <div className="history-error">
               <h3>History unavailable</h3>
@@ -1479,7 +1713,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     const handleFocusIn = (event: FocusEvent) => {
       if (
         event.target instanceof HTMLElement &&
-        event.target instanceof HTMLTextAreaElement &&
+        (event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLInputElement) &&
         event.target.closest(".sheet")
       ) {
         lastManualFocusRef.current = event.target;
@@ -1910,6 +2144,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     set("status", active.status === "active" ? "draft" : "active");
   };
 
+  const handleExport = () => {
+    if (!active) return;
+    const markdown = bibleToMarkdown({
+      codename: active.codename,
+      concept: active.concept,
+      status: active.status,
+      bible: toBible(active),
+    });
+    downloadMarkdown(markdownFilename(active.codename), markdown);
+  };
+
   // ── ideas (the wire) ──────────────────────────────────────────────────────
   const makeTempIdeaId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -2327,23 +2572,28 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
                   <div className={"sheet" + (previewingRevision ? " preview-active" : "")}>
                     <Field
+                      id={fieldControlId(activeId, "codename")}
                       label="Codename"
                       value={displayedActive.codename}
                       onChange={(v) => set("codename", v)}
                       rows={1}
+                      multiline={false}
                       readOnly={Boolean(previewingRevision)}
                       locked={Boolean(previewingRevision)}
                     />
                     <Field
+                      id={fieldControlId(activeId, "concept")}
                       label="One-line concept"
                       hint="The logline the writer reads first"
                       value={displayedActive.concept}
                       onChange={(v) => set("concept", v)}
                       rows={2}
+                      multiline={false}
                       readOnly={Boolean(previewingRevision)}
                       locked={Boolean(previewingRevision)}
                     />
                     <Field
+                      id={fieldControlId(activeId, "voice")}
                       label="Voice & identity"
                       hint="Who they are — keep it original, never a real person"
                       value={displayedActive.voice}
@@ -2354,6 +2604,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     />
                     <div className="grid2">
                       <Field
+                        id={fieldControlId(activeId, "cadence")}
                         label="Cadence & delivery"
                         value={displayedActive.cadence}
                         onChange={(v) => set("cadence", v)}
@@ -2362,6 +2613,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         locked={Boolean(previewingRevision)}
                       />
                       <Field
+                        id={fieldControlId(activeId, "vocab")}
                         label="Vocabulary & catchphrases"
                         value={displayedActive.vocab}
                         onChange={(v) => set("vocab", v)}
@@ -2371,6 +2623,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       />
                     </div>
                     <Field
+                      id={fieldControlId(activeId, "offlimits")}
                       label="Off-limits"
                       hint="Hard rules — what they never say (keeps you monetizable & on-brand)"
                       value={displayedActive.offlimits}
@@ -2380,6 +2633,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       locked={Boolean(previewingRevision)}
                     />
                     <Field
+                      id={fieldControlId(activeId, "lines")}
                       label="Gold-standard lines"
                       hint="2–4 example lines — the writer imitates these more than any instruction"
                       value={displayedActive.lines}
@@ -2391,6 +2645,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     />
                     <div className="grid2">
                       <Field
+                        id={fieldControlId(activeId, "beats")}
                         label="Beat template"
                         value={displayedActive.beats}
                         onChange={(v) => set("beats", v)}
@@ -2400,11 +2655,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         locked={Boolean(previewingRevision)}
                       />
                       <Field
+                        id={fieldControlId(activeId, "runtime")}
                         label="Runtime target"
                         hint="Enforced at script + render"
                         value={displayedActive.runtime}
                         onChange={(v) => set("runtime", v)}
                         rows={2}
+                        multiline={false}
                         readOnly={Boolean(previewingRevision)}
                         locked={Boolean(previewingRevision)}
                       />
@@ -2443,6 +2700,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         aria-expanded={historyOpen}
                       >
                         View History
+                      </button>
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        onClick={handleExport}
+                        disabled={saving || loading || !active}
+                      >
+                        EXPORT MANUAL (MD)
                       </button>
                       <button className="btn ghost" onClick={() => guardedSetView("wire")}>
                         Log an idea →
