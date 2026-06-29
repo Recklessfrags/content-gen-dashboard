@@ -31,6 +31,19 @@ type FlatChar = {
 
 type View = "roster" | "wire" | "runs" | "overview" | "cost";
 const VIEW_KEYS: View[] = ["roster", "wire", "runs", "overview", "cost"];
+const VIEW_NAV_ITEMS: ReadonlyArray<{ key: View; label: string }> = [
+  { key: "roster", label: "Roster" },
+  { key: "wire", label: "The Wire" },
+  { key: "runs", label: "Runs" },
+  { key: "overview", label: "Overview" },
+  { key: "cost", label: "Cost" },
+];
+const PRIMARY_VIEW_PANEL_ID = "control-room-primary-view-panel";
+
+function viewTabId(view: View) {
+  return `control-room-tab-${view}`;
+}
+
 function isView(value: string | null): value is View {
   return value !== null && (VIEW_KEYS as string[]).includes(value);
 }
@@ -1967,6 +1980,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [adding, setAdding] = useState(false);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewTabRefs = useRef<Record<View, HTMLButtonElement | null>>({
+    roster: null,
+    wire: null,
+    runs: null,
+    overview: null,
+    cost: null,
+  });
   const runButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const lastRunTriggerRef = useRef<string | null>(null);
   const runDetailRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -2197,7 +2217,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   );
 
   const guardedSetView = useCallback(
-    (nextView: View) => {
+    (nextView: View, cancel?: () => void) => {
       if (nextView === view) return;
       // In-app nav: push a history entry (after the dirty guard approves) so
       // the URL reflects the view AND browser back/forward moves between views.
@@ -2206,9 +2226,59 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         if (typeof window !== "undefined") {
           window.history.pushState(null, "", viewUrl(nextView));
         }
-      });
+      }, cancel);
     },
     [guardDirtyAction, view],
+  );
+
+  const focusSelectedViewTab = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      viewTabRefs.current[view]?.focus();
+    });
+  }, [view]);
+
+  const activateViewTab = useCallback(
+    (nextView: View) => {
+      guardedSetView(nextView, focusSelectedViewTab);
+    },
+    [focusSelectedViewTab, guardedSetView],
+  );
+
+  const focusViewTab = useCallback((nextView: View) => {
+    viewTabRefs.current[nextView]?.focus();
+  }, []);
+
+  const handleViewTabKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>, currentView: View) => {
+      const currentIndex = VIEW_KEYS.indexOf(currentView);
+      if (currentIndex === -1) return;
+
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const direction = event.key === "ArrowDown" ? 1 : -1;
+        const nextIndex = (currentIndex + direction + VIEW_KEYS.length) % VIEW_KEYS.length;
+        focusViewTab(VIEW_KEYS[nextIndex]);
+        return;
+      }
+
+      if (event.key === "Home") {
+        event.preventDefault();
+        focusViewTab(VIEW_KEYS[0]);
+        return;
+      }
+
+      if (event.key === "End") {
+        event.preventDefault();
+        focusViewTab(VIEW_KEYS[VIEW_KEYS.length - 1]);
+        return;
+      }
+
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        activateViewTab(currentView);
+      }
+    },
+    [activateViewTab, focusViewTab],
   );
 
   // Restore the active view from the URL on mount (client-only effect, not a
@@ -2778,26 +2848,29 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             "NO ACTIVE"
           )}
         </button>
-        {(
-          [
-            ["roster", "Roster"],
-            ["wire", "The Wire"],
-            ["runs", "Runs"],
-            ["overview", "Overview"],
-            ["cost", "Cost"],
-          ] as const
-        ).map(([k, lbl]) => (
-          <button
-            key={k}
-            className={"navbtn" + (view === k ? " on" : "")}
-            onClick={() => guardedSetView(k)}
-            aria-pressed={view === k}
-          >
-            <Icon name={k} />
-            <span>{lbl}</span>
-            <div className="dot" />
-          </button>
-        ))}
+        <div role="tablist" aria-orientation="vertical" aria-label="Primary views">
+          {VIEW_NAV_ITEMS.map(({ key: k, label }) => (
+            <button
+              key={k}
+              ref={(node) => {
+                viewTabRefs.current[k] = node;
+              }}
+              id={viewTabId(k)}
+              className={"navbtn" + (view === k ? " on" : "")}
+              type="button"
+              role="tab"
+              aria-selected={view === k}
+              aria-controls={PRIMARY_VIEW_PANEL_ID}
+              tabIndex={view === k ? 0 : -1}
+              onClick={() => activateViewTab(k)}
+              onKeyDown={(event) => handleViewTabKeyDown(event, k)}
+            >
+              <Icon name={k} />
+              <span>{label}</span>
+              <div className="dot" />
+            </button>
+          ))}
+        </div>
         <form
           ref={exitFormRef}
           action="/auth/signout"
@@ -2813,20 +2886,26 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         </form>
       </nav>
 
-      {loading ? (
-        <div className="loading">
-          <span className="spin" /> Loading field manuals…
-        </div>
-      ) : loadError ? (
-        <div className="empty">
-          <h3>Comms down</h3>
-          <p>Couldn&apos;t reach the database: {loadError}</p>
-          <button className="btn" type="button" onClick={() => void fetchCharacters()}>
-            Retry Roster
-          </button>
-        </div>
-      ) : (
-        <>
+      <main
+        id={PRIMARY_VIEW_PANEL_ID}
+        role="tabpanel"
+        aria-labelledby={viewTabId(view)}
+        tabIndex={0}
+      >
+        {loading ? (
+          <div className="loading">
+            <span className="spin" /> Loading field manuals…
+          </div>
+        ) : loadError ? (
+          <div className="empty">
+            <h3>Comms down</h3>
+            <p>Couldn&apos;t reach the database: {loadError}</p>
+            <button className="btn" type="button" onClick={() => void fetchCharacters()}>
+              Retry Roster
+            </button>
+          </div>
+        ) : (
+          <>
           {view === "roster" && (
             <div className="main">
               <aside className="roster">
@@ -3474,8 +3553,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               onRetry={() => void fetchCostReceipts()}
             />
           )}
-        </>
-      )}
+          </>
+        )}
+      </main>
       {pendingDirtyAction && active && (
         <DiscardChangesDialog
           codename={dirtyCodename}
