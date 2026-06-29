@@ -2,16 +2,23 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { budgetStatus, getBudgetTarget, setBudgetTarget } from "@/lib/budget";
-import type { Json } from "@/lib/database.types";
+import type { Json, Tables } from "@/lib/database.types";
 import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import {
+  buildSpendApprovalReenqueue,
   buildJobInsert,
+  classifyJobStatus,
+  detectParkKind,
   EPISODE_CAP_MAX,
   EPISODE_CAP_MIN,
+  isActionableStatus,
+  isInFlightStatus as isJobInFlightStatus,
+  isTerminalStatus,
   idempotencyKeyFor,
   isValidEpisodeCap,
+  JOB_STATUS_LABELS,
   RECIPES,
   type JobEnqueueInput,
   type RecipeKey,
@@ -40,11 +47,12 @@ type FlatChar = {
   created_at: string;
 } & { [K in (typeof BIBLE_FIELDS)[number]]: string };
 
-type View = "roster" | "wire" | "runs" | "overview" | "cost";
-const VIEW_KEYS: View[] = ["roster", "wire", "runs", "overview", "cost"];
+type View = "roster" | "wire" | "queue" | "runs" | "overview" | "cost";
+const VIEW_KEYS: View[] = ["roster", "wire", "queue", "runs", "overview", "cost"];
 const VIEW_NAV_ITEMS: ReadonlyArray<{ key: View; label: string }> = [
   { key: "roster", label: "Roster" },
   { key: "wire", label: "The Wire" },
+  { key: "queue", label: "Queue" },
   { key: "runs", label: "Runs" },
   { key: "overview", label: "Overview" },
   { key: "cost", label: "Cost" },
@@ -70,6 +78,14 @@ function viewUrl(view: View): string {
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
 }
 type CostReceipt = Pick<Receipt, "episode_id" | "seq" | "provider" | "stage" | "spend_so_far">;
+type QueueJob = Tables<"jobs">;
+type ParkKind = ReturnType<typeof detectParkKind>;
+type JobParkResolution = {
+  kind: ParkKind;
+  loading: boolean;
+  stage: string | null;
+  error: string | null;
+};
 type IdeaWriteState = "saving" | "failed";
 type WireIdea = Idea & {
   clientKey?: string;
@@ -361,6 +377,7 @@ function EnqueueIdeaPanel({
         role="dialog"
         aria-modal="true"
         aria-labelledby="enqueue-panel-title"
+        aria-busy={submitting}
       >
         <div className="col-head">
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -385,7 +402,7 @@ function EnqueueIdeaPanel({
           <span className="chip">{idea.channel}</span>
         </div>
 
-        <form className="drilldown-content enqueue-form" onSubmit={handleSubmit}>
+        <form className="drilldown-content enqueue-form" onSubmit={handleSubmit} aria-busy={submitting}>
           <div className="field">
             <label htmlFor="enqueue-food">
               <span className="eyebrow">TOPIC / FOOD</span>
@@ -588,6 +605,7 @@ function Icon({ name }: { name: string }) {
     {
       roster: "M4 20v-2a4 4 0 014-4h0M16 14a4 4 0 014 4v2M12 4a4 4 0 100 8 4 4 0 000-8z",
       wire: "M4 6h16M4 12h16M4 18h10",
+      queue: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
       runs: "M5 12l4 4 10-10",
       overview: "M4 4h6v6H4V4zm10 0h6v6h-6V4zm-10 10h6v6H4v-6zm10 0h6v6h-6v-6z",
       cost: "M12 8c-3.31 0-6 2.24-6 5s2.69 5 6 5 6-2.24 6-5-2.69-5-6-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-10c-3.31 0-6 2.24-6 5h12c0-2.76-2.69-5-6-5z",
@@ -606,6 +624,56 @@ function Icon({ name }: { name: string }) {
       <path d={p} />
     </svg>
   );
+}
+
+function formatQueueTimestamp(createdAt: string) {
+  const timestamp = new Date(createdAt).getTime();
+  if (!Number.isFinite(timestamp)) return "unknown time";
+
+  const deltaMs = Date.now() - timestamp;
+  const absDeltaMs = Math.abs(deltaMs);
+  const minuteMs = 60 * 1000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+
+  if (absDeltaMs < minuteMs) return "just now";
+  if (absDeltaMs < hourMs) {
+    const minutes = Math.max(1, Math.round(absDeltaMs / minuteMs));
+    return deltaMs >= 0 ? `${minutes}m ago` : `in ${minutes}m`;
+  }
+  if (absDeltaMs < dayMs) {
+    const hours = Math.max(1, Math.round(absDeltaMs / hourMs));
+    return deltaMs >= 0 ? `${hours}h ago` : `in ${hours}h`;
+  }
+
+  return new Date(createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+}
+
+function normalizeJobInputArray(value: Json): Json[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function jobInputFromRow(
+  job: QueueJob,
+  overrides: {
+    spendApproved?: boolean;
+    idempotencyKey?: string | null;
+  } = {},
+): JobEnqueueInput {
+  return {
+    food: job.food,
+    character: job.character,
+    anchor_citation: job.anchor_citation,
+    anchor_url: job.anchor_url,
+    inject_claims: normalizeJobInputArray(job.inject_claims),
+    episode_cap: job.episode_cap,
+    routes: job.routes,
+    live_adapters: job.live_adapters,
+    stub_upstream: job.stub_upstream,
+    spend_approved: overrides.spendApproved ?? job.spend_approved,
+    idempotency_key:
+      "idempotencyKey" in overrides ? overrides.idempotencyKey : job.idempotency_key,
+  };
 }
 
 // Module-level so editing a textarea does not remount the input (focus-safe).
@@ -2358,6 +2426,88 @@ function DiscardChangesDialog({
   );
 }
 
+type QueueActionDialogProps = {
+  job: QueueJob;
+  action: "spend" | "stale";
+  submitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  restoreFocusRef: React.RefObject<HTMLElement | null>;
+};
+
+function QueueActionDialog({
+  job,
+  action,
+  submitting,
+  onCancel,
+  onConfirm,
+  restoreFocusRef,
+}: QueueActionDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const isSpend = action === "spend";
+  const title = isSpend ? "APPROVE SPEND LIMITS" : "RE-RUN STRANDED JOB";
+  const descriptionId = isSpend ? "spend-approval-desc" : "stale-rerun-desc";
+
+  useFocusTrap({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: () => {
+      if (!submitting) onCancel();
+    },
+    initialFocusRef: cancelButtonRef,
+    restoreFocusRef,
+  });
+
+  return (
+    <div className="restore-layer" role="presentation">
+      <div
+        ref={dialogRef}
+        className={"restore-dialog" + (isSpend ? " spend-approval-dialog" : "")}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="queue-action-title"
+        aria-describedby={descriptionId}
+      >
+        <h2 id="queue-action-title">{title}</h2>
+        {isSpend ? (
+          <p id={descriptionId} className="spend-approval-copy">
+            You are about to authorize extra-budgetary spend for topic:{" "}
+            <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
+            re-enqueue the job with spend_approved=true. A hard-cap check still protects
+            against runaway loops.
+          </p>
+        ) : (
+          <p id={descriptionId} className="spend-approval-copy">
+            This stranded job will be re-queued as a fresh pipeline job for topic:{" "}
+            <span className="spend-approval-topic">&quot;{job.food}&quot;</span>.
+          </p>
+        )}
+        <div className="restore-actions">
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            ref={cancelButtonRef}
+          >
+            CANCEL
+          </button>
+          <button className="btn" type="button" onClick={onConfirm} disabled={submitting}>
+            {submitting
+              ? isSpend
+                ? "TRANSMITTING APPROVAL..."
+                : "TRANSMITTING RE-RUN..."
+              : isSpend
+                ? "AUTHORIZE & CONTINUE"
+                : "RE-RUN JOB"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const supabase = useMemo(() => createClient(), []);
 
@@ -2367,10 +2517,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [ideasError, setIdeasError] = useState<string | null>(null);
   const [episodesLoading, setEpisodesLoading] = useState(true);
   const [episodesError, setEpisodesError] = useState<string | null>(null);
+  const [jobsLoading, setJobsLoading] = useState(true);
+  const [jobsError, setJobsError] = useState<string | null>(null);
 
   const [chars, setChars] = useState<FlatChar[]>([]);
   const [ideas, setIdeas] = useState<WireIdea[]>([]);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [jobs, setJobs] = useState<QueueJob[]>([]);
+  const [jobParkById, setJobParkById] = useState<Record<number, JobParkResolution>>({});
   const [costReceipts, setCostReceipts] = useState<CostReceipt[]>([]);
   const [costReceiptsLoading, setCostReceiptsLoading] = useState(true);
   const [costReceiptsError, setCostReceiptsError] = useState<string | null>(null);
@@ -2400,11 +2554,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [pendingQueueAction, setPendingQueueAction] = useState<{
+    job: QueueJob;
+    action: "spend" | "stale";
+  } | null>(null);
+  const [queueActionSubmitting, setQueueActionSubmitting] = useState(false);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewTabRefs = useRef<Record<View, HTMLButtonElement | null>>({
     roster: null,
     wire: null,
+    queue: null,
     runs: null,
     overview: null,
     cost: null,
@@ -2429,9 +2589,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const episodeRequestRef = useRef(0);
   const revisionRequestRef = useRef(0);
   const costReceiptRequestRef = useRef(0);
+  const jobsRequestRef = useRef(0);
   const lastManualFocusRef = useRef<HTMLElement | null>(null);
   const lastDirtyTriggerRef = useRef<HTMLElement | null>(null);
   const discardDialogRestoreFocusRef = useRef<HTMLElement | null>(null);
+  const queueActionRestoreFocusRef = useRef<HTMLElement | null>(null);
   const exitFormRef = useRef<HTMLFormElement>(null);
   const ideaTitleRef = useRef<HTMLTextAreaElement>(null);
   const ideaSubmittingTitleRef = useRef<string | null>(null);
@@ -2537,6 +2699,28 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setEpisodes(data ?? []);
   }, [supabase]);
 
+  const fetchJobs = useCallback(async () => {
+    const requestId = jobsRequestRef.current + 1;
+    jobsRequestRef.current = requestId;
+    setJobsLoading(true);
+    setJobsError(null);
+
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .returns<QueueJob[]>();
+
+    if (jobsRequestRef.current !== requestId) return;
+    setJobsLoading(false);
+    if (error) {
+      setJobs([]);
+      setJobsError(error.message);
+      return;
+    }
+    setJobs(data ?? []);
+  }, [supabase]);
+
   const fetchCostReceipts = useCallback(async () => {
     const requestId = costReceiptRequestRef.current + 1;
     costReceiptRequestRef.current = requestId;
@@ -2566,8 +2750,59 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     void fetchCharacters();
     void fetchIdeas();
     void fetchEpisodes();
+    void fetchJobs();
     void fetchCostReceipts();
-  }, [fetchCharacters, fetchCostReceipts, fetchEpisodes, fetchIdeas]);
+  }, [fetchCharacters, fetchCostReceipts, fetchEpisodes, fetchIdeas, fetchJobs]);
+
+  useEffect(() => {
+    const readyJobs = jobs.filter((job) => {
+      const status = classifyJobStatus(job.status);
+      return status === "ready_for_review" && jobParkById[job.id] === undefined;
+    });
+
+    if (readyJobs.length === 0) return undefined;
+
+    setJobParkById((current) => {
+      const next = { ...current };
+      for (const job of readyJobs) {
+        next[job.id] = { kind: "unknown", loading: true, stage: null, error: null };
+      }
+      return next;
+    });
+
+    for (const job of readyJobs) {
+      if (!job.episode_id) {
+        setJobParkById((current) => ({
+          ...current,
+          [job.id]: { kind: "unknown", loading: false, stage: null, error: null },
+        }));
+        continue;
+      }
+
+      const episodeId = job.episode_id;
+      void (async () => {
+        const { data, error } = await supabase
+          .from("receipts")
+          .select("stage,seq")
+          .eq("episode_id", episodeId)
+          .order("seq", { ascending: false })
+          .limit(1)
+          .returns<Array<Pick<Receipt, "stage" | "seq">>>();
+
+        const latestStage = data?.[0]?.stage ?? null;
+        setJobParkById((current) => ({
+          ...current,
+          [job.id]: {
+            kind: error ? "unknown" : detectParkKind(latestStage),
+            loading: false,
+            stage: latestStage,
+            error: error?.message ?? null,
+          },
+        }));
+      })();
+    }
+    return undefined;
+  }, [jobParkById, jobs, supabase]);
 
   const active = chars.find((c) => c.id === activeId) ?? null;
   const previewingRevision =
@@ -2935,13 +3170,74 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       return { kind: "success" };
     }
 
-    if (error.code === "23505" || error.code === "409") {
+    if (error.code === "23505") {
       showFlash("Already queued");
       return { kind: "duplicate" };
     }
 
     showFlash("Could not queue run — " + error.message, true);
     return { kind: "error", message: error.message };
+  };
+
+  const requestQueueAction = (
+    job: QueueJob,
+    action: "spend" | "stale",
+    trigger: HTMLButtonElement,
+  ) => {
+    queueActionRestoreFocusRef.current = trigger;
+    setPendingQueueAction({ job, action });
+  };
+
+  const cancelQueueAction = useCallback(() => {
+    if (queueActionSubmitting) return;
+    setPendingQueueAction(null);
+  }, [queueActionSubmitting]);
+
+  const confirmQueueAction = async () => {
+    if (!pendingQueueAction || queueActionSubmitting) return;
+
+    setQueueActionSubmitting(true);
+    const { job, action } = pendingQueueAction;
+    const input =
+      action === "spend"
+        ? jobInputFromRow(job)
+        : jobInputFromRow(job, {
+            idempotencyKey: `job_rerun_${job.id}_${Date.now()}`,
+          });
+
+    let payload: ReturnType<typeof buildJobInsert>;
+    try {
+      payload =
+        action === "spend"
+          ? buildSpendApprovalReenqueue(input)
+          : buildJobInsert(input);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid job enqueue payload";
+      setQueueActionSubmitting(false);
+      showFlash(message, true);
+      return;
+    }
+
+    const { error } = await supabase.from("jobs").insert(payload);
+    setQueueActionSubmitting(false);
+
+    if (error) {
+      showFlash(
+        action === "spend"
+          ? "Spend approval failed — " + error.message
+          : "Re-run failed — " + error.message,
+        true,
+      );
+      return;
+    }
+
+    setPendingQueueAction(null);
+    showFlash(
+      action === "spend"
+        ? "✓ Spend approved. Job re-entered the pipeline."
+        : "✓ Stranded job re-queued for execution",
+    );
+    void fetchJobs();
   };
 
   // ── persist character ───────────────────────────────────────────────────
@@ -3199,6 +3495,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   };
 
   const openIdeas = ideas.filter((i) => i.status !== "used").length;
+  const activeQueueJobs = jobs.filter((job) => !isTerminalStatus(classifyJobStatus(job.status))).length;
   const ideaCaptureDisabled = Boolean(ideaSubmittingTitle);
   const canSubmitIdea = draftIdea.trim().length > 0 && !ideaCaptureDisabled;
   const dirtyCodename = active?.codename.trim() ? active.codename : "Untitled";
@@ -3931,6 +4228,217 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             </div>
           )}
 
+          {view === "queue" && (
+            <div className="wire">
+              <div className="col-head">
+                <h2>Queue</h2>
+                <span className="count">
+                  {jobsLoading
+                    ? "interrogating pipeline"
+                    : `pipeline queue · ${activeQueueJobs} active job${activeQueueJobs === 1 ? "" : "s"}`}
+                </span>
+              </div>
+              <div className="cap">
+                <span className="eyebrow">
+                  Upstream jobs before production. Runs are finished episodes after the worker
+                  pipeline writes output.
+                </span>
+              </div>
+
+              {jobsLoading ? (
+                <div className="wire-list" aria-label="Loading queued jobs">
+                  <div className="queue-card-meta">Interrogating pipeline database...</div>
+                  {[0, 1, 2].map((row) => (
+                    <div
+                      key={row}
+                      className="icard job-card skeleton skeleton-card"
+                      aria-hidden="true"
+                    >
+                      <div className="queue-card-head">
+                        <span className="skeleton skeleton-text skeleton-wide" />
+                        <span className="skeleton skeleton-text skeleton-badge" />
+                      </div>
+                      <span className="skeleton skeleton-text" />
+                      <span className="skeleton skeleton-text skeleton-short" />
+                    </div>
+                  ))}
+                </div>
+              ) : jobsError ? (
+                <div className="queue-error-banner" role="alert">
+                  <h3>Comms Down</h3>
+                  <p>Couldn&apos;t reach the pipeline jobs database: {jobsError}</p>
+                  <button className="btn" type="button" onClick={() => void fetchJobs()}>
+                    Retry Queue Connection
+                  </button>
+                </div>
+              ) : jobs.length === 0 ? (
+                <div className="empty">
+                  <Icon name="queue" />
+                  <h3>The queue is clear</h3>
+                  <p>
+                    No jobs are currently registered in the pipeline. Dispatch a target run
+                    from The Wire to engage the worker engines.
+                  </p>
+                </div>
+              ) : (
+                <div className="wire-list" aria-label="Pipeline jobs">
+                  {jobs.map((job) => {
+                    const status = classifyJobStatus(job.status);
+                    const actionable = isActionableStatus(status);
+                    const terminal = isTerminalStatus(status);
+                    const park = jobParkById[job.id];
+                    const hasSpend = typeof job.spend === "number" && job.spend > 0;
+                    const episodeKnown = job.episode_id
+                      ? episodes.some((episode) => episode.episode_id === job.episode_id)
+                      : false;
+                    const cardClass =
+                      "icard job-card status-" +
+                      status +
+                      (status === "running" && isJobInFlightStatus(status) ? " running-pulse" : "");
+
+                    return (
+                      <article
+                        key={job.id}
+                        className={cardClass}
+                        aria-label={`${JOB_STATUS_LABELS[status]} job for ${job.food}`}
+                      >
+                        <div className="body">
+                          <div className="queue-card-head">
+                            <div>
+                              <div className="title">{job.food}</div>
+                              <div className="queue-card-meta">
+                                <span>OPERATOR: {job.character ?? "default"}</span>
+                                <span>CREATED: {formatQueueTimestamp(job.created_at)}</span>
+                                <span>Attempts: {job.attempts}/3</span>
+                                {terminal && <span>Terminal</span>}
+                              </div>
+                            </div>
+                            <span className={`status-badge ${status}`}>
+                              [ {JOB_STATUS_LABELS[status].toUpperCase()} ]
+                            </span>
+                          </div>
+
+                          {hasSpend && (
+                            <div className="queue-card-spend">
+                              Spend: {formatUsd(job.spend ?? 0)}
+                            </div>
+                          )}
+
+                          {actionable && status === "ready_for_review" && (
+                            <>
+                              {park?.loading ? (
+                                <div className="job-review-panel" role="status">
+                                  <h4>Review Park Detected</h4>
+                                  <p>Reading latest receipt to classify the parked gate.</p>
+                                </div>
+                              ) : park?.kind === "publish" ? (
+                                <div className="publish-park-note" role="note">
+                                  <h4>Publish Park Detected</h4>
+                                  <p>
+                                    Distribution channel approval is currently pipeline-managed.
+                                    This card is read-only until distribution webhook integration is
+                                    finalized.
+                                  </p>
+                                  <button className="btn ghost compact" type="button" disabled>
+                                    Awaiting publish (pipeline-side)
+                                  </button>
+                                </div>
+                              ) : park?.kind === "spend" ? (
+                                <div className="job-review-panel">
+                                  <h4>Spend Park Detected</h4>
+                                  <p>
+                                    This job was parked to prevent runaway credit usage.
+                                    {park.stage ? ` Last receipt stage: ${park.stage}.` : ""}
+                                  </p>
+                                  <button
+                                    className="btn compact"
+                                    type="button"
+                                    onClick={(event) =>
+                                      requestQueueAction(job, "spend", event.currentTarget)
+                                    }
+                                  >
+                                    Approve spend &amp; continue
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="publish-park-note" role="note">
+                                  <h4>Review Park Unresolved</h4>
+                                  <p>
+                                    No episode receipt could classify this parked job yet.
+                                    {park?.error ? ` Receipt read failed: ${park.error}` : ""}
+                                  </p>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {actionable && status === "stale" && (
+                            <div className="stale-affordance">
+                              <h4>Stranded Job</h4>
+                              <p className="queue-card-substatus">stranded - needs attention</p>
+                              <button
+                                className="btn ghost compact"
+                                type="button"
+                                onClick={(event) =>
+                                  requestQueueAction(job, "stale", event.currentTarget)
+                                }
+                              >
+                                Re-run Job
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="queue-card-actions">
+                            {job.episode_id && (
+                              <button
+                                ref={(node) => {
+                                  if (!job.episode_id) return;
+                                  if (node) runButtonRefs.current.set(job.episode_id, node);
+                                  else runButtonRefs.current.delete(job.episode_id);
+                                }}
+                                className="btn ghost compact"
+                                type="button"
+                                onClick={() => {
+                                  if (job.episode_id) openRunDetail(job.episode_id);
+                                }}
+                                aria-haspopup="dialog"
+                                aria-expanded={activeEpisodeId === job.episode_id}
+                                title={
+                                  episodeKnown
+                                    ? "Open run detail"
+                                    : "Episode id is present; run detail opens when the episode row is available."
+                                }
+                              >
+                                Open Run Detail
+                              </button>
+                            )}
+                            {job.spend_approved && (
+                              <span className="queue-card-substatus">spend authorized</span>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activeEpisode && (
+                <DrillDownPanel
+                  episode={activeEpisode}
+                  receipts={receipts}
+                  loading={receiptsLoading}
+                  error={receiptsError}
+                  onClose={closeRunDetail}
+                  onRetry={() => {
+                    void fetchReceipts(activeEpisode.episode_id);
+                  }}
+                  restoreFocusRef={runDetailRestoreFocusRef}
+                />
+              )}
+            </div>
+          )}
+
           {view === "runs" && (
             <div className="wire">
               <div className="col-head">
@@ -4060,6 +4568,18 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           onCancel={cancelDirtyAction}
           onConfirm={confirmDirtyAction}
           restoreFocusRef={discardDialogRestoreFocusRef}
+        />
+      )}
+      {pendingQueueAction && (
+        <QueueActionDialog
+          job={pendingQueueAction.job}
+          action={pendingQueueAction.action}
+          submitting={queueActionSubmitting}
+          onCancel={cancelQueueAction}
+          onConfirm={() => {
+            void confirmQueueAction();
+          }}
+          restoreFocusRef={queueActionRestoreFocusRef}
         />
       )}
     </div>
