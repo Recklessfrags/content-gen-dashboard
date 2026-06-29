@@ -93,6 +93,32 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Unknown action." }, 400, origin);
   }
 
+  // ── validate inputs BEFORE consuming any cap — a malformed request must not
+  // burn a daily cap unit. (trim() length matches the client-side check.) ─────
+  if (action === "design") {
+    const sample = String(body.text ?? "").trim();
+    if (sample.length < SAMPLE_MIN || sample.length > SAMPLE_MAX) {
+      return json(
+        { error: `Sample text must be ${SAMPLE_MIN}–${SAMPLE_MAX} characters.` },
+        400,
+        origin,
+      );
+    }
+    if (String(body.voice_description ?? "").trim().length === 0) {
+      return json({ error: "voice_description is required." }, 400, origin);
+    }
+  } else if (action === "create") {
+    if (!String(body.voice_name ?? "").trim() || !String(body.generated_voice_id ?? "").trim()) {
+      return json(
+        { error: "voice_name and generated_voice_id are required." },
+        400,
+        origin,
+      );
+    }
+  } else if (!String(body.voice_id ?? "").trim() || !String(body.text ?? "").trim()) {
+    return json({ error: "voice_id and text are required." }, 400, origin);
+  }
+
   // ── 2. soft cap (design + create only) ────────────────────────────────────
   if (action === "design" || action === "create") {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -130,16 +156,6 @@ Deno.serve(async (req: Request) => {
     if (action === "design") {
       const voiceDescription = String(body.voice_description ?? "");
       const text = String(body.text ?? "");
-      if (text.length < SAMPLE_MIN || text.length > SAMPLE_MAX) {
-        return json(
-          { error: `Sample text must be ${SAMPLE_MIN}–${SAMPLE_MAX} characters.` },
-          400,
-          origin,
-        );
-      }
-      if (voiceDescription.length === 0) {
-        return json({ error: "voice_description is required." }, 400, origin);
-      }
       const res = await fetch(`${EL_BASE}/v1/text-to-voice/design`, {
         method: "POST",
         headers: elHeaders,
@@ -154,13 +170,6 @@ Deno.serve(async (req: Request) => {
       const voiceName = String(body.voice_name ?? "");
       const voiceDescription = String(body.voice_description ?? "");
       const generatedVoiceId = String(body.generated_voice_id ?? "");
-      if (!voiceName || !generatedVoiceId) {
-        return json(
-          { error: "voice_name and generated_voice_id are required." },
-          400,
-          origin,
-        );
-      }
       const res = await fetch(`${EL_BASE}/v1/text-to-voice`, {
         method: "POST",
         headers: elHeaders,

@@ -2659,6 +2659,16 @@ function CastingStudioPanel({
     restoreFocusRef,
   });
 
+  // Guard against setState after the panel is closed/unmounted mid-request
+  // (Edge/ElevenLabs calls can be slow).
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
+
   // Persist the in-progress tournament so a reload doesn't lose it.
   useEffect(() => {
     saveBracket(bracket);
@@ -2671,6 +2681,7 @@ function CastingStudioPanel({
       .select("count")
       .eq("day", today)
       .maybeSingle();
+    if (!aliveRef.current) return;
     const used = typeof data?.count === "number" ? data.count : 0;
     const left = Math.max(0, CASTING_DAILY_CAP - used);
     setCastsLeft(left);
@@ -2691,12 +2702,14 @@ function CastingStudioPanel({
     setDesigning(true);
     try {
       const candidates = await generateVoicePreviews(supabase, prompt, sampleText);
+      if (!aliveRef.current) return;
       setBracket((b) => setPool(b, candidates));
       if (candidates.length === 0) {
         setError("ElevenLabs returned no previews — try adjusting the design.");
       }
       await refreshCastsLeft();
     } catch (e) {
+      if (!aliveRef.current) return;
       if (e instanceof CastingError) {
         setError(e.message);
         if (e.capReached) {
@@ -2707,7 +2720,7 @@ function CastingStudioPanel({
         setError("Could not generate previews.");
       }
     } finally {
-      setDesigning(false);
+      if (aliveRef.current) setDesigning(false);
     }
   };
 
@@ -2727,6 +2740,7 @@ function CastingStudioPanel({
         .from("characters")
         .update({ voice_id: voiceId })
         .eq("id", character.id);
+      if (!aliveRef.current) return;
       if (updateError) {
         setError(`Saved the voice but could not write it to the character: ${updateError.message}`);
         return;
@@ -2736,6 +2750,7 @@ function CastingStudioPanel({
       showFlash("✓ Voice cast and locked to character");
       await refreshCastsLeft();
     } catch (e) {
+      if (!aliveRef.current) return;
       if (e instanceof CastingError) {
         setError(e.message);
         if (e.capReached) {
@@ -2746,7 +2761,7 @@ function CastingStudioPanel({
         setError("Could not save the voice.");
       }
     } finally {
-      setLocking(null);
+      if (aliveRef.current) setLocking(null);
     }
   };
 
@@ -2759,11 +2774,13 @@ function CastingStudioPanel({
       const probe =
         "Here is how this voice reads a line at the current settings — listen for pace, warmth, and consistency.";
       const result = await synthesizePreview(supabase, probe, character.voice_id, synth);
+      if (!aliveRef.current) return;
       setTestAudioSrc(audioSrcFromBase64(result.audio_base_64, result.media_type));
     } catch (e) {
+      if (!aliveRef.current) return;
       setError(e instanceof CastingError ? e.message : "Could not synthesize a preview.");
     } finally {
-      setTesting(false);
+      if (aliveRef.current) setTesting(false);
     }
   };
 
@@ -2775,6 +2792,7 @@ function CastingStudioPanel({
       .from("characters")
       .update({ voice_settings: next as unknown as Json })
       .eq("id", character.id);
+    if (!aliveRef.current) return;
     setSavingSettings(false);
     if (updateError) {
       showFlash("Could not save voice settings — " + updateError.message, true);
@@ -2807,6 +2825,7 @@ function CastingStudioPanel({
           className="casting-audio"
           controls
           preload="none"
+          aria-label={`Audition candidate — ${describePrompt(candidate.prompt_state)}`}
           src={audioSrcFromBase64(candidate.audio_base_64, candidate.media_type)}
         />
         <div className="casting-candidate-actions">
@@ -3073,7 +3092,13 @@ function CastingStudioPanel({
                 </div>
                 {testAudioSrc && (
                   // eslint-disable-next-line jsx-a11y/media-has-caption -- ephemeral TTS audition
-                  <audio className="casting-audio" controls preload="none" src={testAudioSrc} />
+                  <audio
+                    className="casting-audio"
+                    controls
+                    preload="none"
+                    aria-label="Live synthesis preview at the current settings"
+                    src={testAudioSrc}
+                  />
                 )}
               </>
             )}
@@ -3669,7 +3694,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const confirmRestore = () => {
     if (!active || !pendingRestore) return;
     setRestoreDialogFocusTarget(true);
-    const restored = flattenRevision(pendingRestore, active);
+    // Revisions snapshot the bible only, not the cast — preserve the live
+    // voice_id / voice_settings so restoring a bible draft never wipes casting.
+    const restored: FlatChar = {
+      ...flattenRevision(pendingRestore, active),
+      voice_id: active.voice_id,
+      voice_settings: active.voice_settings,
+    };
     setChars((cs) => cs.map((c) => (c.id === active.id ? restored : c)));
     setPendingRestore(null);
     setPreviewingRevisionId(null);
