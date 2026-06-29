@@ -9,8 +9,6 @@ import { createClient } from "@/lib/supabase/client";
 import {
   BIBLE_FIELDS,
   CHANNELS,
-  STATUS_CYCLE,
-  STATUS_LABEL,
   type Bible,
   type Character,
   type CharacterBibleRevision,
@@ -130,6 +128,13 @@ const FIELD_LABELS: Record<(typeof BIBLE_FIELDS)[number], string> = {
   lines: "Gold-standard lines",
   beats: "Beat template",
   runtime: "Runtime target",
+};
+
+const IDEA_STATUS_OPTIONS: IdeaStatus[] = ["backlog", "active", "used"];
+const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
+  backlog: "Backlog",
+  active: "Active",
+  used: "Used",
 };
 
 function formatRevisionDate(createdAt: string) {
@@ -842,6 +847,22 @@ function CostBoxDashboard({
     setBudgetTargetState(parsedValue);
   };
 
+  const handleBudgetTargetBlur = (rawValue: string) => {
+    const trimmedValue = rawValue.trim();
+    if (trimmedValue.length === 0) {
+      updateBudgetTarget(rawValue);
+      return;
+    }
+
+    const parsedValue = Number(trimmedValue);
+    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+      setBudgetInput(budgetTarget === null ? "" : String(budgetTarget));
+      return;
+    }
+
+    updateBudgetTarget(rawValue);
+  };
+
   const clearBudgetTarget = () => {
     setBudgetInput("");
     setBudgetTarget(null);
@@ -976,8 +997,8 @@ function CostBoxDashboard({
                   </div>
                   <span className={currentBudgetStatus.over ? "budget-warning-text" : "metric-subtext"}>
                     {currentBudgetStatus.over
-                      ? `Operational spend has breached your local target of ${formatMoney(budgetTarget)}.`
-                      : `${budgetPercent}% of local target ${formatMoney(budgetTarget)}.`}
+                      ? `Operational spend has breached your local target of ${formatUsd(budgetTarget)}.`
+                      : `${budgetPercent}% of local target ${formatUsd(budgetTarget)}.`}
                   </span>
                 </div>
               )}
@@ -1001,7 +1022,7 @@ function CostBoxDashboard({
                   value={budgetInput}
                   placeholder="No local target set..."
                   onChange={(event) => updateBudgetTarget(event.target.value)}
-                  onBlur={(event) => updateBudgetTarget(event.target.value)}
+                  onBlur={(event) => handleBudgetTargetBlur(event.target.value)}
                 />
                 <button
                   className="btn ghost"
@@ -2151,12 +2172,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }
   };
 
-  const cycleStatus = async (id: string) => {
+  const setIdeaStatus = async (id: string, targetStatus: IdeaStatus) => {
     const idea = ideas.find((x) => x.id === id);
     if (!idea || idea.clientWriteState) return;
-    const next: IdeaStatus = STATUS_CYCLE[idea.status];
-    setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, status: next } : x)));
-    const { error } = await supabase.from("ideas").update({ status: next }).eq("id", id);
+    if (idea.status === targetStatus) return;
+    setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, status: targetStatus } : x)));
+    const { error } = await supabase.from("ideas").update({ status: targetStatus }).eq("id", id);
     if (error) {
       // revert on failure
       setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, status: idea.status } : x)));
@@ -2167,8 +2188,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const setIdeaField = async (id: string, f: "character_id" | "channel", v: string) => {
     const prev = ideas.find((x) => x.id === id);
     if (!prev || prev.clientWriteState) return;
-    setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, [f]: v } : x)));
-    const { error } = await supabase.from("ideas").update({ [f]: v }).eq("id", id);
+    const valueToPersist = f === "character_id" && v === "" ? null : v;
+    setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, [f]: valueToPersist } : x)));
+    const { error } = await supabase.from("ideas").update({ [f]: valueToPersist }).eq("id", id);
     if (error && prev) {
       setIdeas((xs) => xs.map((x) => (x.id === id ? prev : x)));
       showFlash("Tag update failed", true);
@@ -2725,6 +2747,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   {ideas.map((i) => {
                     const writeState = i.clientWriteState;
                     const isWriteBlocked = Boolean(writeState);
+                    const currentDossier = activeId
+                      ? chars.find((c) => c.id === activeId)
+                      : undefined;
+                    const groupedDossiers = chars.filter((c) => c.id !== currentDossier?.id);
+                    const activeDossiers = groupedDossiers.filter((c) => c.status === "active");
+                    const draftDossiers = groupedDossiers.filter((c) => c.status !== "active");
                     const borderLeftColor =
                       writeState === "failed"
                         ? "var(--stamp)"
@@ -2771,28 +2799,70 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                                 </button>
                               </>
                             ) : (
-                              <button
-                                className={"statusbtn s-" + i.status}
-                                type="button"
-                                onClick={() => cycleStatus(i.id)}
+                              <div
+                                className="status-segmented-control"
+                                role="group"
+                                aria-label="Update idea status"
                               >
-                                {STATUS_LABEL[i.status]}
-                              </button>
+                                {IDEA_STATUS_OPTIONS.map((status) => {
+                                  const isActiveStatus = i.status === status;
+                                  return (
+                                    <button
+                                      key={status}
+                                      className={
+                                        "segment-btn" +
+                                        (isActiveStatus ? " active-segment s-" + status : "")
+                                      }
+                                      type="button"
+                                      aria-pressed={isActiveStatus}
+                                      disabled={isWriteBlocked}
+                                      onClick={() => setIdeaStatus(i.id, status)}
+                                    >
+                                      {IDEA_STATUS_LABELS[status]}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             )}
                             <select
                               className="tag-select"
-                              value={i.character_id ?? ""}
+                              value={chars.length === 0 ? "" : i.character_id ?? ""}
                               onChange={(e) =>
                                 setIdeaField(i.id, "character_id", e.target.value)
                               }
-                              disabled={isWriteBlocked}
+                              disabled={isWriteBlocked || chars.length === 0}
                               aria-label="Assign character"
                             >
-                              {chars.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.codename || "Untitled"}
-                                </option>
-                              ))}
+                              {chars.length === 0 ? (
+                                <option value="">[ No characters on file ]</option>
+                              ) : (
+                                <>
+                                  <option value="">[ -- Unassigned -- ]</option>
+                                  {currentDossier && (
+                                    <option value={currentDossier.id}>
+                                      ⚡ Current Dossier: {currentDossier.codename || "Untitled"}
+                                    </option>
+                                  )}
+                                  {activeDossiers.length > 0 && (
+                                    <optgroup label="Active Field Manuals">
+                                      {activeDossiers.map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                          ● {c.codename || "Untitled"}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                  {draftDossiers.length > 0 && (
+                                    <optgroup label="Draft Field Manuals">
+                                      {draftDossiers.map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                          ○ {c.codename || "Untitled"}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                </>
+                              )}
                             </select>
                             <select
                               className="tag-select"
