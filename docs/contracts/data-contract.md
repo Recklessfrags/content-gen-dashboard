@@ -42,15 +42,23 @@ bypasses RLS.
 do/don't gallery) are new keys, **no migration**. Consumers must treat unknown keys
 as additive and never assume a fixed key set.
 
-> **`runtime` is advisory, not authored.** The pipeline reports `runtime` is
-> **measured** and **voice-dependent / unstable** (e.g. Mad Dog's real delivery is
-> ~100 wpm, so the length model is under review and the earlier `135–160 words` figure
-> is withdrawn). Operator edits to `runtime` in the bible editor can therefore be
-> overwritten/ignored by the pipeline. **Direction:** the editor should render
-> `runtime` **display-only / advisory** ("pipeline-measured, not authored"), not as a
-> freely-editable "Runtime target". Ownership ruling is an **open HQ ask** (audit §1a);
-> the UI change is queued for the Builder once the pipeline confirms it is
-> pipeline-owned.
+> **`runtime` is OPERATOR-OWNED (dashboard-authored) — keep it editable.** Pipeline
+> ruling, HQ 2026-06-29 (resolves audit §1a — no ownership conflict). `runtime` is the
+> **operator's content-length lever**: the script-writer parses the "N–M spoken words"
+> target out of it to size the script. The pipeline **reads** `runtime`, it **never
+> writes** it. So the bible editor keeps `runtime` **operator-editable** ("Runtime
+> target") — do **not** lock it display-only.
+> - The **measured real-VO length** is a *separate*, pipeline-owned output — it lives in
+>   `receipts` / the render manifest (informational; ADR-004 makes it the master clock
+>   *at render time* but it never writes back to `runtime`).
+> - **Optional dashboard polish:** show the last measured render length *beside* the
+>   field as read-only advisory (from `receipts`) so the operator tunes the target
+>   against reality — no write-back to `runtime`.
+> - **Coordination rule:** if the pipeline/architect ever needs to change a `runtime`
+>   (e.g. live calibration), route it through the operator / flag it on the HQ so it
+>   can't clobber a dashboard edit. (The "instability" seen during this week's
+>   calibration was the pipeline owner hand-tuning the value *as operator*, not
+>   measurement overwriting it.)
 
 **RLS:** enabled. Policies (all `to authenticated`): `select/insert/update/delete`
 each gated by `owner = auth.uid()`.

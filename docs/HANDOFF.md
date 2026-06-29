@@ -212,10 +212,15 @@ addressed in the docs lane:
   read + enqueue-only); the old "soft no" on idea→pipeline linkage is marked **SHIPPED**
   (via the sanctioned `jobs_enqueue` path, not an `episodes` write); current-scope
   updated to list the shipped Jobs + Casting Studio + Cost Box.
-- **`runtime` label:** data-contract now flags `runtime` as **advisory / pipeline-
-  measured, not authored**. The matching **ControlRoom.tsx** change (render it
-  display-only instead of an editable "Runtime target") is **queued for the Builder
-  (Codex)** and gated on the pipeline confirming `runtime` ownership — open HQ ask §1a.
+- **`runtime` label — RULED 2026-06-29 (pipeline, HQ): OPERATOR-OWNED, keep editable.**
+  §1a resolved with **no ownership conflict** — `runtime` is the operator's content-length
+  lever (the script-writer parses the word-window target from it); the pipeline **reads**
+  it, never writes. The earlier "advisory / pipeline-measured" framing was wrong and has
+  been **reverted** in `data-contract.md`. The planned display-only ControlRoom change is
+  **cancelled** — the field stays operator-editable (no UI change needed). *Optional future
+  polish:* show the last measured render length beside it (read-only, from `receipts`) as
+  advisory; no write-back. The "instability" this week was the pipeline owner hand-tuning
+  the value as operator during calibration (now `70–145s · 150–240 words` for Mad Dog).
 
 ## Open decisions (human)
 
