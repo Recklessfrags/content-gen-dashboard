@@ -194,6 +194,29 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
     are wrapped in literal `<>` brackets (invalid); valid keys supplied at runtime.
     Codex also needs `codex login --with-api-key` (it ignores the env var).
 
+## Contract hygiene — jobs write-contract frozen + runtime label (2026-06-29, Architect)
+
+Audit risk #9 (stale in-repo `jobs` contract) + #10 (`runtime` editable-vs-measured)
+addressed in the docs lane:
+
+- **`docs/contracts/data-contract.md`** now has a full **`jobs`** section: a new
+  ownership class **"Pipeline-owned, dashboard-enqueue"**, the dashboard-settable INPUT
+  fields vs. worker-owned lifecycle columns, the enqueue-only RLS (`jobs_read` +
+  `jobs_enqueue`, WITH CHECK), the spend/publish approval flow (fresh row, omit
+  `idempotency_key`, both-true for publish "approve & go"), the live-re-render caveat,
+  and the **migration namespacing** rule (dashboard `dash_NNNN_*`; pipeline bare
+  `NNNN_*` — `jobs` policies are pipeline-owned in `0013`/`0014`/`0015`, NOT in this
+  repo). Source of record stays the pipeline repo + the HQ contract thread (2026-06-29);
+  this is a mirrored frozen reference.
+- **`DIRECTION.md`** corrected: `jobs` is no longer described as "read-only" (it is
+  read + enqueue-only); the old "soft no" on idea→pipeline linkage is marked **SHIPPED**
+  (via the sanctioned `jobs_enqueue` path, not an `episodes` write); current-scope
+  updated to list the shipped Jobs + Casting Studio + Cost Box.
+- **`runtime` label:** data-contract now flags `runtime` as **advisory / pipeline-
+  measured, not authored**. The matching **ControlRoom.tsx** change (render it
+  display-only instead of an editable "Runtime target") is **queued for the Builder
+  (Codex)** and gated on the pipeline confirming `runtime` ownership — open HQ ask §1a.
+
 ## Open decisions (human)
 
 - **D-1 Runs ↔ character linkage** — RESOLVED (human ruling, 2026-06-28). **Accept
