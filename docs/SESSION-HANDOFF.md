@@ -180,13 +180,16 @@ character-generation flow). Spell it correctly; capture it in a migration. (See 
   the production deploy is READY at `content-gen-dashboard.vercel.app`.
 - **Final ratification sign-off** of all slices (independent-agent review has stood in).
 - Change the temp login password.
-- **Supabase console toggles (public-app hardening — not code, no diff):**
-  - **Disable open sign-ups.** The app is public and `signUp` is ungated, so anyone can
-    self-register an operator account — and because `episodes`/`receipts` are `using (true)`
-    for any authenticated user, every registrant can read ALL pipeline output + spend. Solo
-    founder → turn sign-ups off (or add an invite/allow-list).
-  - **Enable leaked-password protection** (HaveIBeenPwned) — flagged by the Supabase
-    security advisor; cheap hardening, esp. with a weak temp password as the only gate.
+- ~~**Supabase console toggles (public-app hardening — not code, no diff):**~~ **BOTH DONE
+  (2026-06-28).**
+  - ~~**Disable open sign-ups.**~~ **DONE** — open self-registration is off (only the
+    existing operator account can log in). This was the load-bearing one: `episodes`/
+    `receipts` are `using (true)` for any authenticated user, so any registrant could have
+    read ALL pipeline output + spend.
+  - ~~**Enable leaked-password protection** (HaveIBeenPwned).~~ **DONE + verified** — the
+    Supabase security advisor no longer flags it. (Because sign-ups are now off, leaving the
+    temp login password as-is is an accepted low risk — the only person who can use it is the
+    owner.)
 
 ### H. Pre-ratification audit — run 2026-06-28 (PASS, no blockers)
 Consolidated audit before the human sign-off: cross-slice code review + static & **live**
