@@ -69,3 +69,18 @@ mode runs end-to-end.
 Architect (Claude, docs/coordination) → Designer (Gemini) → Builder (Codex) →
 **independent review by the two models that did NOT build it** (no self-grading) →
 **runtime/mobile verification gate (this doc)** → human ratification → merge.
+
+## Tooling note: reach Gemini via REST, not the CLI
+
+In this sandbox the `gemini` CLI returns persistent `503 "experiencing high
+demand"` / hangs, regardless of model — which is easy to mistake for "Gemini is
+down." It isn't: direct REST returns HTTP 200 on `models.list`,
+`gemini-2.5-flash`, and `gemini-2.5-pro` (generateContent *and*
+streamGenerateContent), "standard" tier, with the same key. The CLI is the
+broken link — `GEMINI_API_KEY` here is an OAuth-style token (`AQ.…`, not an
+`AIza…` AI Studio key), and the CLI routes it through a Code-Assist/OAuth backend
+that 503s instead of the working `generativelanguage ?key=` path.
+
+**Use `scripts/gemini.sh`** (curl → `generateContent`, which correctly uses the
+egress proxy + CA) for Designer specs and Gemini reviews. Assemble the file/diff
+context into the prompt, since REST has no autonomous file-reading.
