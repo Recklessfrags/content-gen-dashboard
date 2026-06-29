@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { createClient } from "@/lib/supabase/client";
 import {
   BIBLE_FIELDS,
@@ -48,6 +49,14 @@ type CostStats = {
   episodeCosts: EpisodeCost[];
 };
 
+type EditableCharacterFields = Pick<FlatChar, "codename" | "concept" | "status"> & {
+  bible: Bible;
+};
+
+type PendingDirtyAction = {
+  run: () => void;
+};
+
 function flatten(row: Character): FlatChar {
   const bible = row.bible || {};
   const flat: Record<string, string> & Pick<FlatChar, "status"> = {
@@ -65,6 +74,30 @@ function toBible(c: FlatChar): Bible {
   const bible: Bible = {};
   for (const f of BIBLE_FIELDS) bible[f] = c[f] ?? "";
   return bible;
+}
+
+function editableSnapshot(c: FlatChar): EditableCharacterFields {
+  return {
+    codename: c.codename,
+    concept: c.concept,
+    status: c.status,
+    bible: toBible(c),
+  };
+}
+
+function savedSnapshotsById(chars: FlatChar[]): Record<string, EditableCharacterFields> {
+  return Object.fromEntries(chars.map((c) => [c.id, editableSnapshot(c)]));
+}
+
+function applyEditableSnapshot(c: FlatChar, snapshot: EditableCharacterFields): FlatChar {
+  const next: FlatChar = {
+    ...c,
+    codename: snapshot.codename,
+    concept: snapshot.concept,
+    status: snapshot.status,
+  };
+  for (const f of BIBLE_FIELDS) next[f] = snapshot.bible[f] ?? "";
+  return next;
 }
 
 function flattenRevision(row: CharacterBibleRevision, character: Pick<FlatChar, "id" | "created_at">): FlatChar {
@@ -1286,6 +1319,85 @@ function RestoreDialog({ revision, onCancel, onConfirm }: RestoreDialogProps) {
   );
 }
 
+type DiscardChangesDialogProps = {
+  codename: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+};
+
+function DiscardChangesDialog({ codename, onCancel, onConfirm }: DiscardChangesDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const keepButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    keepButtonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCancel();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusable = getFocusable(dialog);
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeElement = document.activeElement;
+
+      if (!dialog.contains(activeElement)) {
+        event.preventDefault();
+        first.focus();
+        return;
+      }
+
+      if (event.shiftKey && activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel]);
+
+  return (
+    <div className="restore-layer" role="presentation">
+      <div
+        ref={dialogRef}
+        className="restore-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="discard-title"
+        aria-describedby="discard-desc"
+      >
+        <h2 id="discard-title">UNSAVED CHANGES IN BUFFER</h2>
+        <p id="discard-desc">
+          You have uncommitted modifications in the field manual for {codename}.
+          Leaving this screen will erase these changes permanently.
+        </p>
+        <div className="restore-actions">
+          <button className="btn ghost" type="button" onClick={onConfirm}>
+            DISCARD CHANGES
+          </button>
+          <button ref={keepButtonRef} className="btn" type="button" onClick={onCancel}>
+            KEEP EDITING
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const supabase = useMemo(() => createClient(), []);
 
@@ -1305,12 +1417,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [receiptsError, setReceiptsError] = useState<string | null>(null);
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [savedSnapshots, setSavedSnapshots] = useState<Record<string, EditableCharacterFields>>({});
   const [historyOpen, setHistoryOpen] = useState(false);
   const [revisions, setRevisions] = useState<CharacterBibleRevision[]>([]);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [revisionsError, setRevisionsError] = useState<string | null>(null);
   const [previewingRevisionId, setPreviewingRevisionId] = useState<string | null>(null);
   const [pendingRestore, setPendingRestore] = useState<CharacterBibleRevision | null>(null);
+  const [pendingDirtyAction, setPendingDirtyAction] = useState<PendingDirtyAction | null>(null);
   const [isRestoredDraft, setIsRestoredDraft] = useState(false);
   const [view, setView] = useState<View>("roster");
   const [draftIdea, setDraftIdea] = useState("");
@@ -1329,11 +1443,29 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const lastRestoreTriggerRef = useRef<"history" | "preview" | null>(null);
   const revisionRequestRef = useRef(0);
   const costReceiptRequestRef = useRef(0);
+  const lastManualFocusRef = useRef<HTMLElement | null>(null);
+  const lastDirtyTriggerRef = useRef<HTMLElement | null>(null);
+  const exitFormRef = useRef<HTMLFormElement>(null);
   const showFlash = (msg: string, err = false) => {
     setFlash({ msg, err });
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 2200);
   };
+
+  useEffect(() => {
+    const handleFocusIn = (event: FocusEvent) => {
+      if (
+        event.target instanceof HTMLElement &&
+        event.target instanceof HTMLTextAreaElement &&
+        event.target.closest(".sheet")
+      ) {
+        lastManualFocusRef.current = event.target;
+      }
+    };
+
+    window.addEventListener("focusin", handleFocusIn);
+    return () => window.removeEventListener("focusin", handleFocusIn);
+  }, []);
 
   // ── initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1353,6 +1485,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       }
       const flat = (c.data as Character[]).map(flatten);
       setChars(flat);
+      setSavedSnapshots(savedSnapshotsById(flat));
       setIdeas((i.data as Idea[]) ?? []);
       setEpisodes((e.data as Episode[]) ?? []);
       setActiveId(flat[0]?.id ?? null);
@@ -1404,11 +1537,74 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     () => computeCostStats(episodes, costReceipts),
     [costReceipts, episodes],
   );
+  const currentEditableFields = useMemo(() => (active ? editableSnapshot(active) : null), [active]);
+  const savedEditableFields = activeId
+    ? (savedSnapshots[activeId] ?? currentEditableFields)
+    : null;
+  const dirty = useDirtyState(currentEditableFields, savedEditableFields);
 
   const set = (field: keyof FlatChar, val: string) =>
     setChars((cs) =>
       cs.map((c) => (c.id === activeId ? { ...c, [field]: val } : c)),
     );
+
+  const focusAfterKeepEditing = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      (lastManualFocusRef.current ?? lastDirtyTriggerRef.current)?.focus();
+    });
+  }, []);
+
+  const revertActiveEdits = useCallback(() => {
+    if (!activeId) return;
+    const snapshot = savedSnapshots[activeId];
+    if (!snapshot) return;
+    setChars((cs) => cs.map((c) => (c.id === activeId ? applyEditableSnapshot(c, snapshot) : c)));
+    setPreviewingRevisionId(null);
+    setIsRestoredDraft(false);
+  }, [activeId, savedSnapshots]);
+
+  const guardDirtyAction = useCallback(
+    (action: () => void) => {
+      if (dirty && active) {
+        if (document.activeElement instanceof HTMLElement) {
+          lastDirtyTriggerRef.current = document.activeElement;
+        }
+        setPendingDirtyAction({ run: action });
+        return;
+      }
+
+      action();
+    },
+    [active, dirty],
+  );
+
+  const cancelDirtyAction = useCallback(() => {
+    setPendingDirtyAction(null);
+    focusAfterKeepEditing();
+  }, [focusAfterKeepEditing]);
+
+  const confirmDirtyAction = useCallback(() => {
+    const action = pendingDirtyAction;
+    revertActiveEdits();
+    setPendingDirtyAction(null);
+    action?.run();
+  }, [pendingDirtyAction, revertActiveEdits]);
+
+  const guardedSetActiveId = useCallback(
+    (nextId: string) => {
+      if (nextId === activeId) return;
+      guardDirtyAction(() => setActiveId(nextId));
+    },
+    [activeId, guardDirtyAction],
+  );
+
+  const guardedSetView = useCallback(
+    (nextView: View) => {
+      if (nextView === view) return;
+      guardDirtyAction(() => setView(nextView));
+    },
+    [guardDirtyAction, view],
+  );
 
   useEffect(() => {
     setHistoryOpen(false);
@@ -1485,13 +1681,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, []);
 
   const previewRevision = (revision: CharacterBibleRevision) => {
-    setPreviewingRevisionId(revision.id);
+    guardDirtyAction(() => setPreviewingRevisionId(revision.id));
   };
 
   const requestRestore = (revision: CharacterBibleRevision) => {
-    lastRestoreTriggerRef.current = historyOpen ? "history" : "preview";
-    setHistoryOpen(false);
-    setPendingRestore(revision);
+    guardDirtyAction(() => {
+      lastRestoreTriggerRef.current = historyOpen ? "history" : "preview";
+      setHistoryOpen(false);
+      setPendingRestore(revision);
+    });
   };
 
   const cancelRestore = useCallback(() => {
@@ -1556,7 +1754,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   // ── persist character ───────────────────────────────────────────────────
   const save = async () => {
-    if (!active || saving) return;
+    if (!active || saving || !dirty) return;
     const snapshot = {
       character_id: active.id,
       codename: active.codename,
@@ -1579,6 +1777,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       showFlash("Save failed — " + error.message, true);
       return;
     }
+
+    setSavedSnapshots((snapshots) => ({
+      ...snapshots,
+      [snapshot.character_id]: {
+        codename: snapshot.codename,
+        concept: snapshot.concept,
+        status: snapshot.status,
+        bible: snapshot.bible,
+      },
+    }));
 
     const { error: revisionError } = await supabase
       .from("character_bible_revisions")
@@ -1610,8 +1818,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }
     const flat = flatten(data as Character);
     setChars((cs) => [...cs, flat]);
+    setSavedSnapshots((snapshots) => ({ ...snapshots, [flat.id]: editableSnapshot(flat) }));
     setActiveId(flat.id);
     setView("roster");
+  };
+
+  const guardedAddChar = () => {
+    guardDirtyAction(() => {
+      void addChar();
+    });
   };
 
   const toggleStatus = () => {
@@ -1667,6 +1882,77 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   };
 
   const openIdeas = ideas.filter((i) => i.status !== "used").length;
+  const dirtyCodename = active?.codename.trim() ? active.codename : "Untitled";
+  const mobileActiveManuals = useMemo(
+    () =>
+      chars
+        .filter((c) => c.status === "active")
+        .sort((a, b) => Number(b.id === activeId) - Number(a.id === activeId)),
+    [activeId, chars],
+  );
+  const mobileDraftManuals = useMemo(
+    () =>
+      chars
+        .filter((c) => c.status === "draft")
+        .sort((a, b) => Number(b.id === activeId) - Number(a.id === activeId)),
+    [activeId, chars],
+  );
+
+  const handleExitSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    if (!dirty || !active) return;
+    event.preventDefault();
+    guardDirtyAction(() => {
+      exitFormRef.current?.submit();
+    });
+  };
+
+  const mobileRoster = (
+    <div className="mobile-roster">
+      <label className="eyebrow" htmlFor="mobile-roster-select">
+        SELECT DOSSIER
+      </label>
+      <select
+        id="mobile-roster-select"
+        className="mobile-roster-select"
+        value={activeId ?? ""}
+        onChange={(event) => {
+          if (event.target.value) guardedSetActiveId(event.target.value);
+        }}
+        disabled={chars.length === 0 || saving}
+        aria-label="Select dossier"
+      >
+        {chars.length === 0 ? (
+          <option value="">NO DOSSIERS ON FILE</option>
+        ) : (
+          <>
+            <optgroup label="ACTIVE FIELD MANUALS">
+              {mobileActiveManuals.map((c) => (
+                <option key={c.id} value={c.id}>
+                  ● {c.codename || "Untitled"}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="DRAFT FIELD MANUALS">
+              {mobileDraftManuals.map((c) => (
+                <option key={c.id} value={c.id}>
+                  ○ {c.codename || "Untitled"}
+                </option>
+              ))}
+            </optgroup>
+          </>
+        )}
+      </select>
+      <button
+        className="mobile-roster-new"
+        type="button"
+        onClick={guardedAddChar}
+        disabled={adding || saving}
+        aria-label="Create new character"
+      >
+        {adding ? "CREATING..." : "+ NEW"}
+      </button>
+    </div>
+  );
 
   // ── render ─────────────────────────────────────────────────────────────────
   return (
@@ -1684,9 +1970,39 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       </div>
 
       <nav className="rail">
-        <div className="brand">
+        <div className="brand" style={{ marginBottom: "8px" }}>
           CONTROL<b>·</b>ROOM
         </div>
+        <button
+          className={"chip " + (active?.status === "draft" ? "draft" : active ? "active" : "")}
+          type="button"
+          onClick={() => guardedSetView("roster")}
+          disabled={!active}
+          title={active ? `ACTIVE: ${active.codename || "Untitled"}${dirty ? "*" : ""}` : "No active operator"}
+          aria-label={
+            active
+              ? `Current operator: ${active.codename || "Untitled"}${dirty ? ", unsaved changes" : ""}. Return to roster.`
+              : "No active operator"
+          }
+          style={{
+            width: "68px",
+            minHeight: "30px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            background: "transparent",
+          }}
+        >
+          {active ? (
+            <>
+              <span aria-hidden="true">{active.status === "active" ? "● " : "○ "}</span>
+              ACTIVE: {active.codename || "Untitled"}
+              {dirty ? "*" : ""}
+            </>
+          ) : (
+            "NO ACTIVE"
+          )}
+        </button>
         {(
           [
             ["roster", "Roster"],
@@ -1699,7 +2015,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           <button
             key={k}
             className={"navbtn" + (view === k ? " on" : "")}
-            onClick={() => setView(k)}
+            onClick={() => guardedSetView(k)}
             aria-pressed={view === k}
           >
             <Icon name={k} />
@@ -1707,7 +2023,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             <div className="dot" />
           </button>
         ))}
-        <form action="/auth/signout" method="post" className="railspacer">
+        <form
+          ref={exitFormRef}
+          action="/auth/signout"
+          method="post"
+          className="railspacer"
+          onSubmit={handleExitSubmit}
+        >
           <button className="navbtn" type="submit" title={`Sign out · ${userEmail}`}>
             <Icon name="exit" />
             <span>Exit</span>
@@ -1739,9 +2061,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     <button
                       key={c.id}
                       className={"pcard" + (c.id === activeId ? " on" : "")}
-                      onClick={() => setActiveId(c.id)}
+                      onClick={() => guardedSetActiveId(c.id)}
                     >
-                      <div className="codename">{c.codename || "Untitled"}</div>
+                      <div className="codename">
+                        {c.codename || "Untitled"}
+                        {c.id === activeId && dirty ? "*" : ""}
+                      </div>
                       <div className="concept">
                         {c.concept || "No concept logged yet."}
                       </div>
@@ -1755,7 +2080,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       </div>
                     </button>
                   ))}
-                  <button className="addbtn" onClick={addChar} disabled={adding}>
+                  <button className="addbtn" onClick={guardedAddChar} disabled={adding}>
                     {adding ? "Creating…" : "+ New character"}
                   </button>
                 </div>
@@ -1763,6 +2088,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
               {active && displayedActive ? (
                 <section className={"dossier" + (historyOpen ? " history-open" : "")}>
+                  {mobileRoster}
                   {previewingRevision && (
                     <div className="preview-banner" role="status">
                       <div className="preview-banner-copy">
@@ -1907,10 +2233,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                           Save dossier to make these changes live.
                         </div>
                       )}
+                      {dirty && (
+                        <span className="savebar-dirty-label chip draft" role="status">
+                          • UNPERSISTED CHANGES IN BUFFER
+                        </span>
+                      )}
                       <button
                         className={"btn" + (isRestoredDraft ? " save-highlight" : "")}
                         onClick={save}
-                        disabled={saving}
+                        disabled={saving || !dirty}
                       >
                         {saving ? "Saving…" : "Save dossier"}
                       </button>
@@ -1927,7 +2258,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       >
                         View History
                       </button>
-                      <button className="btn ghost" onClick={() => setView("wire")}>
+                      <button className="btn ghost" onClick={() => guardedSetView("wire")}>
                         Log an idea →
                       </button>
                     </div>
@@ -1956,11 +2287,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 </section>
               ) : (
                 <section className="dossier">
+                  {mobileRoster}
                   <div className="empty">
                     <Icon name="roster" />
                     <h3>No characters yet</h3>
                     <p>Create your first character to start building a field manual.</p>
-                    <button className="btn" onClick={addChar} disabled={adding}>
+                    <button className="btn" onClick={guardedAddChar} disabled={adding}>
                       {adding ? "Creating…" : "+ New character"}
                     </button>
                   </div>
@@ -2157,6 +2489,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             />
           )}
         </>
+      )}
+      {pendingDirtyAction && active && (
+        <DiscardChangesDialog
+          codename={dirtyCodename}
+          onCancel={cancelDirtyAction}
+          onConfirm={confirmDirtyAction}
+        />
       )}
     </div>
   );
