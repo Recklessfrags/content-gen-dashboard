@@ -3,7 +3,6 @@
 // (the shared reels-content schema = the enforced dashboard contract).
 // Regenerate when the pipeline adds/changes columns; the build breaks until the
 // app conforms. See the "Dashboard Contract — single source of truth" HQ page.
-
 export type Json =
   | string
   | number
@@ -44,6 +43,24 @@ export type Database = {
           key?: string
           kind?: string
           uri?: string
+        }
+        Relationships: []
+      }
+      casting_usage: {
+        Row: {
+          count: number
+          day: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          day?: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          day?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -382,7 +399,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      casting_bump_usage: {
+        Args: { p_limit: number; p_user: string }
+        Returns: {
+          allowed: boolean
+          used: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

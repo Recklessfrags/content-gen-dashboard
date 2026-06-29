@@ -23,6 +23,13 @@ type CastingClient = SupabaseClient<SupabaseCompatibleDatabase>;
 
 const EDGE_FUNCTION = "casting-proxy";
 
+/**
+ * Soft per-user/day cap on credit-spending casting actions (design + create).
+ * Mirrors the edge function's own limit; the function is authoritative — this is
+ * only for the "N casts left today" display.
+ */
+export const CASTING_DAILY_CAP = 25;
+
 // ── voice_settings (LIVE synthesis knobs → characters.voice_settings) ─────────
 
 export type VoiceSettings = {
