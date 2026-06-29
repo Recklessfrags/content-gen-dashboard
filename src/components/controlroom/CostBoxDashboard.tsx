@@ -359,8 +359,9 @@ export function CostBoxDashboard({
                           style={{ width: `${character.percentage}%` }}
                         />
                       </div>
-                      <span className="provider-share">{character.percentage}% share</span>
-                      <span className="provider-share">{character.episodeCount} eps</span>
+                      <span className="provider-share">
+                        {character.percentage}% share · {character.episodeCount} eps
+                      </span>
                     </div>
                   ))}
                 </div>

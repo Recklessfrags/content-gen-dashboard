@@ -93,6 +93,53 @@ describe("computeCostStats character split", () => {
     });
   });
 
+  it("labels known characters with empty or whitespace codenames as Untitled character", () => {
+    const stats = computeCostStats(
+      [episode("ep-1", "char-empty"), episode("ep-2", "char-spaces")],
+      [receipt("ep-1", 1, 4), receipt("ep-2", 1, 6)],
+      [
+        { id: "char-empty", codename: "" },
+        { id: "char-spaces", codename: "   " },
+      ],
+    );
+
+    expect(stats.characterSplit).toEqual([
+      {
+        characterId: "char-spaces",
+        label: "Untitled character",
+        amount: 6,
+        percentage: 60,
+        episodeCount: 1,
+      },
+      {
+        characterId: "char-empty",
+        label: "Untitled character",
+        amount: 4,
+        percentage: 40,
+        episodeCount: 1,
+      },
+    ]);
+  });
+
+  it("keeps zero-spend character buckets at zero percent when grand total is zero", () => {
+    const stats = computeCostStats(
+      [episode("ep-1", "char-a"), episode("ep-2", "char-a")],
+      [],
+      [{ id: "char-a", codename: "Alpha" }],
+    );
+
+    expect(stats.grandTotal).toBe(0);
+    expect(stats.characterSplit).toEqual([
+      {
+        characterId: "char-a",
+        label: "Alpha",
+        amount: 0,
+        percentage: 0,
+        episodeCount: 2,
+      },
+    ]);
+  });
+
   it("rounds percentages and sorts by amount descending, then label", () => {
     const stats = computeCostStats(
       [episode("ep-1", "char-z"), episode("ep-2", "char-a"), episode("ep-3", "char-m")],
