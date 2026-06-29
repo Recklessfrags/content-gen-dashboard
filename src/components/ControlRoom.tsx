@@ -278,8 +278,24 @@ function receiptVerdictClass(verdict: string | null) {
 }
 
 const PASS_VERDICTS = new Set(["pass", "cleared", "approved", "success"]);
-const CLEARED_STATUSES = new Set(["success", "cleared", "approved", "complete", "completed", "done"]);
-const FAILED_STATUSES = new Set(["failed", "fail", "rejected", "error"]);
+export const CLEARED_STATUSES = new Set(["success", "cleared", "approved", "complete", "completed", "done"]);
+export const FAILED_STATUSES = new Set(["failed", "fail", "rejected", "error"]);
+
+function normalizeEpisodeStatus(status: string | null | undefined) {
+  return (status || "").trim().toLowerCase();
+}
+
+export function isClearedStatus(status: string | null | undefined) {
+  return CLEARED_STATUSES.has(normalizeEpisodeStatus(status));
+}
+
+export function isFailedStatus(status: string | null | undefined) {
+  return FAILED_STATUSES.has(normalizeEpisodeStatus(status));
+}
+
+export function isInFlightStatus(status: string | null | undefined) {
+  return !isClearedStatus(status) && !isFailedStatus(status);
+}
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat(undefined, {
@@ -335,11 +351,6 @@ function providerBucket(provider: string | null) {
   return cleaned.length > 0 ? cleaned : "Deterministic / None";
 }
 
-function isInFlightStatus(status: string) {
-  const normalized = (status || "").trim().toLowerCase();
-  return normalized !== "success" && normalized !== "failed";
-}
-
 function computeCostStats(episodes: Episode[], receipts: CostReceipt[]): CostStats {
   const receiptGroups = new Map<string, CostReceipt[]>();
   for (const receipt of receipts) {
@@ -372,6 +383,7 @@ function computeCostStats(episodes: Episode[], receipts: CostReceipt[]): CostSta
     episodeCosts.push({
       episode,
       liveSpend: maxSpend,
+      // Status vocabulary matches Overview; spend gates whether an in-flight run is visually called out.
       isInFlight: isInFlightStatus(episode.status) && maxSpend > 0,
     });
   }
@@ -462,12 +474,8 @@ function OverviewDashboard({
       return counts;
     }, {});
     const sortedStatusCounts = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]);
-    const cleared = episodes.filter((episode) =>
-      CLEARED_STATUSES.has((episode.status || "").toLowerCase()),
-    ).length;
-    const failed = episodes.filter((episode) =>
-      FAILED_STATUSES.has((episode.status || "").toLowerCase()),
-    ).length;
+    const cleared = episodes.filter((episode) => isClearedStatus(episode.status)).length;
+    const failed = episodes.filter((episode) => isFailedStatus(episode.status)).length;
     const active = Math.max(total - cleared - failed, 0);
     const passedSentinels = episodes.filter((episode) => {
       const sentinels = episode.sentinels ?? [];
