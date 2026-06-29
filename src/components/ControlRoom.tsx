@@ -6,6 +6,7 @@ import type { Json, Tables } from "@/lib/database.types";
 import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
+import { useScrollLock } from "@/lib/hooks/useScrollLock";
 import {
   buildPublishApprovalReenqueue,
   buildSpendApprovalReenqueue,
@@ -365,6 +366,8 @@ function EnqueueIdeaPanel({
     normalizedLinkedCodename.includes("mad dog") &&
     idea.channel !== "Dark history";
   const canSubmit = !submitting && !capError && !jsonError && !anchorError && !castingBlockError;
+
+  useScrollLock();
 
   useFocusTrap({
     active: true,
@@ -1763,6 +1766,8 @@ function DrillDownPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
+  useScrollLock();
+
   useFocusTrap({
     active: true,
     containerRef: panelRef,
@@ -2110,6 +2115,8 @@ function HistoryDrawer({
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
+  useScrollLock();
+
   useFocusTrap({
     active: focusTrapActive,
     containerRef: drawerRef,
@@ -2250,6 +2257,8 @@ function CompareDialog({
   const comparisons = useMemo(() => buildComparisons(current, revision), [current, revision]);
   const hasDifferences = comparisons.some((comparison) => comparison.status !== "unchanged");
   const formattedDate = formatRevisionDate(revision.created_at);
+
+  useScrollLock();
 
   useFocusTrap({
     active: true,
@@ -2399,6 +2408,8 @@ function RestoreDialog({ revision, onCancel, onConfirm, restoreFocusRef }: Resto
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
+  useScrollLock();
+
   useFocusTrap({
     active: true,
     containerRef: dialogRef,
@@ -2451,6 +2462,8 @@ function DiscardChangesDialog({
 }: DiscardChangesDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const keepButtonRef = useRef<HTMLButtonElement>(null);
+
+  useScrollLock();
 
   useFocusTrap({
     active: true,
@@ -2519,6 +2532,8 @@ function QueueActionDialog({
     : isPublish
       ? "publish-approval-desc"
       : "stale-rerun-desc";
+
+  useScrollLock();
 
   useFocusTrap({
     active: true,
@@ -2674,6 +2689,8 @@ function CastingStudioPanel({
   );
   const sampleLen = sampleText.trim().length;
   const sampleValid = sampleLen >= 100 && sampleLen <= 1000;
+
+  useScrollLock();
 
   useFocusTrap({
     active: true,
