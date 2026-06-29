@@ -2,9 +2,27 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { budgetStatus, getBudgetTarget, setBudgetTarget } from "@/lib/budget";
+import type { Json, Tables } from "@/lib/database.types";
 import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
+import {
+  buildPublishApprovalReenqueue,
+  buildSpendApprovalReenqueue,
+  buildJobInsert,
+  classifyJobStatus,
+  detectParkKind,
+  EPISODE_CAP_MAX,
+  EPISODE_CAP_MIN,
+  isActionableStatus,
+  isTerminalStatus,
+  idempotencyKeyFor,
+  isValidEpisodeCap,
+  JOB_STATUS_LABELS,
+  RECIPES,
+  type JobEnqueueInput,
+  type RecipeKey,
+} from "@/lib/jobs";
 import { createClient } from "@/lib/supabase/client";
 import {
   BIBLE_FIELDS,
@@ -29,11 +47,12 @@ type FlatChar = {
   created_at: string;
 } & { [K in (typeof BIBLE_FIELDS)[number]]: string };
 
-type View = "roster" | "wire" | "runs" | "overview" | "cost";
-const VIEW_KEYS: View[] = ["roster", "wire", "runs", "overview", "cost"];
+type View = "roster" | "wire" | "queue" | "runs" | "overview" | "cost";
+const VIEW_KEYS: View[] = ["roster", "wire", "queue", "runs", "overview", "cost"];
 const VIEW_NAV_ITEMS: ReadonlyArray<{ key: View; label: string }> = [
   { key: "roster", label: "Roster" },
   { key: "wire", label: "The Wire" },
+  { key: "queue", label: "Queue" },
   { key: "runs", label: "Runs" },
   { key: "overview", label: "Overview" },
   { key: "cost", label: "Cost" },
@@ -59,6 +78,14 @@ function viewUrl(view: View): string {
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
 }
 type CostReceipt = Pick<Receipt, "episode_id" | "seq" | "provider" | "stage" | "spend_so_far">;
+type QueueJob = Tables<"jobs">;
+type ParkKind = ReturnType<typeof detectParkKind>;
+type JobParkResolution = {
+  kind: ParkKind;
+  loading: boolean;
+  stage: string | null;
+  error: string | null;
+};
 type IdeaWriteState = "saving" | "failed";
 type WireIdea = Idea & {
   clientKey?: string;
@@ -166,6 +193,409 @@ const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
   used: "Used",
 };
 
+type EnqueueSubmitResult =
+  | { kind: "success" }
+  | { kind: "duplicate" }
+  | { kind: "error"; message: string };
+
+type EnqueueIdeaPanelProps = {
+  idea: WireIdea;
+  character: FlatChar | null;
+  onClose: () => void;
+  onSubmit: (input: JobEnqueueInput) => Promise<EnqueueSubmitResult>;
+  restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
+};
+
+type JsonValidation<T> =
+  | { ok: true; value: T }
+  | { ok: false; message: string };
+
+function parseJsonText(text: string, label: string): JsonValidation<Json> {
+  try {
+    return { ok: true, value: JSON.parse(text) as Json };
+  } catch {
+    return { ok: false, message: `${label} must be valid JSON.` };
+  }
+}
+
+function parseInjectClaims(text: string): JsonValidation<Json[]> {
+  const parsed = parseJsonText(text, "Inject claims");
+  if (!parsed.ok) return parsed;
+  if (!Array.isArray(parsed.value)) {
+    return { ok: false, message: "Inject claims must be a JSON array." };
+  }
+  if (parsed.value.some((item) => typeof item !== "string")) {
+    return { ok: false, message: "Inject claims must be a JSON array of strings." };
+  }
+  return { ok: true, value: parsed.value };
+}
+
+function parseRoutes(text: string): JsonValidation<Json> {
+  const parsed = parseJsonText(text, "Routing config");
+  if (!parsed.ok) return parsed;
+  if (
+    parsed.value === null ||
+    Array.isArray(parsed.value) ||
+    typeof parsed.value !== "object"
+  ) {
+    return { ok: false, message: "Routing config must be a JSON object." };
+  }
+  return { ok: true, value: parsed.value };
+}
+
+function parseLiveAdapters(text: string): JsonValidation<Json | null> {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return { ok: true, value: null };
+  return parseJsonText(trimmed, "Live adapters");
+}
+
+function isHttpUrl(value: string): boolean {
+  return value.startsWith("http://") || value.startsWith("https://");
+}
+
+function EnqueueIdeaPanel({
+  idea,
+  character,
+  onClose,
+  onSubmit,
+  restoreFocusRef,
+}: EnqueueIdeaPanelProps) {
+  const panelRef = useRef<HTMLElement>(null);
+  const characterInputRef = useRef<HTMLInputElement>(null);
+  const [recipeKey, setRecipeKey] = useState<RecipeKey>("provenRender");
+  const [characterName, setCharacterName] = useState(
+    idea.character_id && character ? character.codename : "",
+  );
+  const [episodeCap, setEpisodeCap] = useState(String(RECIPES.provenRender.episode_cap));
+  const [anchorCitation, setAnchorCitation] = useState("");
+  const [anchorUrl, setAnchorUrl] = useState("");
+  const [injectClaims, setInjectClaims] = useState("[]");
+  const [routes, setRoutes] = useState("{}");
+  const [liveAdapters, setLiveAdapters] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const recipe = RECIPES[recipeKey];
+  const isFullEpisode = recipeKey === "fullEpisode";
+  const capNumber = Number(episodeCap);
+  const capError =
+    episodeCap.trim().length === 0 || !Number.isInteger(capNumber) || !isValidEpisodeCap(capNumber)
+      ? `Episode cap must be an integer from ${EPISODE_CAP_MIN + 1} to ${EPISODE_CAP_MAX}.`
+      : null;
+  const injectClaimsResult = parseInjectClaims(injectClaims);
+  const routesResult = parseRoutes(routes);
+  const liveAdaptersResult = parseLiveAdapters(liveAdapters);
+  const jsonError =
+    (!injectClaimsResult.ok && injectClaimsResult.message) ||
+    (!routesResult.ok && routesResult.message) ||
+    (!liveAdaptersResult.ok && liveAdaptersResult.message) ||
+    null;
+  const trimmedAnchorCitation = anchorCitation.trim();
+  const trimmedAnchorUrl = anchorUrl.trim();
+  const anchorError = isFullEpisode
+    ? trimmedAnchorCitation.length === 0
+      ? "Anchor citation is required for Full episode."
+      : trimmedAnchorUrl.length === 0
+        ? "Anchor URL is required for Full episode."
+        : !isHttpUrl(trimmedAnchorUrl)
+          ? "Anchor URL must start with http:// or https://."
+          : null
+    : trimmedAnchorUrl.length > 0 && !isHttpUrl(trimmedAnchorUrl)
+      ? "Anchor URL must start with http:// or https://."
+      : null;
+  const normalizedCharacterName = characterName.trim().toLowerCase();
+  const normalizedLinkedCodename = character?.codename.trim().toLowerCase() ?? "";
+  const showBrandWarning =
+    (normalizedCharacterName === normalizedLinkedCodename ||
+      normalizedCharacterName === "maddog" ||
+      normalizedCharacterName === "mad-dog") &&
+    normalizedLinkedCodename.includes("mad dog") &&
+    idea.channel !== "Dark history";
+  const canSubmit = !submitting && !capError && !jsonError && !anchorError;
+
+  useFocusTrap({
+    active: true,
+    containerRef: panelRef,
+    onEscape: onClose,
+    initialFocusRef: characterInputRef,
+    restoreFocusRef,
+  });
+
+  const selectRecipe = (nextRecipeKey: RecipeKey) => {
+    setRecipeKey(nextRecipeKey);
+    setEpisodeCap(String(RECIPES[nextRecipeKey].episode_cap));
+    setFormError(null);
+  };
+
+  const handleLayerMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) onClose();
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submitting) return;
+    setFormError(null);
+
+    if (capError || anchorError || !injectClaimsResult.ok || !routesResult.ok || !liveAdaptersResult.ok) {
+      setFormError(capError ?? anchorError ?? jsonError ?? "Resolve form errors before enqueueing.");
+      return;
+    }
+
+    const input: JobEnqueueInput = {
+      food: idea.title,
+      character: characterName.trim().length > 0 ? characterName.trim() : null,
+      anchor_citation: isFullEpisode ? trimmedAnchorCitation : null,
+      anchor_url: isFullEpisode ? trimmedAnchorUrl : null,
+      inject_claims: injectClaimsResult.value,
+      episode_cap: capNumber,
+      routes: routesResult.value,
+      live_adapters: liveAdaptersResult.value,
+      stub_upstream: recipe.stub_upstream,
+      spend_approved: false,
+    };
+
+    setSubmitting(true);
+    const result = await onSubmit({
+      ...input,
+      idempotency_key: idempotencyKeyFor(input),
+    });
+    setSubmitting(false);
+
+    if (result.kind === "error") {
+      setFormError(`TRANSMISSION FAILURE: ${result.message}`);
+      return;
+    }
+
+    onClose();
+  };
+
+  return (
+    <div className="history-layer" role="presentation" onMouseDown={handleLayerMouseDown}>
+      <aside
+        ref={panelRef}
+        className="drilldown-panel enqueue-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="enqueue-panel-title"
+        aria-busy={submitting}
+      >
+        <div className="col-head">
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <button
+              className="btn ghost close-btn"
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              ← Back
+            </button>
+            <h2 id="enqueue-panel-title">Turn Idea Into Run</h2>
+          </div>
+          <span className="count">{recipe.stub_upstream ? "proven render" : "full episode"}</span>
+        </div>
+
+        <div className="detail-cap">
+          <div>
+            <span className="eyebrow">TOPIC / FOOD</span>
+            <div className="topic-title">{idea.title}</div>
+          </div>
+          <span className="chip">{idea.channel}</span>
+        </div>
+
+        <form className="drilldown-content enqueue-form" onSubmit={handleSubmit} aria-busy={submitting}>
+          <div className="field">
+            <label htmlFor="enqueue-food">
+              <span className="eyebrow">TOPIC / FOOD</span>
+              <span className="field-label-side">
+                <span className="hint">Read-only from The Wire</span>
+              </span>
+            </label>
+            <input id="enqueue-food" type="text" value={idea.title} readOnly disabled />
+          </div>
+
+          <div className="field">
+            <label htmlFor="enqueue-character">
+              <span className="eyebrow">CHARACTER</span>
+              <span className="field-label-side">
+                <span className="hint">Codename sent verbatim. Blank uses default.</span>
+              </span>
+            </label>
+            <input
+              ref={characterInputRef}
+              id="enqueue-character"
+              type="text"
+              value={characterName}
+              onChange={(event) => setCharacterName(event.target.value)}
+              disabled={submitting}
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="field">
+            <span className="eyebrow">EXECUTION RECIPE</span>
+            <div
+              className="status-segmented-control"
+              role="group"
+              aria-label="Execution recipe"
+              style={{ marginTop: 8 }}
+            >
+              <button
+                className={"segment-btn" + (recipeKey === "provenRender" ? " active-segment" : "")}
+                type="button"
+                aria-pressed={recipeKey === "provenRender"}
+                onClick={() => selectRecipe("provenRender")}
+                disabled={submitting}
+              >
+                Proven render
+              </button>
+              <button
+                className={"segment-btn" + (recipeKey === "fullEpisode" ? " active-segment" : "")}
+                type="button"
+                aria-pressed={recipeKey === "fullEpisode"}
+                onClick={() => selectRecipe("fullEpisode")}
+                disabled={submitting}
+              >
+                Full episode
+              </button>
+            </div>
+          </div>
+
+          <div className="field">
+            <label htmlFor="enqueue-episode-cap">
+              <span className="eyebrow">EPISODE RUN CAP</span>
+              <span className="field-label-side">
+                <span className="hint">
+                  Range {EPISODE_CAP_MIN + 1}-{EPISODE_CAP_MAX}
+                </span>
+              </span>
+            </label>
+            <input
+              id="enqueue-episode-cap"
+              type="number"
+              min={EPISODE_CAP_MIN + 1}
+              max={EPISODE_CAP_MAX}
+              step={1}
+              inputMode="numeric"
+              value={episodeCap}
+              onChange={(event) => setEpisodeCap(event.target.value)}
+              disabled={submitting}
+              aria-invalid={capError ? "true" : "false"}
+            />
+            {capError && <div className="enqueue-error" role="alert">{capError}</div>}
+          </div>
+
+          {isFullEpisode && (
+            <>
+              <div className="field">
+                <label htmlFor="enqueue-anchor-citation">
+                  <span className="eyebrow">ANCHOR CITATION *</span>
+                </label>
+                <input
+                  id="enqueue-anchor-citation"
+                  type="text"
+                  value={anchorCitation}
+                  onChange={(event) => setAnchorCitation(event.target.value)}
+                  disabled={submitting}
+                  aria-invalid={
+                    anchorError === "Anchor citation is required for Full episode." ? "true" : "false"
+                  }
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="enqueue-anchor-url">
+                  <span className="eyebrow">ANCHOR URL *</span>
+                </label>
+                <input
+                  id="enqueue-anchor-url"
+                  type="url"
+                  value={anchorUrl}
+                  onChange={(event) => setAnchorUrl(event.target.value)}
+                  disabled={submitting}
+                  aria-invalid={anchorError?.startsWith("Anchor URL") ? "true" : "false"}
+                />
+                {anchorError && <div className="enqueue-error" role="alert">{anchorError}</div>}
+              </div>
+            </>
+          )}
+
+          <details className="advanced-job-details">
+            <summary>ADVANCED PIPELINE PARAMETERS</summary>
+            <div className="field">
+              <label htmlFor="enqueue-inject-claims">
+                <span className="eyebrow">INJECT CLAIMS (JSON ARRAY)</span>
+              </label>
+              <textarea
+                id="enqueue-inject-claims"
+                rows={4}
+                value={injectClaims}
+                onChange={(event) => setInjectClaims(event.target.value)}
+                disabled={submitting}
+                className={!injectClaimsResult.ok ? "enqueue-json-invalid" : undefined}
+                aria-invalid={!injectClaimsResult.ok}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="enqueue-routes">
+                <span className="eyebrow">ROUTING CONFIG (JSON OBJECT)</span>
+              </label>
+              <textarea
+                id="enqueue-routes"
+                rows={4}
+                value={routes}
+                onChange={(event) => setRoutes(event.target.value)}
+                disabled={submitting}
+                className={!routesResult.ok ? "enqueue-json-invalid" : undefined}
+                aria-invalid={!routesResult.ok}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="enqueue-live-adapters">
+                <span className="eyebrow">LIVE ADAPTERS (JSON OR BLANK)</span>
+              </label>
+              <textarea
+                id="enqueue-live-adapters"
+                rows={4}
+                value={liveAdapters}
+                onChange={(event) => setLiveAdapters(event.target.value)}
+                disabled={submitting}
+                className={!liveAdaptersResult.ok ? "enqueue-json-invalid" : undefined}
+                aria-invalid={!liveAdaptersResult.ok}
+                placeholder="blank = null"
+              />
+            </div>
+            {jsonError && <div className="enqueue-error" role="alert">{jsonError}</div>}
+          </details>
+
+          {showBrandWarning && (
+            <div className="brand-warning-banner" role="note">
+              BRAND ALIGNMENT WARNING: Operator &apos;Mad Dog&apos; is registered under the
+              &apos;Dark history&apos; channel, but this idea is routed to &apos;{idea.channel}&apos;.
+              Proceed only if declassifying operations.
+            </div>
+          )}
+
+          {formError && <div className="enqueue-error" role="alert">{formError}</div>}
+
+          <div className="enqueue-actions">
+            <button className="btn ghost" type="button" onClick={onClose} disabled={submitting}>
+              Cancel
+            </button>
+            <button className="btn" type="submit" disabled={!canSubmit}>
+              {submitting ? (
+                <>
+                  <span className="spin" /> TRANSMITTING ENQUEUE SIGNAL...
+                </>
+              ) : (
+                "TRANSMIT ENQUEUE SIGNAL"
+              )}
+            </button>
+          </div>
+        </form>
+      </aside>
+    </div>
+  );
+}
+
 function formatRevisionDate(createdAt: string) {
   return new Date(createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
 }
@@ -175,6 +605,7 @@ function Icon({ name }: { name: string }) {
     {
       roster: "M4 20v-2a4 4 0 014-4h0M16 14a4 4 0 014 4v2M12 4a4 4 0 100 8 4 4 0 000-8z",
       wire: "M4 6h16M4 12h16M4 18h10",
+      queue: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
       runs: "M5 12l4 4 10-10",
       overview: "M4 4h6v6H4V4zm10 0h6v6h-6V4zm-10 10h6v6H4v-6zm10 0h6v6h-6v-6z",
       cost: "M12 8c-3.31 0-6 2.24-6 5s2.69 5 6 5 6-2.24 6-5-2.69-5-6-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-10c-3.31 0-6 2.24-6 5h12c0-2.76-2.69-5-6-5z",
@@ -193,6 +624,58 @@ function Icon({ name }: { name: string }) {
       <path d={p} />
     </svg>
   );
+}
+
+function formatQueueTimestamp(createdAt: string) {
+  const timestamp = new Date(createdAt).getTime();
+  if (!Number.isFinite(timestamp)) return "unknown time";
+
+  const deltaMs = Date.now() - timestamp;
+  const absDeltaMs = Math.abs(deltaMs);
+  const minuteMs = 60 * 1000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+
+  if (absDeltaMs < minuteMs) return "just now";
+  if (absDeltaMs < hourMs) {
+    const minutes = Math.max(1, Math.round(absDeltaMs / minuteMs));
+    return deltaMs >= 0 ? `${minutes}m ago` : `in ${minutes}m`;
+  }
+  if (absDeltaMs < dayMs) {
+    const hours = Math.max(1, Math.round(absDeltaMs / hourMs));
+    return deltaMs >= 0 ? `${hours}h ago` : `in ${hours}h`;
+  }
+
+  return new Date(createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+}
+
+function normalizeJobInputArray(value: Json): Json[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function jobInputFromRow(
+  job: QueueJob,
+  overrides: {
+    spendApproved?: boolean;
+    publishApproved?: boolean;
+    idempotencyKey?: string | null;
+  } = {},
+): JobEnqueueInput {
+  return {
+    food: job.food,
+    character: job.character,
+    anchor_citation: job.anchor_citation,
+    anchor_url: job.anchor_url,
+    inject_claims: normalizeJobInputArray(job.inject_claims),
+    episode_cap: job.episode_cap,
+    routes: job.routes,
+    live_adapters: job.live_adapters,
+    stub_upstream: job.stub_upstream,
+    spend_approved: overrides.spendApproved ?? job.spend_approved,
+    publish_approved: overrides.publishApproved ?? job.publish_approved,
+    idempotency_key:
+      "idempotencyKey" in overrides ? overrides.idempotencyKey : job.idempotency_key,
+  };
 }
 
 // Module-level so editing a textarea does not remount the input (focus-safe).
@@ -1945,6 +2428,112 @@ function DiscardChangesDialog({
   );
 }
 
+type QueueActionDialogProps = {
+  job: QueueJob;
+  action: "spend" | "publish" | "stale";
+  submitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  restoreFocusRef: React.RefObject<HTMLElement | null>;
+};
+
+function QueueActionDialog({
+  job,
+  action,
+  submitting,
+  onCancel,
+  onConfirm,
+  restoreFocusRef,
+}: QueueActionDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const isSpend = action === "spend";
+  const isPublish = action === "publish";
+  const title = isSpend
+    ? "APPROVE SPEND LIMITS"
+    : isPublish
+      ? "APPROVE PUBLISH"
+      : "RE-RUN STRANDED JOB";
+  const descriptionId = isSpend
+    ? "spend-approval-desc"
+    : isPublish
+      ? "publish-approval-desc"
+      : "stale-rerun-desc";
+
+  useFocusTrap({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: () => {
+      if (!submitting) onCancel();
+    },
+    initialFocusRef: cancelButtonRef,
+    restoreFocusRef,
+  });
+
+  return (
+    <div className="restore-layer" role="presentation">
+      <div
+        ref={dialogRef}
+        className={"restore-dialog" + (isSpend ? " spend-approval-dialog" : "")}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="queue-action-title"
+        aria-describedby={descriptionId}
+      >
+        <h2 id="queue-action-title">{title}</h2>
+        {isSpend ? (
+          <p id={descriptionId} className="spend-approval-copy">
+            You are about to authorize extra-budgetary spend for topic:{" "}
+            <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
+            re-enqueue the job with spend_approved=true. A hard-cap check still protects
+            against runaway loops. This re-runs the script live; you are approving the
+            plan type, not a byte-identical render.
+          </p>
+        ) : isPublish ? (
+          <p id={descriptionId} className="spend-approval-copy">
+            You are about to approve publishing for topic:{" "}
+            <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
+            re-enqueue the job with publish_approved=true and spend_approved=true. It
+            re-runs the whole pipeline live, re-renders, re-spends, and would post a
+            different cut than the reviewed MP4 parked here. The exact reviewed-render
+            publish path is coming; until then, with no Buffer adapter wired, this parks
+            safely and posts nothing.
+          </p>
+        ) : (
+          <p id={descriptionId} className="spend-approval-copy">
+            This stranded job will be re-queued as a fresh pipeline job for topic:{" "}
+            <span className="spend-approval-topic">&quot;{job.food}&quot;</span>.
+          </p>
+        )}
+        <div className="restore-actions">
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            ref={cancelButtonRef}
+          >
+            CANCEL
+          </button>
+          <button className="btn" type="button" onClick={onConfirm} disabled={submitting}>
+            {submitting
+              ? isSpend
+                ? "TRANSMITTING APPROVAL..."
+                : isPublish
+                  ? "TRANSMITTING PUBLISH APPROVAL..."
+                  : "TRANSMITTING RE-RUN..."
+              : isSpend
+                ? "AUTHORIZE & CONTINUE"
+                : isPublish
+                  ? "APPROVE & PUBLISH"
+                  : "RE-RUN JOB"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const supabase = useMemo(() => createClient(), []);
 
@@ -1954,15 +2543,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [ideasError, setIdeasError] = useState<string | null>(null);
   const [episodesLoading, setEpisodesLoading] = useState(true);
   const [episodesError, setEpisodesError] = useState<string | null>(null);
+  const [jobsLoading, setJobsLoading] = useState(true);
+  const [jobsError, setJobsError] = useState<string | null>(null);
 
   const [chars, setChars] = useState<FlatChar[]>([]);
   const [ideas, setIdeas] = useState<WireIdea[]>([]);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [jobs, setJobs] = useState<QueueJob[]>([]);
+  const [jobParkById, setJobParkById] = useState<Record<number, JobParkResolution>>({});
   const [costReceipts, setCostReceipts] = useState<CostReceipt[]>([]);
   const [costReceiptsLoading, setCostReceiptsLoading] = useState(true);
   const [costReceiptsError, setCostReceiptsError] = useState<string | null>(null);
   const [costReceiptsLoaded, setCostReceiptsLoaded] = useState(false);
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
+  const [activeEnqueueIdeaId, setActiveEnqueueIdeaId] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
   const [receiptsError, setReceiptsError] = useState<string | null>(null);
@@ -1986,18 +2580,27 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [pendingQueueAction, setPendingQueueAction] = useState<{
+    job: QueueJob;
+    action: "spend" | "publish" | "stale";
+  } | null>(null);
+  const [queueActionSubmitting, setQueueActionSubmitting] = useState(false);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewTabRefs = useRef<Record<View, HTMLButtonElement | null>>({
     roster: null,
     wire: null,
+    queue: null,
     runs: null,
     overview: null,
     cost: null,
   });
   const runButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const enqueueButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const lastRunTriggerRef = useRef<string | null>(null);
+  const lastEnqueueTriggerRef = useRef<string | null>(null);
   const runDetailRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
+  const enqueueRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const receiptRequestRef = useRef(0);
   const headerHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const savebarHistoryButtonRef = useRef<HTMLButtonElement>(null);
@@ -2012,9 +2615,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const episodeRequestRef = useRef(0);
   const revisionRequestRef = useRef(0);
   const costReceiptRequestRef = useRef(0);
+  const jobsRequestRef = useRef(0);
   const lastManualFocusRef = useRef<HTMLElement | null>(null);
   const lastDirtyTriggerRef = useRef<HTMLElement | null>(null);
   const discardDialogRestoreFocusRef = useRef<HTMLElement | null>(null);
+  const queueActionRestoreFocusRef = useRef<HTMLElement | null>(null);
   const exitFormRef = useRef<HTMLFormElement>(null);
   const ideaTitleRef = useRef<HTMLTextAreaElement>(null);
   const ideaSubmittingTitleRef = useRef<string | null>(null);
@@ -2120,6 +2725,28 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setEpisodes(data ?? []);
   }, [supabase]);
 
+  const fetchJobs = useCallback(async () => {
+    const requestId = jobsRequestRef.current + 1;
+    jobsRequestRef.current = requestId;
+    setJobsLoading(true);
+    setJobsError(null);
+
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .returns<QueueJob[]>();
+
+    if (jobsRequestRef.current !== requestId) return;
+    setJobsLoading(false);
+    if (error) {
+      setJobs([]);
+      setJobsError(error.message);
+      return;
+    }
+    setJobs(data ?? []);
+  }, [supabase]);
+
   const fetchCostReceipts = useCallback(async () => {
     const requestId = costReceiptRequestRef.current + 1;
     costReceiptRequestRef.current = requestId;
@@ -2149,8 +2776,59 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     void fetchCharacters();
     void fetchIdeas();
     void fetchEpisodes();
+    void fetchJobs();
     void fetchCostReceipts();
-  }, [fetchCharacters, fetchCostReceipts, fetchEpisodes, fetchIdeas]);
+  }, [fetchCharacters, fetchCostReceipts, fetchEpisodes, fetchIdeas, fetchJobs]);
+
+  useEffect(() => {
+    const readyJobs = jobs.filter((job) => {
+      const status = classifyJobStatus(job.status);
+      return status === "ready_for_review" && jobParkById[job.id] === undefined;
+    });
+
+    if (readyJobs.length === 0) return undefined;
+
+    setJobParkById((current) => {
+      const next = { ...current };
+      for (const job of readyJobs) {
+        next[job.id] = { kind: "unknown", loading: true, stage: null, error: null };
+      }
+      return next;
+    });
+
+    for (const job of readyJobs) {
+      if (!job.episode_id) {
+        setJobParkById((current) => ({
+          ...current,
+          [job.id]: { kind: "unknown", loading: false, stage: null, error: null },
+        }));
+        continue;
+      }
+
+      const episodeId = job.episode_id;
+      void (async () => {
+        const { data, error } = await supabase
+          .from("receipts")
+          .select("stage,seq")
+          .eq("episode_id", episodeId)
+          .order("seq", { ascending: false })
+          .limit(1)
+          .returns<Array<Pick<Receipt, "stage" | "seq">>>();
+
+        const latestStage = data?.[0]?.stage ?? null;
+        setJobParkById((current) => ({
+          ...current,
+          [job.id]: {
+            kind: error ? "unknown" : detectParkKind(latestStage),
+            loading: false,
+            stage: latestStage,
+            error: error?.message ?? null,
+          },
+        }));
+      })();
+    }
+    return undefined;
+  }, [jobParkById, jobs, supabase]);
 
   const active = chars.find((c) => c.id === activeId) ?? null;
   const previewingRevision =
@@ -2158,6 +2836,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const displayedActive =
     active && previewingRevision ? flattenRevision(previewingRevision, active) : active;
   const activeEpisode = episodes.find((e) => e.episode_id === activeEpisodeId) ?? null;
+  const activeEnqueueIdea =
+    ideas.find((idea) => idea.id === activeEnqueueIdeaId) ?? null;
+  const activeEnqueueCharacter =
+    activeEnqueueIdea?.character_id
+      ? (chars.find((character) => character.id === activeEnqueueIdea.character_id) ?? null)
+      : null;
   const costStats = useMemo(
     () => computeCostStats(episodes, costReceipts),
     [costReceipts, episodes],
@@ -2481,6 +3165,114 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       : null;
   }, []);
 
+  const openEnqueuePanel = (ideaId: string, trigger: HTMLButtonElement) => {
+    lastEnqueueTriggerRef.current = ideaId;
+    enqueueRestoreFocusRef.current = trigger;
+    setActiveEnqueueIdeaId(ideaId);
+  };
+
+  const closeEnqueuePanel = useCallback(() => {
+    const triggerId = lastEnqueueTriggerRef.current;
+    setActiveEnqueueIdeaId(null);
+    enqueueRestoreFocusRef.current = triggerId
+      ? (enqueueButtonRefs.current.get(triggerId) ?? null)
+      : null;
+  }, []);
+
+  const enqueueJob = async (input: JobEnqueueInput): Promise<EnqueueSubmitResult> => {
+    let payload: ReturnType<typeof buildJobInsert>;
+    try {
+      payload = buildJobInsert(input);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid job enqueue payload";
+      showFlash(message, true);
+      return { kind: "error", message };
+    }
+
+    const { error } = await supabase.from("jobs").insert(payload);
+
+    if (!error) {
+      showFlash("Queued as run");
+      return { kind: "success" };
+    }
+
+    if (error.code === "23505") {
+      showFlash("Already queued");
+      return { kind: "duplicate" };
+    }
+
+    showFlash("Could not queue run — " + error.message, true);
+    return { kind: "error", message: error.message };
+  };
+
+  const requestQueueAction = (
+    job: QueueJob,
+    action: "spend" | "publish" | "stale",
+    trigger: HTMLButtonElement,
+  ) => {
+    queueActionRestoreFocusRef.current = trigger;
+    setPendingQueueAction({ job, action });
+  };
+
+  const cancelQueueAction = useCallback(() => {
+    if (queueActionSubmitting) return;
+    setPendingQueueAction(null);
+  }, [queueActionSubmitting]);
+
+  const confirmQueueAction = async () => {
+    if (!pendingQueueAction || queueActionSubmitting) return;
+
+    setQueueActionSubmitting(true);
+    const { job, action } = pendingQueueAction;
+    const input =
+      action === "spend" || action === "publish"
+        ? jobInputFromRow(job)
+        : jobInputFromRow(job, {
+            idempotencyKey: `job_rerun_${job.id}_${Date.now()}`,
+          });
+
+    let payload: ReturnType<typeof buildJobInsert>;
+    try {
+      if (action === "spend") {
+        payload = buildSpendApprovalReenqueue(input);
+      } else if (action === "publish") {
+        payload = buildPublishApprovalReenqueue(input);
+      } else {
+        payload = buildJobInsert(input);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid job enqueue payload";
+      setQueueActionSubmitting(false);
+      showFlash(message, true);
+      return;
+    }
+
+    const { error } = await supabase.from("jobs").insert(payload);
+    setQueueActionSubmitting(false);
+
+    if (error) {
+      showFlash(
+        action === "spend"
+          ? "Spend approval failed — " + error.message
+          : action === "publish"
+            ? "Publish approval failed — " + error.message
+          : "Re-run failed — " + error.message,
+        true,
+      );
+      return;
+    }
+
+    setPendingQueueAction(null);
+    showFlash(
+      action === "spend"
+        ? "✓ Spend approved. Job re-entered the pipeline."
+        : action === "publish"
+          ? "✓ Publish approved. Job re-entered the pipeline."
+        : "✓ Stranded job re-queued for execution",
+    );
+    void fetchJobs();
+  };
+
   // ── persist character ───────────────────────────────────────────────────
   const save = async () => {
     if (!active || saving || !dirty) return;
@@ -2736,6 +3528,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   };
 
   const openIdeas = ideas.filter((i) => i.status !== "used").length;
+  const activeQueueJobs = jobs.filter((job) => !isTerminalStatus(classifyJobStatus(job.status))).length;
   const ideaCaptureDisabled = Boolean(ideaSubmittingTitle);
   const canSubmitIdea = draftIdea.trim().length > 0 && !ideaCaptureDisabled;
   const dirtyCodename = active?.codename.trim() ? active.codename : "Untitled";
@@ -3383,6 +4176,21 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                                 })}
                               </div>
                             )}
+                            {!isWriteBlocked && i.status !== "used" && (
+                              <button
+                                ref={(node) => {
+                                  if (node) enqueueButtonRefs.current.set(i.id, node);
+                                  else enqueueButtonRefs.current.delete(i.id);
+                                }}
+                                className="statusbtn enqueue-trigger"
+                                type="button"
+                                onClick={(event) => openEnqueuePanel(i.id, event.currentTarget)}
+                                aria-haspopup="dialog"
+                                aria-expanded={activeEnqueueIdeaId === i.id}
+                              >
+                                [ Queue as run ]
+                              </button>
+                            )}
                             <select
                               className="tag-select"
                               value={chars.length === 0 ? "" : i.character_id ?? ""}
@@ -3449,6 +4257,234 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     );
                   })}
                 </div>
+              )}
+            </div>
+          )}
+
+          {view === "queue" && (
+            <div className="wire">
+              <div className="col-head">
+                <h2>Queue</h2>
+                <span className="count">
+                  {jobsLoading
+                    ? "interrogating pipeline"
+                    : `pipeline queue · ${activeQueueJobs} active job${activeQueueJobs === 1 ? "" : "s"}`}
+                </span>
+              </div>
+              <div className="cap">
+                <span className="eyebrow">
+                  Upstream jobs before production. Runs are finished episodes after the worker
+                  pipeline writes output.
+                </span>
+              </div>
+
+              {jobsLoading ? (
+                <div className="wire-list" aria-label="Loading queued jobs">
+                  <div className="queue-card-meta">Interrogating pipeline database...</div>
+                  {[0, 1, 2].map((row) => (
+                    <div
+                      key={row}
+                      className="icard job-card skeleton skeleton-card"
+                      aria-hidden="true"
+                    >
+                      <div className="queue-card-head">
+                        <span className="skeleton skeleton-text skeleton-wide" />
+                        <span className="skeleton skeleton-text skeleton-badge" />
+                      </div>
+                      <span className="skeleton skeleton-text" />
+                      <span className="skeleton skeleton-text skeleton-short" />
+                    </div>
+                  ))}
+                </div>
+              ) : jobsError ? (
+                <div className="queue-error-banner" role="alert">
+                  <h3>Comms Down</h3>
+                  <p>Couldn&apos;t reach the pipeline jobs database: {jobsError}</p>
+                  <button className="btn" type="button" onClick={() => void fetchJobs()}>
+                    Retry Queue Connection
+                  </button>
+                </div>
+              ) : jobs.length === 0 ? (
+                <div className="empty">
+                  <Icon name="queue" />
+                  <h3>The queue is clear</h3>
+                  <p>
+                    No jobs are currently registered in the pipeline. Dispatch a target run
+                    from The Wire to engage the worker engines.
+                  </p>
+                </div>
+              ) : (
+                <div className="wire-list" aria-label="Pipeline jobs">
+                  {jobs.map((job) => {
+                    const status = classifyJobStatus(job.status);
+                    const actionable = isActionableStatus(status);
+                    const terminal = isTerminalStatus(status);
+                    const park = jobParkById[job.id];
+                    const hasSpend = typeof job.spend === "number" && job.spend > 0;
+                    const episodeKnown = job.episode_id
+                      ? episodes.some((episode) => episode.episode_id === job.episode_id)
+                      : false;
+                    const cardClass =
+                      "icard job-card status-" +
+                      status +
+                      (status === "running" ? " running-pulse" : "");
+
+                    return (
+                      <article
+                        key={job.id}
+                        className={cardClass}
+                        aria-label={`${JOB_STATUS_LABELS[status]} job for ${job.food}`}
+                      >
+                        <div className="body">
+                          <div className="queue-card-head">
+                            <div>
+                              <div className="title">{job.food}</div>
+                              <div className="queue-card-meta">
+                                <span>OPERATOR: {job.character ?? "default"}</span>
+                                <span>CREATED: {formatQueueTimestamp(job.created_at)}</span>
+                                <span>Attempts: {job.attempts}/3</span>
+                                {terminal && <span>Terminal</span>}
+                              </div>
+                            </div>
+                            <span className={`status-badge ${status}`}>
+                              [ {JOB_STATUS_LABELS[status].toUpperCase()} ]
+                            </span>
+                          </div>
+
+                          {hasSpend && (
+                            <div className="queue-card-spend">
+                              Spend: {formatUsd(job.spend ?? 0)}
+                            </div>
+                          )}
+
+                          {actionable && status === "ready_for_review" && (
+                            <>
+                              {park?.loading ? (
+                                <div className="job-review-panel" role="status">
+                                  <h4>Review Park Detected</h4>
+                                  <p>Reading latest receipt to classify the parked gate.</p>
+                                </div>
+                              ) : park?.kind === "publish" ? (
+                                <div className="job-review-panel">
+                                  <h4>Publish Park Detected</h4>
+                                  <p>
+                                    Distribution is waiting on human approval.
+                                    {park.stage ? ` Last receipt stage: ${park.stage}.` : ""}
+                                  </p>
+                                  <p className="queue-card-substatus">
+                                    No Buffer adapter is wired yet; approval parks safely before any real post.
+                                  </p>
+                                  <button
+                                    className="btn compact"
+                                    type="button"
+                                    onClick={(event) =>
+                                      requestQueueAction(job, "publish", event.currentTarget)
+                                    }
+                                  >
+                                    Approve &amp; publish
+                                  </button>
+                                </div>
+                              ) : park?.kind === "spend" ? (
+                                <div className="job-review-panel">
+                                  <h4>Spend Park Detected</h4>
+                                  <p>
+                                    This job was parked to prevent runaway credit usage.
+                                    {park.stage ? ` Last receipt stage: ${park.stage}.` : ""}
+                                  </p>
+                                  <button
+                                    className="btn compact"
+                                    type="button"
+                                    onClick={(event) =>
+                                      requestQueueAction(job, "spend", event.currentTarget)
+                                    }
+                                  >
+                                    Approve spend &amp; continue
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="job-review-panel">
+                                  <h4>Review Park Unresolved</h4>
+                                  <p>
+                                    No episode receipt could classify this parked job yet.
+                                    {park?.error ? ` Receipt read failed: ${park.error}` : ""}
+                                  </p>
+                                  <button
+                                    className="btn compact"
+                                    type="button"
+                                    onClick={(event) =>
+                                      requestQueueAction(job, "spend", event.currentTarget)
+                                    }
+                                  >
+                                    Approve spend &amp; continue safely
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {actionable && status === "stale" && (
+                            <div className="stale-affordance">
+                              <h4>Stranded Job</h4>
+                              <p className="queue-card-substatus">stranded - needs attention</p>
+                              <button
+                                className="btn ghost compact"
+                                type="button"
+                                onClick={(event) =>
+                                  requestQueueAction(job, "stale", event.currentTarget)
+                                }
+                              >
+                                Re-run Job
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="queue-card-actions">
+                            {job.episode_id && (
+                              <button
+                                ref={(node) => {
+                                  if (!job.episode_id) return;
+                                  if (node) runButtonRefs.current.set(job.episode_id, node);
+                                  else runButtonRefs.current.delete(job.episode_id);
+                                }}
+                                className="btn ghost compact"
+                                type="button"
+                                onClick={() => {
+                                  if (job.episode_id) openRunDetail(job.episode_id);
+                                }}
+                                aria-haspopup="dialog"
+                                aria-expanded={activeEpisodeId === job.episode_id}
+                                title={
+                                  episodeKnown
+                                    ? "Open run detail"
+                                    : "Episode id is present; run detail opens when the episode row is available."
+                                }
+                              >
+                                Open Run Detail
+                              </button>
+                            )}
+                            {job.spend_approved && (
+                              <span className="queue-card-substatus">spend authorized</span>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activeEpisode && (
+                <DrillDownPanel
+                  episode={activeEpisode}
+                  receipts={receipts}
+                  loading={receiptsLoading}
+                  error={receiptsError}
+                  onClose={closeRunDetail}
+                  onRetry={() => {
+                    void fetchReceipts(activeEpisode.episode_id);
+                  }}
+                  restoreFocusRef={runDetailRestoreFocusRef}
+                />
               )}
             </div>
           )}
@@ -3567,12 +4603,33 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           </>
         )}
       </main>
+      {activeEnqueueIdea && (
+        <EnqueueIdeaPanel
+          idea={activeEnqueueIdea}
+          character={activeEnqueueCharacter}
+          onClose={closeEnqueuePanel}
+          onSubmit={enqueueJob}
+          restoreFocusRef={enqueueRestoreFocusRef}
+        />
+      )}
       {pendingDirtyAction && active && (
         <DiscardChangesDialog
           codename={dirtyCodename}
           onCancel={cancelDirtyAction}
           onConfirm={confirmDirtyAction}
           restoreFocusRef={discardDialogRestoreFocusRef}
+        />
+      )}
+      {pendingQueueAction && (
+        <QueueActionDialog
+          job={pendingQueueAction.job}
+          action={pendingQueueAction.action}
+          submitting={queueActionSubmitting}
+          onCancel={cancelQueueAction}
+          onConfirm={() => {
+            void confirmQueueAction();
+          }}
+          restoreFocusRef={queueActionRestoreFocusRef}
         />
       )}
     </div>
