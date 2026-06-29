@@ -2782,6 +2782,7 @@ function CastingStudioPanel({
           console.warn("Could not remove the previous voice from the ElevenLabs library.", deleteError);
         }
       }
+      if (!aliveRef.current) return;
       await refreshCastsLeft();
     } catch (e) {
       if (!aliveRef.current) return;
