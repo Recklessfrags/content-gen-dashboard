@@ -268,8 +268,9 @@ export function buildPublishApprovalReenqueue(
 
 /**
  * Maps a parked receipt stage to the review flavor. Assembly/cost-guard/
- * render-cost stages are spend parks; distribution/publish/buffer/posting/
- * whole-word post stages are publish parks. Unknown or missing stages remain unknown.
+ * render-cost stages are spend parks; distribution/publish/buffer/posting and a
+ * standalone "post" (not post-/post_/post./postX) are publish parks. Unknown or
+ * missing stages remain unknown.
  */
 export function detectParkKind(
   lastReceiptStage: string | null | undefined,
@@ -292,7 +293,7 @@ export function detectParkKind(
     /(?:^|[^a-z0-9])(distribution|publish|publishing|buffer|posting)(?:$|[^a-z0-9])/.test(
       normalized,
     ) ||
-    /(?:^|[^a-z0-9])post(?:$|[^a-z0-9-])/.test(normalized)
+    /(?:^|[^a-z0-9])post(?:$|[^a-z0-9_.-])/.test(normalized)
   ) {
     return "publish";
   }

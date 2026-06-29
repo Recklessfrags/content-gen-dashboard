@@ -210,10 +210,6 @@ type JsonValidation<T> =
   | { ok: true; value: T }
   | { ok: false; message: string };
 
-function slugFromCodename(codename: string): string {
-  return codename.toLowerCase().trim().replace(/[^a-z0-9]+/g, "");
-}
-
 function parseJsonText(text: string, label: string): JsonValidation<Json> {
   try {
     return { ok: true, value: JSON.parse(text) as Json };
@@ -267,8 +263,8 @@ function EnqueueIdeaPanel({
   const panelRef = useRef<HTMLElement>(null);
   const characterInputRef = useRef<HTMLInputElement>(null);
   const [recipeKey, setRecipeKey] = useState<RecipeKey>("provenRender");
-  const [characterSlug, setCharacterSlug] = useState(
-    idea.character_id && character ? slugFromCodename(character.codename) : "",
+  const [characterName, setCharacterName] = useState(
+    idea.character_id && character ? character.codename : "",
   );
   const [episodeCap, setEpisodeCap] = useState(String(RECIPES.provenRender.episode_cap));
   const [anchorCitation, setAnchorCitation] = useState("");
@@ -307,9 +303,13 @@ function EnqueueIdeaPanel({
     : trimmedAnchorUrl.length > 0 && !isHttpUrl(trimmedAnchorUrl)
       ? "Anchor URL must start with http:// or https://."
       : null;
-  const normalizedSlug = characterSlug.trim().toLowerCase();
+  const normalizedCharacterName = characterName.trim().toLowerCase();
+  const normalizedLinkedCodename = character?.codename.trim().toLowerCase() ?? "";
   const showBrandWarning =
-    (normalizedSlug === "maddog" || normalizedSlug === "mad-dog") &&
+    (normalizedCharacterName === normalizedLinkedCodename ||
+      normalizedCharacterName === "maddog" ||
+      normalizedCharacterName === "mad-dog") &&
+    normalizedLinkedCodename.includes("mad dog") &&
     idea.channel !== "Dark history";
   const canSubmit = !submitting && !capError && !jsonError && !anchorError;
 
@@ -343,7 +343,7 @@ function EnqueueIdeaPanel({
 
     const input: JobEnqueueInput = {
       food: idea.title,
-      character: characterSlug.trim().length > 0 ? characterSlug.trim() : null,
+      character: characterName.trim().length > 0 ? characterName.trim() : null,
       anchor_citation: isFullEpisode ? trimmedAnchorCitation : null,
       anchor_url: isFullEpisode ? trimmedAnchorUrl : null,
       inject_claims: injectClaimsResult.value,
@@ -415,17 +415,17 @@ function EnqueueIdeaPanel({
 
           <div className="field">
             <label htmlFor="enqueue-character">
-              <span className="eyebrow">CHARACTER SLUG</span>
+              <span className="eyebrow">CHARACTER</span>
               <span className="field-label-side">
-                <span className="hint">Pipeline slug, e.g. maddog. Blank uses default.</span>
+                <span className="hint">Codename sent verbatim. Blank uses default.</span>
               </span>
             </label>
             <input
               ref={characterInputRef}
               id="enqueue-character"
               type="text"
-              value={characterSlug}
-              onChange={(event) => setCharacterSlug(event.target.value)}
+              value={characterName}
+              onChange={(event) => setCharacterName(event.target.value)}
               disabled={submitting}
               autoComplete="off"
             />
@@ -2493,10 +2493,11 @@ function QueueActionDialog({
           <p id={descriptionId} className="spend-approval-copy">
             You are about to approve publishing for topic:{" "}
             <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
-            re-enqueue the job with publish_approved=true and spend_approved=true. Posts
-            only fire if a publish adapter is wired; none is wired yet, so this will park
-            safely and no real post fires. This re-runs the script live; you are approving
-            the plan type, not a byte-identical render.
+            re-enqueue the job with publish_approved=true and spend_approved=true. It
+            re-runs the whole pipeline live, re-renders, re-spends, and would post a
+            different cut than the reviewed MP4 parked here. The exact reviewed-render
+            publish path is coming; until then, with no Buffer adapter wired, this parks
+            safely and posts nothing.
           </p>
         ) : (
           <p id={descriptionId} className="spend-approval-copy">
