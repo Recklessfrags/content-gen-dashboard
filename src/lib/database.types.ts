@@ -64,6 +64,54 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_profiles: {
+        Row: {
+          channel: string
+          character: string | null
+          created_at: string
+          display_name: string
+          engagement_posture: Json
+          fact_anchor: string
+          length_target: Json
+          packaging: Json
+          platforms: Json
+          source_ladder: Json
+          treatment: string
+          updated_at: string
+          voice_archetype: string | null
+        }
+        Insert: {
+          channel: string
+          character?: string | null
+          created_at?: string
+          display_name?: string
+          engagement_posture?: Json
+          fact_anchor?: string
+          length_target?: Json
+          packaging?: Json
+          platforms?: Json
+          source_ladder?: Json
+          treatment?: string
+          updated_at?: string
+          voice_archetype?: string | null
+        }
+        Update: {
+          channel?: string
+          character?: string | null
+          created_at?: string
+          display_name?: string
+          engagement_posture?: Json
+          fact_anchor?: string
+          length_target?: Json
+          packaging?: Json
+          platforms?: Json
+          source_ladder?: Json
+          treatment?: string
+          updated_at?: string
+          voice_archetype?: string | null
+        }
+        Relationships: []
+      }
       character_bible_revisions: {
         Row: {
           bible: Json
