@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Json } from "@/lib/database.types";
 import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
+import { useChannelProfiles } from "@/lib/hooks/useChannelProfiles";
 import { useCostReceipts } from "@/lib/hooks/useCostReceipts";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useEpisodes } from "@/lib/hooks/useEpisodes";
@@ -32,6 +33,7 @@ import {
   type Receipt,
 } from "@/lib/types";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
+import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
 import { CostBoxDashboard } from "./controlroom/CostBoxDashboard";
 import { DrillDownPanel } from "./controlroom/DrillDownPanel";
@@ -41,6 +43,7 @@ import { OverviewDashboard } from "./controlroom/OverviewDashboard";
 import { QueueActionDialog } from "./controlroom/QueueActionDialog";
 import {
   Icon,
+  Field,
   applyEditableSnapshot,
   computeCostStats,
   editableSnapshot,
@@ -60,10 +63,11 @@ import {
   type WireIdea,
 } from "./controlroom/shared";
 
-type View = "roster" | "wire" | "queue" | "runs" | "overview" | "cost";
-const VIEW_KEYS: View[] = ["roster", "wire", "queue", "runs", "overview", "cost"];
+type View = "roster" | "channels" | "wire" | "queue" | "runs" | "overview" | "cost";
+const VIEW_KEYS: View[] = ["roster", "channels", "wire", "queue", "runs", "overview", "cost"];
 const VIEW_NAV_ITEMS: ReadonlyArray<{ key: View; label: string }> = [
   { key: "roster", label: "Roster" },
+  { key: "channels", label: "Channels" },
   { key: "wire", label: "The Wire" },
   { key: "queue", label: "Queue" },
   { key: "runs", label: "Runs" },
@@ -152,68 +156,6 @@ function jobInputFromRow(
       "idempotencyKey" in overrides ? overrides.idempotencyKey : job.idempotency_key,
   };
 }
-
-// Module-level so editing a textarea does not remount the input (focus-safe).
-function Field({
-  id,
-  label,
-  hint,
-  value,
-  onChange,
-  rows = 3,
-  multiline = rows > 1,
-  mono,
-  readOnly = false,
-  locked = false,
-}: {
-  id: string;
-  label: string;
-  hint?: string;
-  value: string;
-  onChange: (v: string) => void;
-  rows?: number;
-  multiline?: boolean;
-  mono?: boolean;
-  readOnly?: boolean;
-  locked?: boolean;
-}) {
-  const controlStyle = mono ? { fontFamily: "var(--mono)", fontSize: "12.5px" } : undefined;
-
-  return (
-    <div className="field">
-      <label htmlFor={id}>
-        <span className="eyebrow">{label}</span>
-        <span className="field-label-side">
-          {locked && <span className="badge lock-badge">LOCKED - PREVIEW</span>}
-          {hint && <span className="hint">{hint}</span>}
-        </span>
-      </label>
-      {multiline ? (
-        <textarea
-          id={id}
-          rows={rows}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          readOnly={readOnly}
-          aria-readonly={readOnly}
-          style={controlStyle}
-        />
-      ) : (
-        <input
-          id={id}
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          readOnly={readOnly}
-          aria-readonly={readOnly}
-          style={controlStyle}
-        />
-      )}
-    </div>
-  );
-}
-
-
 
 function fieldControlId(characterId: string | null, label: string) {
   const scopedCharacterId = (characterId ?? "no-character").replace(/[^a-zA-Z0-9_-]/g, "-");
@@ -360,6 +302,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     loaded: costReceiptsLoaded,
     refetch: fetchCostReceipts,
   } = useCostReceipts(supabase);
+  const {
+    profiles: channelProfiles,
+    loading: channelProfilesLoading,
+    error: channelProfilesError,
+    refetch: refetchChannelProfiles,
+  } = useChannelProfiles(supabase);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -404,6 +352,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewTabRefs = useRef<Record<View, HTMLButtonElement | null>>({
     roster: null,
+    channels: null,
     wire: null,
     queue: null,
     runs: null,
@@ -1769,6 +1718,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 </section>
               )}
             </div>
+          )}
+
+          {view === "channels" && (
+            <ChannelProfilesPanel
+              supabase={supabase}
+              profiles={channelProfiles}
+              loading={channelProfilesLoading}
+              error={channelProfilesError}
+              onRefetch={refetchChannelProfiles}
+            />
           )}
 
           {view === "wire" && (

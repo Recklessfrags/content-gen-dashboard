@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildChannelProfileUpsert,
   defaultChannelProfile,
+  joinListInput,
   parseEngagementPosture,
+  splitListInput,
   validateChannelProfile,
   type ChannelProfileUpsertInput,
 } from "@/lib/channelProfiles";
@@ -78,6 +80,23 @@ describe("defaultChannelProfile", () => {
       length_target: { short_s: 75 },
       platforms: [],
     });
+  });
+});
+
+describe("list input helpers", () => {
+  it("splits newlines, commas, extra whitespace, and empty entries", () => {
+    expect(splitListInput(" archival,  still_motion\n\n generated , , shorts ")).toEqual([
+      "archival",
+      "still_motion",
+      "generated",
+      "shorts",
+    ]);
+  });
+
+  it("round-trips joined list values through split", () => {
+    const items = ["archival", "still_motion", "generated"];
+
+    expect(splitListInput(joinListInput(items))).toEqual(items);
   });
 });
 

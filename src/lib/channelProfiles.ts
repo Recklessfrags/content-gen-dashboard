@@ -86,6 +86,17 @@ function parseStringArray(json: Json): string[] {
     .filter(Boolean);
 }
 
+export function splitListInput(text: string): string[] {
+  return text
+    .split(/[\n,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export function joinListInput(items: string[]): string {
+  return items.join("\n");
+}
+
 export function parseEngagementPosture(json: Json): EngagementPosture {
   if (!isJsonRecord(json)) {
     return { ...DEFAULT_ENGAGEMENT_POSTURE };
