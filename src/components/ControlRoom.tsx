@@ -18,6 +18,7 @@ import {
   isActionableStatus,
   isTerminalStatus,
   JOB_STATUS_LABELS,
+  publishSourceEpisodeId,
   type JobEnqueueInput,
 } from "@/lib/jobs";
 import { isCast } from "@/lib/casting";
@@ -983,12 +984,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       if (action === "spend") {
         payload = buildSpendApprovalReenqueue(input);
       } else if (action === "publish") {
-        if (!job.episode_id) {
+        const sourceEpisodeId = publishSourceEpisodeId(job);
+        if (!sourceEpisodeId) {
           setQueueActionSubmitting(false);
           showFlash("Cannot publish-approve: this job has no source episode yet.", true);
           return;
         }
-        payload = buildPublishApprovalReenqueue(input, job.episode_id);
+        payload = buildPublishApprovalReenqueue(input, sourceEpisodeId);
       } else {
         payload = buildJobInsert(input);
       }
