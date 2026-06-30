@@ -7,10 +7,10 @@ Every agent (Architect, Designer, Builder, and any sub-agent) reads this first.
 ## Project
 
 - **Name:** Reels Content Creation dashboard
-- **What it is:** see `DIRECTION.md` (read before acting). NOTE: `DIRECTION.md` is
-  not yet committed and its draft framing conflicts with what has been built (the
-  Character Control Room per `dashboardbuildbrief.md`) — open decision **D-2** in
-  `docs/HANDOFF.md`; the human owns reconciliation.
+- **What it is:** see `DIRECTION.md` (committed; read before acting). It is product
+  ground truth — the **Character Control Room**, a focused control tool, NOT a
+  kanban/production board (decision **D-2**, LOCKED). (Historical note: the original
+  `dashboardbuildbrief.md` brief is no longer in the repo; `DIRECTION.md` supersedes it.)
 - **Stack:** Verified in the foundation — **Next.js 15.5.x (App Router, TypeScript)
   on Vercel**, **Supabase** (Postgres + Auth + RLS) via `@supabase/ssr`. See
   `docs/contracts/data-contract.md`.
@@ -24,8 +24,10 @@ Every agent (Architect, Designer, Builder, and any sub-agent) reads this first.
   writes implementation code or design artifacts. Never commits app code.
 - **Designer (Gemini)** — UI/UX artifacts into `docs/design/` only. No app code, no
   git.
-- **Builder (Codex)** — all app code, all commits, all `HANDOFF.md` updates. Owns
-  git. Builds only what the Designer specified and the Architect approved.
+- **Builder (Codex)** — authors all app code + migrations (edits files in the
+  sandbox). **Cannot commit** in this environment (sandbox `.git` is read-only), so the
+  Architect commits Codex's reviewed edits. Builds only what the Designer specified and
+  the Architect approved.
 
 ## The rules
 
@@ -46,14 +48,17 @@ Every agent (Architect, Designer, Builder, and any sub-agent) reads this first.
 
 ## Git policy (critical)
 
-- Only the Builder (Codex) runs git writes for **app code** (`init`, `add`,
-  `commit`, `push`).
-- No Cowork/Claude session and no Gemini session may run app-code git writes here —
-  sandbox sync corrupts git's atomic writes. They edit files; Codex commits.
-- **Exception (logged):** the Architect may commit **docs/markdown only** when no
-  Builder is in-session and the execution container is ephemeral, to keep the repo
-  memory durable. Never app code.
-- Local commits only until a GitHub remote is added on purpose.
+- **Codex authors app code but CANNOT commit** (sandbox `.git` is read-only). The
+  **Architect commits** — docs/markdown AND Codex's reviewed app-code edits — and pushes.
+  The Architect **never authors** app code; it only commits what Codex wrote. This
+  preserves "no one grades their own work": Codex builds, an independent reviewer (the
+  vendor that did NOT build) + the human ratify.
+- Codex habitually edits `docs/HANDOFF.md` to narrate its work — **revert that**
+  (`git checkout -- docs/HANDOFF.md`) before committing.
+- Designer (Gemini) never runs git.
+- A GitHub remote exists; the human merges PRs (squash) to the default branch
+  (`claude/new-session-3l99vs`). Branch-level commits may show Unverified; the
+  squash-merge via the GitHub API confers verification on the commit that lands.
 
 ## Parallel isolated builders
 

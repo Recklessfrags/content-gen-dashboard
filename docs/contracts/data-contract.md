@@ -155,12 +155,14 @@ Discovered already-present in the shared project. **Do not recreate or alter.**
 | `created_at` | timestamptz NOT NULL | `default now()` |
 | `updated_at` | timestamptz NOT NULL | `default now()` |
 
-> **Per-character linkage is now LIVE** (pipeline migration `0006`, confirmed on the HQ
-> 2026-06-29). The worker resolves `jobs.character` → `characters.id` at episode-begin
-> and stamps `episodes.character_id`. This **unblocks Tier-2 per-character cost** (group
-> `episodes`/`receipts` spend by `character_id` in the Cost Box). It is pipeline-owned +
-> read-only for the dashboard, like the rest of the row. (Supersedes the earlier
-> "no per-character linkage" note / decision **D-1**.)
+> **Per-character linkage — schema/writer LIVE, data not yet populated** (pipeline
+> migration `0006`). The column exists and the worker is wired to resolve `jobs.character`
+> → `characters.id` and stamp `episodes.character_id`, BUT **0 episodes are linked yet** —
+> no character-driven run has happened (the keystone Mad Dog → Acoustic Kitty run, D-1).
+> So Tier-2 per-character cost is **schema-unblocked** (the Cost Box has the
+> group-by-`character_id` seam) but **data-blocked** until that first run. Pipeline-owned +
+> read-only for the dashboard. (Resolves D-1's schema concern; the populating run is still
+> pending.)
 
 **RLS:** enabled. Added by this dashboard: `episodes_read` = `select to authenticated
 using (true)`. **No** insert/update/delete policies — clients can never write.
@@ -188,7 +190,8 @@ The work queue. **Pipeline-owned** (the worker, via service role, owns every lif
 transition), but the dashboard is the **enqueue surface**: it may INSERT new jobs
 (input fields only) and SELECT the queue. **Source of record for this table's schema +
 RLS is the pipeline repo** — confirmed live on the HQ contract thread (2026-06-29) and
-in the pipeline's `docs/architecture/dashboard-contract.md`. Mirrored here so the
+in the pipeline repo's `docs/architecture/dashboard-contract.md` (**that file lives in the
+pipeline repo, NOT this one — don't look for it here**). Mirrored here so the
 dashboard build has a frozen reference; **do not recreate or alter `jobs` from this
 repo.**
 
@@ -230,8 +233,10 @@ run's last receipt** — the dashboard infers it (`detectParkKind`) **until the 
 `park_kind` column lands** (see below), at which point the dashboard reads the column and
 drops the regex inference.
 
-> **Confirmed incoming — pipeline-owned, bare `0016`, NOT yet applied** (HQ 2026-06-29;
-> pipeline will ping when live). Three new `jobs` columns:
+> **APPLIED + LIVE — pipeline-owned, bare `0016`** (HQ 2026-06-30). The dashboard wired
+> the resume-to-distribution publish path against these in **PR #21/#22** (publish approval
+> enqueues `publish_only=true` + `source_episode_id`; `park_kind` surfaced in the run-queue).
+> The three `jobs` columns:
 > - **`park_kind text`** — structured spend-vs-publish discriminator (replaces
 >   `detectParkKind` regex).
 > - **`publish_only boolean not null default false`** + **`source_episode_id text`** —

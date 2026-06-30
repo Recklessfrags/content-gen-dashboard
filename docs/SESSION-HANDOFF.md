@@ -8,7 +8,10 @@ fast path._
 > **Built against the hardened-handoff checklist** (pipeline lesson, 2026-06-30): one
 > authoritative start-here · branch state pinned · don't-stall/don't-drift constraints ·
 > contract matched to the real schema · DONE = falsifiable gates ("floor ≠ done"). A
-> **cold-start (MD) review** was run against this doc on 2026-06-30 — see §0.
+> **cold-start (MD) review** was run against this doc set on 2026-06-30 and its findings
+> folded in (reconciled cross-file contradictions in `AGENTS.md` / `data-contract.md` on
+> commit-ownership and the `character_id` / `0016` live-vs-pending status; fixed dead
+> references to `dashboardbuildbrief.md` and the pipeline-repo `dashboard-contract.md`).
 
 ---
 
@@ -148,9 +151,13 @@ pipeline migrations here.
   → Node `fetch` (carry the JWT so RLS applies). Scripts in scratchpad (`*_ratify.mjs`).
 - **RATIFY ON MOBILE TOO** for any UI slice: load at **412px**, assert
   `scrollWidth == clientWidth`, no stray `position:absolute`/`transform:rotate` bleed.
-- **Git:** develop on the designated branch; `git push -u origin <branch>` (retry w/
-  backoff on network errors). Don't create PRs unless asked; the human merges via "merge"
-  (squash). Never push to a different branch without explicit permission.
+- **Git:** cut each task's branch **fresh from production** —
+  `git checkout -B claude/<task> origin/claude/new-session-3l99vs` — do NOT reuse old
+  feature branches (25+ stale near-identical `claude/*` branches exist; reusing one is a
+  drift trap). `git push -u origin <branch>` (retry w/ backoff on network errors). Don't
+  create PRs unless asked; the human merges via "merge" (squash → one verified commit on
+  production; branch-level commits showing Unverified is expected). Never push to a
+  different branch without explicit permission.
 
 ---
 

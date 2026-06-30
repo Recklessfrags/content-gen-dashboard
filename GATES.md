@@ -1,7 +1,9 @@
 # GATES — the loop's sentinel
 
 > Per `AGENTS.md` rule 4: **frozen before results exist.** These are the v1
-> acceptance criteria from `dashboardbuildbrief.md`, restated with current status.
+> acceptance criteria from the original product brief (now superseded by
+> `DIRECTION.md`; `dashboardbuildbrief.md` is no longer in the repo), restated with
+> current status.
 > All must reach **PASS** (independently judged) before the loop stops. **Error or
 > "built but unverified-independently" is never a PASS.**
 >
