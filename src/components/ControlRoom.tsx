@@ -9,6 +9,7 @@ import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useEpisodes } from "@/lib/hooks/useEpisodes";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import { useJobs } from "@/lib/hooks/useJobs";
+import { useReceipts } from "@/lib/hooks/useReceipts";
 import { useScrollLock } from "@/lib/hooks/useScrollLock";
 import {
   buildPublishApprovalReenqueue,
@@ -308,6 +309,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     error: channelProfilesError,
     refetch: refetchChannelProfiles,
   } = useChannelProfiles(supabase);
+  const {
+    receipts,
+    loading: receiptsLoading,
+    error: receiptsError,
+    load: fetchReceipts,
+    clear: clearReceipts,
+    reset: resetReceipts,
+  } = useReceipts(supabase);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -320,9 +329,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [activeEnqueueIdeaId, setActiveEnqueueIdeaId] = useState<string | null>(null);
   const [castingOpen, setCastingOpen] = useState(false);
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [receiptsLoading, setReceiptsLoading] = useState(false);
-  const [receiptsError, setReceiptsError] = useState<string | null>(null);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [savedSnapshots, setSavedSnapshots] = useState<Record<string, EditableCharacterFields>>({});
@@ -365,7 +371,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const lastEnqueueTriggerRef = useRef<string | null>(null);
   const runDetailRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const enqueueRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
-  const receiptRequestRef = useRef(0);
   const headerHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const castingTriggerRef = useRef<HTMLButtonElement | null>(null);
   const savebarHistoryButtonRef = useRef<HTMLButtonElement>(null);
@@ -818,49 +823,22 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     showFlash("Draft loaded from history — click Save to write new version");
   };
 
-  const fetchReceipts = useCallback(
-    async (episodeId: string) => {
-      const requestId = receiptRequestRef.current + 1;
-      receiptRequestRef.current = requestId;
-      setReceiptsLoading(true);
-      setReceiptsError(null);
-      const { data, error } = await supabase
-        .from("receipts")
-        .select("*")
-        .eq("episode_id", episodeId)
-        .order("seq", { ascending: true })
-        .returns<Receipt[]>();
-      if (receiptRequestRef.current !== requestId) return;
-      setReceiptsLoading(false);
-      if (error) {
-        setReceipts([]);
-        setReceiptsError(error.message);
-        return;
-      }
-      setReceipts(data ?? []);
-    },
-    [supabase],
-  );
-
   const openRunDetail = (episodeId: string) => {
     lastRunTriggerRef.current = episodeId;
     runDetailRestoreFocusRef.current = runButtonRefs.current.get(episodeId) ?? null;
     setActiveEpisodeId(episodeId);
-    setReceipts([]);
+    clearReceipts();
     void fetchReceipts(episodeId);
   };
 
   const closeRunDetail = useCallback(() => {
     const triggerId = lastRunTriggerRef.current;
-    receiptRequestRef.current += 1;
     setActiveEpisodeId(null);
-    setReceipts([]);
-    setReceiptsError(null);
-    setReceiptsLoading(false);
+    resetReceipts();
     runDetailRestoreFocusRef.current = triggerId
       ? (runButtonRefs.current.get(triggerId) ?? null)
       : null;
-  }, []);
+  }, [resetReceipts]);
 
   const openEnqueuePanel = (ideaId: string, trigger: HTMLButtonElement) => {
     lastEnqueueTriggerRef.current = ideaId;
