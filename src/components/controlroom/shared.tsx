@@ -152,6 +152,66 @@ export type EnqueueSubmitResult =
   | { kind: "duplicate" }
   | { kind: "error"; message: string };
 
+// Module-level so editing a textarea does not remount the input (focus-safe).
+export function Field({
+  id,
+  label,
+  hint,
+  value,
+  onChange,
+  rows = 3,
+  multiline = rows > 1,
+  mono,
+  readOnly = false,
+  locked = false,
+}: {
+  id: string;
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  multiline?: boolean;
+  mono?: boolean;
+  readOnly?: boolean;
+  locked?: boolean;
+}) {
+  const controlStyle = mono ? { fontFamily: "var(--mono)", fontSize: "12.5px" } : undefined;
+
+  return (
+    <div className="field">
+      <label htmlFor={id}>
+        <span className="eyebrow">{label}</span>
+        <span className="field-label-side">
+          {locked && <span className="badge lock-badge">LOCKED - PREVIEW</span>}
+          {hint && <span className="hint">{hint}</span>}
+        </span>
+      </label>
+      {multiline ? (
+        <textarea
+          id={id}
+          rows={rows}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={readOnly}
+          aria-readonly={readOnly}
+          style={controlStyle}
+        />
+      ) : (
+        <input
+          id={id}
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={readOnly}
+          aria-readonly={readOnly}
+          style={controlStyle}
+        />
+      )}
+    </div>
+  );
+}
+
 export function formatRevisionDate(createdAt: string) {
   return new Date(createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
 }
@@ -164,6 +224,7 @@ export function Icon({ name }: { name: string }) {
       queue: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
       runs: "M5 12l4 4 10-10",
       overview: "M4 4h6v6H4V4zm10 0h6v6h-6V4zm-10 10h6v6H4v-6zm10 0h6v6h-6v-6z",
+      channels: "M4 7h16M4 12h16M4 17h16M7 5v4M12 10v4M17 15v4",
       cost: "M12 8c-3.31 0-6 2.24-6 5s2.69 5 6 5 6-2.24 6-5-2.69-5-6-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm0-10c-3.31 0-6 2.24-6 5h12c0-2.76-2.69-5-6-5z",
       exit: "M14 8V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h7a2 2 0 002-2v-2M9 12h12m0 0l-3-3m3 3l-3 3",
       clock: "M12 6v6l4 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z",

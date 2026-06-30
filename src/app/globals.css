@@ -96,13 +96,21 @@ body{font-family:var(--body)}
 .field label{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;gap:10px}
 .field-label-side{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .field .hint{font-family:var(--mono);font-size:12px;color:var(--paper-faint);text-transform:none;letter-spacing:.02em}
-.field textarea,.field input{width:100%;background:var(--ink-2);border:1px solid var(--line-soft);
+.field textarea,.field input,.field select{width:100%;background:var(--ink-2);border:1px solid var(--line-soft);
   border-radius:3px;padding:11px 13px;font-size:13.5px;line-height:1.55;resize:vertical;transition:.15s}
 .field textarea[style*="var(--mono)"]{line-height:1.6}
-.field textarea:focus,.field input:focus,.cap input:focus,.cr select:focus{
+.field textarea:focus,.field input:focus,.field select:focus,.cap input:focus,.cr select:focus{
   border-color:var(--stamp-deep);background:var(--ink-3)}
 .field textarea::placeholder,.cap input::placeholder{color:var(--paper-faint)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.badge{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+  border:1px solid var(--line);background:rgba(233,226,211,.06);color:var(--paper-dim);
+  padding:2px 6px;border-radius:2px;white-space:nowrap}
+.dials-inert{border:1px solid #6e5a26;border-left:3px solid var(--brass);border-radius:3px;
+  background:rgba(201,162,75,.06);padding:14px 14px 0;margin:0 0 24px}
+.dials-inert legend{display:flex;align-items:center;gap:10px;padding:0 6px}
+.dials-inert > .hint{margin:2px 0 14px;color:var(--paper-dim);font-family:var(--mono);font-size:12px}
+.channel-number-field{max-width:260px}
 
 .savebar{position:sticky;bottom:0;background:var(--ink);
   padding:18px 34px;display:flex;align-items:center;gap:14px;border-top:1px solid var(--line);
