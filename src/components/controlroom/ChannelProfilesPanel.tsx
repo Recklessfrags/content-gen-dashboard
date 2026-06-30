@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Json } from "@/lib/database.types";
 import {
   AROUSAL_CEILING,
@@ -89,6 +89,7 @@ export function ChannelProfilesPanel({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState<{ message: string; error?: boolean } | null>(null);
+  const hydratedChannelRef = useRef<string | null>(null);
 
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.channel === selectedChannel) ?? null,
@@ -101,6 +102,7 @@ export function ChannelProfilesPanel({
 
     if (profiles.length === 0) {
       setSelectedChannel(null);
+      hydratedChannelRef.current = null;
       setForm(null);
       return;
     }
@@ -108,7 +110,10 @@ export function ChannelProfilesPanel({
     const nextProfile = selectedProfile ?? profiles[0];
     if (!nextProfile) return;
     setSelectedChannel(nextProfile.channel);
-    setForm(profileToForm(nextProfile));
+    if (nextProfile.channel !== hydratedChannelRef.current) {
+      hydratedChannelRef.current = nextProfile.channel;
+      setForm(profileToForm(nextProfile));
+    }
   }, [creating, loading, profiles, selectedProfile]);
 
   const updateForm = useCallback((key: keyof FormState, value: string) => {
@@ -118,6 +123,7 @@ export function ChannelProfilesPanel({
   const selectProfile = (profile: ChannelProfile) => {
     setCreating(false);
     setSelectedChannel(profile.channel);
+    hydratedChannelRef.current = profile.channel;
     setForm(profileToForm(profile));
     setNotice(null);
   };
@@ -125,6 +131,7 @@ export function ChannelProfilesPanel({
   const startNew = () => {
     setCreating(true);
     setSelectedChannel(null);
+    hydratedChannelRef.current = null;
     setForm(profileToForm(defaultChannelProfile("")));
     setNotice(null);
   };
@@ -177,6 +184,7 @@ export function ChannelProfilesPanel({
 
       setCreating(false);
       setSelectedChannel(built.channel);
+      hydratedChannelRef.current = built.channel;
       setForm(profileToForm(built));
       await onRefetch();
       setNotice({ message: "Channel profile saved." });
@@ -209,6 +217,7 @@ export function ChannelProfilesPanel({
 
       const nextProfile = profiles.find((profile) => profile.channel !== deletingChannel) ?? null;
       setSelectedChannel(nextProfile?.channel ?? null);
+      hydratedChannelRef.current = nextProfile?.channel ?? null;
       setForm(nextProfile ? profileToForm(nextProfile) : null);
       await onRefetch();
       setNotice({ message: "Channel profile deleted." });
