@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Json } from "@/lib/database.types";
 import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
+import { useCostReceipts } from "@/lib/hooks/useCostReceipts";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useEpisodes } from "@/lib/hooks/useEpisodes";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
@@ -351,6 +352,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     error: jobsError,
     refetch: fetchJobs,
   } = useJobs(supabase);
+  const {
+    costReceipts,
+    loading: costReceiptsLoading,
+    error: costReceiptsError,
+    loaded: costReceiptsLoaded,
+    refetch: fetchCostReceipts,
+  } = useCostReceipts(supabase);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -360,10 +368,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [chars, setChars] = useState<FlatChar[]>([]);
   const [ideas, setIdeas] = useState<WireIdea[]>([]);
   const [jobParkById, setJobParkById] = useState<Record<number, JobParkResolution>>({});
-  const [costReceipts, setCostReceipts] = useState<CostReceipt[]>([]);
-  const [costReceiptsLoading, setCostReceiptsLoading] = useState(true);
-  const [costReceiptsError, setCostReceiptsError] = useState<string | null>(null);
-  const [costReceiptsLoaded, setCostReceiptsLoaded] = useState(false);
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [activeEnqueueIdeaId, setActiveEnqueueIdeaId] = useState<string | null>(null);
   const [castingOpen, setCastingOpen] = useState(false);
@@ -424,7 +428,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const characterRequestRef = useRef(0);
   const ideaRequestRef = useRef(0);
   const revisionRequestRef = useRef(0);
-  const costReceiptRequestRef = useRef(0);
   const lastManualFocusRef = useRef<HTMLElement | null>(null);
   const lastDirtyTriggerRef = useRef<HTMLElement | null>(null);
   const discardDialogRestoreFocusRef = useRef<HTMLElement | null>(null);
@@ -512,36 +515,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     });
   }, [supabase]);
 
-  const fetchCostReceipts = useCallback(async () => {
-    const requestId = costReceiptRequestRef.current + 1;
-    costReceiptRequestRef.current = requestId;
-    setCostReceiptsLoading(true);
-    setCostReceiptsError(null);
-
-    const { data, error } = await supabase
-      .from("receipts")
-      .select("episode_id,seq,provider,stage,spend_so_far")
-      .order("episode_id", { ascending: true })
-      .order("seq", { ascending: true })
-      .returns<CostReceipt[]>();
-
-    if (costReceiptRequestRef.current !== requestId) return;
-    setCostReceiptsLoading(false);
-    setCostReceiptsLoaded(true);
-    if (error) {
-      setCostReceipts([]);
-      setCostReceiptsError(error.message);
-      return;
-    }
-    setCostReceipts(data ?? []);
-  }, [supabase]);
-
   // ── initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     void fetchCharacters();
     void fetchIdeas();
-    void fetchCostReceipts();
-  }, [fetchCharacters, fetchCostReceipts, fetchIdeas]);
+  }, [fetchCharacters, fetchIdeas]);
 
   useEffect(() => {
     const readyJobs = jobs.filter((job) => {
