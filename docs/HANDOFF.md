@@ -4,7 +4,9 @@
 > happen. This file is the running state of the project.
 
 _Last updated: 2026-06-28 — Architect (Claude). Slices 1–4 shipped + ratified
-(drill-down, version history, Overview, Cost Box) + red-diagonal hotfix._
+(drill-down, version history, Overview, Cost Box) + red-diagonal hotfix, then
+**promoted to production** (merge `00d5fcc` → default branch `claude/new-session-3l99vs`;
+production deploy READY at `content-gen-dashboard.vercel.app`)._
 
 > **New chat picking this up? Start with [`docs/SESSION-HANDOFF.md`](SESSION-HANDOFF.md)**
 > — current state, operational gotchas, and exactly what's left to finish. This file is
@@ -192,6 +194,34 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
     are wrapped in literal `<>` brackets (invalid); valid keys supplied at runtime.
     Codex also needs `codex login --with-api-key` (it ignores the env var).
 
+## Contract hygiene — jobs write-contract frozen + runtime label (2026-06-29, Architect)
+
+Audit risk #9 (stale in-repo `jobs` contract) + #10 (`runtime` editable-vs-measured)
+addressed in the docs lane:
+
+- **`docs/contracts/data-contract.md`** now has a full **`jobs`** section: a new
+  ownership class **"Pipeline-owned, dashboard-enqueue"**, the dashboard-settable INPUT
+  fields vs. worker-owned lifecycle columns, the enqueue-only RLS (`jobs_read` +
+  `jobs_enqueue`, WITH CHECK), the spend/publish approval flow (fresh row, omit
+  `idempotency_key`, both-true for publish "approve & go"), the live-re-render caveat,
+  and the **migration namespacing** rule (dashboard `dash_NNNN_*`; pipeline bare
+  `NNNN_*` — `jobs` policies are pipeline-owned in `0013`/`0014`/`0015`, NOT in this
+  repo). Source of record stays the pipeline repo + the HQ contract thread (2026-06-29);
+  this is a mirrored frozen reference.
+- **`DIRECTION.md`** corrected: `jobs` is no longer described as "read-only" (it is
+  read + enqueue-only); the old "soft no" on idea→pipeline linkage is marked **SHIPPED**
+  (via the sanctioned `jobs_enqueue` path, not an `episodes` write); current-scope
+  updated to list the shipped Jobs + Casting Studio + Cost Box.
+- **`runtime` label — RULED 2026-06-29 (pipeline, HQ): OPERATOR-OWNED, keep editable.**
+  §1a resolved with **no ownership conflict** — `runtime` is the operator's content-length
+  lever (the script-writer parses the word-window target from it); the pipeline **reads**
+  it, never writes. The earlier "advisory / pipeline-measured" framing was wrong and has
+  been **reverted** in `data-contract.md`. The planned display-only ControlRoom change is
+  **cancelled** — the field stays operator-editable (no UI change needed). *Optional future
+  polish:* show the last measured render length beside it (read-only, from `receipts`) as
+  advisory; no write-back. The "instability" this week was the pipeline owner hand-tuning
+  the value as operator during calibration (now `70–145s · 150–240 words` for Mad Dog).
+
 ## Open decisions (human)
 
 - **D-1 Runs ↔ character linkage** — RESOLVED (human ruling, 2026-06-28). **Accept
@@ -230,7 +260,42 @@ not Codex) ran the previously-missing in-browser gate checks against the **live
     Note: Supabase's `protect_delete` trigger blocks bucket deletion via SQL — bucket
     deletes must go through the dashboard/Storage API.
 
+## Pre-ratification audit (2026-06-28) — PASS, no blockers
+
+Consolidated audit before the human ratification sign-off (cross-slice code review + static
+& live security/RLS + tractable gate re-confirmation). Verified against the live project.
+
+- **Code (cross-slice):** the `.stamp` regression class is fixed (`.casting-stamp`); cost
+  math correct (per-episode `max(spend_so_far)`, deltas clamped ≥0, total = sum of maxes;
+  Overview shares the same memoized `costStats`); read-only + per-id state-bleed clean.
+  Build clean (Next 15.5.19). One builder-lane seam: Overview vs Cost Box use different
+  status vocabularies (`"complete"` = Cleared in Overview but IN-FLIGHT in Cost Box).
+- **Security (live + static):** every dashboard table owner-scoped to `auth.uid()`,
+  `authenticated`-only; **anon simulation = 0 rows everywhere** (fail-closed); revisions
+  immutable (insert+select); `episodes`/`receipts` read-only. No committed secret, **no
+  service-role key anywhere** — the dashboard reads exclusively via the browser anon key.
+  Advisor WARNs: leaked-password protection off; `set_updated_at` mutable search_path.
+- **Public-app decisions (Supabase console, not code):** disable open sign-ups (`signUp` is
+  ungated and any registrant can read all `episodes`/`receipts`); enable leaked-password
+  protection.
+- **Functional gap checked:** `jobs`/`published_posts`/`asset_ledger` have RLS on with **zero
+  policies** → invisible to the anon-key dashboard. Not read today (no breakage), but any
+  future feature surfacing them needs `authenticated` read policies first.
+- **Live-vs-docs drift (benign):** 9 live migrations; this repo tracks 2 (its own). The
+  rest are pipeline-domain — pipeline repo owns committing them; not absorbed here.
+  `render-assets` bucket exists (public/500MB); `episodes.character_id` column landed but
+  unpopulated (D-1 schema in, run pending).
+- **Not re-run:** in-browser visual gates (sandbox can't TLS-egress; need the Node-fetch
+  bridge or a human).
+
 ## Git state
 
-- Branch `claude/new-session-3l99vs`. One app-code commit (the foundation) + this
-  docs commit. `main` does not yet exist.
+- **Default branch (production):** `claude/new-session-3l99vs`. `main` does not exist.
+- Slices 1–4 (foundation + drill-down + version history + Overview + Cost Box + the
+  red-diagonal hotfix) plus all docs were built on `claude/dashboard-slice-count-pof88m`,
+  then **merged into the default branch** via merge commit `00d5fcc` ("Merge dashboard
+  Slices 2-4 to production (promote)"). That feature branch is now deleted.
+- Production tracks the default branch; the Vercel deploy from `00d5fcc` is
+  `target: production`, state READY.
+- App-code commits are Codex-authored with committer `Claude <noreply@anthropic.com>`
+  (GitHub-verified); docs commits are plain Architect commits.

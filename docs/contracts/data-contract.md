@@ -13,10 +13,15 @@
 | Class | Tables | Writer | Dashboard access |
 | --- | --- | --- | --- |
 | **Dashboard-owned** | `characters`, `ideas`, `character_bible_revisions` | the dashboard (authenticated user) | owner-scoped; revisions insert/read only |
-| **Pipeline-owned** | `episodes`, `receipts` | the content pipeline (service role) | **read-only** |
+| **Dashboard-owned, operation-global** | `channel_profiles` | the dashboard (authenticated user) | **`authenticated` full CRUD** (NOT owner-scoped — shared operator config); pipeline worker **reads** via service role |
+| **Pipeline-owned, read-only** | `episodes`, `receipts` | the content pipeline (service role) | **read-only** |
+| **Pipeline-owned, dashboard-enqueue** | `jobs` | the pipeline **worker** owns all lifecycle/transitions; the dashboard may **INSERT (enqueue-only) + SELECT** | **read + enqueue-only insert** (see `jobs` section) |
 
-The dashboard **must never** create, alter, or write to the pipeline-owned tables.
-The pipeline writes them via the service role, which bypasses RLS.
+The dashboard **must never** create or alter pipeline-owned tables, and **must never**
+write the pipeline-owned **lifecycle** columns. The one sanctioned dashboard write is an
+**enqueue-only INSERT into `jobs`** (input fields only), permitted by the pipeline's own
+RLS policy (`jobs_enqueue`). The pipeline writes everything via the service role, which
+bypasses RLS.
 
 ---
 
@@ -37,6 +42,24 @@ The pipeline writes them via the service role, which bypasses RLS.
 `runtime`. **jsonb on purpose** — new sections (catchphrase bank, voice-sample URL,
 do/don't gallery) are new keys, **no migration**. Consumers must treat unknown keys
 as additive and never assume a fixed key set.
+
+> **`runtime` is OPERATOR-OWNED (dashboard-authored) — keep it editable.** Pipeline
+> ruling, HQ 2026-06-29 (resolves audit §1a — no ownership conflict). `runtime` is the
+> **operator's content-length lever**: the script-writer parses the "N–M spoken words"
+> target out of it to size the script. The pipeline **reads** `runtime`, it **never
+> writes** it. So the bible editor keeps `runtime` **operator-editable** ("Runtime
+> target") — do **not** lock it display-only.
+> - The **measured real-VO length** is a *separate*, pipeline-owned output — it lives in
+>   `receipts` / the render manifest (informational; ADR-004 makes it the master clock
+>   *at render time* but it never writes back to `runtime`).
+> - **Optional dashboard polish:** show the last measured render length *beside* the
+>   field as read-only advisory (from `receipts`) so the operator tunes the target
+>   against reality — no write-back to `runtime`.
+> - **Coordination rule:** if the pipeline/architect ever needs to change a `runtime`
+>   (e.g. live calibration), route it through the operator / flag it on the HQ so it
+>   can't clobber a dashboard edit. (The "instability" seen during this week's
+>   calibration was the pipeline owner hand-tuning the value *as operator*, not
+>   measurement overwriting it.)
 
 **RLS:** enabled. Policies (all `to authenticated`): `select/insert/update/delete`
 each gated by `owner = auth.uid()`.
@@ -84,6 +107,37 @@ there are no update/delete policies.
 
 ---
 
+## `channel_profiles` — dashboard-owned (operation-global config)
+
+Per-channel config the pipeline worker resolves at job-start (`jobs.channel → profile`).
+Same ownership split as `characters` (dashboard owns table + migration + editor; worker
+**reads only**), but access is **operation-global, not owner-scoped** — there is **no
+`owner` column**. Contract agreed cross-team (HQ, 2026-06-30); migration
+`dash_0002_channel_profiles` applied live.
+
+**Columns:** `channel` text **PK** (= `jobs.channel` codename) · `display_name` text ·
+`fact_anchor` text (light CHECK: `fda_standard_of_identity`/`declassified_primary_doc`/`none`)
+· `treatment` text (light CHECK: `archival_documentary`/`motion_graphic`/`avatar`/`live_demo`)
+· `character` text null · `voice_archetype` text null (open vocabulary, no check) ·
+`source_ladder` jsonb (array) · `packaging` jsonb (`{title_style, thumbnail_style}`) ·
+`engagement_posture` jsonb (`{claim_discipline, arousal_ceiling}`) · `length_target` jsonb
+(`{short_s}`) · `platforms` jsonb (array) · `created_at`/`updated_at` timestamptz.
+
+**Conventions:** enum-ish fields are **text, not PG enums** (forward-compatible — add values
+without a type migration); structured fields are **jsonb-on-purpose** (new keys, no
+migration). A seeded `default` row reproduces today's food behavior; a null/unknown
+`jobs.channel` resolves to it.
+
+**RLS:** enabled; **`authenticated` full CRUD** (`select`/`insert`/`update`/`delete`, all
+`using (true)`/`with check (true)`) — trusted-operator, shared config. The worker reads via
+the **service role** (bypasses RLS).
+
+**Enforcement status:** the `engagement_posture` dials (`claim_discipline`,
+`arousal_ceiling`) are **stored, not yet enforced** — the worker-read + ADR-005 tiering are
+later pipeline work. The editor surfaces them as "stored — not yet active" until then.
+
+---
+
 ## `episodes` — PIPELINE-owned (READ-ONLY for dashboard)
 
 Discovered already-present in the shared project. **Do not recreate or alter.**
@@ -97,13 +151,18 @@ Discovered already-present in the shared project. **Do not recreate or alter.**
 | `message` | text NULL | |
 | `spend` | numeric NOT NULL | `default 0` |
 | `sentinels` | jsonb NOT NULL | `default '[]'` — array of gate verdicts (`stage`, `provider`, `verdict`, `reason`, …) |
+| `character_id` | uuid NULL | **pipeline-stamped** per run (`= characters.id`); **loose uuid, NO FK** (a dashboard character delete never blocks a historical row). null when a job has no `character`. |
 | `created_at` | timestamptz NOT NULL | `default now()` |
 | `updated_at` | timestamptz NOT NULL | `default now()` |
 
-> **No `owner`, no `character_id`.** There is **no per-character linkage** in this
-> schema. The dashboard cannot filter episodes "by active character" without a
-> change to the pipeline's table — out of scope for this repo. See open decision
-> **D-1** in `docs/HANDOFF.md`.
+> **Per-character linkage — schema/writer LIVE, data not yet populated** (pipeline
+> migration `0006`). The column exists and the worker is wired to resolve `jobs.character`
+> → `characters.id` and stamp `episodes.character_id`, BUT **0 episodes are linked yet** —
+> no character-driven run has happened (the keystone Mad Dog → Acoustic Kitty run, D-1).
+> So Tier-2 per-character cost is **schema-unblocked** (the Cost Box has the
+> group-by-`character_id` seam) but **data-blocked** until that first run. Pipeline-owned +
+> read-only for the dashboard. (Resolves D-1's schema concern; the populating run is still
+> pending.)
 
 **RLS:** enabled. Added by this dashboard: `episodes_read` = `select to authenticated
 using (true)`. **No** insert/update/delete policies — clients can never write.
@@ -125,11 +184,94 @@ using (true)`. **No** insert/update/delete policies — clients can never write.
 **RLS:** enabled. Added by this dashboard: `receipts_read` = `select to authenticated
 using (true)`. Read-only; no write policies.
 
+## `jobs` — PIPELINE-owned, dashboard ENQUEUE-ONLY
+
+The work queue. **Pipeline-owned** (the worker, via service role, owns every lifecycle
+transition), but the dashboard is the **enqueue surface**: it may INSERT new jobs
+(input fields only) and SELECT the queue. **Source of record for this table's schema +
+RLS is the pipeline repo** — confirmed live on the HQ contract thread (2026-06-29) and
+in the pipeline repo's `docs/architecture/dashboard-contract.md` (**that file lives in the
+pipeline repo, NOT this one — don't look for it here**). Mirrored here so the
+dashboard build has a frozen reference; **do not recreate or alter `jobs` from this
+repo.**
+
+**Dashboard-settable INPUT fields** (the only columns the enqueue INSERT may carry):
+
+| field | type | notes |
+| --- | --- | --- |
+| `food` | text | episode topic/subject |
+| `character` | text | **send the verbatim `codename`** (e.g. `Mad Dog McGrath`); the worker slugifies both sides and matches exact-first. No `slug` column needed. |
+| `anchor_citation` | text | optional source citation |
+| `anchor_url` | text | optional source URL |
+| `inject_claims` | — | optional claim injection |
+| `episode_cap` | int | **`0 < cap ≤ 50`** (RLS-enforced) |
+| `routes` | — | requested routes |
+| `live_adapters` | — | adapter toggles |
+| `stub_upstream` | bool | stub upstream stages (note: `script_writer` runs live even when set) |
+| `spend_approved` | bool | default `false` (migration `0013`). Clears a **spend** park. |
+| `publish_approved` | bool | default `false` (migration `0015`). Clears a **publish** park; **double-gated** — never posts without a wired Buffer adapter. |
+| `idempotency_key` | text | UNIQUE; **dashboard generates its own** unique-per-logical-job key (no CLI parity). Duplicate → `409` "already queued". |
+
+**Worker-owned columns — the dashboard MUST NOT set them** (RLS `jobs_enqueue` WITH CHECK
+rejects a row that does): `status` (defaults `'queued'`), `attempts` (defaults `0`),
+`spend`, `episode_id`, `lease_expires_at`, `started_at`, `finished_at`, `error`. Omit
+them on insert; all have safe defaults. A forged running/done/spent row is rejected.
+
+**RLS (pipeline-owned, migration `0014`):**
+- `jobs_read` — `select to authenticated` (read the queue).
+- `jobs_enqueue` — `insert to authenticated`, **enqueue-only** `WITH CHECK`:
+  `status='queued'`, `attempts=0`, `episode_cap ∈ (0,50]`, and all worker-owned fields
+  above are `null`.
+
+**Approval flow (both spend + publish parks):** approval is a **FRESH job row**, not an
+update of the parked one — the parked `ready_for_review` row stays as the audit record.
+**Omit `idempotency_key`** (NULLs are exempt from the UNIQUE index) so the re-enqueue
+isn't a 409. A **publish** approval re-enqueue sets **both** `publish_approved=true`
+**and** `spend_approved=true` ("approve & go", so the live re-run doesn't re-park at the
+spend gate). Park kind (spend vs publish) is told apart by the **parked stage in the
+run's last receipt** — the dashboard infers it (`detectParkKind`) **until the pipeline's
+`park_kind` column lands** (see below), at which point the dashboard reads the column and
+drops the regex inference.
+
+> **APPLIED + LIVE — pipeline-owned, bare `0016`** (HQ 2026-06-30). The dashboard wired
+> the resume-to-distribution publish path against these in **PR #21/#22** (publish approval
+> enqueues `publish_only=true` + `source_episode_id`; `park_kind` surfaced in the run-queue).
+> The three `jobs` columns:
+> - **`park_kind text`** — structured spend-vs-publish discriminator (replaces
+>   `detectParkKind` regex).
+> - **`publish_only boolean not null default false`** + **`source_episode_id text`** —
+>   the **resume-to-distribution** path: when set, the worker SKIPS research→assembly and
+>   runs only Distribution against `source_episode_id`'s existing manifest + rendered MP4
+>   (posts the exact reviewed cut, no re-render, no double-spend). The dashboard's
+>   publish-approval button should switch from the both-flags re-enqueue to this safe path
+>   once the columns are live.
+>
+> **Error reasons:** `jobs.error` carries the full human-readable string (e.g.
+> `parked: exhausted: word_count …`, `parked: blocked: duration …`); its prefix
+> (`blocked` / `exhausted` / `approval_required`) is a stable discriminator. The run-queue
+> renders `jobs.error`; the final receipt's `verdict`/`reason` is the drill-down detail.
+
+> **Re-render caveat (operator-facing copy must say this):** a publish-approval
+> re-enqueue re-runs the pipeline **live** — it spends again and `script_writer`
+> regenerates, so it posts a **different** cut than the one reviewed in the park. The
+> pipeline's **resume-to-distribution** path (post the exact reviewed MP4, no re-spend)
+> is **not built yet**; real publishing is held until it lands. Today no Buffer token is
+> wired, so any publish approval parks at `approval_required` and never posts.
+
 ---
 
 ## Migration of record
 
 `supabase/migrations/0001_init.sql` creates the dashboard-owned tables + owner-scoped
-RLS, and adds the two read-only policies to the pipeline-owned tables. It is
-idempotent (`if not exists`, `drop policy if exists`) and never alters pipeline
-columns.
+RLS, and adds the two read-only policies (`episodes_read`, `receipts_read`) to the
+pipeline-owned tables. It is idempotent (`if not exists`, `drop policy if exists`) and
+never alters pipeline columns.
+
+**Migration namespacing (shared DB).** Because dashboard and pipeline share one
+`reels-content` project, the two repos use **separate version lanes** to avoid
+collisions: the **dashboard** uses a `dash_NNNN_*` prefix (e.g.
+`dash_0001_casting_usage.sql`, `dash_0002_channel_profiles.sql`); the **pipeline** uses bare
+`NNNN_*` (incl. `0016` = `publish_only`/`source_episode_id`/`park_kind`). The `jobs` table
+and its policies are **pipeline-owned** and live in the pipeline's lane —
+`0013` (`spend_approved`), `0014` (`jobs_read` + `jobs_enqueue`), `0015`
+(`publish_approved`). Those are **not** in this repo and must not be recreated here.
