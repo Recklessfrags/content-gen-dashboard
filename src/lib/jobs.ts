@@ -1,4 +1,6 @@
-import type { Json, TablesInsert } from "@/lib/database.types";
+import type { Json, Tables, TablesInsert } from "@/lib/database.types";
+
+export type QueueJob = Tables<"jobs">;
 
 export const JOB_STATUSES = [
   "queued",
