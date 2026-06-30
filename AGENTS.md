@@ -44,7 +44,17 @@ Every agent (Architect, Designer, Builder, and any sub-agent) reads this first.
    on design, Builder on building. Stay in your lane.
 6. **Verify against reality** — versions, prices, API shapes, design-platform
    capabilities checked against current reality and cited (source + date). No
-   training-data values.
+   training-data values. This cuts **both ways**: investigate THEN conclude —
+   reflexive agreement and reflexive alarm are the same error (concluding without
+   checking). Endorsement is earned by surviving scrutiny, not granted by default.
+7. **Keep HQ current (shared convention with the pipeline)** — the Notion 📮
+   Coordination Log's **Open Cross-Team Items tracker** is **jointly owned**. Whenever
+   something surfaces that is (a) useful to the other team, (b) an upcoming cross-team
+   task, or (c) a conflict/roadblock, record it in the Log: add/update its tracker row
+   (+ a short dated sub-note if it needs detail) at natural checkpoints — after a
+   decision, around coordination-touching work, and **before ending a session**.
+   **Re-fetch HQ before relying on it** (it changes between sessions; a cached view is
+   how stale-state bugs happen). This is model-judgment, not a hook.
 
 ## Git policy (critical)
 
