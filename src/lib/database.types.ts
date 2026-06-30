@@ -241,8 +241,11 @@ export type Database = {
           inject_claims: Json
           lease_expires_at: string | null
           live_adapters: Json | null
+          park_kind: string | null
           publish_approved: boolean
+          publish_only: boolean
           routes: Json
+          source_episode_id: string | null
           spend: number | null
           spend_approved: boolean
           started_at: string | null
@@ -265,8 +268,11 @@ export type Database = {
           inject_claims?: Json
           lease_expires_at?: string | null
           live_adapters?: Json | null
+          park_kind?: string | null
           publish_approved?: boolean
+          publish_only?: boolean
           routes?: Json
+          source_episode_id?: string | null
           spend?: number | null
           spend_approved?: boolean
           started_at?: string | null
@@ -289,8 +295,11 @@ export type Database = {
           inject_claims?: Json
           lease_expires_at?: string | null
           live_adapters?: Json | null
+          park_kind?: string | null
           publish_approved?: boolean
+          publish_only?: boolean
           routes?: Json
+          source_episode_id?: string | null
           spend?: number | null
           spend_approved?: boolean
           started_at?: string | null

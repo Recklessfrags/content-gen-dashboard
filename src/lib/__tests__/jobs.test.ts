@@ -88,6 +88,24 @@ describe("buildJobInsert", () => {
       stub_upstream: true,
       spend_approved: false,
       publish_approved: false,
+      publish_only: false,
+      source_episode_id: null,
+      idempotency_key: "fixed-key",
+    });
+  });
+
+  it("passes publish-only resume fields through", () => {
+    expect(
+      buildJobInsert(
+        jobInput({
+          idempotency_key: "fixed-key",
+          publish_only: true,
+          source_episode_id: "episode-reviewed-001",
+        }),
+      ),
+    ).toMatchObject({
+      publish_only: true,
+      source_episode_id: "episode-reviewed-001",
       idempotency_key: "fixed-key",
     });
   });
@@ -108,12 +126,33 @@ describe("approval re-enqueue builders", () => {
     });
   });
 
-  it("marks publish and spend approval and clears idempotency_key", () => {
-    expect(buildPublishApprovalReenqueue(jobInput({ spend_approved: false }))).toMatchObject({
-      spend_approved: true,
+  it("marks publish-only resume fields and clears idempotency_key without forcing spend approval", () => {
+    expect(
+      buildPublishApprovalReenqueue(jobInput({ spend_approved: false }), "episode-reviewed-001"),
+    ).toMatchObject({
+      spend_approved: false,
       publish_approved: true,
+      publish_only: true,
+      source_episode_id: "episode-reviewed-001",
       idempotency_key: null,
     });
+  });
+
+  it("preserves original spend approval on publish-only resume", () => {
+    expect(
+      buildPublishApprovalReenqueue(jobInput({ spend_approved: true }), "episode-reviewed-001"),
+    ).toMatchObject({
+      spend_approved: true,
+      publish_approved: true,
+      publish_only: true,
+      source_episode_id: "episode-reviewed-001",
+    });
+  });
+
+  it("requires a source episode id for publish-only resume", () => {
+    expect(() => buildPublishApprovalReenqueue(jobInput(), "")).toThrow(
+      /requires the reviewed source episode id/,
+    );
   });
 });
 
