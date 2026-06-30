@@ -252,6 +252,24 @@ export function buildSpendApprovalReenqueue(
 }
 
 /**
+ * The reviewed episode to resume distribution from, for a publish approval.
+ * Precedence is source_episode_id FIRST, then episode_id:
+ *  - A publish_only job posts the MP4 of source_episode_id (the worker skips
+ *    gen/render), so source_episode_id is authoritative whenever it is set —
+ *    this is the only correct source for a publish_only RETRY (whose own
+ *    episode_id is null/irrelevant).
+ *  - A first publish-park has source_episode_id = null, so it falls back to its
+ *    own rendered episode_id.
+ * Do NOT flip to episode_id-first: for a publish_only job the worker posts
+ * source_episode_id, so preferring episode_id could resume from the wrong cut.
+ */
+export function publishSourceEpisodeId(
+  job: Pick<QueueJob, "source_episode_id" | "episode_id">,
+): string | null {
+  return job.source_episode_id || job.episode_id || null;
+}
+
+/**
  * Resume-to-distribution publish approval: re-enqueue a publish-only job that
  * posts the exact reviewed MP4 from source_episode_id. This skips gen/render, so
  * it does not re-render or double-spend; posting is still gated by a wired Buffer

@@ -10,6 +10,7 @@ import {
   isInFlightStatus,
   isTerminalStatus,
   isValidEpisodeCap,
+  publishSourceEpisodeId,
   type JobEnqueueInput,
 } from "@/lib/jobs";
 
@@ -153,6 +154,53 @@ describe("approval re-enqueue builders", () => {
     expect(() => buildPublishApprovalReenqueue(jobInput(), "")).toThrow(
       /requires the reviewed source episode id/,
     );
+  });
+});
+
+describe("publishSourceEpisodeId", () => {
+  it("prefers source_episode_id when set", () => {
+    expect(
+      publishSourceEpisodeId({
+        source_episode_id: "episode-reviewed-001",
+        episode_id: "episode-new-001",
+      }),
+    ).toBe("episode-reviewed-001");
+  });
+
+  it("prefers source_episode_id over episode_id when both are set (publish_only is authoritative)", () => {
+    expect(publishSourceEpisodeId({ source_episode_id: "src-001", episode_id: "own-999" })).toBe("src-001");
+  });
+
+  it("falls back to episode_id when source_episode_id is null or empty", () => {
+    expect(
+      publishSourceEpisodeId({
+        source_episode_id: null,
+        episode_id: "episode-first-park-001",
+      }),
+    ).toBe("episode-first-park-001");
+
+    expect(
+      publishSourceEpisodeId({
+        source_episode_id: "",
+        episode_id: "episode-first-park-002",
+      }),
+    ).toBe("episode-first-park-002");
+  });
+
+  it("returns null when both ids are null or empty", () => {
+    expect(
+      publishSourceEpisodeId({
+        source_episode_id: null,
+        episode_id: null,
+      }),
+    ).toBeNull();
+
+    expect(
+      publishSourceEpisodeId({
+        source_episode_id: "",
+        episode_id: "",
+      }),
+    ).toBeNull();
   });
 });
 
