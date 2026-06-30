@@ -983,7 +983,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       if (action === "spend") {
         payload = buildSpendApprovalReenqueue(input);
       } else if (action === "publish") {
-        payload = buildPublishApprovalReenqueue(input);
+        if (!job.episode_id) {
+          setQueueActionSubmitting(false);
+          showFlash("Cannot publish-approve: this job has no source episode yet.", true);
+          return;
+        }
+        payload = buildPublishApprovalReenqueue(input, job.episode_id);
       } else {
         payload = buildJobInsert(input);
       }
@@ -2124,6 +2129,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                               Spend: {formatUsd(job.spend ?? 0)}
                             </div>
                           )}
+                          {job.error && (
+                            <p className="queue-card-substatus" role="status">
+                              {job.park_kind ? `${job.park_kind}: ` : ""}
+                              {job.error}
+                            </p>
+                          )}
 
                           {actionable && status === "ready_for_review" && (
                             <>
@@ -2140,7 +2151,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                                     {park.stage ? ` Last receipt stage: ${park.stage}.` : ""}
                                   </p>
                                   <p className="queue-card-substatus">
-                                    No Buffer adapter is wired yet; approval parks safely before any real post.
+                                    Approval posts the exact reviewed render with no re-render or
+                                    double-spend. No Buffer token is wired yet, so nothing posts.
                                   </p>
                                   <button
                                     className="btn compact"

@@ -85,6 +85,8 @@ export type JobEnqueueInput = {
   stub_upstream: boolean;
   spend_approved: boolean;
   publish_approved?: boolean;
+  publish_only?: boolean;
+  source_episode_id?: string | null;
   idempotency_key?: string | null;
 };
 
@@ -220,6 +222,8 @@ export function buildJobInsert(
     stub_upstream: input.stub_upstream,
     spend_approved: input.spend_approved,
     publish_approved: input.publish_approved ?? false,
+    publish_only: input.publish_only ?? false,
+    source_episode_id: input.source_episode_id ?? null,
     idempotency_key:
       input.idempotency_key === undefined
         ? idempotencyKeyFor(input)
@@ -248,17 +252,24 @@ export function buildSpendApprovalReenqueue(
 }
 
 /**
- * Assumed; confirmed-pending on the HQ: publish approval must carry both
- * publish_approved and spend_approved because the fresh re-run re-hits the
- * spend gate before it can reach the publish step.
+ * Resume-to-distribution publish approval: re-enqueue a publish-only job that
+ * posts the exact reviewed MP4 from source_episode_id. This skips gen/render, so
+ * it does not re-render or double-spend; posting is still gated by a wired Buffer
+ * adapter.
  */
 export function buildPublishApprovalReenqueue(
   originalInput: JobEnqueueInput,
+  sourceEpisodeId: string,
 ): TablesInsert<"jobs"> {
-  const input = {
+  if (!sourceEpisodeId) {
+    throw new Error("buildPublishApprovalReenqueue requires the reviewed source episode id.");
+  }
+
+  const input: JobEnqueueInput = {
     ...originalInput,
     publish_approved: true,
-    spend_approved: true,
+    publish_only: true,
+    source_episode_id: sourceEpisodeId,
     idempotency_key: null,
   };
 

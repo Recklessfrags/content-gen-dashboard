@@ -70,11 +70,9 @@ export function QueueActionDialog({
           <p id={descriptionId} className="spend-approval-copy">
             You are about to approve publishing for topic:{" "}
             <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
-            re-enqueue the job with publish_approved=true and spend_approved=true. It
-            re-runs the whole pipeline live, re-renders, re-spends, and would post a
-            different cut than the reviewed MP4 parked here. The exact reviewed-render
-            publish path is coming; until then, with no Buffer adapter wired, this parks
-            safely and posts nothing.
+            resume distribution from the exact reviewed render with no re-render and no
+            double-spend. Publishing is still double-gated: with no Buffer token wired,
+            nothing posts.
           </p>
         ) : (
           <p id={descriptionId} className="spend-approval-copy">
