@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Json } from "@/lib/database.types";
 import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
+import { useEpisodes } from "@/lib/hooks/useEpisodes";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import { useScrollLock } from "@/lib/hooks/useScrollLock";
 import {
@@ -23,7 +24,6 @@ import {
   CHANNELS,
   type Character,
   type CharacterBibleRevision,
-  type Episode,
   type Idea,
   type IdeaStatus,
   type Receipt,
@@ -338,19 +338,22 @@ function DiscardChangesDialog({
 
 export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const supabase = useMemo(() => createClient(), []);
+  const {
+    episodes,
+    loading: episodesLoading,
+    error: episodesError,
+    refetch: fetchEpisodes,
+  } = useEpisodes(supabase);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ideasLoading, setIdeasLoading] = useState(true);
   const [ideasError, setIdeasError] = useState<string | null>(null);
-  const [episodesLoading, setEpisodesLoading] = useState(true);
-  const [episodesError, setEpisodesError] = useState<string | null>(null);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [jobsError, setJobsError] = useState<string | null>(null);
 
   const [chars, setChars] = useState<FlatChar[]>([]);
   const [ideas, setIdeas] = useState<WireIdea[]>([]);
-  const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [jobs, setJobs] = useState<QueueJob[]>([]);
   const [jobParkById, setJobParkById] = useState<Record<number, JobParkResolution>>({});
   const [costReceipts, setCostReceipts] = useState<CostReceipt[]>([]);
@@ -416,7 +419,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const restoreDialogRestoreFocusRef = useRef<HTMLElement | null>(null);
   const characterRequestRef = useRef(0);
   const ideaRequestRef = useRef(0);
-  const episodeRequestRef = useRef(0);
   const revisionRequestRef = useRef(0);
   const costReceiptRequestRef = useRef(0);
   const jobsRequestRef = useRef(0);
@@ -507,28 +509,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     });
   }, [supabase]);
 
-  const fetchEpisodes = useCallback(async () => {
-    const requestId = episodeRequestRef.current + 1;
-    episodeRequestRef.current = requestId;
-    setEpisodesLoading(true);
-    setEpisodesError(null);
-
-    const { data, error } = await supabase
-      .from("episodes")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .returns<Episode[]>();
-
-    if (episodeRequestRef.current !== requestId) return;
-    setEpisodesLoading(false);
-    if (error) {
-      setEpisodes([]);
-      setEpisodesError(error.message);
-      return;
-    }
-    setEpisodes(data ?? []);
-  }, [supabase]);
-
   const fetchJobs = useCallback(async () => {
     const requestId = jobsRequestRef.current + 1;
     jobsRequestRef.current = requestId;
@@ -579,10 +559,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   useEffect(() => {
     void fetchCharacters();
     void fetchIdeas();
-    void fetchEpisodes();
     void fetchJobs();
     void fetchCostReceipts();
-  }, [fetchCharacters, fetchCostReceipts, fetchEpisodes, fetchIdeas, fetchJobs]);
+  }, [fetchCharacters, fetchCostReceipts, fetchIdeas, fetchJobs]);
 
   useEffect(() => {
     const readyJobs = jobs.filter((job) => {
