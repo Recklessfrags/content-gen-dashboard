@@ -13,6 +13,7 @@
 | Class | Tables | Writer | Dashboard access |
 | --- | --- | --- | --- |
 | **Dashboard-owned** | `characters`, `ideas`, `character_bible_revisions` | the dashboard (authenticated user) | owner-scoped; revisions insert/read only |
+| **Dashboard-owned, operation-global** | `channel_profiles` | the dashboard (authenticated user) | **`authenticated` full CRUD** (NOT owner-scoped — shared operator config); pipeline worker **reads** via service role |
 | **Pipeline-owned, read-only** | `episodes`, `receipts` | the content pipeline (service role) | **read-only** |
 | **Pipeline-owned, dashboard-enqueue** | `jobs` | the pipeline **worker** owns all lifecycle/transitions; the dashboard may **INSERT (enqueue-only) + SELECT** | **read + enqueue-only insert** (see `jobs` section) |
 
@@ -103,6 +104,37 @@ there are no update/delete policies.
 **RLS:** enabled. Policies (all `to authenticated`): `select` using
 `owner = auth.uid()` and `insert` with check `owner = auth.uid()`. **No**
 `update`/`delete` policies; history is append-only.
+
+---
+
+## `channel_profiles` — dashboard-owned (operation-global config)
+
+Per-channel config the pipeline worker resolves at job-start (`jobs.channel → profile`).
+Same ownership split as `characters` (dashboard owns table + migration + editor; worker
+**reads only**), but access is **operation-global, not owner-scoped** — there is **no
+`owner` column**. Contract agreed cross-team (HQ, 2026-06-30); migration
+`dash_0002_channel_profiles` applied live.
+
+**Columns:** `channel` text **PK** (= `jobs.channel` codename) · `display_name` text ·
+`fact_anchor` text (light CHECK: `fda_standard_of_identity`/`declassified_primary_doc`/`none`)
+· `treatment` text (light CHECK: `archival_documentary`/`motion_graphic`/`avatar`/`live_demo`)
+· `character` text null · `voice_archetype` text null (open vocabulary, no check) ·
+`source_ladder` jsonb (array) · `packaging` jsonb (`{title_style, thumbnail_style}`) ·
+`engagement_posture` jsonb (`{claim_discipline, arousal_ceiling}`) · `length_target` jsonb
+(`{short_s}`) · `platforms` jsonb (array) · `created_at`/`updated_at` timestamptz.
+
+**Conventions:** enum-ish fields are **text, not PG enums** (forward-compatible — add values
+without a type migration); structured fields are **jsonb-on-purpose** (new keys, no
+migration). A seeded `default` row reproduces today's food behavior; a null/unknown
+`jobs.channel` resolves to it.
+
+**RLS:** enabled; **`authenticated` full CRUD** (`select`/`insert`/`update`/`delete`, all
+`using (true)`/`with check (true)`) — trusted-operator, shared config. The worker reads via
+the **service role** (bypasses RLS).
+
+**Enforcement status:** the `engagement_posture` dials (`claim_discipline`,
+`arousal_ceiling`) are **stored, not yet enforced** — the worker-read + ADR-005 tiering are
+later pipeline work. The editor surfaces them as "stored — not yet active" until then.
 
 ---
 
@@ -233,7 +265,8 @@ never alters pipeline columns.
 **Migration namespacing (shared DB).** Because dashboard and pipeline share one
 `reels-content` project, the two repos use **separate version lanes** to avoid
 collisions: the **dashboard** uses a `dash_NNNN_*` prefix (e.g.
-`dash_0001_casting_usage.sql`); the **pipeline** uses bare `NNNN_*`. The `jobs` table
+`dash_0001_casting_usage.sql`, `dash_0002_channel_profiles.sql`); the **pipeline** uses bare
+`NNNN_*` (incl. `0016` = `publish_only`/`source_episode_id`/`park_kind`). The `jobs` table
 and its policies are **pipeline-owned** and live in the pipeline's lane —
 `0013` (`spend_approved`), `0014` (`jobs_read` + `jobs_enqueue`), `0015`
 (`publish_approved`). Those are **not** in this repo and must not be recreated here.

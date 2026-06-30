@@ -1,11 +1,35 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: 2026-06-28 by the Architect (Claude). This is the onboarding doc for a
-**new chat** picking up the work. Read this first, then the canonical docs it points to.
-For deep running history see `docs/HANDOFF.md`; this file is the fast path._
+_Last updated: **2026-06-30** by the Architect (Claude). This is the **one authoritative
+"start here"** for a **new chat** picking up the work. Read this top-to-bottom, then the
+canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file is the
+fast path._
 
-_Update (2026-06-28): Slices 2–4 are now **merged to the default branch and live in
-production** — see §2._
+> **Built against the hardened-handoff checklist** (pipeline lesson, 2026-06-30): one
+> authoritative start-here · branch state pinned · don't-stall/don't-drift constraints ·
+> contract matched to the real schema · DONE = falsifiable gates ("floor ≠ done"). A
+> **cold-start (MD) review** was run against this doc on 2026-06-30 — see §0.
+
+---
+
+## 0. First actions for a fresh session (do these in order)
+
+1. **`git fetch` BEFORE judging anything.** Local refs lie. Production = the GitHub default
+   branch **`claude/new-session-3l99vs`**; confirm its tip before assuming merge state.
+2. **Re-arm the 5-minute HQ monitor.** This session polls Notion HQ every ~270s
+   (`ScheduleWakeup`) for pipeline replies and re-arms each cycle. It does **not** survive a
+   session switch — re-arm it first thing. (Prompt: "Check HQ Notion pages incl. sub-pages
+   under the 'Reels Content — Agent Workforce' root; respond as needed; re-arm the timer.")
+3. **Read, in order:** this file → `AGENTS.md` (loop rules) → `DIRECTION.md` (scope) →
+   `docs/contracts/data-contract.md` (DB shapes + ownership) → `GATES.md` → the 📮
+   Coordination Log in Notion (current cross-team state, §6).
+4. **Don't-drift / don't-stall:** the dashboard is a **focused control tool, NOT a
+   kanban/production board** (D-2). Don't invent scope. If you park, say why; don't stall
+   silently. Build app code **only through Codex** (§3); the Architect commits docs only.
+
+**What "done" means here:** a slice is done when it's **merged to the default branch, its
+gates are green on the real artifact** (not just unit-green — see §4 "floor ≠ done"), and an
+**independent reviewer that did not build it** signed off. The human ratifies/merges.
 
 ---
 
@@ -15,215 +39,204 @@ An automated agent workforce that produces faceless short-form video. **Two repo
 shared Supabase project:**
 
 - **Dashboard** (`recklessfrags/content-gen-dashboard`, THIS repo) — the **Character
-  Control Room**: a focused control tool. Owns characters/bibles + ideas; surfaces Runs
-  (pipeline output) read-only + an Overview + a Cost Box. **Read `DIRECTION.md`** — it is
-  product ground truth (focused tool, NOT a kanban/production board).
-- **Pipeline** (`recklessfrags/reels-content-generation`, a SEPARATE repo, **out of this
-  session's GitHub scope**) — owns research → fact-check → gate → script → assembly →
-  distribution. Writes `episodes`/`receipts`; the dashboard reads them read-only.
+  Control Room**: a focused control tool. Owns characters/bibles, ideas, casting, channel
+  profiles; surfaces Runs (pipeline output) read-only + Overview + Cost Box + a run-queue.
+  **Read `DIRECTION.md`** — product ground truth (focused tool, NOT a kanban board).
+- **Pipeline** (a SEPARATE repo, **out of this session's GitHub scope**) — owns research →
+  fact-check → gate → script → assembly → distribution. Writes `episodes`/`receipts`/`jobs`;
+  the dashboard reads them read-only and enqueues `jobs` input fields.
 
-**The loop (separation of powers — `AGENTS.md` is canonical):**
-- **Architect (Claude / you)** — judgment only: specs, gates, briefs, review, ratify.
-  Never writes app code. Commits **docs/markdown only** (logged exception).
-- **Designer (Gemini CLI)** — UI/UX artifacts into `docs/design/` only.
-- **Builder (Codex CLI)** — all app code + migrations. Reviewed + merged by the Architect
-  as Codex-authored commits.
-- **Independent reviewer** — a separate agent audits each slice's diff (stands in for
-  "no one grades their own work"); the **human** does final ratification sign-off.
+**The loop (separation of powers — `AGENTS.md` is canonical; "no one grades their own work"):**
+- **Architect (Claude / you)** — judgment only: specs, gates, briefs, review, ratify,
+  cross-team coordination. **Never writes app code.** Commits **docs/markdown only** (logged
+  exception). Pushes back; investigates THEN concludes (in both directions — reflexive
+  agreement and reflexive alarm are the same error).
+- **Designer (Gemini)** — UI/UX artifacts + independent review (a vendor different from the
+  builder).
+- **Builder (Codex)** — all app code + migrations, in a sandbox. **Cannot commit** (sandbox
+  `.git` is read-only) — the Architect commits Codex's edits.
+- **Independent review** — the two agents that did NOT build (Claude + Gemini) review each
+  diff adversarially; the **human** ratifies/merges.
 
-**Canonical docs to read after this:** `AGENTS.md` (rules), `DIRECTION.md` (scope),
-`GATES.md` (acceptance + status of every slice), `docs/contracts/data-contract.md`
-(DB shapes + ownership), `docs/slices/*` (per-slice specs), `docs/HANDOFF.md` (full history).
+**Canonical docs after this:** `AGENTS.md`, `DIRECTION.md`, `GATES.md`,
+`docs/contracts/data-contract.md`, `docs/slices/*`, `docs/design/*`, `docs/HANDOFF.md` (full
+history).
 
 ---
 
-## 2. Current status (what's DONE)
+## 2. Current status (what's DONE) — through PR #24, 2026-06-30
 
-**Dashboard: Slices 1–4 shipped, ratified, pushed, and PROMOTED to production — all gates PASS.**
-- Slice 1: foundation (characters/ideas CRUD, bible jsonb, Runs, auth + owner-scoped RLS).
-- Slice 2: run/receipt **drill-down** + bible **version history** (table
-  `character_bible_revisions`, migration `0002`, applied to live DB).
-- Slice 3: read-only **Overview** (aggregate counts/spend/gate-pass-rate).
-- Slice 4: read-only **Cost Box** (Tier 1 spend governance — running total, by-provider
-  via per-row deltas, in-flight aware, USD-only with asset-gap note, cap parked).
-- Hotfix: red-diagonal CSS class collision (`.stamp` → `.casting-stamp`).
+**Production = default branch `claude/new-session-3l99vs`, live at
+`https://content-gen-dashboard.vercel.app` (Vercel project `content-gen-dashboard`, team
+`canicode`). Production tracks the default branch; pushing a branch auto-deploys a preview.**
 
-**Branch state:** the Slices 2–4 work branch (`claude/dashboard-slice-count-pof88m`) has
-been **merged into the default branch** `claude/new-session-3l99vs` via merge commit
-`00d5fcc` ("Merge dashboard Slices 2-4 to production (promote)"). That work branch is now
-deleted. `main` still does not exist — the GitHub default branch is `claude/new-session-3l99vs`,
-and production tracks it. Everything is committed + pushed.
+Shipped & merged (high level — see `docs/HANDOFF.md` + `GATES.md` for per-slice detail):
 
-**Live URLs / login:**
-- Production (now ALL 4 slices — tracks the default branch): `https://content-gen-dashboard.vercel.app`
-  (Vercel deploy from `00d5fcc` is `target: production`, state READY.)
-- Login: `cameronnicodemus@gmail.com` / temp password in `docs/HANDOFF.md` (change it).
+- **Slices 1–4** (foundation: characters/ideas CRUD + bible jsonb + owner-scoped RLS;
+  drill-down + bible history `0002`; Overview; Tier-1 Cost Box).
+- **Test safety-net + CI gate** — Vitest on `lib/*`, pinned Supabase deps,
+  `.github/workflows/ci.yml` (`tsc --noEmit` + `npm test` + `npm run build`). Note: repo
+  checks are **not merge-blocking** today (merges succeed with CI in_progress).
+- **Security hardening** — casting-proxy CORS allowlist; sign-up UI removed; open sign-ups
+  off + leaked-password protection on (Supabase console).
+- **Jobs feature** — idea→`jobs` enqueue + run-queue view + `ready_for_review` approval.
+- **Casting Studio** — edge function + `casting_usage` migration (`dash_0001`), client lib
+  (`src/lib/casting.ts`), UI, follow-ups (bracket library + decision gate), and the
+  **bracket↔voice_id reconcile** (`reconcileBracket`, PR #15).
+- **Per-character Cost Box** (Tier 2 / C1) — `computeCostStats(... characters)` +
+  Per-Character Cost card (PR #16).
+- **Gemini REST wrapper** — `scripts/gemini.sh` (the `gemini` CLI 503s; use the wrapper),
+  default model `gemini-3.1-pro-preview`, fallback `gemini-3.5-flash` (PR #17).
+- **ControlRoom decomposition** — phase 1 extracted sub-components into
+  `src/components/controlroom/*`; phase 2 lifted read-state into feature hooks
+  `useEpisodes` / `useJobs` / `useCostReceipts` (PRs #18–#20). `Field` lifted into
+  `controlroom/shared.tsx` (PR #24).
+- **0016 wiring** — resume-to-distribution publish path (`publish_only` +
+  `source_episode_id`) + `jobs.error`/`park_kind` display (PR #21); publish-retry trap fix:
+  source resolves as `source_episode_id || episode_id` (PR #22).
+- **channel_profiles** (dashboard-owned, **fully shipped**) — `dash_0002` migration + data
+  layer (PR #23) and the Channel Profile editor + `channels` view (PR #24). **`dash_0002`
+  is APPLIED to the live DB** (table + 4 `authenticated` CRUD policies + `default`
+  food-behavior seed, verified). Engagement dials (`claim_discipline`/`arousal_ceiling`)
+  render with a **"stored — not yet active"** badge — the pipeline does not enforce them yet.
 
-**Supabase:** project `reels-content` = `tyeejhaknqkeftjykqog`. Seed: 2 characters
-(Mad Dog McGrath active / Grandma Pearl draft), 4 ideas, 3 episodes, 3 jobs.
-**Storage: 1 bucket** — `render-assets` (public, 500MB), 0 objects yet. The misspelled
-`character-assests` bucket is gone. (See D-5 / §4.A.)
+**Migrations.** Repo tracks **4 dashboard-owned** migrations: `0001_init`,
+`0002_bible_revisions`, `dash_0001_casting_usage`, `dash_0002_channel_profiles`. The live
+project has more — the rest are **pipeline-domain** (jobs queue, live-adapters,
+`published_posts`, `asset_ledger`, `episodes.character_id`, bare-`0016`
+`publish_only`/`source_episode_id`/`park_kind`, audit-log). **Namespacing is the contract:**
+dashboard migrations are `dash_NNNN_*`; pipeline migrations are bare `NNNN_*`. Do NOT absorb
+pipeline migrations here.
 
-**Migration drift (real but benign — verified 2026-06-28).** The live project has **9
-migrations; this repo tracks 2** (`0001_init` control-room + `0002_bible_revisions`, both
-dashboard-owned). The other 7 are **pipeline-domain** (jobs queue + live-adapters,
-`published_posts`, `asset_ledger`, `episodes.character_id`, receipts cache tokens) plus an
-audit-log migration. These correctly live **out of dashboard scope** — the **pipeline repo
-owns committing its own migrations to its `main`; do NOT absorb them here.** (One to confirm:
-`init_audit_log` is applied to live but tracked in neither repo's dashboard set — verify
-which repo owns it.)
+**Supabase:** project `reels-content` = `tyeejhaknqkeftjykqog`. Login
+`cameronnicodemus@gmail.com` (temp password in `docs/HANDOFF.md` — change it). Storage:
+`render-assets` (public, pipeline-owned).
 
 ---
 
 ## 3. Operational setup the new session MUST know (these cost real time)
 
-- **Loop tooling:** `gemini` and `codex` CLIs exist (`/opt/node22/bin`). 
-  - **Codex ignores `OPENAI_API_KEY`** — you must log it in once:
-    `printf '%s' "$OPENAI_API_KEY" | codex login --with-api-key` (writes `~/.codex/auth.json`).
-    Run codex non-interactively: `codex exec --sandbox workspace-write --skip-git-repo-check "<prompt>" < /dev/null`.
-  - **Gemini:** `gemini -y -p "<prompt>" < /dev/null` (the `-y` auto-approves its file writes).
-  - The environment's injected `GEMINI_API_KEY`/`OPENAI_API_KEY` had stray `<>` brackets
-    (now fixed by the human). If a session boots with invalid keys, verify with a curl to
-    each provider; if bad, source clean ones for the CLI calls.
-- **In-browser ratification (the bridge):** headless Chromium **cannot TLS-egress the
-  sandbox agent proxy** (CONNECT opens, MITM-CA handshake aborts). So to drive the app in a
-  real browser: run `next build` + `next start`, launch global Playwright
-  (`/opt/node22/lib/node_modules/playwright`, `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`),
-  and **bridge browser→Supabase via `page.route('**/*supabase.co/**')` → Node `fetch`**
-  (run the node script with `NODE_USE_ENV_PROXY=1`). The real client code runs unmodified;
-  only the transport hop is forwarded (carry the JWT so RLS applies). Example scripts are in
-  the session scratchpad (`*_ratify.mjs`). For the live Vercel URL, bridge ALL requests and
-  navigate to `/login` directly (the unauth `/`→`/login` redirect doesn't replay through the
-  bridge; verify it with curl instead).
-- **RATIFY ON MOBILE TOO.** Lesson from the red-diagonal regression: ratifications checked
-  data but not mobile pixels. Every UI slice: load at **412px**, assert
-  `scrollWidth == clientWidth` (no horizontal overflow) AND no stray
-  `position:absolute`/`transform:rotate` elements bleeding across the view.
-- **Supabase MCP:** can run SQL / `apply_migration` / create buckets + RLS policies.
-  **CANNOT delete storage buckets** (a `protect_delete` trigger blocks it) — bucket deletes
-  must go through the Supabase dashboard/Storage API (a human step).
-- **Vercel:** project `content-gen-dashboard`, team `canicode`
-  (`team_ZdMtQu9H5HYrMPFTf4TL0fC1`). Pushing the branch auto-deploys a preview; **production
-  tracks the GitHub default branch**.
-- **Git:** commit app code as **Codex-authored** but with committer
-  `Claude <noreply@anthropic.com>` (so GitHub shows it verified):
-  `git -c user.name=Claude -c user.email=noreply@anthropic.com commit --author="Codex <codex@local>" ...`.
-  Docs commits are plain Architect commits.
+- **Builder = Codex.** Invoke non-interactively:
+  `codex exec --sandbox workspace-write --skip-git-repo-check "<prompt>" < /dev/null`.
+  Codex **cannot commit** (sandbox `.git` read-only) — it edits files; **the Architect
+  reviews + commits**. **Codex habitually edits `docs/HANDOFF.md`** to narrate its work on
+  feature branches — **revert that** (`git checkout -- docs/HANDOFF.md`) before committing.
+- **Designer/reviewer = Gemini, via the REST wrapper.** The `gemini` CLI 503s — use
+  **`bash scripts/gemini.sh [model] < prompt`** (default `gemini-3.1-pro-preview`, fallback
+  `gemini-3.5-flash` on 503/UNAVAILABLE or 404/NOT_FOUND). **On a fresh checkout the script
+  can lose its exec bit → call it via `bash scripts/gemini.sh`.** Large payloads can time
+  out (~3 min) — send the diff/critical functions, not whole large files.
+- **Reviewer discipline (anti-lazy-pass).** Prompt reviewers to "find the most likely
+  failure; default to REQUEST CHANGES on doubt." **Verify every verdict against reality** —
+  APPROVE ≠ correct, REQUEST CHANGES ≠ correct. Examples this session: Gemini called
+  `character` (a column name) a "fatal reserved word" → **empirically refuted** with a
+  Postgres temp-table test (it's non-reserved); Gemini wanted the publish source flipped to
+  `episode_id`-first → **declined** (the worker posts `source_episode_id` for publish_only
+  jobs). A second independent reviewer catches what one misses (different vendors, different
+  blind spots).
+- **Supabase MCP:** runs SQL / `apply_migration` / buckets + RLS. **CANNOT delete storage
+  buckets** (protect trigger). Applying a `dash_*` migration to the live DB is a deliberate
+  gated step — **post the migration name to HQ first**, then apply, then verify.
+- **Notion MCP editing is fragile on legacy pages.** The HQ root's older decision-log blocks
+  store inline markdown such that fine-grained `update_content` string-deletion can't match
+  cleanly and can mangle adjacent markup. **Prefer rebuilding a section or hand-editing** over
+  surgical string-replace on those blocks. `notion-create-comment` intermittently returns
+  "stream closed before response" — verify with `get-comments` and retry.
+- **In-browser ratification bridge:** headless Chromium can't TLS-egress the sandbox proxy;
+  run `next build` + `next start`, launch global Playwright
+  (`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`), and bridge `page.route('**/*supabase.co/**')`
+  → Node `fetch` (carry the JWT so RLS applies). Scripts in scratchpad (`*_ratify.mjs`).
+- **RATIFY ON MOBILE TOO** for any UI slice: load at **412px**, assert
+  `scrollWidth == clientWidth`, no stray `position:absolute`/`transform:rotate` bleed.
+- **Git:** develop on the designated branch; `git push -u origin <branch>` (retry w/
+  backoff on network errors). Don't create PRs unless asked; the human merges via "merge"
+  (squash). Never push to a different branch without explicit permission.
 
 ---
 
-## 4. WHAT'S LEFT TO FINISH (prioritized, with triggers)
+## 4. WHAT'S LEFT (prioritized, with triggers)
 
-### A. `render-assets` Supabase bucket — ✅ DONE (created 2026-06-28)
-**Resolved.** The `render-assets` bucket now exists in the shared project: **public, 500MB,
-0 policies** (public flag serves reads; service role bypasses RLS for writes) — exactly the
-recipe below. 0 objects so far. The only piece left is **a pipeline-repo check**: confirm
-the Assembly adapter writes to that exact bucket name (`render-assets`). Not this session's
-job. Recipe kept for reference:
-```sql
-insert into storage.buckets (id, name, public, file_size_limit)
-values ('render-assets','render-assets', true, 524288000) on conflict (id) do nothing;
--- no policies needed: public flag serves reads; service role bypasses RLS for writes.
-```
-Owned by the pipeline repo (record the config there). Can be created in the shared project.
+> **"Floor ≠ done."** Some quality only shows on the **real artifact** (rendered UI / real
+> data), not unit-green. "renders without error," "200 OK," "migration applied" are green
+> checks that don't prove the **UX or data is correct**. For every gate ask: *could this
+> pass while the thing I care about is broken?*
 
-### B. The Acoustic Kitty run — the keystone trigger (pipeline session's job)
-First real episode = **Mad Dog McGrath → "Acoustic Kitty"** (dark/declassified-history
-channel, NOT food). It (a) validates the unverified pipeline subsystems, (b) wires the
-character **bible into the script-writer**, and (c) populates **`character_id` on `episodes`**
-(decision **D-1**). Publish held at `approval_required` (validation run). **This is out of
-this repo's GitHub scope** — it's the pipeline session's work.
+### A. ControlRoom decomposition — phase 2 remaining (task #40, in progress)
+Done: `useEpisodes`/`useJobs`/`useCostReceipts`. **Remaining slices:** (1) the drill-down
+per-episode `receipts` slice (separate from the global cost-receipts hook); (2) the
+entangled `useCharacters`/`useIdeas` (optimistic writes + `clientWriteState` — **highest
+risk, do last**). Behavior-preserving; one slice per PR; independent review each.
 
-> **Update (verified 2026-06-28):** the `episodes.character_id` **column has already landed**
-> (pipeline migration `episodes_character_id`), but **0 episodes are linked** — so D-1's
-> *schema* is in; the actual run that populates it hasn't happened. The keystone trigger is
-> still pending.
+### B. Realtime / polling (task #37)
+Needs the pipeline to enable the `supabase_realtime` publication on the read tables
+(Runs/queue) — a quick HQ ask when building. **Pre-req fix (latent bug captured during
+channel_profiles Slice B review):** `ChannelProfilesPanel`'s form-reset `useEffect`
+(`[creating, loading, profiles, selectedProfile]`) will **clobber unsaved edits** once
+background refetch/polling exists — make it dirty-aware or key the reset to selected-channel
+change **before** enabling polling on that view. Same caution for any editor fed by a polled
+hook.
 
-### C. Dashboard work UNBLOCKED by B (build via the loop once `character_id` exists)
-- **Tier 2 — per-character / per-idea cost.** The Cost Box already has a disabled
-  "CHARACTERS DEFERRED" seam; drop in `group by character`. **Now schema-unblocked** (the
-  column exists) but **data-blocked**: with 0 linked episodes there's nothing to group yet —
-  wait for the Acoustic Kitty run. Builder lane, NOT this PR.
-- **Idea → pipeline linkage** ("queue an idea as a run") — enqueues an `episodes` write
-  the pipeline picks up; a cross-repo contract change, do it WITH the pipeline owner.
+### C. channel_profiles enforcement (pipeline-side; we flip a badge)
+The table + editor are shipped; the **worker-read + ADR-005 dial enforcement are later
+pipeline work** (post their quality slice). When they ping that it's live, flip the editor
+dials' **"stored — not yet active"** badge to active. No dashboard schema change expected.
 
-> **⚠️ Read-policy pre-req (audit finding, 2026-06-28).** Three pipeline tables —
-> `jobs`, `published_posts`, `asset_ledger` — have **RLS enabled with ZERO policies** (deny
-> all). The dashboard reads **only via the browser anon/authenticated key** (no service-role
-> client exists anywhere). So those three tables are invisible to the dashboard today. They
-> aren't read yet, so nothing breaks — but the moment a feature surfaces them (asset spend in
-> the Cost Box from `asset_ledger`, publishing status from `published_posts`, idea→pipeline
-> status from `jobs`), it will render **empty** under the anon key. Fix at that time: add
-> `authenticated` read policies on those tables (same `using (true)` shape as
-> `episodes`/`receipts`). Not needed for ratification.
+### D. Casting phase-2 — image/style (needs an HQ proposal first)
+Gemini image models are available. Draft a proposal in HQ before building (per the loop).
 
-### D. Character-generation flow — queued dashboard slice (after Acoustic Kitty)
-Agents design 3–4 candidate characters → surfaced as cards in the dashboard → operator
-picks/remixes → becomes a real `characters` row. Output schema = the bible fields. Guardrails:
-advertiser-safe, no hard profanity, legally clean/original. Reusable casting for every future
-channel. (Locked in Notion; sequenced behind Acoustic Kitty.)
+### E. Tier-3 ROI table — furthest out
+Needs publishing live AND an analytics-ingestion service (per-platform API + OAuth + sync).
+`DIRECTION.md` says analytics "deferred, not killed." Order: cost now → per-character (done)
+→ ROI after publishing.
 
-### E. Tier 3 — ROI table (cost ÷ views/revenue) — furthest out
-Needs **publishing live AND an analytics-ingestion service** (per-platform API + OAuth +
-sync). Note: `DIRECTION.md` marked analytics "out of scope," but the Notion "ROI table —
-SCOPE CORRECTION" clarifies it's **deferred, not killed** (it's the unit-economics view).
-Build order is fixed: cost now → per-character at D-1 → ROI after publishing.
+### F. Cosmetic HQ cleanup (trivial, human or rebuild)
+The decision-log prune (2026-06-30) left **one stray `***…*` asterisk line** near the
+Task #21 tombstone on the HQ root — the Notion editor can't match it to delete. 15-second
+manual delete in Notion, or rebuild that section. Non-blocking.
 
-### F. User-upload bucket (private, owner-scoped) — DESIGNED, NOT BUILT
-Only stand up a private `character-assets` bucket (owner-scoped RLS, path `<uid>/file`) when
-a dashboard feature actually uploads a file (e.g. reference-image upload, likely part of the
-character-generation flow). Spell it correctly; capture it in a migration. (See D-5.)
-
-### G. Standing human decisions (not blocking the loop)
-- ~~**Promote dashboard to production:** merge `claude/dashboard-slice-count-pof88m` → the
-  GitHub default branch to deploy Slices 2–4.~~ **DONE (2026-06-28)** — merge `00d5fcc`;
-  the production deploy is READY at `content-gen-dashboard.vercel.app`.
-- **Final ratification sign-off** of all slices (independent-agent review has stood in).
-- Change the temp login password.
-- ~~**Supabase console toggles (public-app hardening — not code, no diff):**~~ **BOTH DONE
-  (2026-06-28).**
-  - ~~**Disable open sign-ups.**~~ **DONE** — open self-registration is off (only the
-    existing operator account can log in). This was the load-bearing one: `episodes`/
-    `receipts` are `using (true)` for any authenticated user, so any registrant could have
-    read ALL pipeline output + spend.
-  - ~~**Enable leaked-password protection** (HaveIBeenPwned).~~ **DONE + verified** — the
-    Supabase security advisor no longer flags it. (Because sign-ups are now off, leaving the
-    temp login password as-is is an accepted low risk — the only person who can use it is the
-    owner.)
-
-### H. Pre-ratification audit — run 2026-06-28 (PASS, no blockers)
-Consolidated audit before the human sign-off: cross-slice code review + static & **live**
-security/RLS + tractable gate re-confirmation. Result: **PASS.** Highlights — the `.stamp`
-collision class is fixed (`.casting-stamp`); cost math correct; read-only holds; **live RLS
-verified** (every dashboard table owner-scoped to `auth.uid()`, anon simulation returns 0
-rows everywhere, revisions immutable); no committed secrets / no service-role key anywhere;
-build clean; production READY. Open items it surfaced → tracked as follow-ups (see below) and
-in §G. Not re-run: in-browser visual gates (need the Node-fetch bridge or a human).
-
-**Builder-lane follow-up (NOT this docs PR):** Overview vs Cost Box use **different status
-vocabularies** — an episode with status `"complete"` reads as *Cleared* in Overview but
-*IN-FLIGHT* in the Cost Box. Reconcile to one shared status set when the loop next runs.
+### G. Pipeline-side keystone (out of our scope, unblocks our Tier-2 data)
+The first real **Mad Dog → Acoustic Kitty** run populates `episodes.character_id` (D-1).
+The column is live; 0 episodes linked yet, so per-character cost has the seam but no data.
 
 ---
 
 ## 5. Decisions already locked (don't reopen without new info)
 
-- **D-1** Episode↔character link — DEFERRED; lands at the Acoustic Kitty run (`character_id`).
-- **D-2** Dashboard = focused control tool, not a kanban board — LOCKED; encoded in `DIRECTION.md`.
-- **D-3** Auth — "me now, scoped others later" (owner-scoped RLS from day one).
-- **D-4** `character_bible_revisions` contract amendment — RATIFIED (migration 0002).
-- **D-5** Storage — two buckets, contradictory read rules can't share one: `render-assets`
-  (public, pipeline-owned) vs user-uploads (private, owner-scoped, dashboard-owned,
-  designed-not-built).
-- **Cost tiers** — Tier 1 (shipped) → Tier 2 (per-character, at D-1) → Tier 3 (ROI, after
-  publishing + analytics).
+- **D-1** Episode↔character link — lands at the Acoustic Kitty run (`character_id` live, 0
+  linked).
+- **D-2** Dashboard = focused control tool, not a kanban board — encoded in `DIRECTION.md`.
+- **D-3** Auth — "me now, scoped others later" (owner-scoped RLS for user data).
+- **D-4** `character_bible_revisions` — ratified (`0002`).
+- **D-5** Storage — `render-assets` (public, pipeline-owned) vs user-uploads (private,
+  owner-scoped, designed-not-built).
+- **publish_only (0016)** — resume-to-distribution: a `publish_only` job mints **no new
+  episode**; the worker sets `jobs.episode_id = source_episode_id` on start and resumes at
+  Distribution (no re-render, no double-spend). **Source-first precedence is correct**
+  (our PR #22). Still double-gated (nothing posts without a Buffer token).
+- **channel_profiles contract** (locked cross-team) — dashboard-owned; **text columns, not
+  PG enums**; jsonb for structured fields; **RLS = `authenticated` full CRUD** (operation-
+  global, no `owner` column; worker reads via service role); `default`/unknown channel →
+  food behavior. Dials are **stored, not yet enforced**.
+- **Runtime field** — **operator-owned/editable** (pipeline ruling; reverted the earlier
+  "advisory/pipeline-measured" framing).
+- **Cost tiers** — Tier 1 (shipped) → Tier 2 (per-character, shipped; data at D-1) → Tier 3
+  (ROI, after publishing + analytics).
 
-## 6. Where things live
+---
 
-- Decisions + roadmap + brand notes: **Notion "Reels Content — Agent Workforce"**
-  (`38cd346e-22d2-81e9-9dbf-fa8c4a2dcf7b`). Architect-only; humans trigger re-syncs.
+## 6. Where things live (HQ is now restructured)
+
+- **Notion "Reels Content — Agent Workforce"** (`38cd346e-22d2-81e9-9dbf-fa8c4a2dcf7b`) — the
+  *thinking/tracking* layer (decisions, roadmap, brand, ideas). **Canonical specs live in
+  the repo, not here.**
+- **📮 Coordination Log** (`38fd346e-22d2-8133-bd2e-e5b7f97f7c2e`) — the cross-team message
+  bus, with an **Open Cross-Team Items tracker** at the top (read it instead of opening every
+  thread). New dated pipeline↔dashboard exchanges and pipeline build/lesson pages are
+  parented under it. **Keep the tracker current as state changes.** As of 2026-06-30 every
+  cross-team item is CLOSED/CONFIRMED except the cosmetic HQ residue (§4.F).
 - Repo memory: `docs/HANDOFF.md` (full), this file (fast path), `GATES.md`, `DIRECTION.md`,
   `docs/contracts/data-contract.md`, `docs/slices/*`, `docs/design/*`.
-- Honest caveat carried forward: the Slice 1 **foundation** was built Claude-solo and
-  Claude-verified (provenance caveat in `docs/HANDOFF.md`); "the loop ran" ≠ "a human
-  independently verified." Final human sign-off still closes that.
+- **Honest caveats carried forward:** Slice 1 foundation was Claude-solo/Claude-verified
+  (provenance caveat in `docs/HANDOFF.md`). CI checks are not merge-blocking. The cottage-
+  cheese pipeline slice proved **fact-discipline, not video quality** (pipeline's own
+  Clarification page).
