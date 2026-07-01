@@ -98,6 +98,18 @@ Every agent (Architect, Designer, Builder, and any sub-agent) reads this first.
      interaction bugs (the lesson that motivated this). (Adopted from the pipeline's
      ratified rule, 2026-06-30.)
 
+10. **Terse operator updates (operator directive, 2026-07-01)** — play-by-play
+   narration between tool steps is clutter, especially on mobile. Per task, the
+   Architect posts at most: **one line when starting something substantial, a prompt
+   only on a real problem or operator decision (still a sharpened bucket-3
+   question + recommendation, just concise), and the final result.** Execute tool
+   calls without conversational filler in between. This governs chat narration
+   only — it does NOT reduce what gets recorded in `docs/HANDOFF.md`, HQ, or
+   reviews (rule 1 still holds: the repo is the memory), and **rule 3 still holds:
+   surface disagreements and review failures immediately — terseness is never an
+   excuse for silent compliance.** The operator adjusts the volume up or down by
+   saying so.
+
 ## Git policy (critical)
 
 - **Codex authors app code but CANNOT commit** (sandbox `.git` is read-only). The

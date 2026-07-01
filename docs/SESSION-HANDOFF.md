@@ -31,6 +31,9 @@ fast path._
 4. **Don't-drift / don't-stall:** the dashboard is a **focused control tool, NOT a
    kanban/production board** (D-2). Don't invent scope. If you park, say why; don't stall
    silently. Build app code **only through Codex** (§3); the Architect commits docs only.
+5. **Talk terse (operator directive 2026-07-01, `AGENTS.md` rule 10):** no play-by-play
+   narration to the operator — one line at task start, a note only on real problems or
+   operator decisions, then the final result. Docs/HQ record-keeping stays full.
 
 **What "done" means here:** a slice is done when it's **merged to the default branch, its
 gates are green on the real artifact** (not just unit-green — see §4 "floor ≠ done"), and an
