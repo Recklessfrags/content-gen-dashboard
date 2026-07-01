@@ -291,6 +291,44 @@ Consolidated audit before the human ratification sign-off (cross-slice code revi
 - **Not re-run:** in-browser visual gates (sandbox can't TLS-egress; need the Node-fetch
   bridge or a human).
 
+## Session 2026-07-01 (later) — #37 polling + Casting 2a shipped (Architect session)
+
+Operator GO'd three items at session start (QA baseline · #37 · Casting 2a). Branch:
+`claude/session-handoff-review-devqkm`, cut clean from production `ad27d5f`.
+
+- **QA baseline** — full ratify green from a fresh container before any build (and again
+  on each slice's build). QA creds now live only in gitignored `.env.local`
+  (`RATIFY_EMAIL`/`RATIFY_PASSWORD`); nothing tracked. Operator still owns rotating the
+  password to their own (open security follow-up from the morning session).
+- **Task #37 — polling** (`docs/slices/slice-37-polling.md`, frozen v3). Full loop:
+  Gemini spec review (2 findings folded: loading-race rule, queue-view episode polling)
+  → Codex build → Architect diff review caught a render-path blanking bug (poll error +
+  `error ? banner : list` branch) → fix → Gemini APPROVE on the aggregate diff →
+  ratified on the prod build: **9/9 P-gates** with bridge-counted request evidence.
+- **Casting 2a — visual identity** (`docs/slices/slice-casting-2a-visual-identity.md`
+  frozen v2 + `docs/design/casting-2a-visual-identity.md`). Gemini spec review verified
+  3 findings (headline: supabase-js upload paths are bucket-relative — the RLS
+  `foldername[1]` check would have rejected every upload). **`dash_0003_visual_identity`
+  applied to live** with the ratified choreography: HQ heads-up posted FIRST → apply →
+  structure verify → negative contract tests (numeric `runtime` rejected, additive key
+  accepted, probe cleaned) → `VALIDATE CONSTRAINT` as its own step (now `convalidated`).
+  `pg_jsonschema` installed; private `character-refs` bucket live with 5MB/MIME limits.
+  Types regenerated and matched the hand-edit exactly.
+- **ARCHITECT RULING (contract change, rule 4):** `docs/contracts/data-contract.md`
+  updated for 2a — `characters.reference_image_url`/`visual_style` columns (column
+  stores the **bucket-relative object path, never a URL** — bucket-2 receipt posted to
+  HQ, operator-ack pending), the `character-refs` bucket section, and the
+  `characters_bible_shape` CHECK note. Ruling logged here per the frozen-contract rule.
+- **ARCHITECT RULING (review finding declined):** Gemini's 2a diff review asked to drop
+  the `character_refs_delete` storage policy ("append-only at the DB level"). Declined:
+  the frozen spec §Migration mandates all four owner-scoped verbs; the no-delete
+  arbitration governs **app code** (which contains no delete calls), not owner-scoped DB
+  capability. The other three findings were verified real and fixed (side-car state →
+  FlatChar integration; Replace-cancel skeleton trap; Esc bypassing the unsaved guard).
+- **HQ:** tracker rows updated (Casting → GO/in-build; polling → shipped), dated page
+  posted (GO recap + `dash_0003` heads-up + path-format receipt), and two lessons
+  appended to the Process Learnings Ledger.
+
 ## Git state
 
 - **Default branch (production):** `claude/new-session-3l99vs`. `main` does not exist.

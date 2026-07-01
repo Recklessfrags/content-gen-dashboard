@@ -11,6 +11,7 @@ import { useEpisodes } from "@/lib/hooks/useEpisodes";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import { useIdeas } from "@/lib/hooks/useIdeas";
 import { useJobs } from "@/lib/hooks/useJobs";
+import { usePolling } from "@/lib/hooks/usePolling";
 import { useReceipts } from "@/lib/hooks/useReceipts";
 import { useScrollLock } from "@/lib/hooks/useScrollLock";
 import {
@@ -26,6 +27,7 @@ import {
   type JobEnqueueInput,
 } from "@/lib/jobs";
 import { isCast } from "@/lib/casting";
+import { isVisuallyCast, signedRefImageUrl } from "@/lib/castingVisual";
 import { createClient } from "@/lib/supabase/client";
 import {
   CHANNELS,
@@ -42,6 +44,7 @@ import { EnqueueIdeaPanel } from "./controlroom/EnqueueIdeaPanel";
 import { HistoryDrawer } from "./controlroom/HistoryDrawer";
 import { OverviewDashboard } from "./controlroom/OverviewDashboard";
 import { QueueActionDialog } from "./controlroom/QueueActionDialog";
+import { VisualIdentityPanel } from "./controlroom/VisualIdentityPanel";
 import {
   Icon,
   Field,
@@ -164,6 +167,60 @@ function markdownFilename(codename: string) {
   return `${trimmed.length > 0 ? trimmed.replace(/[\\/]+/g, "-") : "Untitled"}.md`;
 }
 
+function DossierVisualAttachment({
+  character,
+  supabase,
+}: {
+  character: FlatChar;
+  supabase: ReturnType<typeof createClient>;
+}) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [missing, setMissing] = useState(false);
+  const path = character.reference_image_url?.trim() || null;
+
+  useEffect(() => {
+    if (!path) {
+      setSignedUrl(null);
+      setMissing(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setSignedUrl(null);
+    setMissing(false);
+    void signedRefImageUrl(supabase, path)
+      .then((url) => {
+        if (!cancelled) setSignedUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setMissing(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [path, supabase]);
+
+  if (!path) {
+    return (
+      <div className="dossier-visual-attachment dossier-visual-attachment--empty">
+        <span>NO VISUAL ID ON FILE</span>
+      </div>
+    );
+  }
+
+  return (
+    <figure className={"dossier-visual-attachment" + (missing ? " dossier-visual-attachment--missing" : "")}>
+      {signedUrl && !missing ? (
+        <img src={signedUrl} alt="" />
+      ) : (
+        <div className="dossier-visual-placeholder" aria-hidden="true" />
+      )}
+      <figcaption>{missing ? "VISUAL ID MISSING" : character.visual_style || "VISUAL ID LOCKED"}</figcaption>
+    </figure>
+  );
+}
+
 
 
 
@@ -284,12 +341,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     loading: episodesLoading,
     error: episodesError,
     refetch: fetchEpisodes,
+    poll: pollEpisodes,
   } = useEpisodes(supabase);
   const {
     jobs,
     loading: jobsLoading,
     error: jobsError,
     refetch: fetchJobs,
+    poll: pollJobs,
   } = useJobs(supabase);
   const {
     costReceipts,
@@ -329,6 +388,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [activeEnqueueIdeaId, setActiveEnqueueIdeaId] = useState<string | null>(null);
   const [castingOpen, setCastingOpen] = useState(false);
+  const [visualCastingOpen, setVisualCastingOpen] = useState(false);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -371,6 +431,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const enqueueRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const headerHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const castingTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const visualCastingTriggerRef = useRef<HTMLButtonElement | null>(null);
   const savebarHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const lastHistoryTriggerRef = useRef<"header" | "savebar" | null>(null);
   const historyRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -402,7 +463,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setIdeaStatus,
     setIdeaField,
   } = useIdeas(supabase, { showFlash });
-
   const fetchCharacters = useCallback(async () => {
     const result = await refetchCharacters((flat) => {
       setActiveId((current) =>
@@ -506,6 +566,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     ? (savedSnapshots[activeId] ?? currentEditableFields)
     : null;
   const dirty = useDirtyState(currentEditableFields, savedEditableFields);
+  const overlayOpen = activeEpisodeId !== null || pendingQueueAction !== null;
+  const POLL_MS = 5000;
+
+  usePolling(pollJobs, { enabled: view === "queue" && !overlayOpen, intervalMs: POLL_MS });
+  usePolling(pollEpisodes, {
+    enabled: (view === "runs" || view === "queue") && !overlayOpen,
+    intervalMs: POLL_MS,
+  });
 
   const set = (field: keyof FlatChar, val: string) => setField(activeId, field, val);
 
@@ -1060,6 +1128,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     });
   };
 
+  const closeVisualCasting = useCallback(() => {
+    setVisualCastingOpen(false);
+  }, []);
+
   const mobileRoster = (
     <div className="mobile-roster">
       <label className="eyebrow" htmlFor="mobile-roster-select">
@@ -1279,6 +1351,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     </div>
                   )}
                   <header className="dossier-head">
+                    <DossierVisualAttachment character={active} supabase={supabase} />
                     <div className="filecode">
                       <span>FILE · {displayedActive.id.slice(0, 8).toUpperCase()}</span>
                       <button
@@ -1447,6 +1520,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         aria-expanded={castingOpen}
                       >
                         {isCast(active) ? "🎙 Casting Studio" : "🎙 Cast a voice"}
+                      </button>
+                      <button
+                        ref={visualCastingTriggerRef}
+                        className={"btn ghost btn-visual-cast" + (isVisuallyCast(active) ? "" : " save-highlight")}
+                        type="button"
+                        onClick={() => setVisualCastingOpen(true)}
+                        aria-haspopup="dialog"
+                        aria-expanded={visualCastingOpen}
+                      >
+                        {isVisuallyCast(active) ? "[ RECAST VISUAL ]" : "[ VISUAL CAST ]"}
                       </button>
                       <button
                         className="btn ghost"
@@ -2155,6 +2238,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           onCharacterPatched={patchCharacter}
           showFlash={showFlash}
           restoreFocusRef={castingTriggerRef}
+        />
+      )}
+      {visualCastingOpen && active && (
+        <VisualIdentityPanel
+          character={active}
+          supabase={supabase}
+          onClose={closeVisualCasting}
+          onCharacterPatched={patchCharacter}
+          showFlash={showFlash}
+          restoreFocusRef={visualCastingTriggerRef}
         />
       )}
       {pendingDirtyAction && active && (

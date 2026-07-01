@@ -161,8 +161,10 @@ export type Database = {
           created_at: string
           id: string
           owner: string
+          reference_image_url: string | null
           status: string
           updated_at: string
+          visual_style: string | null
           voice_id: string | null
           voice_settings: Json | null
         }
@@ -173,8 +175,10 @@ export type Database = {
           created_at?: string
           id?: string
           owner?: string
+          reference_image_url?: string | null
           status?: string
           updated_at?: string
+          visual_style?: string | null
           voice_id?: string | null
           voice_settings?: Json | null
         }
@@ -185,8 +189,10 @@ export type Database = {
           created_at?: string
           id?: string
           owner?: string
+          reference_image_url?: string | null
           status?: string
           updated_at?: string
+          visual_style?: string | null
           voice_id?: string | null
           voice_settings?: Json | null
         }

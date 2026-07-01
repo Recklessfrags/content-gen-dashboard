@@ -21,6 +21,8 @@ export type FlatChar = {
   created_at: string;
   voice_id: string | null;
   voice_settings: Json | null;
+  reference_image_url: string | null;
+  visual_style: string | null;
 } & { [K in (typeof BIBLE_FIELDS)[number]]: string };
 
 
@@ -90,6 +92,8 @@ export function flatten(row: Character): FlatChar {
     ...(flat as FlatChar),
     voice_id: row.voice_id ?? null,
     voice_settings: row.voice_settings ?? null,
+    reference_image_url: row.reference_image_url ?? null,
+    visual_style: row.visual_style ?? null,
   };
 }
 
@@ -133,8 +137,14 @@ export function flattenRevision(row: CharacterBibleRevision, character: Pick<Fla
     created_at: character.created_at,
   };
   for (const f of BIBLE_FIELDS) flat[f] = bible[f] ?? "";
-  // Revisions snapshot the bible, not the cast — voice fields are not versioned.
-  return { ...(flat as FlatChar), voice_id: null, voice_settings: null };
+  // Revisions snapshot the bible, not the cast — casting fields are not versioned.
+  return {
+    ...(flat as FlatChar),
+    voice_id: null,
+    voice_settings: null,
+    reference_image_url: null,
+    visual_style: null,
+  };
 }
 
 export const FIELD_LABELS: Record<(typeof BIBLE_FIELDS)[number], string> = {

@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-01** by the Architect (Claude). This is the **one authoritative
+_Last updated: **2026-07-01 (evening session)** by the Architect (Claude). This is the **one authoritative
 "start here"** for a **new chat** picking up the work. Read this top-to-bottom, then the
 canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file is the
 fast path._
@@ -126,8 +126,29 @@ Shipped & merged (high level — see `docs/HANDOFF.md` + `GATES.md` for per-slic
   (Gemini) site review against a strict QA rubric; the other flags were screenshot-viewport
   artifacts or already-disabled controls (verified against code, not rubber-stamped).
 
-**Migrations.** Repo tracks **4 dashboard-owned** migrations: `0001_init`,
-`0002_bible_revisions`, `dash_0001_casting_usage`, `dash_0002_channel_profiles`. The live
+**Evening session 2026-07-01 (branch `claude/session-handoff-review-devqkm`, operator GO'd
+QA baseline + #37 + Casting 2a):**
+- **Task #37 — live Queue/Runs via 5s polling** ✅ SHIPPED (spec `docs/slices/
+  slice-37-polling.md` v3). Polls only the active Queue/Runs view; pauses on hidden tab /
+  other views / open overlays; immediate refresh on resume; poll errors never blank a
+  populated list; zero writes. Ratified 9/9 P-gates on the prod build with bridge-counted
+  request evidence. §4.B is DONE.
+- **Casting 2a — visual identity** ✅ BUILT + migration LIVE (spec `docs/slices/
+  slice-casting-2a-visual-identity.md` v2, design `docs/design/casting-2a-visual-identity.md`).
+  Upload→preview→LOCK one reference image + style per character ("dumb receiver" — no
+  in-dashboard gen). **`dash_0003_visual_identity` APPLIED + VALIDATED live** (HQ-posted
+  first; negative contract tests passed; probe cleaned): `pg_jsonschema` +
+  `characters_bible_shape` CHECK, `characters.reference_image_url`/`visual_style`, private
+  `character-refs` bucket (5MB, png/jpeg/webp, owner-scoped RLS). The column stores the
+  **bucket-relative object path, never a URL** (bucket-2 receipt on HQ, operator-ack
+  pending). Full loop both slices: cross-vendor spec review → Codex build → cross-vendor
+  diff review → real-artifact ratification.
+- **QA creds** now live only in gitignored `.env.local` (`RATIFY_EMAIL`/`RATIFY_PASSWORD`);
+  operator still owns rotating the password (§2 security follow-up stands).
+
+**Migrations.** Repo tracks **5 dashboard-owned** migrations: `0001_init`,
+`0002_bible_revisions`, `dash_0001_casting_usage`, `dash_0002_channel_profiles`,
+`dash_0003_visual_identity` (applied + VALIDATED live 2026-07-01). The live
 project has more — the rest are **pipeline-domain** (jobs queue, live-adapters,
 `published_posts`, `asset_ledger`, `episodes.character_id`, bare-`0016`
 `publish_only`/`source_episode_id`/`park_kind`, audit-log). **Namespacing is the contract:**
@@ -224,32 +245,28 @@ dirty timing, and `save()`→revision/history orchestration all deliberately kep
 `ControlRoom`; only list-data primitives moved). Each behavior-preserving, one slice per PR,
 reviewed by two non-builders (Codex built; Gemini + Architect reviewed). Nothing left here.
 
-### B. Realtime / polling (task #37) — decided: POLL, not realtime
-**Pipeline ruled (2026-06-30): poll, do NOT flip `supabase_realtime`.** Single worker, ~1
-episode/12 min, low write-volume → poll ~3–5s on the active Runs/queue view, back off idle;
-**no production DB change needed.** So #37 is a **polling-only** build whenever the operator
-wants live Runs/queue — zero pipeline dependency. **Pre-req fix already MERGED** (PR #27):
-`ChannelProfilesPanel`'s form-reset is keyed to the selected channel (`hydratedChannelRef`) so
-a background refetch can't clobber unsaved edits — apply the same caution to any editor fed by
-a polled hook. Revisit realtime only if concurrent operators / write-rate grow (post a "go").
+### B. Realtime / polling (task #37) — ✅ SHIPPED (2026-07-01, polling-only)
+**Built per the pipeline's 2026-06-30 ruling (poll, don't flip `supabase_realtime`).**
+`usePolling` + silent `poll()` on `useEpisodes`/`useJobs`; 5s on the active Queue/Runs view
+only, paused for overlays/hidden tab, immediate-fire on resume, stale-list-preserving error
+behavior. Ratified 9/9 P-gates (`docs/slices/slice-37-polling.md`). Revisit realtime only if
+concurrent operators / write-rate grow (post a "go"). The PR #27 clobber caution stands for
+any FUTURE editor fed by a polled hook (current polled views are read-only).
 
 ### C. channel_profiles enforcement (pipeline-side; we flip a badge)
 The table + editor are shipped; the **worker-read + ADR-005 dial enforcement are later
 pipeline work** (post their quality slice). When they ping that it's live, flip the editor
 dials' **"stored — not yet active"** badge to active. No dashboard schema change expected.
 
-### D. Casting phase-2 — image/style (proposal done; pipeline boundary CONFIRMED)
-Proposal repo-canonical at `docs/proposals/casting-phase2-image-style.md` (+ HQ page).
-**Pipeline CONFIRMED the boundary (2026-06-30):** dashboard-owned **private `character-refs`
-bucket**, worker reads via **service role**, locked image exposed as a **`reference_image_url`
-(+ `visual_style`) column on `characters`** (data-model = columns, symmetric with phase-1's
-`voice_id`), consumed by Assembly as the **`locked_character`** master asset. Phasing 2a
-author/lock → 2b candidates → 2c image-to-video (pipeline). **Provider question is likely
-moot** — a neutrally-framed (anti-bias) review **reversed** the earlier Higgsfield lean to a
-**"dumb receiver"**: the operator generates the image anywhere (Midjourney/Gemini/Higgsfield
-in a browser) and the dashboard just **uploads → locks the URL** — no in-dashboard gen API.
-A private bucket means the frontend renders via a **Supabase signed URL**, not a public
-`<img src>`. **Only remaining: operator GO.** No build until GO.
+### D. Casting phase-2 — ✅ 2a SHIPPED (2026-07-01); next = 2b candidates / 2c pipeline
+**Operator GO'd 2026-07-01; 2a built the same session** (see §2 evening block): upload →
+preview → LOCK one reference image + `visual_style` per character, private `character-refs`
+bucket, signed-URL rendering, `dash_0003` live. Remaining phases: **2b — candidate
+generation** (3–4 options, operator picks/remixes; reuses 2a storage + lock) needs its own
+operator GO + spec; **2c — image-to-video** is pipeline-owned (they consume
+`reference_image_url` as `locked_character` at Assembly). The path-format receipt
+(bucket-relative object path, never a URL) sits on HQ with operator-ack pending — pipeline
+should confirm before building 2c against it.
 
 ### D-arch. Shared-seam plan for the Casting burst — OPERATOR GO (2026-07-01)
 The cross-team architecture question (repo consolidation + coordinator) is **DECIDED**: keep
