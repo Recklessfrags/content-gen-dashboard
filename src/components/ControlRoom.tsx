@@ -11,6 +11,7 @@ import { useEpisodes } from "@/lib/hooks/useEpisodes";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import { useIdeas } from "@/lib/hooks/useIdeas";
 import { useJobs } from "@/lib/hooks/useJobs";
+import { usePolling } from "@/lib/hooks/usePolling";
 import { useReceipts } from "@/lib/hooks/useReceipts";
 import { useScrollLock } from "@/lib/hooks/useScrollLock";
 import {
@@ -284,12 +285,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     loading: episodesLoading,
     error: episodesError,
     refetch: fetchEpisodes,
+    poll: pollEpisodes,
   } = useEpisodes(supabase);
   const {
     jobs,
     loading: jobsLoading,
     error: jobsError,
     refetch: fetchJobs,
+    poll: pollJobs,
   } = useJobs(supabase);
   const {
     costReceipts,
@@ -506,6 +509,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     ? (savedSnapshots[activeId] ?? currentEditableFields)
     : null;
   const dirty = useDirtyState(currentEditableFields, savedEditableFields);
+  const overlayOpen = activeEpisodeId !== null || pendingQueueAction !== null;
+  const POLL_MS = 5000;
+
+  usePolling(pollJobs, { enabled: view === "queue" && !overlayOpen, intervalMs: POLL_MS });
+  usePolling(pollEpisodes, {
+    enabled: (view === "runs" || view === "queue") && !overlayOpen,
+    intervalMs: POLL_MS,
+  });
 
   const set = (field: keyof FlatChar, val: string) => setField(activeId, field, val);
 
