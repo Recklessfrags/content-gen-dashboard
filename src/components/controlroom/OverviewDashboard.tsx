@@ -294,7 +294,7 @@ export function OverviewDashboard({
                 <div className="metric-breakdown">
                   <span className="accent-cleared">{runsStats.cleared} Cleared</span>
                   <span className="divider">-</span>
-                  <span className="accent-failed">{runsStats.failed} Failed</span>
+                  <span className={runsStats.failed > 0 ? "accent-failed" : "accent-dim"}>{runsStats.failed} Failed</span>
                   <span className="divider">-</span>
                   <span className="accent-brass">{runsStats.active} Other</span>
                 </div>
