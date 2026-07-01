@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Json } from "@/lib/database.types";
 import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
 import { useChannelProfiles } from "@/lib/hooks/useChannelProfiles";
+import { useCharacters } from "@/lib/hooks/useCharacters";
 import { useCostReceipts } from "@/lib/hooks/useCostReceipts";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useEpisodes } from "@/lib/hooks/useEpisodes";
@@ -28,7 +29,6 @@ import { isCast } from "@/lib/casting";
 import { createClient } from "@/lib/supabase/client";
 import {
   CHANNELS,
-  type Character,
   type CharacterBibleRevision,
   type IdeaStatus,
   type Receipt,
@@ -45,17 +45,13 @@ import { QueueActionDialog } from "./controlroom/QueueActionDialog";
 import {
   Icon,
   Field,
-  applyEditableSnapshot,
   computeCostStats,
   editableSnapshot,
-  flatten,
   flattenRevision,
   formatRevisionDate,
   formatUsd,
-  savedSnapshotsById,
   toBible,
   type CostReceipt,
-  type EditableCharacterFields,
   type EnqueueSubmitResult,
   type FlatChar,
   type JobParkResolution,
@@ -316,18 +312,25 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     clear: clearReceipts,
     reset: resetReceipts,
   } = useReceipts(supabase);
-
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  const [chars, setChars] = useState<FlatChar[]>([]);
+  const {
+    chars,
+    loading,
+    loadError,
+    savedSnapshots,
+    refetch: refetchCharacters,
+    setField,
+    applySnapshot,
+    applyCharacter,
+    patchCharacter,
+    addCharacter,
+    commitSnapshot,
+  } = useCharacters(supabase);
   const [jobParkById, setJobParkById] = useState<Record<number, JobParkResolution>>({});
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [activeEnqueueIdeaId, setActiveEnqueueIdeaId] = useState<string | null>(null);
   const [castingOpen, setCastingOpen] = useState(false);
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [savedSnapshots, setSavedSnapshots] = useState<Record<string, EditableCharacterFields>>({});
   const [historyOpen, setHistoryOpen] = useState(false);
   const [revisions, setRevisions] = useState<CharacterBibleRevision[]>([]);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
@@ -375,7 +378,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const previewRestoreButtonRef = useRef<HTMLButtonElement>(null);
   const lastRestoreTriggerRef = useRef<"history" | "preview" | null>(null);
   const restoreDialogRestoreFocusRef = useRef<HTMLElement | null>(null);
-  const characterRequestRef = useRef(0);
   const revisionRequestRef = useRef(0);
   const lastManualFocusRef = useRef<HTMLElement | null>(null);
   const lastDirtyTriggerRef = useRef<HTMLElement | null>(null);
@@ -401,6 +403,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setIdeaField,
   } = useIdeas(supabase, { showFlash });
 
+  const fetchCharacters = useCallback(async () => {
+    const result = await refetchCharacters((flat) => {
+      setActiveId((current) =>
+        current && flat.some((character) => character.id === current)
+          ? current
+          : (flat[0]?.id ?? null),
+      );
+    });
+    if (result?.ok === false) setActiveId(null);
+  }, [refetchCharacters]);
+
   useEffect(() => {
     const handleFocusIn = (event: FocusEvent) => {
       if (
@@ -415,38 +428,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     window.addEventListener("focusin", handleFocusIn);
     return () => window.removeEventListener("focusin", handleFocusIn);
   }, []);
-
-  const fetchCharacters = useCallback(async () => {
-    const requestId = characterRequestRef.current + 1;
-    characterRequestRef.current = requestId;
-    setLoading(true);
-    setLoadError(null);
-
-    const { data, error } = await supabase
-      .from("characters")
-      .select("*")
-      .order("created_at", { ascending: true })
-      .returns<Character[]>();
-
-    if (characterRequestRef.current !== requestId) return;
-    setLoading(false);
-    if (error) {
-      setChars([]);
-      setSavedSnapshots({});
-      setActiveId(null);
-      setLoadError(error.message);
-      return;
-    }
-
-    const flat = (data ?? []).map(flatten);
-    setChars(flat);
-    setSavedSnapshots(savedSnapshotsById(flat));
-    setActiveId((current) =>
-      current && flat.some((character) => character.id === current)
-        ? current
-        : (flat[0]?.id ?? null),
-    );
-  }, [supabase]);
 
   // ── initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -526,19 +507,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     : null;
   const dirty = useDirtyState(currentEditableFields, savedEditableFields);
 
-  const set = (field: keyof FlatChar, val: string) =>
-    setChars((cs) =>
-      cs.map((c) => (c.id === activeId ? { ...c, [field]: val } : c)),
-    );
+  const set = (field: keyof FlatChar, val: string) => setField(activeId, field, val);
 
   const revertActiveEdits = useCallback(() => {
     if (!activeId) return;
     const snapshot = savedSnapshots[activeId];
     if (!snapshot) return;
-    setChars((cs) => cs.map((c) => (c.id === activeId ? applyEditableSnapshot(c, snapshot) : c)));
+    applySnapshot(activeId, snapshot);
     setPreviewingRevisionId(null);
     setIsRestoredDraft(false);
-  }, [activeId, savedSnapshots]);
+  }, [activeId, applySnapshot, savedSnapshots]);
 
   const guardDirtyAction = useCallback(
     (action: () => void, cancel?: () => void) => {
@@ -793,7 +771,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       voice_id: active.voice_id,
       voice_settings: active.voice_settings,
     };
-    setChars((cs) => cs.map((c) => (c.id === active.id ? restored : c)));
+    applyCharacter(active.id, restored);
     setPendingRestore(null);
     setPreviewingRevisionId(null);
     setHistoryOpen(false);
@@ -932,15 +910,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     void fetchJobs();
   };
 
-  // Casting writes voice_id / voice_settings straight to the row (outside the
-  // bible save/dirty flow), so sync local state directly without a snapshot.
-  const patchCharacter = (
-    id: string,
-    patch: { voice_id?: string | null; voice_settings?: Json | null },
-  ) => {
-    setChars((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-  };
-
   // ── persist character ───────────────────────────────────────────────────
   const save = async () => {
     if (!active || saving || !dirty) return;
@@ -967,15 +936,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       return;
     }
 
-    setSavedSnapshots((snapshots) => ({
-      ...snapshots,
-      [snapshot.character_id]: {
-        codename: snapshot.codename,
-        concept: snapshot.concept,
-        status: snapshot.status,
-        bible: snapshot.bible,
-      },
-    }));
+    commitSnapshot(snapshot.character_id, {
+      codename: snapshot.codename,
+      concept: snapshot.concept,
+      status: snapshot.status,
+      bible: snapshot.bible,
+    });
 
     const { error: revisionError } = await supabase
       .from("character_bible_revisions")
@@ -995,19 +961,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const addChar = async () => {
     if (adding) return;
     setAdding(true);
-    const { data, error } = await supabase
-      .from("characters")
-      .insert({ codename: "New character", status: "draft", bible: {} })
-      .select("*")
-      .single();
+    const { data: flat, error } = await addCharacter();
     setAdding(false);
-    if (error || !data) {
+    if (error || !flat) {
       showFlash("Could not create character — " + (error?.message ?? ""), true);
       return;
     }
-    const flat = flatten(data as Character);
-    setChars((cs) => [...cs, flat]);
-    setSavedSnapshots((snapshots) => ({ ...snapshots, [flat.id]: editableSnapshot(flat) }));
     setActiveId(flat.id);
     setView("roster");
     // Keep the URL in sync with this programmatic view switch (a refresh would
