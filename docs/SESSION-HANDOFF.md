@@ -19,10 +19,12 @@ fast path._
 
 1. **`git fetch` BEFORE judging anything.** Local refs lie. Production = the GitHub default
    branch **`claude/new-session-3l99vs`**; confirm its tip before assuming merge state.
-2. **Re-arm the 5-minute HQ monitor.** This session polls Notion HQ every ~270s
-   (`ScheduleWakeup`) for pipeline replies and re-arms each cycle. It does **not** survive a
-   session switch — re-arm it first thing. (Prompt: "Check HQ Notion pages incl. sub-pages
-   under the 'Reels Content — Agent Workforce' root; respond as needed; re-arm the timer.")
+2. **Check HQ — but do NOT run a fixed-interval timer.** Operator directive (2026-06-30):
+   *"don't use a finger 6 — just check frequently, after sessions, after commits."* So poll
+   the Notion 📮 Coordination Log + its sub-pages at **natural checkpoints** (after commits/
+   merges, around coordination work, before ending a session), respond as needed, and update
+   the tracker — model-judgment, not a `ScheduleWakeup` heartbeat. (The old 5-min auto-monitor
+   is retired.)
 3. **Read, in order:** this file → `AGENTS.md` (loop rules) → `DIRECTION.md` (scope) →
    `docs/contracts/data-contract.md` (DB shapes + ownership) → `GATES.md` → the 📮
    Coordination Log in Notion (current cross-team state, §6).
@@ -174,37 +176,37 @@ pipeline migrations here.
 > checks that don't prove the **UX or data is correct**. For every gate ask: *could this
 > pass while the thing I care about is broken?*
 
-### A. ControlRoom decomposition — phase 2 remaining (task #40, in progress)
-Done: `useEpisodes`/`useJobs`/`useCostReceipts`. **Slice (1) drill-down per-episode
-`receipts` → `useReceipts` is BUILT + reviewed (Codex + Gemini + Architect) + pushed to
-`claude/decomp-useReceipts-drilldown` (commit `9b1dd8a`), awaiting human merge.** Remaining:
-(2) the entangled `useCharacters`/`useIdeas` (optimistic writes + `clientWriteState` —
-**highest risk, do last**) — **blocked on slice (1) merging** (both edit `ControlRoom.tsx`;
-cut it fresh from production after the merge). Behavior-preserving; one slice per PR;
-independent review each.
+### A. ControlRoom decomposition — task #40 ✅ COMPLETE (2026-06-30)
+All read/list state is now in feature hooks: `useEpisodes`/`useJobs`/`useCostReceipts`
+(earlier) + **`useReceipts`** (drill-down, PR #26), **`useIdeas`** (PR #29), and
+**`useCharacters`** (PR #30, the highest-risk slice — `activeId` selection, `savedSnapshots`/
+dirty timing, and `save()`→revision/history orchestration all deliberately kept in
+`ControlRoom`; only list-data primitives moved). Each behavior-preserving, one slice per PR,
+reviewed by two non-builders (Codex built; Gemini + Architect reviewed). Nothing left here.
 
-### B. Realtime / polling (task #37)
-Needs the pipeline to enable the `supabase_realtime` publication on the read tables
-(Runs/queue) — **HQ ask now raised** (Coordination Log "realtime/polling heads-up", tracker
-row 5 → OPEN; includes a poll-vs-realtime question to pipeline; publication flip waits for our
-explicit go). **Pre-req fix is DONE + pushed:** `ChannelProfilesPanel`'s form-reset is now
-keyed to the selected channel (a `hydratedChannelRef`) so a background refetch can't clobber
-unsaved edits — `claude/channel-profiles-formreset-fix` (commit `271c67e`), reviewed
-(Codex + Gemini + Architect), awaiting human merge. Apply the same caution to any editor fed
-by a polled hook before enabling polling on its view.
+### B. Realtime / polling (task #37) — decided: POLL, not realtime
+**Pipeline ruled (2026-06-30): poll, do NOT flip `supabase_realtime`.** Single worker, ~1
+episode/12 min, low write-volume → poll ~3–5s on the active Runs/queue view, back off idle;
+**no production DB change needed.** So #37 is a **polling-only** build whenever the operator
+wants live Runs/queue — zero pipeline dependency. **Pre-req fix already MERGED** (PR #27):
+`ChannelProfilesPanel`'s form-reset is keyed to the selected channel (`hydratedChannelRef`) so
+a background refetch can't clobber unsaved edits — apply the same caution to any editor fed by
+a polled hook. Revisit realtime only if concurrent operators / write-rate grow (post a "go").
 
 ### C. channel_profiles enforcement (pipeline-side; we flip a badge)
 The table + editor are shipped; the **worker-read + ADR-005 dial enforcement are later
 pipeline work** (post their quality slice). When they ping that it's live, flip the editor
 dials' **"stored — not yet active"** badge to active. No dashboard schema change expected.
 
-### D. Casting phase-2 — image/style (needs an HQ proposal first)
-Gemini image models are available (Higgsfield too — `generate_image`/character-consistency).
-**Proposal is DRAFTED** — repo-canonical at `docs/proposals/casting-phase2-image-style.md`
-(+ HQ page "🎭 PROPOSAL — Casting phase-2", tracker row added). Phasing 2a author/lock →
-2b candidates → 2c image-to-video (pipeline). **Awaiting operator GO + pipeline boundary-
-confirm** (dashboard-owned `character-refs` bucket read via service role; data-model column
-vs bible jsonb). **No build until ratified.**
+### D. Casting phase-2 — image/style (proposal done; pipeline boundary CONFIRMED)
+Proposal repo-canonical at `docs/proposals/casting-phase2-image-style.md` (+ HQ page).
+**Pipeline CONFIRMED the boundary (2026-06-30):** dashboard-owned **private `character-refs`
+bucket**, worker reads via **service role**, locked image exposed as a **`reference_image_url`
+(+ `visual_style`) column on `characters`** (data-model = columns, symmetric with phase-1's
+`voice_id`), consumed by Assembly as the **`locked_character`** master asset. Phasing 2a
+author/lock → 2b candidates → 2c image-to-video (pipeline). **Only remaining: operator GO +
+Q1 provider** (Gemini image vs Higgsfield — lean Higgsfield for the locked ref; verify
+cost/quality). **No build until GO.**
 
 ### E. Tier-3 ROI table — furthest out
 Needs publishing live AND an analytics-ingestion service (per-platform API + OAuth + sync).
