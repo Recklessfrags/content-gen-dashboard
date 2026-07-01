@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { signIn, type AuthState } from "./actions";
 
 const initial: AuthState = {};
@@ -15,6 +15,7 @@ export default function LoginPage() {
 
 function LoginForm() {
   const [state, formAction, pending] = useActionState(signIn, initial);
+  const [email, setEmail] = useState("");
 
   return (
     <div className="login-card">
@@ -32,6 +33,8 @@ function LoginForm() {
             autoComplete="email"
             required
             placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
         </label>
         <label htmlFor="password">
@@ -42,7 +45,6 @@ function LoginForm() {
             name="password"
             autoComplete="current-password"
             required
-            placeholder="••••••••"
           />
         </label>
         <button className="btn" type="submit" disabled={pending}>

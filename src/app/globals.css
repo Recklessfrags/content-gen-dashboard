@@ -899,6 +899,8 @@ body{font-family:var(--body)}
   .mobile-roster-new:disabled{opacity:.5;cursor:not-allowed}
   .grid2{grid-template-columns:1fr}
   .dossier-head h1{font-size:30px}
+  .casting-stamp{position:static;align-self:flex-end;transform:rotate(7deg) scale(.8);
+    transform-origin:center;margin:2px 4px 0 auto}
   .sheet,.dossier-head,.cap,.wire-list,.savebar{padding-left:18px;padding-right:18px}
   .preview-banner{padding-left:18px;padding-right:18px}
   .history-drawer{width:100%}
