@@ -67,8 +67,19 @@ Cheapest high-value fix, **repo-structure-agnostic**: add **`pg_jsonschema`** (S
 supported) `CHECK (json_matches_schema(...))` constraints on shared jsonb columns so Postgres
 rejects a bad shape whoever writes it. Plus share generated Supabase types. This captures most
 of a monorepo's benefit without the migration cost or the loss of per-repo agent
-context-scoping — see the HQ "Q1/Q2 reads" page. (Repo-consolidation + coordinator decisions
-are cross-team + operator's call; not scheduled here.)
+context-scoping — see the HQ "Q1/Q2 reads" page.
+
+**OPERATOR DECISION (2026-07-01): GO.** Keep two repos + `pg_jsonschema` DB-CHECK + shared
+generated types; **defer** a cross-repo coordinator. Fold `pg_jsonschema` into the **first
+Casting migration** (Casting 2a) — the DB becomes the enforced contract.
+⚠️ **Deployment-sequencing safeguard (both-vendor review caught this; now required):**
+`pg_jsonschema` protects the DB but a mis-ordered deploy makes the lagging repo throw 500s
+once the CHECK lands. Pair every shared-seam migration with **expand/contract choreography** —
+**add-nullable → backfill → enforce** (never a breaking change in one step), **additive-first
+deploy order** so old readers/writers keep working, **negative contract tests**, and
+**versioned rollout notes**. Critical during the Casting burst (~4 new shared surfaces).
+EL two-key split is **verified viable** on ONE workspace (failure mode is different-account
+only — keep both keys same workspace).
 
 ## Sequencing read (not a commitment — operator sets priority)
 
