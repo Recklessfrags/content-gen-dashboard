@@ -124,6 +124,12 @@ pipeline migrations here.
   Codex **cannot commit** (sandbox `.git` read-only) — it edits files; **the Architect
   reviews + commits**. **Codex habitually edits `docs/HANDOFF.md`** to narrate its work on
   feature branches — **revert that** (`git checkout -- docs/HANDOFF.md`) before committing.
+  - **AUTH (fresh container, 2026-06-30):** on a new container Codex is **logged out**
+    (`~/.codex/auth.json` missing) and every `codex exec` 401s against `api.openai.com`.
+    Fix once per session: **`printenv OPENAI_API_KEY | codex login --with-api-key`** (the
+    old `--api-key` flag is gone; pipe it). Verify with `codex login status`. Only then do
+    builds run. Parallel lanes use `git worktree` per lane with `node_modules` symlinked
+    from the main checkout so each worktree can run `tsc`/`vitest`/`build`.
 - **Designer/reviewer = Gemini, via the REST wrapper.** The `gemini` CLI 503s — use
   **`bash scripts/gemini.sh [model] < prompt`** (default `gemini-3.1-pro-preview`, fallback
   `gemini-3.5-flash` on 503/UNAVAILABLE or 404/NOT_FOUND). **On a fresh checkout the script
@@ -169,19 +175,23 @@ pipeline migrations here.
 > pass while the thing I care about is broken?*
 
 ### A. ControlRoom decomposition — phase 2 remaining (task #40, in progress)
-Done: `useEpisodes`/`useJobs`/`useCostReceipts`. **Remaining slices:** (1) the drill-down
-per-episode `receipts` slice (separate from the global cost-receipts hook); (2) the
-entangled `useCharacters`/`useIdeas` (optimistic writes + `clientWriteState` — **highest
-risk, do last**). Behavior-preserving; one slice per PR; independent review each.
+Done: `useEpisodes`/`useJobs`/`useCostReceipts`. **Slice (1) drill-down per-episode
+`receipts` → `useReceipts` is BUILT + reviewed (Codex + Gemini + Architect) + pushed to
+`claude/decomp-useReceipts-drilldown` (commit `9b1dd8a`), awaiting human merge.** Remaining:
+(2) the entangled `useCharacters`/`useIdeas` (optimistic writes + `clientWriteState` —
+**highest risk, do last**) — **blocked on slice (1) merging** (both edit `ControlRoom.tsx`;
+cut it fresh from production after the merge). Behavior-preserving; one slice per PR;
+independent review each.
 
 ### B. Realtime / polling (task #37)
 Needs the pipeline to enable the `supabase_realtime` publication on the read tables
-(Runs/queue) — a quick HQ ask when building. **Pre-req fix (latent bug captured during
-channel_profiles Slice B review):** `ChannelProfilesPanel`'s form-reset `useEffect`
-(`[creating, loading, profiles, selectedProfile]`) will **clobber unsaved edits** once
-background refetch/polling exists — make it dirty-aware or key the reset to selected-channel
-change **before** enabling polling on that view. Same caution for any editor fed by a polled
-hook.
+(Runs/queue) — **HQ ask now raised** (Coordination Log "realtime/polling heads-up", tracker
+row 5 → OPEN; includes a poll-vs-realtime question to pipeline; publication flip waits for our
+explicit go). **Pre-req fix is DONE + pushed:** `ChannelProfilesPanel`'s form-reset is now
+keyed to the selected channel (a `hydratedChannelRef`) so a background refetch can't clobber
+unsaved edits — `claude/channel-profiles-formreset-fix` (commit `271c67e`), reviewed
+(Codex + Gemini + Architect), awaiting human merge. Apply the same caution to any editor fed
+by a polled hook before enabling polling on its view.
 
 ### C. channel_profiles enforcement (pipeline-side; we flip a badge)
 The table + editor are shipped; the **worker-read + ADR-005 dial enforcement are later
@@ -189,7 +199,12 @@ pipeline work** (post their quality slice). When they ping that it's live, flip 
 dials' **"stored — not yet active"** badge to active. No dashboard schema change expected.
 
 ### D. Casting phase-2 — image/style (needs an HQ proposal first)
-Gemini image models are available. Draft a proposal in HQ before building (per the loop).
+Gemini image models are available (Higgsfield too — `generate_image`/character-consistency).
+**Proposal is DRAFTED** — repo-canonical at `docs/proposals/casting-phase2-image-style.md`
+(+ HQ page "🎭 PROPOSAL — Casting phase-2", tracker row added). Phasing 2a author/lock →
+2b candidates → 2c image-to-video (pipeline). **Awaiting operator GO + pipeline boundary-
+confirm** (dashboard-owned `character-refs` bucket read via service role; data-model column
+vs bible jsonb). **No build until ratified.**
 
 ### E. Tier-3 ROI table — furthest out
 Needs publishing live AND an analytics-ingestion service (per-platform API + OAuth + sync).
