@@ -8,6 +8,7 @@ import { useCostReceipts } from "@/lib/hooks/useCostReceipts";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useEpisodes } from "@/lib/hooks/useEpisodes";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
+import { useIdeas } from "@/lib/hooks/useIdeas";
 import { useJobs } from "@/lib/hooks/useJobs";
 import { useReceipts } from "@/lib/hooks/useReceipts";
 import { useScrollLock } from "@/lib/hooks/useScrollLock";
@@ -29,7 +30,6 @@ import {
   CHANNELS,
   type Character,
   type CharacterBibleRevision,
-  type Idea,
   type IdeaStatus,
   type Receipt,
 } from "@/lib/types";
@@ -61,7 +61,6 @@ import {
   type JobParkResolution,
   type PendingDirtyAction,
   type QueueJob,
-  type WireIdea,
 } from "./controlroom/shared";
 
 type View = "roster" | "channels" | "wire" | "queue" | "runs" | "overview" | "cost";
@@ -320,11 +319,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [ideasLoading, setIdeasLoading] = useState(true);
-  const [ideasError, setIdeasError] = useState<string | null>(null);
 
   const [chars, setChars] = useState<FlatChar[]>([]);
-  const [ideas, setIdeas] = useState<WireIdea[]>([]);
   const [jobParkById, setJobParkById] = useState<Record<number, JobParkResolution>>({});
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [activeEnqueueIdeaId, setActiveEnqueueIdeaId] = useState<string | null>(null);
@@ -345,7 +341,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [draftIdea, setDraftIdea] = useState("");
   const [draftIdeaNote, setDraftIdeaNote] = useState("");
   const [ideaNoteFocused, setIdeaNoteFocused] = useState(false);
-  const [ideaSubmittingTitle, setIdeaSubmittingTitle] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -381,7 +376,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const lastRestoreTriggerRef = useRef<"history" | "preview" | null>(null);
   const restoreDialogRestoreFocusRef = useRef<HTMLElement | null>(null);
   const characterRequestRef = useRef(0);
-  const ideaRequestRef = useRef(0);
   const revisionRequestRef = useRef(0);
   const lastManualFocusRef = useRef<HTMLElement | null>(null);
   const lastDirtyTriggerRef = useRef<HTMLElement | null>(null);
@@ -389,12 +383,23 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const queueActionRestoreFocusRef = useRef<HTMLElement | null>(null);
   const exitFormRef = useRef<HTMLFormElement>(null);
   const ideaTitleRef = useRef<HTMLTextAreaElement>(null);
-  const ideaSubmittingTitleRef = useRef<string | null>(null);
-  const showFlash = (msg: string, err = false) => {
+  const showFlash = useCallback((msg: string, err = false) => {
     setFlash({ msg, err });
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 2200);
-  };
+  }, []);
+  const {
+    ideas,
+    loading: ideasLoading,
+    error: ideasError,
+    submittingTitle: ideaSubmittingTitle,
+    refetch: fetchIdeas,
+    addIdea,
+    retryIdea,
+    dismissIdea,
+    setIdeaStatus,
+    setIdeaField,
+  } = useIdeas(supabase, { showFlash });
 
   useEffect(() => {
     const handleFocusIn = (event: FocusEvent) => {
@@ -441,33 +446,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         ? current
         : (flat[0]?.id ?? null),
     );
-  }, [supabase]);
-
-  const fetchIdeas = useCallback(async () => {
-    const requestId = ideaRequestRef.current + 1;
-    ideaRequestRef.current = requestId;
-    setIdeasLoading(true);
-    setIdeasError(null);
-
-    const { data, error } = await supabase
-      .from("ideas")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .returns<Idea[]>();
-
-    if (ideaRequestRef.current !== requestId) return;
-    setIdeasLoading(false);
-    if (error) {
-      setIdeasError(error.message);
-      return;
-    }
-
-    setIdeas((current) => {
-      const localOnly = current.filter((idea) => idea.clientWriteState);
-      const localIds = new Set(localOnly.map((idea) => idea.id));
-      const remote = (data ?? []).filter((idea) => !localIds.has(idea.id));
-      return [...localOnly, ...remote];
-    });
   }, [supabase]);
 
   // ── initial load ──────────────────────────────────────────────────────────
@@ -1062,111 +1040,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   };
 
   // ── ideas (the wire) ──────────────────────────────────────────────────────
-  const makeTempIdeaId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-  const startIdeaInsert = async (
-    tempId: string,
-    title: string,
-    note: string,
-    characterId: string | null,
-    channel: string,
-  ) => {
-    if (ideaSubmittingTitleRef.current === title) return;
-    ideaSubmittingTitleRef.current = title;
-    setIdeaSubmittingTitle(title);
-
-    setIdeas((xs) =>
-      xs.map((idea) =>
-        idea.id === tempId
-          ? { ...idea, clientWriteState: "saving", clientError: undefined }
-          : idea,
-      ),
-    );
-
-    const { data, error } = await supabase
-      .from("ideas")
-      .insert({
-        title,
-        note,
-        character_id: characterId,
-        channel,
-        status: "backlog",
-      })
-      .select("*")
-      .single();
-
-    ideaSubmittingTitleRef.current = null;
-    setIdeaSubmittingTitle(null);
-
-    if (error || !data) {
-      const message = error?.message ?? "Unknown database error";
-      showFlash("Could not log idea — " + message, true);
-      setIdeas((xs) =>
-        xs.map((idea) =>
-          idea.id === tempId
-            ? { ...idea, clientWriteState: "failed", clientError: message }
-            : idea,
-        ),
-      );
-      return;
-    }
-
-    const savedIdea: WireIdea = { ...(data as Idea), clientKey: tempId };
-    // Dedup-aware swap: if a concurrent refetch already supplied the real row
-    // while this insert was in flight, drop that duplicate and keep only the
-    // swapped optimistic card (stable key = tempId). Prevents two cards sharing
-    // the same real id when "retry"/refetch overlaps an in-flight insert.
-    setIdeas((xs) => {
-      const withoutDup = xs.filter(
-        (idea) => idea.id !== savedIdea.id || idea.id === tempId,
-      );
-      return withoutDup.map((idea) => (idea.id === tempId ? savedIdea : idea));
-    });
-  };
-
   const logIdea = async () => {
     const title = draftIdea.trim();
     const note = draftIdeaNote.trim();
-    if (!title || ideaSubmittingTitleRef.current === title) return;
+    if (!title || ideaSubmittingTitle === title) return;
 
-    const tempId = makeTempIdeaId();
-    const optimisticIdea: WireIdea = {
-      id: tempId,
-      owner: "",
-      title,
-      note,
-      character_id: activeId,
-      channel: CHANNELS[0],
-      status: "backlog",
-      created_at: new Date().toISOString(),
-      clientKey: tempId,
-      clientWriteState: "saving",
-    };
-
-    setIdeasError(null);
-    setIdeasLoading(false);
-    setIdeas((xs) => [optimisticIdea, ...xs]);
     setDraftIdea("");
     setDraftIdeaNote("");
     window.requestAnimationFrame(() => {
       ideaTitleRef.current?.focus();
     });
-    await startIdeaInsert(tempId, title, note, optimisticIdea.character_id, optimisticIdea.channel);
-  };
-
-  const retryIdea = (idea: WireIdea) => {
-    if (!idea.clientWriteState || idea.clientWriteState !== "failed") return;
-    void startIdeaInsert(
-      idea.id,
-      idea.title.trim(),
-      idea.note.trim(),
-      idea.character_id,
-      idea.channel,
-    );
-  };
-
-  const dismissIdea = (id: string) => {
-    setIdeas((xs) => xs.filter((idea) => idea.id !== id));
+    await addIdea(title, note, activeId, CHANNELS[0]);
   };
 
   const handleIdeaTitleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1186,34 +1070,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       event.preventDefault();
       void logIdea();
-    }
-  };
-
-  const setIdeaStatus = async (id: string, targetStatus: IdeaStatus) => {
-    const idea = ideas.find((x) => x.id === id);
-    if (!idea || idea.clientWriteState) return;
-    if (idea.status === targetStatus) return;
-    setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, status: targetStatus } : x)));
-    const { error } = await supabase.from("ideas").update({ status: targetStatus }).eq("id", id);
-    if (error) {
-      // revert on failure
-      setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, status: idea.status } : x)));
-      showFlash("Status update failed", true);
-    }
-  };
-
-  const setIdeaField = async (id: string, f: "character_id" | "channel", v: string) => {
-    const prev = ideas.find((x) => x.id === id);
-    if (!prev || prev.clientWriteState) return;
-    const valueToPersist = f === "character_id" && v === "" ? null : v;
-    setIdeas((xs) => xs.map((x) => (x.id === id ? { ...x, [f]: valueToPersist } : x)));
-    const { error } =
-      f === "character_id"
-        ? await supabase.from("ideas").update({ character_id: valueToPersist }).eq("id", id)
-        : await supabase.from("ideas").update({ channel: v }).eq("id", id);
-    if (error && prev) {
-      setIdeas((xs) => xs.map((x) => (x.id === id ? prev : x)));
-      showFlash("Tag update failed", true);
     }
   };
 
