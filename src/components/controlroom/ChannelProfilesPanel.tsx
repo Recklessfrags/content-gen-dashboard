@@ -394,10 +394,10 @@ export function ChannelProfilesPanel({
               <fieldset className="dials-inert">
                 <legend>
                   <span className="eyebrow">Engagement dials</span>
-                  <span className="badge">Stored — not yet active</span>
+                  <span className="badge">Active — enforced pipeline-side</span>
                 </legend>
                 <p className="hint">
-                  Saved as operator intent. The pipeline does not act on these yet (worker-read + ADR-005 enforcement land later).
+                  Enforced by the worker at job start (ADR-005): claim discipline gates Tier-1 levers, arousal ceiling gates Tier-2. Missing or invalid values fail safe to fact_first / conservative.
                 </p>
                 <div className="grid2">
                   <div className="field">

@@ -54,7 +54,10 @@ Every agent (Architect, Designer, Builder, and any sub-agent) reads this first.
    (+ a short dated sub-note if it needs detail) at natural checkpoints — after a
    decision, around coordination-touching work, and **before ending a session**.
    **Re-fetch HQ before relying on it** (it changes between sessions; a cached view is
-   how stale-state bugs happen). This is model-judgment, not a hook.
+   how stale-state bugs happen). This is model-judgment, not a hook. **In particular
+   (operator directive, 2026-07-01): never tell the operator "nothing is buildable /
+   nothing to do" from a cached view — a fresh Coordination Log fetch comes FIRST;
+   the other team ships between our fetches.**
 8. **Triage questions before spending operator turnaround (three buckets)** — when the
    team has a question for the operator, the Architect sorts it **first**; a pre-vet that
    rubber-stamps is worse than none (it launders a guess), so the buckets are gated:
