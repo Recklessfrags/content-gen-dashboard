@@ -34,9 +34,13 @@ bypasses RLS.
 | `codename` | text NOT NULL | `default 'New character'` |
 | `concept` | text NOT NULL | `default ''` |
 | `status` | text NOT NULL | `default 'draft'`, CHECK in (`active`, `draft`) |
-| `bible` | jsonb NOT NULL | `default '{}'` — see bible keys below |
+| `bible` | jsonb NOT NULL | `default '{}'` — see bible keys below; **shape-enforced** by `characters_bible_shape` CHECK (pg_jsonschema, `dash_0003`, VALIDATED live 2026-07-01): root object, the 7 v1 keys must be strings *when present*, unknown additive keys allowed |
 | `created_at` | timestamptz NOT NULL | `default now()` |
 | `updated_at` | timestamptz NOT NULL | `default now()`, refreshed by `set_updated_at` trigger |
+| `voice_id` | text NULL | casting phase-1 (applied live); non-null = voice-cast |
+| `voice_settings` | jsonb NULL | casting phase-1 voice parameters |
+| `reference_image_url` | text NULL | casting phase-2a (`dash_0003`) — **bucket-relative storage object path** `<owner>/<character_id>/ref-<uuid>.<ext>` in the private `character-refs` bucket; **NEVER a URL** (signed URLs expire; readers mint their own access). Non-null = visually cast. Pipeline (Assembly) will consume it as the `locked_character` master asset via service-role download (their 2c). |
+| `visual_style` | text NULL | casting phase-2a — short operator-authored style descriptor accompanying the locked image |
 
 **`bible` keys (v1):** `voice`, `cadence`, `vocab`, `offlimits`, `lines`, `beats`,
 `runtime`. **jsonb on purpose** — new sections (catchphrase bank, voice-sample URL,
@@ -135,6 +139,27 @@ the **service role** (bypasses RLS).
 **Enforcement status:** the `engagement_posture` dials (`claim_discipline`,
 `arousal_ceiling`) are **stored, not yet enforced** — the worker-read + ADR-005 tiering are
 later pipeline work. The editor surfaces them as "stored — not yet active" until then.
+
+---
+
+## `character-refs` storage bucket — dashboard-owned (PRIVATE)
+
+Casting phase-2a (`dash_0003`, applied + verified live 2026-07-01). Holds each
+character's locked reference image.
+
+- **Private** (`public=false`), server-side limits: **5 MB**, MIME
+  `image/png|jpeg|webp`.
+- **Path convention:** `<owner uuid>/<character id>/ref-<uuid>.<ext>` —
+  bucket-relative (supabase-js `.upload()` paths never include the bucket name).
+- **RLS on `storage.objects`:** all four verbs `to authenticated`, gated by
+  `bucket_id='character-refs' AND (storage.foldername(name))[1] = auth.uid()::text`
+  (owner-scoped by first path segment). The **pipeline worker reads via the service
+  role** (bypasses RLS) — same contract shape as `channel_profiles`.
+- **App code never deletes objects** (2a ruling: REPLACE/REMOVE orphan the prior
+  object deliberately — audit-friendly; cleanup is a future chore). The delete
+  *policy* exists as owner-scoped capability only.
+- Frontend renders via **short-lived signed URLs** (`createSignedUrl`), never a
+  public URL.
 
 ---
 
@@ -270,7 +295,10 @@ never alters pipeline columns.
 **Migration namespacing (shared DB).** Because dashboard and pipeline share one
 `reels-content` project, the two repos use **separate version lanes** to avoid
 collisions: the **dashboard** uses a `dash_NNNN_*` prefix (e.g.
-`dash_0001_casting_usage.sql`, `dash_0002_channel_profiles.sql`); the **pipeline** uses bare
+`dash_0001_casting_usage.sql`, `dash_0002_channel_profiles.sql`,
+`dash_0003_visual_identity.sql` — the first D-arch expand/contract migration:
+NOT VALID CHECK on apply, `VALIDATE CONSTRAINT` as a separate verified step,
+negative contract tests in between); the **pipeline** uses bare
 `NNNN_*` (incl. `0016` = `publish_only`/`source_episode_id`/`park_kind`). The `jobs` table
 and its policies are **pipeline-owned** and live in the pipeline's lane —
 `0013` (`spend_approved`), `0014` (`jobs_read` + `jobs_enqueue`), `0015`
