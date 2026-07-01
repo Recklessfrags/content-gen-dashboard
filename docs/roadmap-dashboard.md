@@ -9,7 +9,9 @@ the Rule-9 cross-vendor gate (2026-07-01 architecture review — 4 gaps below fo
 
 ## Cross-contract items (touch the shared seam — coordinate before building)
 
-1. **Casting phase-2 — visual identity** _(awaiting operator GO)_
+1. **Casting phase-2 — visual identity** — ✅ **2a SHIPPED** (2026-07-01, PR #38;
+   `dash_0003` live + VALIDATED; upload→lock in production; signed-URL render). 2b
+   candidates / 2c image-to-video (pipeline) remain future phases. Original scope:
    - `dash_*` migration: `reference_image_url` + `visual_style` columns on `characters`.
    - Private, owner-scoped `character-refs` storage bucket; worker reads via service role;
      Assembly consumes the locked image as `locked_character`.
@@ -18,7 +20,9 @@ the Rule-9 cross-vendor gate (2026-07-01 architecture review — 4 gaps below fo
      browser) and the dashboard just **uploads → locks the URL**. No in-dashboard gen API.
    - ⚠️ **Gap (review 2026-07-01):** a private bucket means the frontend must render via a
      **signed URL** (Supabase client), not a public `<img src>`.
-2. **Casting — `voice_templates`** _(pending-encode; pipeline heads-up 07-01)_
+2. **Casting — `voice_templates`** _(IN BUILD 2026-07-01 —
+   `docs/slices/slice-casting-voice-templates.md`; EL key-scope gap resolved: two-key
+   split verified viable on ONE workspace, HQ)_
    - NEW dashboard-owned `dash_*` config table (like `channel_profiles`), **not** rows in
      `characters`. On lock, copy the recipe into the character record (immutable provenance).
    - Two-ElevenLabs-key split: dashboard = full Casting key (design+create, operator-gated);
@@ -28,9 +32,11 @@ the Rule-9 cross-vendor gate (2026-07-01 architecture review — 4 gaps below fo
      worker TTS-only key on a *different* account can't synthesize a voice the Casting key
      created (`voice_id not found`/401). **Verify EL key scopes / shared workspace before
      building the split.**
-3. **channel_profiles — ADR-005 dial enforcement badge-flip** _(pipeline-gated)_
-   - Table + editor shipped; dials badged "stored — not yet active." Flip to active when the
-     pipeline ships worker-read + ADR-005 enforcement. No dashboard schema change expected.
+3. **channel_profiles — ADR-005 dial enforcement badge-flip** — ✅ **DONE**
+   (2026-07-01, PR #40): pipeline shipped enforcement (their PR #38); badge now reads
+   "Active — enforced pipeline-side." Note: `jobs.channel` (their `0018`) is
+   file-only, NOT applied — our enqueue must keep omitting `channel` until the
+   operator applies it.
 4. **Per-character cost (Tier-2) + episode↔character drill-down** _(pipeline-gated data)_
    - Reads `episodes.character_id` (schema live; 0 rows until the pipeline runs a
      character-linked episode — Mad Dog → Acoustic Kitty). Fills in for free at that run.
@@ -53,9 +59,10 @@ the Rule-9 cross-vendor gate (2026-07-01 architecture review — 4 gaps below fo
 ## Dashboard-only items (no shared seam)
 
 - **ControlRoom decomposition** → feature hooks — ✅ **DONE** (PRs #26/#29/#30).
-- **#37 live Runs/queue** — pipeline ruled **poll, not realtime**. At ~1 episode/12 min,
-  3–5s polling is overkill (≈200 idle queries/episode) — plan a **manual-refresh / ~60s idle
-  poll**, not aggressive polling. Pre-req clobber-fix already merged (#27).
+- **#37 live Runs/queue** — ✅ **SHIPPED** (2026-07-01, PR #38): 5s poll **only while
+  the operator is actively viewing** Queue/Runs (pauses on hidden tab / other views /
+  open overlays) — the idle-query concern this item flagged is addressed by gating,
+  not by a slower interval (≈0 idle queries; ratified with bridge-counted requests).
 - **Tier-3 ROI table** — furthest out; needs videos published live **and** a per-platform
   analytics-ingestion service (OAuth + sync). Deferred (keep OAuth integrations out of the
   app; a no-code dump to a sheet is the low-ops stopgap when data exists).
