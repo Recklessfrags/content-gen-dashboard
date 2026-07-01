@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from "react";
-import type { Json } from "@/lib/database.types";
 import type { createClient } from "@/lib/supabase/client";
 import type { Character } from "@/lib/types";
 import {
@@ -63,7 +62,12 @@ export function useCharacters(supabase: ReturnType<typeof createClient>) {
   }, []);
 
   const patchCharacter = useCallback(
-    (id: string, patch: { voice_id?: string | null; voice_settings?: Json | null }) => {
+    (
+      id: string,
+      patch: Partial<
+        Pick<FlatChar, "voice_id" | "voice_settings" | "reference_image_url" | "visual_style">
+      >,
+    ) => {
       setChars((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)));
     },
     [],
