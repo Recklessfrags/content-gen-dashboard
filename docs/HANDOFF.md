@@ -49,8 +49,11 @@ exception so they survive the ephemeral container.)
   read-only policies added. **Not altered.**
 - Seed: 2 characters (Mad Dog McGrath = active, Grandma Pearl = draft), 4 ideas,
   1 **demo** episode (`episode_id = demo-cottage-cheese`, safe to delete) + 1 receipt.
-- Auth user `cameronnicodemus@gmail.com` (temp password `ControlRoom2026!` — change
-  it). Login verified via GoTrue password grant.
+- Auth user `cameronnicodemus@gmail.com`. **The QA password is NOT stored in the repo**
+  (was reset 2026-07-01; the old hardcoded value here is dead). A fresh session gets it from
+  the environment, not a tracked file: set `RATIFY_EMAIL` / `RATIFY_PASSWORD` (the ratify
+  harness reads them) or a gitignored `.env.local`, or have the operator paste it at session
+  start. Login verified via GoTrue password grant. See `docs/SESSION-HANDOFF.md` §2/§3.
 
 ## Verification performed (NOT independent — see caveat)
 
