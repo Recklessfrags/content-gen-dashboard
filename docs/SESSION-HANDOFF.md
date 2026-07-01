@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-06-30** by the Architect (Claude). This is the **one authoritative
+_Last updated: **2026-07-01** by the Architect (Claude). This is the **one authoritative
 "start here"** for a **new chat** picking up the work. Read this top-to-bottom, then the
 canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file is the
 fast path._
@@ -69,7 +69,7 @@ history).
 
 ---
 
-## 2. Current status (what's DONE) — through PR #24, 2026-06-30
+## 2. Current status (what's DONE) — through PR #35, 2026-07-01
 
 **Production = default branch `claude/new-session-3l99vs`, live at
 `https://content-gen-dashboard.vercel.app` (Vercel project `content-gen-dashboard`, team
@@ -105,6 +105,27 @@ Shipped & merged (high level — see `docs/HANDOFF.md` + `GATES.md` for per-slic
   food-behavior seed, verified). Engagement dials (`claim_discipline`/`arousal_ceiling`)
   render with a **"stored — not yet active"** badge — the pipeline does not enforce them yet.
 
+**Since #24 (this session, 2026-07-01):**
+- **ControlRoom decomposition finished** — read/list state fully in feature hooks:
+  `useReceipts` (drill-down, PR #26), `useIdeas` (PR #29), `useCharacters` (PR #30). See §4.A.
+- **`ChannelProfilesPanel` form-reset clobber-fix** (PR #27) — the #37-polling pre-req.
+- **Loop governance hardened** — `AGENTS.md` **rules 8 (three-bucket question triage)** +
+  **9 (every change cross-vendor reviewed before it lands; reviewer grades the aggregate
+  diff; same-vendor can't self-bless; applies to docs/specs)** + the adopted **anti-bias**
+  rule (author can't pre-lean a fork → forced steelman) (PR #28).
+- **Casting phase-2 proposal** repo-canonical (`docs/proposals/casting-phase2-image-style.md`,
+  PR #28) and **`docs/roadmap-dashboard.md`** — the durable scope of upcoming cross-contract
+  work (PR #32).
+- **Turnkey ratify harness** — `scripts/ratify.mjs` + `npm run ratify` + `docs/ratify.md`
+  (PR #33). Prod-build + Playwright + `*.supabase.co` Node-fetch bridge + real auth; two
+  green live runs (roster=2 pcards, no overflow, clean teardown). See §3.
+- **Design nits** (PR #34) — login retains the email on a failed sign-in (controlled input);
+  mobile CAST-stamp no longer overlaps the FILE/HISTORY row.
+- **Overview "0 Failed" polish** (PR #35) — the count is muted (`accent-dim`) at zero, red
+  only when `failed > 0`. The single finding that survived an independent multimodal
+  (Gemini) site review against a strict QA rubric; the other flags were screenshot-viewport
+  artifacts or already-disabled controls (verified against code, not rubber-stamped).
+
 **Migrations.** Repo tracks **4 dashboard-owned** migrations: `0001_init`,
 `0002_bible_revisions`, `dash_0001_casting_usage`, `dash_0002_channel_profiles`. The live
 project has more — the rest are **pipeline-domain** (jobs queue, live-adapters,
@@ -114,7 +135,10 @@ dashboard migrations are `dash_NNNN_*`; pipeline migrations are bare `NNNN_*`. D
 pipeline migrations here.
 
 **Supabase:** project `reels-content` = `tyeejhaknqkeftjykqog`. Login
-`cameronnicodemus@gmail.com` (temp password in `docs/HANDOFF.md` — change it). Storage:
+`cameronnicodemus@gmail.com`; QA password was reset this session (2026-07-01). **Security
+follow-up (open):** operator to change it to their own and move creds out of tracked docs
+into a **gitignored `.env.local`** (`RATIFY_EMAIL`/`RATIFY_PASSWORD`) — the ratify harness
+already reads them from env, so no raw password needs to live in a tracked file. Storage:
 `render-assets` (public, pipeline-owned).
 
 ---
@@ -156,7 +180,23 @@ pipeline migrations here.
 - **In-browser ratification bridge:** headless Chromium can't TLS-egress the sandbox proxy;
   run `next build` + `next start`, launch global Playwright
   (`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`), and bridge `page.route('**/*supabase.co/**')`
-  → Node `fetch` (carry the JWT so RLS applies). Scripts in scratchpad (`*_ratify.mjs`).
+  → Node `fetch` (carry the JWT so RLS applies). **`next dev` renders UNSTYLED in this
+  sandbox — always use the prod build for design review.**
+- **Turnkey ratify harness (persisted):** `npm run ratify` → `scripts/ratify.mjs`
+  (`docs/ratify.md`). Does the whole prod-build + bridge + real-login + view-walk +
+  pass/fail dance with idempotent teardown (`fuser -k` by port, never pattern-kill — a
+  `pkill -f` self-matches the shell). Env: `RATIFY_BASE`/`RATIFY_PORT`(3100)/`RATIFY_EMAIL`/
+  `RATIFY_PASSWORD`/`RATIFY_OUT`/`RATIFY_MIN_PCARDS`. A future session can run a pass without
+  rebuilding the rig. **Kill lingering `next` by port on a dedicated port** — a stale child
+  on 3000 gives false "empty roster / unstyled" readings.
+- **Independent site review (multimodal):** a reviewer that did NOT build can review the
+  **actual rendered site**, not just mockups — capture read-only screenshots (prod build +
+  Playwright, no Save/submit/create), then have **Gemini** grade them against a strict QA
+  rubric via `generateContent` with base64 `inline_data` image parts
+  (`gemini-3.1-pro-preview` → `gemini-3.5-flash` fallback; `NODE_EXTRA_CA_CERTS=`
+  `/root/.ccr/ca-bundle.crt` so Node fetch trusts the proxy). **Verify every finding against
+  the code** before reporting (most "cutoff"/"clipping" flags are screenshot-viewport
+  artifacts of a scrollable panel — check `overflow` before believing them).
 - **RATIFY ON MOBILE TOO** for any UI slice: load at **412px**, assert
   `scrollWidth == clientWidth`, no stray `position:absolute`/`transform:rotate` bleed.
 - **Git:** cut each task's branch **fresh from production** —
@@ -204,9 +244,26 @@ Proposal repo-canonical at `docs/proposals/casting-phase2-image-style.md` (+ HQ 
 bucket**, worker reads via **service role**, locked image exposed as a **`reference_image_url`
 (+ `visual_style`) column on `characters`** (data-model = columns, symmetric with phase-1's
 `voice_id`), consumed by Assembly as the **`locked_character`** master asset. Phasing 2a
-author/lock → 2b candidates → 2c image-to-video (pipeline). **Only remaining: operator GO +
-Q1 provider** (Gemini image vs Higgsfield — lean Higgsfield for the locked ref; verify
-cost/quality). **No build until GO.**
+author/lock → 2b candidates → 2c image-to-video (pipeline). **Provider question is likely
+moot** — a neutrally-framed (anti-bias) review **reversed** the earlier Higgsfield lean to a
+**"dumb receiver"**: the operator generates the image anywhere (Midjourney/Gemini/Higgsfield
+in a browser) and the dashboard just **uploads → locks the URL** — no in-dashboard gen API.
+A private bucket means the frontend renders via a **Supabase signed URL**, not a public
+`<img src>`. **Only remaining: operator GO.** No build until GO.
+
+### D-arch. Shared-seam plan for the Casting burst — OPERATOR GO (2026-07-01)
+The cross-team architecture question (repo consolidation + coordinator) is **DECIDED**: keep
+**two repos**, harden the seam with **`pg_jsonschema`** DB-CHECK constraints on shared jsonb
+columns + **shared generated Supabase types**, and **defer** a cross-repo coordinator. Fold
+`pg_jsonschema` into the **first Casting migration** (the DB becomes the enforced contract,
+repo-agnostic — kills the #1 integration failure, jsonb key-shape mismatch). **Adopt
+expand/contract migration choreography** for the burst: **add-nullable → backfill → enforce**
+(never a breaking change in one step), **additive-first deploy order** so old readers/writers
+keep working, **negative contract tests**, **versioned rollout notes** — this is the
+deployment-sequencing / schema-version-skew safeguard the combined both-vendor review caught
+(a mis-ordered deploy makes the lagging repo 500 once the CHECK lands). EL two-key split is
+**verified viable** on ONE workspace (failure mode is different-account only). Details in
+`docs/roadmap-dashboard.md` + the HQ tracker.
 
 ### E. Tier-3 ROI table — furthest out
 Needs publishing live AND an analytics-ingestion service (per-platform API + OAuth + sync).
@@ -245,6 +302,14 @@ The column is live; 0 episodes linked yet, so per-character cost has the seam bu
   "advisory/pipeline-measured" framing).
 - **Cost tiers** — Tier 1 (shipped) → Tier 2 (per-character, shipped; data at D-1) → Tier 3
   (ROI, after publishing + analytics).
+- **Architecture (2026-07-01, operator GO)** — **two repos** (not a monorepo) + **`pg_jsonschema`**
+  DB-CHECK on shared jsonb + **shared generated types** + **expand/contract migration
+  choreography**; **coordinator deferred**. A monorepo would forfeit per-repo agent isolation
+  (a safety property); schema-rejection is the safety net working, not a merge signal.
+  Revisit only on a real coordinated-change bottleneck. (§4.D-arch.)
+- **Anti-bias review rule** — an author may not pre-*lean* a fork; reviews present even-handed
+  options + a forced steelman (extends `AGENTS.md` rule 9). Live-validated: it reversed the
+  casting-provider lean to the "dumb receiver."
 
 ---
 
@@ -256,8 +321,13 @@ The column is live; 0 episodes linked yet, so per-character cost has the seam bu
 - **📮 Coordination Log** (`38fd346e-22d2-8133-bd2e-e5b7f97f7c2e`) — the cross-team message
   bus, with an **Open Cross-Team Items tracker** at the top (read it instead of opening every
   thread). New dated pipeline↔dashboard exchanges and pipeline build/lesson pages are
-  parented under it. **Keep the tracker current as state changes.** As of 2026-06-30 every
-  cross-team item is CLOSED/CONFIRMED except the cosmetic HQ residue (§4.F).
+  parented under it. **Keep the tracker current as state changes.** As of **2026-07-01** the
+  open tracker rows are: **Casting phase-2** (🟡 awaiting operator GO), **per-character cost**
+  (🟡 low-urgency, data-blocked), and the **Process Learnings Ledger** (🟡 adopt the append
+  habit — both teams log a one-liner when a lesson surfaces, before it's encoded into
+  `AGENTS.md`, so insights survive encoding lag). The **repo-consolidation/coordinator**
+  question is now **✅ OPERATOR GO · DECIDED** (§4.D-arch). Everything else is CLOSED/CONFIRMED
+  except the cosmetic HQ residue (§4.F).
 - Repo memory: `docs/HANDOFF.md` (full), this file (fast path), `GATES.md`, `DIRECTION.md`,
   `docs/contracts/data-contract.md`, `docs/slices/*`, `docs/design/*`.
 - **Honest caveats carried forward:** Slice 1 foundation was Claude-solo/Claude-verified
