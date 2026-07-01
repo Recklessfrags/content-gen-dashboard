@@ -55,6 +55,48 @@ Every agent (Architect, Designer, Builder, and any sub-agent) reads this first.
    decision, around coordination-touching work, and **before ending a session**.
    **Re-fetch HQ before relying on it** (it changes between sessions; a cached view is
    how stale-state bugs happen). This is model-judgment, not a hook.
+8. **Triage questions before spending operator turnaround (three buckets)** — when the
+   team has a question for the operator, the Architect sorts it **first**; a pre-vet that
+   rubber-stamps is worse than none (it launders a guess), so the buckets are gated:
+   - **Bucket 1 — already answered** by a doc/contract/locked decision: quote the source,
+     act **without** the operator.
+   - **Bucket 2 — derivable AND cheap-and-reversible**: reason it from the constraints and
+     **act on it now — do NOT wait on the operator.** Return the answer **plus its
+     derivation** as a proposal the asker can flag, **and log a receipt to the Coordination
+     Log** (question · sources · derivation · scope-limit · why-not-bucket-3 · operator-ack
+     ∈ pending|acknowledged|rejected). The receipt exists so the operator can review the
+     one-off call **asynchronously** — `pending` means "proceeding, flag me if wrong," not
+     "blocked waiting for ack." **Two hard exits back to bucket 3:** (a) it would spend
+     money, touch a live/prod surface, or commit architecture **the other team** (the
+     pipeline — a separate repo/workforce) builds on; (b) the answer would become
+     **precedent / a standing rule**.
+   - **Bucket 3 — operator-only** (held hard even when derivable): irreversible/external
+     (publish, spend, prod/live), **brand & legal** (any GREEN/YELLOW/RED, fact-anchor,
+     engagement floor), **product direction** (scope, priorities, what's next), and anything
+     expensive-if-wrong that can't be falsified cheaply. Surface as a **sharpened question +
+     recommendation**, never a raw pass-through. Derivability is a *floor* for buckets 1/2,
+     **not** the only gate — the hard exits force bucket 3 regardless. (Adopted from the
+     pipeline's ratified rule, 2026-06-30.)
+9. **Every change gets an independent cross-vendor review before it lands** — sharpens
+   rule 2 ("no one grades their own work") into concrete gates:
+   - **Gate = the push/merge to a shared/handoff branch or the default branch.** Throwaway
+     local WIP is exempt; the gate is *landing where another session or the operator treats
+     it as real*.
+   - **Reviewer is a different vendor than the author** (our split: Codex builds → Gemini +
+     the Architect review; **Architect/Claude-authored specs, proposals, and governance/HQ
+     docs → Gemini reviews before they land**). "Different vendor than the author" is the
+     principle, not "Gemini specifically."
+   - **The reviewer grades severity from the raw diff** — the author does **not** pre-label
+     it "low-risk" to dodge scrutiny. A genuine typo gets a quick confirming pass; a
+     governance rule / money-path / acceptance-criterion change gets a full adversarial,
+     **default-NOT-PASS** pass.
+   - **Same-vendor can't self-bless** (even a fresh subagent may triage but not satisfy the
+     gate); if no different-vendor reviewer is available, don't push/merge. **A fix the
+     review prompts is re-audited, not self-blessed** ("I committed it" ≠ "it was ratified").
+   - **Applies to docs and specs too**, not just code. **Review the *aggregate* diff that
+     will actually land**, not each edit in isolation — isolated-edit reviews hide
+     interaction bugs (the lesson that motivated this). (Adopted from the pipeline's
+     ratified rule, 2026-06-30.)
 
 ## Git policy (critical)
 
