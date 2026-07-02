@@ -44,29 +44,25 @@ the Rule-9 cross-vendor gate (2026-07-01 architecture review — 4 gaps below fo
 4. **Per-character cost (Tier-2) + episode↔character drill-down** _(pipeline-gated data)_
    - Reads `episodes.character_id` (schema live; 0 rows until the pipeline runs a
      character-linked episode — Mad Dog → Acoustic Kitty). Fills in for free at that run.
-5. **Channel-onboarding auto-fill** — **⏸ ON HOLD (operator, 2026-07-02: "put
-   channel creation on hold… we need to finish the voice agent work").** Do NOT
-   forget: the operator has more channel ideas queued and explicitly asked that this
-   be recorded. The pipeline prerequisite is DONE (their onboarding recipe merged
-   2026-07-02, §C guideline/must-do split canonical), and manual channel creation
-   works on all screen sizes (mobile bar shipped PR #46, placement fixed PR #47) — so when the hold lifts,
-   the auto-fill editor (brief-in → researched draft-out) is immediately buildable.
-   Original scope: _(future surface; DIRECTION being corrected)_
+5. **Channel-onboarding auto-fill** — **hold LIFTED 2026-07-02** (voice-work precondition
+   met). Decomposed + specced in `docs/slices/slice-channel-onboarding.md`. Status:
+   **E1 (on-creation persona auto-suggest) ✅ SHIPPED** (PR #58 — curated pure mapping →
+   advisory hint, 10/10 gates); **E2 (guideline auto-fill editor) DEFERRED** (blocked on
+   the unbuilt channel-researcher + undecided cast-brief storage). The operator has more
+   channel ideas queued. Original scope: _(future surface; DIRECTION being corrected)_
    - Per-channel **GUIDELINE** selection fields only (archetype/audience/hook-mix/vocab).
      Craft **MUST-DOs** are enforced by pipeline graders/sentinels — **never editable
      dashboard fields** (or a user drifts away from the law). Research per **sub-niche +
      archetype**, not broad genre; add staleness triggers.
    - The **channel-researcher is operator-invoked** (dashboard-side), outputs a cast brief
      into the Casting Studio, and **never writes `characters`**.
-   - **Auto-suggest a Casting-Card persona on channel creation** _(operator ask, 2026-07-02)._
-     Today the Casting Card's persona archetype bank (`src/lib/castingPhrases.ts` /
-     `docs/design/casting-phrase-bank.md`) is a **static, human-curated list** that does NOT
-     grow when a channel is created. Desired: when onboarding creates a channel, propose (or
-     seed) a matching persona archetype for the Card — the same "AI-expand / punch-up" family
-     Fable deferred to phase 2 (`slice-casting-voice-upgrade.md` §3). Quality tradeoff to
-     decide: keep curated-only (vetted prose, no robotic auto-text) vs. LLM-generated
-     personas (needs an `enrich`-style edge action + output linting). Fold into onboarding
-     scoping; no build until the hold lifts.
+   - **Auto-suggest a Casting-Card persona on channel creation** — **✅ SHIPPED as E1**
+     (PR #58; curated-only was chosen per the frozen §3 decision — no LLM/spend). Curated
+     pure mapping `src/lib/suggestPersona.ts` (channel fields → `PERSONA_BANK` chip) →
+     advisory hint in `ChannelProfilesPanel`; mapping table is operator-redlinable data.
+     The LLM-generated ("AI-expand / punch-up") variant stays **phase-2 deferred**
+     (`slice-casting-voice-upgrade.md` §3); **E1.b** (seed the chip into the Casting Studio
+     for a channel-linked character) deferred — the character↔channel link is loose today.
    - ⚠️ **Gap (review 2026-07-01):** the cast brief's **storage destination is undecided** —
      if it lands in a `channel_profiles` jsonb column the worker reads, that's a seam +
      migration item. Decide when scoping onboarding.
