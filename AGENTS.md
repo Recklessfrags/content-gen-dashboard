@@ -55,10 +55,13 @@ never override it):
 - **L-2 · The "suerta" reviewer (2026-07-02)** — the orchestrating Architect is not
   the final Architect-side reviewer on important slices (spec-author blind spots).
   Before landing anything touching a migration, a money path, or a shared contract,
-  spawn a **fresh independent Fable-5 agent ("suerta")** to review the aggregate
+  spawn a **fresh independent Claude agent ("suerta")** to review the aggregate
   working-tree diff Architect-style — *in addition to* the cross-vendor gate, never
   a substitute (suerta is same-vendor; governance rule 4 stands). Live-validated day
-  one: suerta caught a BLOCKER three prior review passes missed.
+  one: suerta caught a BLOCKER three prior review passes missed. _Tier per
+  governance rule 33 (2026-07-02 model-budget adoption): the suerta seat defaults
+  to **Opus** and escalates to Fable-5 by judgment when the review itself is
+  high-stakes; never down-tiered below the work's stakes._
 - **L-3 · Terse operator updates (2026-07-01)** — per task, chat carries at most:
   one line at start, a prompt only on a real problem or human-only decision
   (sharpened question + recommendation, concise), and the final result. No
@@ -68,7 +71,19 @@ never override it):
 - **L-4 · Our vendor split for the review gate** — Codex builds → Gemini + the
   Architect review; Architect-authored specs/proposals/governance docs → Gemini
   reviews before they land. "Different vendor than the author" is the principle,
-  not "Gemini specifically."
+  not "Gemini specifically." _Rule-33 staffing (2026-07-02): for high-stakes
+  changes (money-path / governance / contract / AC) the two distinct-lens seats
+  are **Gemini (cross-vendor anchor — always required, rule 4)** + **suerta
+  (L-2)**; suerta adds the second lens but never substitutes for the cross-vendor
+  seat._
+- **L-5 · Tier→model mapping (2026-07-02, per governance rules 30–34)** — top
+  tier = **Claude Fable-5** (hardest architecture/forks, high-stakes review
+  escalation); capable default = **Claude Opus** (Architect sessions, suerta
+  default, ordinary judgment work); cheaper tiers = **Claude Sonnet/Haiku**
+  (coordination errands, bulk-mechanical sweep subagents — never judgment or
+  shared-surface work); builder seat = **Codex**; cross-vendor reviewer =
+  **Gemini** (`scripts/gemini.sh`, prompt on STDIN, first arg = model;
+  `gemini-3.1-pro-preview` default, flash for light passes).
 
 ## Git policy (critical)
 

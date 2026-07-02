@@ -190,3 +190,57 @@ Before asking a human, sort the question:
     of a vibe. (For interactive or UI work this expands to interaction and
     responsive states — e.g. hover, focus, active, disabled, and small/medium/large
     sizes.)
+
+## Spend the model budget deliberately
+
+Capability costs money; match the spend to the work. The goal is **right-sizing —
+spend where the extra capability changes the outcome, economize where it doesn't** —
+not minimizing usage for its own sake. Under-spending a hard, high-stakes task is as
+much a failure as over-spending a routine one. These rules assume a tiered model
+lineup — a most-capable/most-expensive **top tier**, a capable **default**, and one
+or more **cheaper tiers** — and a session whose running cost grows with its
+accumulated context. A project's memory names the concrete models that fill each
+tier.
+
+30. **Scope a session by context weight, not task size.** A small task in a *fresh*
+    session is nearly free — orientation is just the memory plus a handoff pointer.
+    The expensive thing is a small task appended to a *large* context. Batch related
+    small tasks while the context is still small, and **end the session once the
+    context has outgrown the work remaining** — hand off to a fresh one rather than
+    paying top-of-context rates for a trailing errand. The trigger to stop is
+    context weight, not a task count.
+31. **Match the tier to the stakes; move in both directions deliberately.** Run
+    sessions on the standard capable model by default. **Escalate to the top tier
+    for genuinely high-stakes or hardest work** — the thorniest architecture and
+    fork decisions, where the extra capability changes the outcome — by judgment,
+    not permission: don't avoid the top tier out of frugality when the task warrants
+    it. It is still *not* the default, so don't reach for it on routine work either.
+    Use the **cheapest adequate tier for coordination errands** (status updates,
+    tracker/log touch-ups, routine replies). **Down-shift mid-session** when the
+    remaining work turns mechanical; most runtimes let you switch model without
+    restarting.
+32. **Delegate bulk reading and sweeps to a down-tiered subagent; keep only
+    conclusions in the main context.** When work means paging through many files,
+    logs, or search hits, spawn a subagent on a cheaper tier to do the reading and
+    return *the conclusion* — the expensive main session never pages through
+    material it could have had summarized. This compounds rule 30 by keeping the
+    main context small.
+33. **High-stakes changes get two independent reviewers with distinct lenses; small
+    diffs keep the single severity-graded pass.** For money-path, governance,
+    contract, or acceptance-criteria changes, one adversarial pass is not enough —
+    route the diff to **two independent reviewers looking through different
+    lenses**. The independence rules still bind: every reviewer is a **different
+    vendor than the author** (rule 4). Do not economize on the reviewer's
+    capability: the review seat is **sized to the stakes like any other work (rule
+    31)** — the capable default tier for ordinary reviews, **escalating to the top
+    tier by judgment when the review itself is high-stakes and the extra capability
+    would change what it catches** (finding a subtle flaw is often harder than
+    writing it) — and never down-tiered below the work's stakes. A genuine typo or a
+    low-stakes doc touch still gets rule 5's single severity-graded pass; the
+    two-reviewer bar is for changes that are expensive to get wrong.
+34. **Fetch shared coordination state by the specific page/row you need, not the
+    whole log.** The shared tracker/coordination store grows without bound; paging
+    the entire thing into context to read one row is the same waste as rule 32's
+    un-summarized sweep. Fetch the child page, row, or query result you actually
+    need. Keeping the log pruned — archiving closed rows so the live view stays
+    small — is the write-side complement (see rule 21).
