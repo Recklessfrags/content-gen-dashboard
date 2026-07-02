@@ -58,6 +58,15 @@ the Rule-9 cross-vendor gate (2026-07-01 architecture review — 4 gaps below fo
      archetype**, not broad genre; add staleness triggers.
    - The **channel-researcher is operator-invoked** (dashboard-side), outputs a cast brief
      into the Casting Studio, and **never writes `characters`**.
+   - **Auto-suggest a Casting-Card persona on channel creation** _(operator ask, 2026-07-02)._
+     Today the Casting Card's persona archetype bank (`src/lib/castingPhrases.ts` /
+     `docs/design/casting-phrase-bank.md`) is a **static, human-curated list** that does NOT
+     grow when a channel is created. Desired: when onboarding creates a channel, propose (or
+     seed) a matching persona archetype for the Card — the same "AI-expand / punch-up" family
+     Fable deferred to phase 2 (`slice-casting-voice-upgrade.md` §3). Quality tradeoff to
+     decide: keep curated-only (vetted prose, no robotic auto-text) vs. LLM-generated
+     personas (needs an `enrich`-style edge action + output linting). Fold into onboarding
+     scoping; no build until the hold lifts.
    - ⚠️ **Gap (review 2026-07-01):** the cast brief's **storage destination is undecided** —
      if it lands in a `channel_profiles` jsonb column the worker reads, that's a seam +
      migration item. Decide when scoping onboarding.
