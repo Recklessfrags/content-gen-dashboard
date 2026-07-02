@@ -71,18 +71,18 @@ export const PACE_BANK: readonly PhraseChip[] = [
 ];
 
 export const PERSONA_BANK: readonly PhraseChip[] = [
-  { id: "deadpan-demystifier", label: "Deadpan demystifier", clause: "a sharp explainer who finds the rules genuinely funny" },
-  { id: "drill-instructor", label: "Drill instructor", clause: "a relentless drill instructor hammering every point home" },
-  { id: "warm-grandmother", label: "Warm grandmother", clause: "a warm grandmother sharing hard-won kitchen wisdom" },
-  { id: "true-crime-skeptic", label: "True-crime skeptic", clause: "a true-crime narrator quietly picking apart the official story" },
-  { id: "late-night-confessor", label: "Late-night confessor", clause: "a late-night radio host letting you in on a secret" },
-  { id: "carnival-barker", label: "Carnival barker", clause: "a carnival barker with a glint in the eye and a pitch to make" },
-  { id: "jaded-insider", label: "Jaded insider", clause: "a jaded industry insider who has seen how it all really works" },
-  { id: "giddy-obsessive", label: "Giddy obsessive", clause: "a giddy obsessive who cannot wait to show you the best part" },
-  { id: "no-nonsense-authority", label: "No-nonsense authority", clause: "a no-nonsense authority laying the facts down flat" },
-  { id: "conspiratorial-whisperer", label: "Conspiratorial whisperer", clause: "a conspiratorial whisperer leaning in close to the mic" },
-  { id: "wry-professor", label: "Wry professor", clause: "a wry professor making dry material land with a smirk" },
-  { id: "patient-guide", label: "Patient guide", clause: "a patient guide walking you through it step by careful step" },
+  { id: "wry-regulatory-insider", label: "Wry regulatory insider", clause: "a documentary explainer who reads the fine print and finds the rules genuinely funny" },
+  { id: "drill-sergeant-historian", label: "Drill-sergeant historian", clause: "a theatrical drill-sergeant historian who treats every forgotten footnote like a personal scandal, outrage played for laughs" },
+  { id: "warm-grandmother", label: "Warm grandmother", clause: "a warm grandmother handing you a cup of tea, gentle, unhurried, and kind" },
+  { id: "hushed-naturalist", label: "Hushed naturalist", clause: "a hushed nature-documentary narrator following small dramas with quiet awe" },
+  { id: "true-crime-skeptic", label: "True-crime skeptic", clause: "a true-crime narrator quietly dismantling the official story one detail at a time" },
+  { id: "late-night-confessor", label: "Late-night confessor", clause: "a late-night radio host leaning into the mic to let you in on a secret" },
+  { id: "deadpan-absurdist", label: "Deadpan absurdist", clause: "a deadpan reporter delivering the completely ridiculous with a perfectly straight face" },
+  { id: "hardboiled-noir-narrator", label: "Hardboiled noir narrator", clause: "a hardboiled noir narrator recounting it all like a case that went cold" },
+  { id: "carnival-barker", label: "Carnival barker", clause: "a carnival barker with a glint in the eye and something to sell you" },
+  { id: "jaded-insider", label: "Jaded insider", clause: "a jaded insider who has seen exactly how the sausage gets made and is not impressed" },
+  { id: "giddy-obsessive", label: "Giddy obsessive", clause: "a giddy obsessive who cannot wait one more second to show you the best part" },
+  { id: "steady-mentor", label: "Steady mentor", clause: "a steady mentor who genuinely wants you to get it, patient and encouraging" },
 ];
 
 export const EMOTION_BANK: readonly PhraseChip[] = [
