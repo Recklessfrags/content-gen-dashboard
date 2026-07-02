@@ -148,6 +148,14 @@ QA baseline + #37 + Casting 2a):**
   diff review → real-artifact ratification.
 - **QA creds** now live only in gitignored `.env.local` (`RATIFY_EMAIL`/`RATIFY_PASSWORD`);
   operator still owns rotating the password (§2 security follow-up stands).
+- **`voice_templates` slice** ✅ (2026-07-02) — recipe library in the Casting Studio
+  (save/apply/delete, no-audio-in-library credit guard) + `characters.voice_recipe`
+  provenance; **`dash_0004` APPLIED + VALIDATED live**. Money-path
+  hardened (create/write split, zero-row guard, retry skips the EL create, dead-voice
+  cache purge). Review chain: Gemini aggregate + fresh-Codex triage + Gemini re-audit +
+  **"suerta"** (independent Fable-5 Architect-side reviewer — now an AGENTS.md rule-9
+  clause for migration/money-path/contract slices; it caught a BLOCKER the other three
+  passes missed). ADR-005 badge flip also shipped (PR #40).
 
 **Migrations.** Repo tracks **5 dashboard-owned** migrations: `0001_init`,
 `0002_bible_revisions`, `dash_0001_casting_usage`, `dash_0002_channel_profiles`,

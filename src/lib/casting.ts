@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Json } from "@/lib/database.types";
 import type { SupabaseCompatibleDatabase } from "@/lib/supabase/compat";
 import type { Character } from "@/lib/types";
 
@@ -151,6 +152,35 @@ export const VOICE_DESIGN_DEFAULTS: VoiceDesignPrompt = {
   gender: "androgynous",
 };
 
+export type VoiceRecipe = {
+  design_prompt: VoiceDesignPrompt;
+  voice_settings: VoiceSettings;
+  template_name?: string;
+};
+
+export function clampVoiceDesignPrompt(
+  prompt: Partial<VoiceDesignPrompt> | null | undefined,
+): VoiceDesignPrompt {
+  const input = prompt ?? {};
+  const gender =
+    input.gender === "male" || input.gender === "female" || input.gender === "androgynous"
+      ? input.gender
+      : VOICE_DESIGN_DEFAULTS.gender;
+
+  return {
+    age: clampNumber(input.age, 0, 1, VOICE_DESIGN_DEFAULTS.age),
+    grit: clampNumber(input.grit, 0, 1, VOICE_DESIGN_DEFAULTS.grit),
+    comedy_menace: clampNumber(
+      input.comedy_menace,
+      0,
+      1,
+      VOICE_DESIGN_DEFAULTS.comedy_menace,
+    ),
+    bombast: clampNumber(input.bombast, 0, 1, VOICE_DESIGN_DEFAULTS.bombast),
+    gender,
+  };
+}
+
 type Bucket = "low" | "mid" | "high";
 
 function bucket(value: number): Bucket {
@@ -245,6 +275,7 @@ export type AuditionCandidate = {
   audio_base_64: string; // ephemeral; not persisted server-side
   media_type: string;
   prompt_state: VoiceDesignPrompt; // stamped for a reproducible tournament
+  template_name?: string; // stamped at generation time for recipe provenance
 };
 
 type DesignResponse = {
@@ -353,6 +384,39 @@ export async function saveVoiceWinner(
     throw new CastingError("ElevenLabs did not return a voice id.");
   }
   return data.voice_id;
+}
+
+/**
+ * DB WRITE: attach an already-created voice to a character with its reproducible
+ * recipe. This is intentionally separate from CREATE so retries after an RLS /
+ * stale-id failure do not spend credits or re-consume a generated preview.
+ */
+export async function writeCastToCharacter(
+  client: CastingClient,
+  characterId: string,
+  voiceId: string,
+  settings: Partial<VoiceSettings>,
+  recipe: VoiceRecipe,
+): Promise<void> {
+  const nextSettings = clampVoiceSettings(settings);
+  const nextRecipe: VoiceRecipe = {
+    design_prompt: clampVoiceDesignPrompt(recipe.design_prompt),
+    voice_settings: nextSettings,
+    ...(recipe.template_name ? { template_name: recipe.template_name } : {}),
+  };
+  const { error: updateError } = await client
+    .from("characters")
+    .update({
+      voice_id: voiceId,
+      voice_settings: nextSettings as unknown as Json,
+      voice_recipe: nextRecipe as unknown as Json,
+    })
+    .eq("id", characterId)
+    .select("id")
+    .single();
+  if (updateError) {
+    throw new CastingError(`Saved the voice but could not write it to the character: ${updateError.message}`);
+  }
 }
 
 /**

@@ -9,11 +9,15 @@ import {
   loadBracket,
   reconcileBracket,
   removeFavorite,
+  saveBracket,
   setPool,
   setWinner,
+  writeCastToCharacter,
   type AuditionCandidate,
   type BracketState,
+  type VoiceRecipe,
 } from "@/lib/casting";
+import { purgeCreatedVoiceId } from "@/components/controlroom/CastingStudioPanel";
 
 function candidate(id: string): AuditionCandidate {
   return {
@@ -258,6 +262,26 @@ describe("bracket storage", () => {
 
     expect(loadBracket("char_1").lockedVoiceId).toBe("voice-live");
   });
+
+  it("preserves generation-time template provenance through localStorage", () => {
+    const templated = { ...candidate("a"), template_name: "Archive Profile A" };
+    const state: BracketState = {
+      ...emptyBracket("char-1"),
+      pool: [templated],
+      favorites: [templated],
+      winner: templated,
+      lockedVoiceId: "voice-live",
+    };
+    const { store } = stubLocalStorage();
+
+    saveBracket(state);
+    expect(JSON.parse(store.get("casting_bracket_char-1") ?? "{}").pool[0].template_name).toBe(
+      "Archive Profile A",
+    );
+    expect(loadBracket("char-1").pool[0]?.template_name).toBe("Archive Profile A");
+    expect(loadBracket("char-1").favorites[0]?.template_name).toBe("Archive Profile A");
+    expect(loadBracket("char-1").winner?.template_name).toBe("Archive Profile A");
+  });
 });
 
 describe("isCast", () => {
@@ -265,5 +289,104 @@ describe("isCast", () => {
     expect(isCast({ voice_id: "voice_123" })).toBe(true);
     expect(isCast({ voice_id: "" })).toBe(false);
     expect(isCast({ voice_id: null })).toBe(false);
+  });
+});
+
+describe("writeCastToCharacter", () => {
+  const recipe: VoiceRecipe = {
+    design_prompt: {
+      age: 0.5,
+      grit: 0.5,
+      comedy_menace: 0.5,
+      bombast: 0.5,
+      gender: "androgynous",
+    },
+    voice_settings: {
+      stability: 0.5,
+      similarity_boost: 0.75,
+      style: 0,
+      speed: 1,
+      use_speaker_boost: true,
+    },
+    template_name: "Archive Profile A",
+  };
+
+  function mockCharactersUpdate(result: { error: { message: string } | null }) {
+    const single = vi.fn(async () => result);
+    const select = vi.fn(() => ({ single }));
+    const eq = vi.fn(() => ({ select }));
+    const update = vi.fn(() => ({ eq }));
+    const from = vi.fn(() => ({ update }));
+
+    return {
+      client: { from },
+      from,
+      update,
+      eq,
+      select,
+      single,
+    };
+  }
+
+  it("writes cast fields through select(id).single() so zero-row updates surface as errors", async () => {
+    const mock = mockCharactersUpdate({ error: null });
+
+    await writeCastToCharacter(
+      mock.client as never,
+      "char-1",
+      "voice-live",
+      { stability: 2, speed: 0.1 },
+      recipe,
+    );
+
+    expect(mock.from).toHaveBeenCalledWith("characters");
+    expect(mock.update).toHaveBeenCalledWith({
+      voice_id: "voice-live",
+      voice_settings: {
+        stability: 1,
+        similarity_boost: 0.75,
+        style: 0,
+        speed: 0.7,
+        use_speaker_boost: true,
+      },
+      voice_recipe: {
+        design_prompt: recipe.design_prompt,
+        voice_settings: {
+          stability: 1,
+          similarity_boost: 0.75,
+          style: 0,
+          speed: 0.7,
+          use_speaker_boost: true,
+        },
+        template_name: "Archive Profile A",
+      },
+    });
+    expect(mock.eq).toHaveBeenCalledWith("id", "char-1");
+    expect(mock.select).toHaveBeenCalledWith("id");
+    expect(mock.single).toHaveBeenCalledOnce();
+  });
+
+  it("throws the recovery message when the selected update returns an error", async () => {
+    const mock = mockCharactersUpdate({ error: { message: "JSON object requested, multiple (or no) rows returned" } });
+
+    await expect(
+      writeCastToCharacter(mock.client as never, "missing-char", "voice-live", recipe.voice_settings, recipe),
+    ).rejects.toThrow(
+      "Saved the voice but could not write it to the character: JSON object requested, multiple (or no) rows returned",
+    );
+  });
+});
+
+describe("purgeCreatedVoiceId", () => {
+  it("drops every generated-voice cache entry that points at the deleted ElevenLabs voice", () => {
+    const createdVoiceIds = new Map([
+      ["gen-a", "voice_A"],
+      ["gen-a-duplicate", "voice_A"],
+      ["gen-b", "voice_B"],
+    ]);
+
+    purgeCreatedVoiceId(createdVoiceIds, "voice_A");
+
+    expect([...createdVoiceIds.entries()]).toEqual([["gen-b", "voice_B"]]);
   });
 });
