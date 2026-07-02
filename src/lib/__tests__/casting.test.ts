@@ -1,11 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addFavorite,
+  GENERATION_DEFAULTS,
+  GENERATION_RANGES,
+  KIT_DESCRIPTION_SCAFFOLD,
+  clampGeneration,
+  clampGuidanceScale,
+  clampSeed,
   clampVoiceSettings,
   composeVoiceDescription,
   discard,
   emptyBracket,
   isCast,
+  isValidVoiceDescription,
   loadBracket,
   reconcileBracket,
   removeFavorite,
@@ -19,11 +26,30 @@ import {
 } from "@/lib/casting";
 import { purgeCreatedVoiceId } from "@/components/controlroom/CastingStudioPanel";
 
+const builderState = {
+  gender: "female",
+  ageBand: "40s",
+  accent: "general-american",
+  timbre: "warm-smooth",
+  pitch: "downward-authority",
+  pace: "measured-unhurried",
+  persona: "deadpan-demystifier",
+  emotion: "dry-amused",
+};
+
 function candidate(id: string): AuditionCandidate {
   return {
     generated_voice_id: id,
     audio_base_64: `audio-${id}`,
     media_type: "audio/mpeg",
+    voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+    preview_text_raw:
+      "This is a representative audition script with a setup, a turn, and enough punctuation to shape delivery.",
+    model_id: "eleven_ttv_v3",
+    guidance_scale: 5,
+    seed: null,
+    quality: null,
+    builder_state: builderState,
     prompt_state: {
       age: 0.5,
       grit: 0.5,
@@ -107,6 +133,45 @@ describe("clampVoiceSettings", () => {
   });
 });
 
+describe("generation clamps", () => {
+  it("clamps guidance scale and uses defaults for invalid inputs", () => {
+    expect(clampGuidanceScale(-10)).toBe(0);
+    expect(clampGuidanceScale(150)).toBe(100);
+    expect(clampGuidanceScale("bad")).toBe(GENERATION_DEFAULTS.guidance_scale);
+  });
+
+  it("clamps seeds to the documented ElevenLabs range and omits invalid seeds", () => {
+    expect(clampSeed(null)).toBeNull();
+    expect(clampSeed("")).toBeNull();
+    expect(clampSeed(1.5)).toBeNull();
+    expect(clampSeed(-1)).toBe(0);
+    expect(clampSeed(GENERATION_RANGES.seed.max + 1)).toBe(GENERATION_RANGES.seed.max);
+  });
+
+  it("normalizes a full generation block", () => {
+    expect(
+      clampGeneration({
+        model_id: "bad" as never,
+        guidance_scale: -1,
+        seed: GENERATION_RANGES.seed.max + 10,
+        quality: 2,
+      }),
+    ).toEqual({
+      model_id: "eleven_ttv_v3",
+      guidance_scale: 0,
+      seed: GENERATION_RANGES.seed.max,
+      quality: 1,
+    });
+  });
+});
+
+describe("isValidVoiceDescription", () => {
+  it("enforces the hard 200 character minimum after trimming", () => {
+    expect(isValidVoiceDescription("x".repeat(199))).toBe(false);
+    expect(isValidVoiceDescription(` ${"x".repeat(200)} `)).toBe(true);
+  });
+});
+
 describe("composeVoiceDescription", () => {
   it("maps slider buckets to deterministic prose", () => {
     expect(
@@ -132,6 +197,65 @@ describe("composeVoiceDescription", () => {
         gender: "androgynous",
       }),
     ).toContain("a middle-aged voice, with a touch of rasp, wry and deadpan");
+  });
+});
+
+describe("generateVoicePreviews", () => {
+  it("sends raw description verbatim with clamped generation params and stamps candidates", async () => {
+    const invoke = vi.fn(async () => ({
+      data: {
+        previews: [
+          {
+            generated_voice_id: "gen-1",
+            audio_base_64: "audio",
+            media_type: "audio/mpeg",
+          },
+        ],
+      },
+      error: null,
+    }));
+    const client = { functions: { invoke } };
+    const description = `${KIT_DESCRIPTION_SCAFFOLD}\nDo not compose this from sliders.`;
+    const preview =
+      "A real audition script opens on a familiar detail, pauses for the reveal, and then lands the final turn with punctuation doing the work.";
+
+    const result = await import("@/lib/casting").then(({ generateVoicePreviews }) =>
+      generateVoicePreviews(client as never, {
+        voice_description_raw: description,
+        preview_text: preview,
+        model_id: "bad-model",
+        guidance_scale: 500,
+        seed: GENERATION_RANGES.seed.max + 99,
+        quality: -2,
+        builder_state: builderState,
+      }),
+    );
+
+    expect(invoke).toHaveBeenCalledWith("casting-proxy", {
+      body: {
+        action: "design",
+        voice_description: description,
+        text: preview,
+        model_id: "eleven_ttv_v3",
+        guidance_scale: 100,
+        seed: GENERATION_RANGES.seed.max,
+        quality: -1,
+      },
+    });
+    expect(result).toEqual([
+      {
+        generated_voice_id: "gen-1",
+        audio_base_64: "audio",
+        media_type: "audio/mpeg",
+        voice_description_raw: description,
+        preview_text_raw: preview,
+        model_id: "eleven_ttv_v3",
+        guidance_scale: 100,
+        seed: GENERATION_RANGES.seed.max,
+        quality: -1,
+        builder_state: builderState,
+      },
+    ]);
   });
 });
 
@@ -295,11 +419,16 @@ describe("isCast", () => {
 describe("writeCastToCharacter", () => {
   const recipe: VoiceRecipe = {
     design_prompt: {
-      age: 0.5,
-      grit: 0.5,
-      comedy_menace: 0.5,
-      bombast: 0.5,
-      gender: "androgynous",
+      voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+      preview_text_raw:
+        "This is a representative audition script with a setup, a turn, and enough punctuation to shape delivery.",
+      builder_state: builderState,
+    },
+    generation: {
+      model_id: "eleven_ttv_v3",
+      guidance_scale: 7,
+      seed: GENERATION_RANGES.seed.max + 1,
+      quality: 2,
     },
     voice_settings: {
       stability: 0.5,
@@ -350,7 +479,18 @@ describe("writeCastToCharacter", () => {
         use_speaker_boost: true,
       },
       voice_recipe: {
-        design_prompt: recipe.design_prompt,
+        design_prompt: {
+          voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+          preview_text_raw:
+            "This is a representative audition script with a setup, a turn, and enough punctuation to shape delivery.",
+          builder_state: builderState,
+        },
+        generation: {
+          model_id: "eleven_ttv_v3",
+          guidance_scale: 7,
+          seed: GENERATION_RANGES.seed.max,
+          quality: 1,
+        },
         voice_settings: {
           stability: 1,
           similarity_boost: 0.75,

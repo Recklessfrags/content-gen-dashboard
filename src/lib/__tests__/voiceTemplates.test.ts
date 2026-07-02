@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { GENERATION_DEFAULTS, KIT_DESCRIPTION_SCAFFOLD } from "@/lib/casting";
 import {
   buildVoiceTemplateInsert,
   templateRecipe,
@@ -76,6 +77,7 @@ describe("buildVoiceTemplateInsert", () => {
         comedy_menace: 0.5,
         bombast: 0.25,
         gender: "male",
+        generation: GENERATION_DEFAULTS,
       },
       voice_settings: {
         stability: 0,
@@ -107,6 +109,74 @@ describe("templateRecipe", () => {
         comedy_menace: 0.25,
         bombast: 0.75,
         gender: "female",
+        voice_description_raw:
+          "an older, weathered female voice, smooth and clean, playful and comedic, bombastic and theatrical. Suited to narrating short-form video with a strong, characterful presence.",
+        preview_text_raw: "",
+      },
+      generation: GENERATION_DEFAULTS,
+      voice_settings: {
+        stability: 0,
+        similarity_boost: 1,
+        style: 0.4,
+        speed: 1.2,
+        use_speaker_boost: false,
+      },
+      template_name: "Courier",
+    });
+  });
+
+  it("round-trips raw description, preview text, and generation params", () => {
+    expect(
+      buildVoiceTemplateInsert({
+        name: " Raw Profile ",
+        designPrompt: {
+          voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+          preview_text_raw: "A representative audition line with a setup, a pause, and a reveal.",
+        },
+        generation: {
+          model_id: "eleven_ttv_v3",
+          guidance_scale: 12,
+          seed: 99,
+          quality: -2,
+        },
+        voiceSettings: {},
+      }).design_prompt,
+    ).toEqual({
+      voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+      preview_text_raw: "A representative audition line with a setup, a pause, and a reveal.",
+      generation: {
+        model_id: "eleven_ttv_v3",
+        guidance_scale: 12,
+        seed: 99,
+        quality: -1,
+      },
+    });
+
+    expect(
+      templateRecipe(
+        template({
+          design_prompt: {
+            voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+            preview_text_raw: "A representative audition line with a setup, a pause, and a reveal.",
+            generation: {
+              model_id: "eleven_ttv_v3",
+              guidance_scale: 12,
+              seed: 99,
+              quality: -2,
+            },
+          },
+        }),
+      ),
+    ).toEqual({
+      design_prompt: {
+        voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+        preview_text_raw: "A representative audition line with a setup, a pause, and a reveal.",
+      },
+      generation: {
+        model_id: "eleven_ttv_v3",
+        guidance_scale: 12,
+        seed: 99,
+        quality: -1,
       },
       voice_settings: {
         stability: 0,

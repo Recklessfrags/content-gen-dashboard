@@ -1,10 +1,11 @@
 # Slice — Casting Studio voice-design upgrade (rich persona + v3 + birth-certificate)
 
-_Author: Architect (Claude). **Status: FROZEN (v2, 2026-07-02).** §3 ruled **Option ①
-— retire sliders** (operator deferred "no preference" on a reviewed question →
-Architect recommendation applied: the KIT scaffold already covers ②'s blank-page
-argument and ① avoids re-introducing the composer the KIT blames). `quality` UI cut —
-Architect decision (derivable/reversible, rule 20; operator informed) — plumbing kept.
+_Author: Architect (Claude). **Status: FROZEN (v3, 2026-07-02).** §3 ruled the **Casting
+Card** — a chip builder that emits an editable rich paragraph (Fable-5 synthesis after
+the operator rejected the retire-vs-keep-sliders binary; Gemini sanity-checked; adoption
+was already delegated so it's build+inform, not a re-ask). Content + grammar:
+`docs/design/casting-phrase-bank.md`. `quality` UI cut — Architect decision
+(derivable/reversible, rule 20; operator informed) — plumbing kept.
 Gemini spec review (2026-07-02, `gemini-3.1-pro-preview`) = REQUEST-CHANGES;
 all verified findings folded (v2): `composeVoiceDescription` retained as a legacy
 read-side adapter regardless of §3 (was a §4/§12 contradiction that would blank/crash
@@ -75,30 +76,46 @@ makes the studio *produce* what the operator had to hand-craft outside it.
 - **The daily cap (25), auth/session gating, CORS, the delete path.** Untouched.
 - **Visual identity / 2b.** Separate slice.
 
-## 3. RULED — primary design-input mode = Option ① (retire sliders)
+## 3. RULED — the "Casting Card" (synthesis: chip builder → editable rich paragraph)
 
-_This fork was presented even-handedly (rule 17); Gemini's spec review forced-steelmanned
-all three options and ranked ② (sliders-seed-draft) first for ergonomics; the operator,
-on a separately-reviewed question, deferred ("no preference"), so the Architect
-recommendation stands._
+_History: the fork was first framed as retire-vs-keep sliders; Gemini steelmanned all
+three tabled options. The operator rejected the binary — "the original point of the
+sliders was to make it as easy as possible for the creator; maybe there's an alternative
+that solves both" — and directed a Fable-5 consult. Fable proposed the **Casting Card**;
+Gemini sanity-checked it (no fatal flaw; one-way sync is correct; add a re-tap
+overwrite guard) and ruled the adoption is **already delegated** (the operator asked for
+exactly this synthesis) → **build + inform, do not re-ask** (rule 18). Full design:
+`docs/design/casting-phrase-bank.md`._
 
-**RULING: Option ① — the rich free-text persona box is the single voice-design input;
-the 4 sliders (age/grit/comedy_menace/bombast) + gender toggle are removed from the UI.**
-Rationale: the one-tap **"insert KIT scaffold"** button (a static slot skeleton, not
-slider-derived prose) answers the blank-page ergonomics that were ②'s only advantage,
-while ① avoids re-introducing the very `composeVoiceDescription` one-liner the KIT
-blames for generic voices, and carries the least build/test/review surface.
+**RULING: the voice-design input is a "Casting Card" — six KIT-slot rows of tappable
+chips that live-assemble an editable ~200–600 char `voice_description` paragraph.** This
+solves both goals the operator named: **ease** (tap a few chips, quality-by-default) and
+**richness** (the string sent to EL is a full curated KIT-format paragraph, never a
+one-liner). It rides the pipes §§4–6/§8 build (`voice_description_raw` +
+`voice_recipe`) — **no migration, no edge-function change, zero runtime LLM spend**.
 
-**The persona box** is slot-ordered per KIT §1 rule 2 (audio-quality tag / age+gender+
-accent / timbre+grit / pitch+dynamics / pace+cadence / emotion+character), target
-~200–600 chars, hard-min 200 (shorter → generic). A **gender affordance is retained**
-only as a convenience that inserts/updates the gender clause in the box text (the box,
-not a discrete field, is the source of truth) — or is folded into the scaffold; Codex's
-call, as long as the string sent to EL is the operator-visible box text verbatim.
+- **Chips → curated rich clauses → assembler.** Each chip maps to a hand-authored clause
+  (curated phrase banks, `docs/design/casting-phrase-bank.md` → `src/lib/castingPhrases.ts`).
+  A pure, deterministic, snapshot-tested `assembleKitDescription(selections)` prepends
+  the fixed opener and joins clauses in KIT slot order (grammar in the phrase-bank doc).
+- **One-way sync, detach-on-edit, NEVER reverse-parse.** Tapping chips rewrites the
+  editable paragraph; a direct text edit **detaches** the card (chips greyed, "Reset to
+  picks" restores). Re-tapping a chip while detached **warns before overwriting** manual
+  edits (Gemini finding). Reverse-parsing text→chips is explicitly out (a known tar pit).
+- **Provenance:** `voice_description_raw` (the assembled/edited text sent to EL) stays the
+  canonical reproducibility record; `builder_state` (the chip picks) is stored alongside
+  it in `voice_recipe.design_prompt` for re-editing (§4). On re-open, if stored text ≠
+  reassembly of `builder_state`, open detached (text authoritative).
+- **Persona bank = operator-owned taste.** The Architect drafts it
+  (`casting-phrase-bank.md` § PERSONA); it goes to the operator to **redline** (their
+  channel roster) — a deliverable to review, not a blocking question.
+- **AI "punch it up"** (an LLM `enrich` action) is **deferred to a possible phase 2**
+  (spend + a new dependency); the curated banks are the floor, not the ceiling.
 
-`composeVoiceDescription` is **NOT deleted** — it survives as the legacy read-side
-adapter only (§4, §6, §8): displaying/loading pre-v3 slider-only recipes and templates.
-It is never used to build the string sent to EL for a new cast.
+The 4 sliders (age/grit/comedy_menace/bombast) + the old gender toggle are **removed
+from the UI**. `composeVoiceDescription` is **NOT deleted** — it survives as the legacy
+read-side adapter only (§4, §6, §8): displaying/loading pre-v3 slider-only recipes and
+templates. It is never used to build the string sent to EL for a new cast.
 
 ## 4. Data model — recipe birth-certificate (NO migration)
 
@@ -196,13 +213,17 @@ Rules that make this falsifiable (frozen regardless of the exact literals):
 
 ## 7. UI — `CastingStudioPanel.tsx` (states enumerated, rule 29)
 
-Input UI = §3 Option ① (rich text, sliders retired):
+Input UI = §3 Casting Card (`docs/design/casting-phrase-bank.md` is the content + grammar
+source of truth):
 
-- **Persona description box** (the single design input): slot-ordered, ~200–600 char
-  target, hard-min 200; a **"insert KIT scaffold"** button seeds the empty slot
-  skeleton (`KIT_DESCRIPTION_SCAFFOLD`, §6). The exact box text is what is sent to EL.
-  A gender convenience (§3) may insert/update the gender clause. The 4 sliders + their
-  `Prompt sent:` hint are **removed** from the panel.
+- **Casting Card** replaces the 4-slider block: a Gender pick + Age-band pick, then six
+  single-select chip rows (accent, timbre, pitch, pace, persona, emotion), each with an
+  **"Other…"** inline escape field. Tapping chips live-assembles the paragraph.
+- **Assembled paragraph** shows in an editable textarea (200–600 target, hard-min 200,
+  char gauge). Its text is what is sent to EL verbatim. Direct edits **detach** the card
+  (chips greyed + "Reset to picks"); re-tapping a chip while detached warns before
+  overwrite. One-way sync only — no reverse-parse.
+- The 4 sliders + the `Prompt sent:` hint are **removed** from the panel.
 
 - **Generation controls** (new): `guidance_scale` control (a slider or a
   low/mid/high preset that maps to concrete values — KIT §1 rule 4: run a spread),
@@ -286,6 +307,7 @@ quality is judged by the **operator audition** (G-9), not a script._
 | G-8 | **No contract / migration drift.** No new/changed migration; worker TTS path (`voice_id`+`voice_settings`) untouched; `voice_recipe`/templates remain worker-invisible; `next build` clean; `casting.test.ts` + `voiceTemplates.test.ts` green (updated for the new shape). | `git` diff of `supabase/migrations`; grep; build + test run. |
 | G-9 | **Operator audition (the real quality gate).** The operator generates on v3 with a rich description + representative preview and confirms the voices have depth/inflection vs. the old flat output. | Operator ear, live. Human-only; blocks merge for the quality claim. |
 | G-10 | **Quality floor.** Every new control: `:focus-visible`, reduced-motion, 44px coarse tap, no 412px horizontal overflow, keyboard-reachable; dialog focus-trap correct. | Measured at the three widths. |
+| G-11 | **Casting Card produces KIT-grade prose.** `assembleKitDescription` is deterministic (snapshot-tested), opens with the fixed opener, and any full chip selection yields a ≥200-char paragraph in KIT slot order (no dangling glue when a slot is unset). Tapping chips updates the paragraph (one-way); a manual edit detaches (chips greyed, "Reset to picks" restores); re-tap while detached warns before overwrite; `builder_state` persists in `voice_recipe.design_prompt` and rehydrates chips on re-open. | Unit snapshot tests for the assembler; UI drive for sync/detach/warn; row read for `builder_state`. |
 
 ## 11. Build sequencing + review loop
 
@@ -295,8 +317,9 @@ quality is judged by the **operator audition** (G-9), not a script._
 2. **Codex build** (governance rule 25 if parallelized):
    - Lane P — `supabase/functions/casting-proxy/index.ts` (§5).
    - Lane L — `src/lib/casting.ts` + `src/lib/voiceTemplates.ts` + tests (§4/§6/§8).
-   - Lane U — `CastingStudioPanel.tsx` + `globals.css` (§7/§9) — rich-text input
-     (§3 ①), generation controls, seed guard, audition gate. Slider UI removed.
+   - Lane U — `CastingStudioPanel.tsx` + `globals.css` + `src/lib/castingPhrases.ts`
+     (§3/§7/§9) — the Casting Card (chips + assembler + editable paragraph +
+     detach/warn), generation controls, seed guard, audition gate. Slider UI removed.
    (P and L share the clamp constants — L owns them, P mirrors/documents; declare files
    disjoint. If lane overlap is unavoidable, serialize.)
 3. **Gemini + suerta(Opus) reviews** of the aggregate diff (rule 33: the diff is
