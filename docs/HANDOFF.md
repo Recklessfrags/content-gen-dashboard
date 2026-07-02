@@ -367,6 +367,33 @@ Operator GO'd three items at session start (QA baseline · #37 · Casting 2a). B
   path (keyboard users Escape the sub-surface first), low impact; an unmount-time
   restore touches shared focus semantics and is deferred as a known-minor.
 
+## Session 2026-07-02 — jobs.channel enqueue (pipeline 0018 unblock)
+
+- **Slice** (`docs/slices/slice-jobs-channel-enqueue.md`, frozen v2): enqueue +
+  approval re-enqueues carry `jobs.channel` (select from live `channel_profiles`);
+  queue chip for non-null channels; `package-lock.json` sync rides along (**CI's
+  `npm ci` had been red since PR #33** — missing optional `fsevents`).
+- **V2 RULINGS (consolidated Gemini+suerta round):** (1) the seeded `default` profile
+  row is EXCLUDED from the select — offering it alongside the null option creates two
+  hash-distinct representations of one logical job; the partial unique index can't
+  dedupe across them → double-spend (suerta, MEDIUM; the headline catch of this
+  slice). Filter is case-insensitive. (2) `jobInputFromRow` moved to `src/lib/jobs.ts`
+  (layering). (3) The selection re-sync `useEffect` removed — the panel remounts per
+  open; kills the PR-#27 clobber shape. (4) DECLINED: null-guarding `idea.channel`
+  (column is `NOT NULL default 'Food'`, typed string — unreachable).
+- **Evidence:** legacy idempotency keys proven byte-stable (pin `d844ecdb`
+  re-derived independently from the pre-slice implementation); **C-8 probe** — a
+  guaranteed-rejected INSERT (`episode_cap:0`) carrying `channel` returned `42501`
+  (not `PGRST204`), zero rows persisted, queue unchanged at 34 → PostgREST accepts
+  the column, no queue side effects (suerta's design, retired the spec's residual).
+  5/5 ratification walk gates (intercept-and-abort; no live queue writes).
+- **Live-DB drift found:** `jobs.fact_approved boolean NOT NULL default false` exists
+  in prod but in no HQ migration notice we've absorbed — types + fixture updated;
+  **question posted to HQ** (which migration? does the dashboard need a `fact`
+  park-kind approval path?). Treated worker-owned until answered.
+- **Gemini quota note:** `gemini-3.1-pro` daily cap (250) exhausted mid-slice; the
+  wrapper's `gemini-3.5-flash` fallback carried the remaining reviews as designed.
+
 ## Git state
 
 - **Default branch (production):** `claude/new-session-3l99vs`. `main` does not exist.

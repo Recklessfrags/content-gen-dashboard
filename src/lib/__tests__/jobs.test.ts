@@ -10,7 +10,9 @@ import {
   isInFlightStatus,
   isTerminalStatus,
   isValidEpisodeCap,
+  jobInputFromRow,
   publishSourceEpisodeId,
+  type QueueJob,
   type JobEnqueueInput,
 } from "@/lib/jobs";
 
@@ -34,6 +36,17 @@ function jobInput(overrides: Partial<JobEnqueueInput> = {}): JobEnqueueInput {
 }
 
 describe("idempotencyKeyFor", () => {
+  it("keeps the known pre-slice key for channel-less inputs", () => {
+    expect(idempotencyKeyFor(jobInput())).toBe("d844ecdb");
+    expect(idempotencyKeyFor(jobInput({ channel: null }))).toBe("d844ecdb");
+  });
+
+  it("changes the key when a channel is set", () => {
+    expect(idempotencyKeyFor(jobInput({ channel: "dark-history" }))).not.toBe(
+      idempotencyKeyFor(jobInput()),
+    );
+  });
+
   it("is stable across object key order and normalized array order for unordered inputs", () => {
     const left = jobInput({
       inject_claims: [
@@ -90,7 +103,17 @@ describe("buildJobInsert", () => {
       spend_approved: false,
       publish_approved: false,
       publish_only: false,
+      channel: null,
       source_episode_id: null,
+      idempotency_key: "fixed-key",
+    });
+  });
+
+  it("carries a set channel in the insert payload", () => {
+    expect(
+      buildJobInsert(jobInput({ channel: "dark-history", idempotency_key: "fixed-key" })),
+    ).toMatchObject({
+      channel: "dark-history",
       idempotency_key: "fixed-key",
     });
   });
@@ -119,6 +142,36 @@ describe("buildJobInsert", () => {
 });
 
 describe("approval re-enqueue builders", () => {
+  const parkedJob: QueueJob = {
+    anchor_citation: "USDA",
+    anchor_url: "https://example.test/source",
+    attempts: 1,
+    character: "Mad Dog",
+    channel: "dark-history",
+    created_at: "2026-07-02T00:00:00.000Z",
+    episode_cap: 2,
+    episode_id: "episode-rendered-001",
+    error: null,
+    fact_approved: false,
+    finished_at: null,
+    food: "cottage cheese",
+    id: 42,
+    idempotency_key: "parked-key",
+    inject_claims: [],
+    lease_expires_at: null,
+    live_adapters: null,
+    park_kind: "spend",
+    publish_approved: false,
+    publish_only: false,
+    routes: {},
+    source_episode_id: null,
+    spend: null,
+    spend_approved: false,
+    started_at: null,
+    status: "ready_for_review",
+    stub_upstream: true,
+  };
+
   it("marks spend approval and clears idempotency_key", () => {
     expect(buildSpendApprovalReenqueue(jobInput({ spend_approved: false }))).toMatchObject({
       spend_approved: true,
@@ -154,6 +207,24 @@ describe("approval re-enqueue builders", () => {
     expect(() => buildPublishApprovalReenqueue(jobInput(), "")).toThrow(
       /requires the reviewed source episode id/,
     );
+  });
+
+  it("preserves channel from a parked row through approval re-enqueue payloads", () => {
+    const input = jobInputFromRow(parkedJob);
+
+    expect(input.channel).toBe("dark-history");
+    expect(buildSpendApprovalReenqueue(input)).toMatchObject({
+      channel: "dark-history",
+      spend_approved: true,
+      idempotency_key: null,
+    });
+    expect(buildPublishApprovalReenqueue(input, "episode-rendered-001")).toMatchObject({
+      channel: "dark-history",
+      publish_approved: true,
+      publish_only: true,
+      source_episode_id: "episode-rendered-001",
+      idempotency_key: null,
+    });
   });
 });
 

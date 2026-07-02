@@ -319,11 +319,13 @@ export type Database = {
           anchor_citation: string | null
           anchor_url: string | null
           attempts: number
+          channel: string | null
           character: string | null
           created_at: string
           episode_cap: number
           episode_id: string | null
           error: string | null
+          fact_approved: boolean
           finished_at: string | null
           food: string
           id: number
@@ -346,11 +348,13 @@ export type Database = {
           anchor_citation?: string | null
           anchor_url?: string | null
           attempts?: number
+          channel?: string | null
           character?: string | null
           created_at?: string
           episode_cap?: number
           episode_id?: string | null
           error?: string | null
+          fact_approved?: boolean
           finished_at?: string | null
           food: string
           id?: never
@@ -373,11 +377,13 @@ export type Database = {
           anchor_citation?: string | null
           anchor_url?: string | null
           attempts?: number
+          channel?: string | null
           character?: string | null
           created_at?: string
           episode_cap?: number
           episode_id?: string | null
           error?: string | null
+          fact_approved?: boolean
           finished_at?: string | null
           food?: string
           id?: never
