@@ -181,6 +181,7 @@ export const GENERATION_DEFAULTS: VoiceGeneration = {
 };
 
 export const GENERATION_RANGES = {
+  // ElevenLabs POST /v1/text-to-voice/design documents guidance_scale as 0-100.
   guidance_scale: { min: 0, max: 100 },
   // ElevenLabs documents seed as 0-2147483647, not the frozen spec's 0-4294967295 recommendation.
   seed: { min: 0, max: 2147483647 },
@@ -190,9 +191,6 @@ export const GENERATION_RANGES = {
 
 export const VOICE_DESCRIPTION_MIN = 200;
 export const VOICE_DESCRIPTION_SOFT_MAX = 600;
-
-export const KIT_DESCRIPTION_SCAFFOLD =
-  "Audio quality: clean studio documentary narration, warm but not polished flat. Identity: middle-aged androgynous American food-channel host with a grounded accent. Timbre: textured, lightly smoky, a little grit at sentence ends. Pitch/dynamics: medium-low pitch with lifted emphasis on reveals. Pace/cadence: patient setup, clipped punchlines, longer pauses before the turn. Emotion/character: curious, dry, observant, amused by the absurd details without sounding cartoonish.";
 
 export const KIT_PREVIEW_SCAFFOLD =
   "Tonight, the recipe looks harmless: a pan, a little heat, and a smell everybody thinks they recognize. Then the first strange detail lands. The kitchen goes quiet, the camera pushes in, and the truth is not in the ingredient list. It is in the choice someone made thirty seconds too late.";
@@ -261,8 +259,15 @@ export function clampGuidanceScale(value: unknown): number {
 }
 
 export function clampSeed(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
-  const n = typeof value === "number" ? value : Number(value);
+  if (value === null || value === undefined) return null;
+  let n: number;
+  if (typeof value === "number") {
+    n = value;
+  } else if (typeof value === "string" && value.trim().length > 0) {
+    n = Number(value.trim());
+  } else {
+    return null;
+  }
   if (!Number.isInteger(n)) return null;
   return Math.min(GENERATION_RANGES.seed.max, Math.max(GENERATION_RANGES.seed.min, n));
 }
@@ -408,7 +413,9 @@ type DesignResponse = {
     generated_voice_id?: string;
     audio_base_64?: string;
     media_type?: string;
+    seed?: unknown;
   }>;
+  seed?: unknown;
   error?: string;
 };
 
@@ -498,22 +505,27 @@ export async function generateVoicePreviews(
     throw new CastingError(data.error);
   }
   const previews = data?.previews ?? [];
+  const responseSeed = clampSeed(data?.seed);
   return previews
-    .filter((p): p is { generated_voice_id: string; audio_base_64: string; media_type?: string } =>
+    .filter((p): p is { generated_voice_id: string; audio_base_64: string; media_type?: string; seed?: unknown } =>
       typeof p.generated_voice_id === "string" && typeof p.audio_base_64 === "string",
     )
-    .map((p) => ({
-      generated_voice_id: p.generated_voice_id,
-      audio_base_64: p.audio_base_64,
-      media_type: p.media_type ?? "audio/mpeg",
-      voice_description_raw: voiceDescription,
-      preview_text_raw: previewText,
-      model_id: generation.model_id,
-      guidance_scale: generation.guidance_scale,
-      seed: generation.seed,
-      quality: generation.quality,
-      ...(isBuilderSelections(input.builder_state) ? { builder_state: input.builder_state } : {}),
-    }));
+    .map((p) => {
+      const previewSeed = clampSeed(p.seed);
+      return {
+        generated_voice_id: p.generated_voice_id,
+        audio_base_64: p.audio_base_64,
+        media_type: p.media_type ?? "audio/mpeg",
+        voice_description_raw: voiceDescription,
+        preview_text_raw: previewText,
+        model_id: generation.model_id,
+        guidance_scale: generation.guidance_scale,
+        // Current ElevenLabs docs do not expose the random seed; persist it only if returned.
+        seed: generation.seed ?? previewSeed ?? responseSeed,
+        quality: generation.quality,
+        ...(isBuilderSelections(input.builder_state) ? { builder_state: input.builder_state } : {}),
+      };
+    });
 }
 
 /**

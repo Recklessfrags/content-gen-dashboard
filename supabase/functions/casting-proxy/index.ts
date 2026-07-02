@@ -32,6 +32,7 @@ const DESIGN_MODEL_DEFAULT = "eleven_ttv_v3";
 const DESIGN_MODEL_IDS = new Set(["eleven_ttv_v3", "eleven_multilingual_ttv_v2"]);
 const GUIDANCE_SCALE_DEFAULT = 5;
 const GUIDANCE_SCALE_MIN = 0;
+// ElevenLabs POST /v1/text-to-voice/design documents guidance_scale as 0-100.
 const GUIDANCE_SCALE_MAX = 100;
 // ElevenLabs documents seed as 0-2147483647, not the frozen spec's 0-4294967295 recommendation.
 const SEED_MIN = 0;
@@ -92,8 +93,15 @@ function clampDesignModelId(value: unknown): string {
 }
 
 function clampSeed(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
-  const n = typeof value === "number" ? value : Number(value);
+  if (value === null || value === undefined) return null;
+  let n: number;
+  if (typeof value === "number") {
+    n = value;
+  } else if (typeof value === "string" && value.trim().length > 0) {
+    n = Number(value.trim());
+  } else {
+    return null;
+  }
   if (!Number.isInteger(n)) return null;
   return Math.min(SEED_MAX, Math.max(SEED_MIN, n));
 }
@@ -238,7 +246,15 @@ Deno.serve(async (req: Request) => {
       });
       if (!res.ok) return await elError(res, origin);
       const data = await res.json();
-      return json({ previews: data?.previews ?? [] }, 200, origin);
+      const returnedSeed = clampSeed(data?.seed);
+      return json(
+        {
+          previews: data?.previews ?? [],
+          ...(returnedSeed !== null ? { seed: returnedSeed } : {}),
+        },
+        200,
+        origin,
+      );
     }
 
     if (action === "create") {

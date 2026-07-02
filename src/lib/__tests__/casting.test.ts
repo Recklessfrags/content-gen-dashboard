@@ -3,7 +3,6 @@ import {
   addFavorite,
   GENERATION_DEFAULTS,
   GENERATION_RANGES,
-  KIT_DESCRIPTION_SCAFFOLD,
   clampGeneration,
   clampGuidanceScale,
   clampSeed,
@@ -26,6 +25,9 @@ import {
 } from "@/lib/casting";
 import { purgeCreatedVoiceId } from "@/components/controlroom/CastingStudioPanel";
 
+const TEST_DESCRIPTION =
+  "Audio quality: clean studio documentary narration, warm but not polished flat. Identity: middle-aged androgynous American food-channel host with a grounded accent. Timbre: textured, lightly smoky, a little grit at sentence ends. Pitch/dynamics: medium-low pitch with lifted emphasis on reveals. Pace/cadence: patient setup, clipped punchlines, longer pauses before the turn. Emotion/character: curious, dry, observant, amused by the absurd details without sounding cartoonish.";
+
 const builderState = {
   gender: "female",
   ageBand: "40s",
@@ -42,7 +44,7 @@ function candidate(id: string): AuditionCandidate {
     generated_voice_id: id,
     audio_base_64: `audio-${id}`,
     media_type: "audio/mpeg",
-    voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+    voice_description_raw: TEST_DESCRIPTION,
     preview_text_raw:
       "This is a representative audition script with a setup, a turn, and enough punctuation to shape delivery.",
     model_id: "eleven_ttv_v3",
@@ -143,7 +145,11 @@ describe("generation clamps", () => {
   it("clamps seeds to the documented ElevenLabs range and omits invalid seeds", () => {
     expect(clampSeed(null)).toBeNull();
     expect(clampSeed("")).toBeNull();
+    expect(clampSeed([])).toBeNull();
+    expect(clampSeed(false)).toBeNull();
+    expect(clampSeed({ value: 1 })).toBeNull();
     expect(clampSeed(1.5)).toBeNull();
+    expect(clampSeed("123")).toBe(123);
     expect(clampSeed(-1)).toBe(0);
     expect(clampSeed(GENERATION_RANGES.seed.max + 1)).toBe(GENERATION_RANGES.seed.max);
   });
@@ -215,7 +221,7 @@ describe("generateVoicePreviews", () => {
       error: null,
     }));
     const client = { functions: { invoke } };
-    const description = `${KIT_DESCRIPTION_SCAFFOLD}\nDo not compose this from sliders.`;
+    const description = `${TEST_DESCRIPTION}\nDo not compose this from sliders.`;
     const preview =
       "A real audition script opens on a familiar detail, pauses for the reveal, and then lands the final turn with punctuation doing the work.";
 
@@ -256,6 +262,34 @@ describe("generateVoicePreviews", () => {
         builder_state: builderState,
       },
     ]);
+  });
+
+  it("captures a returned random seed when ElevenLabs exposes one", async () => {
+    const invoke = vi.fn(async () => ({
+      data: {
+        seed: 98765,
+        previews: [
+          {
+            generated_voice_id: "gen-random",
+            audio_base_64: "audio",
+            media_type: "audio/mpeg",
+          },
+        ],
+      },
+      error: null,
+    }));
+    const client = { functions: { invoke } };
+
+    const result = await import("@/lib/casting").then(({ generateVoicePreviews }) =>
+      generateVoicePreviews(client as never, {
+        voice_description_raw: TEST_DESCRIPTION,
+        preview_text:
+          "A real audition script opens on a familiar detail, pauses for the reveal, and then lands the final turn with punctuation doing the work.",
+        seed: null,
+      }),
+    );
+
+    expect(result[0]?.seed).toBe(98765);
   });
 });
 
@@ -419,7 +453,7 @@ describe("isCast", () => {
 describe("writeCastToCharacter", () => {
   const recipe: VoiceRecipe = {
     design_prompt: {
-      voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+      voice_description_raw: TEST_DESCRIPTION,
       preview_text_raw:
         "This is a representative audition script with a setup, a turn, and enough punctuation to shape delivery.",
       builder_state: builderState,
@@ -480,7 +514,7 @@ describe("writeCastToCharacter", () => {
       },
       voice_recipe: {
         design_prompt: {
-          voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+          voice_description_raw: TEST_DESCRIPTION,
           preview_text_raw:
             "This is a representative audition script with a setup, a turn, and enough punctuation to shape delivery.",
           builder_state: builderState,

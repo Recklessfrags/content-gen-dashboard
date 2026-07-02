@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { GENERATION_DEFAULTS, KIT_DESCRIPTION_SCAFFOLD } from "@/lib/casting";
+import { GENERATION_DEFAULTS } from "@/lib/casting";
 import {
   buildVoiceTemplateInsert,
   templateRecipe,
   validateVoiceTemplateName,
   type VoiceTemplate,
 } from "@/lib/voiceTemplates";
+
+const TEST_DESCRIPTION =
+  "Audio quality: clean studio documentary narration, warm but not polished flat. Identity: middle-aged androgynous American food-channel host with a grounded accent. Timbre: textured, lightly smoky, a little grit at sentence ends. Pitch/dynamics: medium-low pitch with lifted emphasis on reveals. Pace/cadence: patient setup, clipped punchlines, longer pauses before the turn. Emotion/character: curious, dry, observant, amused by the absurd details without sounding cartoonish.";
 
 function template(overrides: Partial<VoiceTemplate> = {}): VoiceTemplate {
   return {
@@ -130,7 +133,7 @@ describe("templateRecipe", () => {
       buildVoiceTemplateInsert({
         name: " Raw Profile ",
         designPrompt: {
-          voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+          voice_description_raw: TEST_DESCRIPTION,
           preview_text_raw: "A representative audition line with a setup, a pause, and a reveal.",
         },
         generation: {
@@ -142,7 +145,7 @@ describe("templateRecipe", () => {
         voiceSettings: {},
       }).design_prompt,
     ).toEqual({
-      voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+      voice_description_raw: TEST_DESCRIPTION,
       preview_text_raw: "A representative audition line with a setup, a pause, and a reveal.",
       generation: {
         model_id: "eleven_ttv_v3",
@@ -156,7 +159,7 @@ describe("templateRecipe", () => {
       templateRecipe(
         template({
           design_prompt: {
-            voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+            voice_description_raw: TEST_DESCRIPTION,
             preview_text_raw: "A representative audition line with a setup, a pause, and a reveal.",
             generation: {
               model_id: "eleven_ttv_v3",
@@ -169,7 +172,7 @@ describe("templateRecipe", () => {
       ),
     ).toEqual({
       design_prompt: {
-        voice_description_raw: KIT_DESCRIPTION_SCAFFOLD,
+        voice_description_raw: TEST_DESCRIPTION,
         preview_text_raw: "A representative audition line with a setup, a pause, and a reveal.",
       },
       generation: {

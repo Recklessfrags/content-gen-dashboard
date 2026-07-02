@@ -65,7 +65,7 @@ export function useCharacters(supabase: ReturnType<typeof createClient>) {
     (
       id: string,
       patch: Partial<
-        Pick<FlatChar, "voice_id" | "voice_settings" | "reference_image_url" | "visual_style">
+        Pick<FlatChar, "voice_id" | "voice_settings" | "voice_recipe" | "reference_image_url" | "visual_style">
       >,
     ) => {
       setChars((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)));

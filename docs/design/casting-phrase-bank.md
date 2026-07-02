@@ -31,7 +31,7 @@ its fragment is skipped and glue degrades gracefully (never leaves a dangling ";
 5. **Emotion**: ` Cap({emotionClause}).`
 
 Worked example (Voice=Female/40s/GenAm · Timbre=warm-smooth · Pitch=downward · Pace=measured · Persona=deadpan-demystifier · Emotion=dry-amused) → ~430 chars, matches the gold register:
-> Perfect audio quality, studio recording. Female, 40s, neutral General American accent, educated but conversational. A warm, smooth tone with a rounded, easy resonance; lands each statement with a downward drop that reads as authority. Deliberate, unhurried pacing with small pauses and precise emphasis — a sharp explainer who finds the rules genuinely funny. Deadpan but never flat, a knowing half-smile in the read.
+> Perfect audio quality, studio recording. Female, 40s, neutral General American accent, educated but conversational. A warm, smooth tone with a rounded, easy resonance; it lands each statement with a downward drop that reads as authority. Deliberate, unhurried pacing with small pauses and precise emphasis — a sharp explainer who finds the rules genuinely funny. Deadpan but never flat, a knowing half-smile in the read.
 
 **Provenance:** `builder_state` (the chip selections) is stored in `voice_recipe.design_prompt`
 alongside the canonical `voice_description_raw` (the assembled/edited text actually sent

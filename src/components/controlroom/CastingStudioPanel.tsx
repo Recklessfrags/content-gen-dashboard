@@ -39,6 +39,7 @@ import {
   type BracketState,
   type VoiceDesignPrompt,
   type VoiceGeneration,
+  type VoiceRecipe,
   type VoiceSettings,
 } from "@/lib/casting";
 import {
@@ -72,7 +73,7 @@ type CastingStudioPanelProps = {
   onClose: () => void;
   onCharacterPatched: (
     id: string,
-    patch: { voice_id?: string | null; voice_settings?: Json | null },
+    patch: { voice_id?: string | null; voice_settings?: Json | null; voice_recipe?: Json | null },
   ) => void;
   showFlash: (msg: string, err?: boolean) => void;
   restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
@@ -263,7 +264,7 @@ export function CastingStudioPanel({
   });
 
   useFocusTrap({
-    active: saveDialogOpen,
+    active: saveDialogOpen && !lockConfirmCandidate,
     containerRef: saveDialogRef,
     onEscape: closeSaveDialog,
     initialFocusRef: saveNameRef,
@@ -271,7 +272,7 @@ export function CastingStudioPanel({
   });
 
   useFocusTrap({
-    active: drawerOpen,
+    active: drawerOpen && !lockConfirmCandidate,
     containerRef: drawerRef,
     onEscape: closeDrawer,
     initialFocusRef: drawerReturnRef,
@@ -547,6 +548,8 @@ export function CastingStudioPanel({
     trigger: HTMLButtonElement,
   ) => {
     lockReturnRef.current = trigger;
+    setDrawerOpen(false);
+    setSaveDialogOpen(false);
     setLockConfirmCandidate(candidate);
     setLockAcknowledged(false);
   };
@@ -558,12 +561,12 @@ export function CastingStudioPanel({
     setLocking(candidate.generated_voice_id);
     try {
       const nextSettings = clampVoiceSettings(synth);
-      const recipe = {
+      const recipe: VoiceRecipe = {
         design_prompt: {
+          ...(candidate.prompt_state ?? {}),
           voice_description_raw: candidateDescription(candidate),
           preview_text_raw: candidatePreviewText(candidate),
           ...(candidate.builder_state ? { builder_state: candidate.builder_state } : {}),
-          ...(candidate.prompt_state ?? {}),
         },
         generation: candidateGeneration(candidate),
         voice_settings: nextSettings,
@@ -581,7 +584,11 @@ export function CastingStudioPanel({
       }
       await writeCastToCharacter(supabase, character.id, voiceId, nextSettings, recipe);
       if (!aliveRef.current) return;
-      onCharacterPatched(character.id, { voice_id: voiceId, voice_settings: nextSettings as unknown as Json });
+      onCharacterPatched(character.id, {
+        voice_id: voiceId,
+        voice_settings: nextSettings as unknown as Json,
+        voice_recipe: recipe as unknown as Json,
+      });
       setSynth(nextSettings);
       setSavedSynth(nextSettings);
       setBracket((b) => setWinner(b, candidate, voiceId));
