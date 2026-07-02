@@ -275,8 +275,8 @@ _Still open for the operator / next reviewer:_
 - **Migration size:** the 2,471-line monolith is split incrementally (design-doc §5 "no
   big-bang"). Even though the operator chose "full Phase 1 in one slice," Codex should build in
   reviewable lanes (design system → hub → workspace shell → surfaces), not one mega-diff.
-- **suerta (L-2) second lens:** this slice touches no migration/money-path write directly, but it
-  re-parents the money-path approval surface (Action Center) and a shared-config editor —
-  recommend a suerta pass on the aggregate build diff before landing (additive to the cross-vendor
-  gate), per L-2/L-4.
+- **Review tiers (see `docs/design/channel-first-review-plan.md`):** the **Action Center** money-
+  path slice gets **suerta escalated to Fable-5** (top tier) + Gemini; the rest of Phase 1
+  (non-money re-parenting + design system) gets **suerta (Opus)** + Gemini. Both additive to the
+  cross-vendor gate (rule 4). Ratify on the real artifact; re-walk after any merge.
 ```
