@@ -87,6 +87,12 @@ written rationale):**
    has no thumbnail column in Phase 1 — the cast avatar is resolved at runtime by a best-effort
    name match (`channel_profiles.character` → `characters` ref image); design the card for a
    thumbnail-or-placeholder, don't assume a guaranteed image._
+   - **BOTH LIGHT AND DARK MODE (required):** each direction must ship **both** a light and a dark
+     theme in the **same** mock, driven by **semantic color tokens with `[data-theme="light"]` /
+     `[data-theme="dark"]` overrides** on `:root`/`<html>` — never hard-coded per-mode colors in
+     components. Include a **visible toggle** (small inline `<script>` flipping `data-theme`) so
+     the operator flips in place. Default to the direction's "native" mode but both must be
+     first-class (not a bolted-on inversion). State the key contrast ratios **for both modes**.
 
 Keep each direction's HTML **self-contained and openable** (no external fonts/scripts required to
 read the layout; if a webfont is specified, degrade gracefully to the fallback). Label each file
@@ -108,7 +114,12 @@ gallery):
   hierarchy, semantic success/warn/error/info, one accent + states), type scale (families,
   sizes, weights, line-heights), spacing scale, radius, elevation/shadow, border, motion
   (durations/easings + reduced-motion fallbacks), z-index layers, focus-ring token.
-- **Contrast:** every text/UI pair meets **AA** (≥4.5:1 body, ≥3:1 large/UI); state the ratios.
+- **Light AND dark theming is part of the token layer:** color tokens are **semantic** (e.g.
+  `--surface`, `--text`, `--accent`) and are re-valued under `[data-theme="light"]` /
+  `[data-theme="dark"]` (with an optional `prefers-color-scheme` default). Components reference
+  only semantic tokens — no per-mode hard-codes. Both modes are first-class.
+- **Contrast:** every text/UI pair meets **AA** (≥4.5:1 body, ≥3:1 large/UI) **in BOTH modes**;
+  state the ratios for both.
 - **Primitives / components**, each with **all states** (default, hover, focus-visible, active,
   disabled, loading, empty, error) + responsive behavior:
   button (primary/secondary/danger/ghost), input/textarea/select, checkbox/radio/toggle, chip/
