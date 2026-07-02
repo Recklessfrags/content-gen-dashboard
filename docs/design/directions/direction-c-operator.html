@@ -1,571 +1,531 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control Room - Hub</title>
-  <style>
-    :root {
-      /* Palette */
-      --bg-base: #0F1115;
-      --bg-surface: #16191E;
-      --bg-surface-hover: #1E232A;
-      --bg-warning: #38250A;
-      --border-subtle: #2A2F3A;
-      --border-focus: #38BDF8;
-      
-      /* Text */
-      --text-primary: #F8FAFC;
-      --text-secondary: #94A3B8;
-      --text-inverse: #0F1115;
-      
-      /* Semantic */
-      --color-cyan: #38BDF8;
-      --color-amber: #FBBF24;
-      --color-green: #34D399;
-      
-      /* Typography */
-      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      
-      /* Spacing & Radius */
-      --space-1: 4px;
-      --space-2: 8px;
-      --space-3: 12px;
-      --space-4: 16px;
-      --space-6: 24px;
-      --space-8: 32px;
-      --radius-sm: 2px;
-      --radius-md: 4px;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Control Room</title>
+<style>
+  /* CSS Variables - Semantic Theme Tokens */
+  :root {
+    /* Native Dark Mode Tokens */
+    --bg-base: #09090b;
+    --bg-surface: #18181b;
+    --bg-panel: #27272a;
+    --border-subtle: #3f3f46;
+    --border-focus: #71717a;
+    --text-main: #fafafa;
+    --text-dim: #a1a1aa;
+    --text-inverse: #09090b;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --status-active: #10b981;
+    --status-active-dim: rgba(16, 185, 129, 0.2);
+    --status-alert: #f59e0b; /* Amber alert bg universally */
+    --status-alert-text: #000000;
+    --btn-primary-bg: #fafafa;
+    --btn-primary-text: #09090b;
+    --btn-primary-hover: #e4e4e7;
+    --uncast-bg: #27272a;
+    --uncast-border: #52525b;
+  }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+  html[data-theme="light"] {
+    /* First-Class Light Mode Override Tokens */
+    --bg-base: #f8f8fa;
+    --bg-surface: #ffffff;
+    --bg-panel: #f4f4f5;
+    --border-subtle: #d4d4d8;
+    --border-focus: #a1a1aa;
+    --text-main: #09090b;
+    --text-dim: #52525b;
+    --text-inverse: #ffffff;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --status-active: #059669;
+    --status-active-dim: rgba(5, 150, 105, 0.15);
+    /* Alert banner remains bold amber universally for safety/priority */
+    --status-alert: #f59e0b; 
+    --status-alert-text: #000000;
+    --btn-primary-bg: #09090b;
+    --btn-primary-text: #ffffff;
+    --btn-primary-hover: #27272a;
+    --uncast-bg: #f4f4f5;
+    --uncast-border: #a1a1aa;
+  }
 
-    body {
-      background-color: var(--bg-base);
-      color: var(--text-primary);
-      font-family: var(--font-sans);
-      font-size: 14px;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-    }
+  /* Reset & Document Scale */
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 
-    a, button {
-      color: inherit;
-      text-decoration: none;
-      font-family: inherit;
-      cursor: pointer;
-    }
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-base);
+    color: var(--text-main);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
 
-    /* Focus states */
-    :focus-visible {
-      outline: 2px solid var(--border-focus);
-      outline-offset: 2px;
-      border-radius: var(--radius-sm);
-    }
+  .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
 
-    /* Utilities */
-    .mono { font-family: var(--font-mono); }
-    .text-secondary { color: var(--text-secondary); }
-    .text-amber { color: var(--color-amber); }
-    .text-green { color: var(--color-green); }
-    .text-cyan { color: var(--color-cyan); }
-    
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-    .status-dot.active { background-color: var(--color-green); box-shadow: 0 0 8px rgba(52, 211, 153, 0.4); }
-    .status-dot.pending { background-color: var(--color-amber); box-shadow: 0 0 8px rgba(251, 191, 36, 0.4); }
-    .status-dot.inactive { background-color: var(--border-subtle); }
+  /* Accessibility & Focus */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
 
-    /* Layout */
-    .app-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 var(--space-4);
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-6);
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
+  }
 
-    /* Top Bar */
-    .top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: var(--space-3) 0;
-      border-bottom: 1px solid var(--border-subtle);
-      flex-wrap: wrap;
-      gap: var(--space-4);
-    }
+  /* Structural Layout */
+  .sys-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle);
+  }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      font-size: 13px;
-    }
+  .brand {
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
 
-    .brand svg {
-      color: var(--color-cyan);
-    }
+  .brand svg {
+    width: 16px;
+    height: 16px;
+    fill: var(--text-main);
+  }
 
-    .system-overview {
-      display: flex;
-      gap: var(--space-6);
-      font-size: 12px;
-      background: var(--bg-surface);
-      padding: var(--space-2) var(--space-4);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-sm);
-    }
+  .sys-glance {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
 
-    .overview-item {
-      display: flex;
-      gap: var(--space-2);
-      align-items: center;
-    }
+  .glance-item { display: flex; gap: 0.5rem; align-items: center; }
+  .glance-val { color: var(--text-main); font-weight: 600; font-size: 0.875rem; }
 
-    .nav-actions {
-      display: flex;
-      gap: var(--space-4);
-    }
+  .theme-toggle {
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    color: var(--text-main);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    border-radius: 2px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: border-color 150ms ease;
+  }
+  .theme-toggle:hover { border-color: var(--border-focus); }
 
-    /* Action Center Banner */
-    .action-banner {
-      background-color: var(--bg-warning);
-      border: 1px solid var(--color-amber);
-      border-radius: var(--radius-md);
-      padding: var(--space-3) var(--space-4);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      transition: background-color 0.1s ease-out;
-    }
+  /* Action Center Banner - Tactical Alert */
+  .action-banner {
+    background-color: var(--status-alert);
+    color: var(--status-alert-text);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-subtle);
+  }
 
-    .action-banner:hover {
-      background-color: rgba(251, 191, 36, 0.15);
-    }
+  .action-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 700;
+    font-size: 0.875rem;
+    letter-spacing: 0.02em;
+  }
 
-    .action-banner-content {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      font-weight: 500;
-    }
+  .action-info svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--status-alert-text);
+  }
 
-    .btn-primary {
-      background-color: var(--color-amber);
-      color: var(--text-inverse);
-      border: none;
-      padding: var(--space-2) var(--space-4);
-      border-radius: var(--radius-sm);
-      font-weight: 600;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
+  .btn-action {
+    background-color: var(--status-alert-text);
+    color: var(--status-alert);
+    border: none;
+    padding: 0.25rem 1rem;
+    font-weight: 700;
+    font-size: 0.75rem;
+    border-radius: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: opacity 150ms ease;
+  }
+  .btn-action:hover { opacity: 0.85; }
 
-    .btn-primary:hover {
-      background-color: #FCD34D;
-    }
+  /* Main Workspace */
+  .workspace {
+    padding: 2rem 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
 
-    /* Channels Section */
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--space-4);
-    }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
 
-    .section-title {
-      font-size: 16px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-    }
+  .section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
 
-    .channels-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--space-4);
-      margin-bottom: var(--space-8);
-    }
+  /* Grid & Cards */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
 
-    /* Card */
-    .card {
-      background-color: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      padding: var(--space-4);
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-4);
-      transition: border-color 0.1s ease-out, background-color 0.1s ease-out;
-      position: relative;
-    }
+  .card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 2px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 150ms ease;
+  }
 
-    .card:hover {
-      border-color: var(--color-cyan);
-      background-color: var(--bg-surface-hover);
-    }
+  .card:hover { border-color: var(--border-focus); }
 
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.25rem;
+  }
 
-    .card-title {
-      font-weight: 500;
-      font-size: 15px;
-      margin-bottom: var(--space-1);
-    }
-    
-    .card-subtitle {
-      font-size: 12px;
-    }
+  .channel-title {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
+  }
 
-    /* Avatar/Character */
-    .character-block {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-2);
-      background-color: var(--bg-base);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-sm);
-    }
+  .channel-id {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
 
-    .avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: var(--radius-sm);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-size: 12px;
-      color: var(--text-inverse);
-    }
+  /* Thumbnails */
+  .thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-subtle);
+    overflow: hidden;
+  }
 
-    .avatar.uncast {
-      background: transparent;
-      border: 1px dashed var(--text-secondary);
-      color: var(--text-secondary);
-    }
+  .thumb.cast {
+    /* Simulated profile aesthetic */
+    background: linear-gradient(135deg, var(--bg-panel) 0%, var(--border-subtle) 100%);
+  }
+  .thumb.cast svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--text-main);
+  }
 
-    .avatar.cast-1 { background: linear-gradient(135deg, #38BDF8, #818CF8); }
-    .avatar.cast-2 { background: linear-gradient(135deg, #F472B6, #FB7185); }
-    .avatar.cast-3 { background: linear-gradient(135deg, #34D399, #10B981); }
+  .thumb.uncast {
+    background: var(--uncast-bg);
+    border: 1px dashed var(--uncast-border);
+  }
+  .thumb.uncast span {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--text-dim);
+  }
 
-    .character-info {
-      display: flex;
-      flex-direction: column;
-    }
+  .uncast-hint {
+    display: inline-block;
+    font-size: 0.65rem;
+    background: var(--uncast-bg);
+    border: 1px solid var(--border-subtle);
+    padding: 0.1rem 0.3rem;
+    border-radius: 2px;
+    color: var(--text-dim);
+    margin-top: 0.4rem;
+  }
 
-    .character-name {
-      font-size: 13px;
-      font-weight: 500;
-    }
+  /* Card Data Metrics */
+  .metrics {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 1rem;
+    display: flex;
+    justify-content: space-between;
+  }
 
-    /* Metrics */
-    .metrics-row {
-      display: flex;
-      justify-content: space-between;
-      border-top: 1px solid var(--border-subtle);
-      padding-top: var(--space-3);
-      margin-top: auto;
-    }
+  .metric-label {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+  }
 
-    .metric {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
+  .metric-val {
+    font-size: 1.125rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
 
-    .metric-label {
-      font-size: 11px;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--status-active);
+    box-shadow: 0 0 0 2px var(--status-active-dim);
+  }
+  .status-dot.idle {
+    background-color: var(--text-dim);
+    box-shadow: none;
+  }
 
-    .metric-value {
-      font-size: 14px;
-      font-weight: 500;
-    }
+  /* Add New Card */
+  .card-new {
+    border: 1px dashed var(--border-subtle);
+    background-color: transparent;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    min-height: 140px;
+  }
+  .card-new:hover {
+    border-style: solid;
+    background-color: var(--bg-surface);
+  }
+  .card-new svg {
+    width: 24px;
+    height: 24px;
+    fill: var(--text-dim);
+  }
+  .card-new span {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
 
-    /* New Channel Card */
-    .card-new {
-      border: 1px dashed var(--border-subtle);
-      background-color: transparent;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      color: var(--text-secondary);
-      min-height: 200px;
-    }
-
-    .card-new:hover {
-      border-color: var(--color-cyan);
-      color: var(--color-cyan);
-      background-color: rgba(56, 189, 248, 0.05);
-    }
-
-    .card-new svg {
-      margin-bottom: var(--space-2);
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .top-bar {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .system-overview {
-        flex-direction: column;
-        gap: var(--space-2);
-      }
-    }
-
-    @media (max-width: 412px) {
-      .channels-grid {
-        grid-template-columns: 1fr;
-      }
-      .action-banner {
-        flex-direction: column;
-        align-items: stretch;
-        gap: var(--space-3);
-      }
-      .btn-primary {
-        text-align: center;
-      }
-    }
-
-    /* Accessibility / Preferences */
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
-      }
-    }
-  </style>
+  /* Responsive Mobile 412px */
+  @media (max-width: 500px) {
+    .sys-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+    .sys-glance { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+    .theme-toggle { position: absolute; top: 0.75rem; right: 1.5rem; }
+    .action-banner { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .btn-action { width: 100%; padding: 0.5rem; }
+    .grid { grid-template-columns: 1fr; }
+    .workspace { padding: 1.5rem 1rem; }
+  }
+</style>
 </head>
 <body>
 
-  <div class="app-container">
+  <!-- Top System Header -->
+  <header class="sys-header">
+    <div class="brand">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg>
+      CONTROL ROOM
+    </div>
     
-    <!-- TOP BAR -->
-    <header class="top-bar">
-      <div class="brand">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-          <line x1="8" y1="21" x2="16" y2="21"></line>
-          <line x1="12" y1="17" x2="12" y2="21"></line>
-        </svg>
-        <span>CTRL_RM</span>
+    <div class="sys-glance mono">
+      <div class="glance-item">
+        <span>CHANNELS:</span>
+        <span class="glance-val">04</span>
       </div>
-
-      <div class="system-overview mono">
-        <div class="overview-item">
-          <span class="text-secondary">CH:</span>
-          <span>4</span>
-        </div>
-        <div class="overview-item">
-          <span class="text-secondary">RUNS:</span>
-          <span class="text-green">12</span>
-        </div>
-        <div class="overview-item">
-          <span class="text-secondary">SPEND_24H:</span>
-          <span>$42.50</span>
-        </div>
-        <div class="overview-item">
-          <span class="text-secondary">SPEND_30D:</span>
-          <span>$340.20</span>
-        </div>
+      <div class="glance-item">
+        <span>RUNS:</span>
+        <span class="glance-val">03</span>
       </div>
-
-      <div class="nav-actions">
-        <a href="#" class="text-secondary mono" style="font-size: 12px; display: flex; align-items: center; gap: 4px;">
-          [ SYSTEM LOGS ]
-        </a>
+      <div class="glance-item">
+        <span>30D SPEND:</span>
+        <span class="glance-val">$183.45</span>
       </div>
-    </header>
+    </div>
 
-    <main style="display: flex; flex-direction: column; gap: var(--space-6);">
+    <button class="theme-toggle" id="themeBtn">DAY MODE</button>
+  </header>
+
+  <!-- Global Action Center Banner -->
+  <aside class="action-banner">
+    <div class="action-info">
+      <svg viewBox="0 0 24 24"><path d="M12 2L1 21h22M12 16v-6M12 20h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      <span>ACTION REQUIRED:</span>
+      <span class="mono">3 JOBS AWAITING APPROVAL</span>
+    </div>
+    <button class="btn-action">Triage Actions &rarr;</button>
+  </aside>
+
+  <!-- Main Work Surface -->
+  <main class="workspace">
+    <div class="section-header">
+      <h1 class="section-title">Channels Hub</h1>
+    </div>
+
+    <div class="grid">
+      <!-- Create New Action -->
+      <button class="card card-new">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>INITIALIZE NEW CHANNEL</span>
+      </button>
+
+      <!-- Channel Card: Cast + Active Runs -->
+      <article class="card">
+        <div class="card-top">
+          <div>
+            <h2 class="channel-title">Weird Food</h2>
+            <div class="channel-id mono">ID: CH-092</div>
+          </div>
+          <div class="thumb cast" aria-label="Character Cast">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="metrics">
+          <div>
+            <div class="metric-label">Active Jobs</div>
+            <div class="metric-val mono">
+              <div class="status-dot"></div> 02
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div class="metric-label">30D Cost</div>
+            <div class="metric-val mono">$42.50</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Channel Card: Cast + Idle -->
+      <article class="card">
+        <div class="card-top">
+          <div>
+            <h2 class="channel-title">Unusual Animal Facts</h2>
+            <div class="channel-id mono">ID: CH-014</div>
+          </div>
+          <div class="thumb cast" aria-label="Character Cast">
+             <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="metrics">
+          <div>
+            <div class="metric-label">Active Jobs</div>
+            <div class="metric-val mono">
+              <div class="status-dot idle"></div> 00
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div class="metric-label">30D Cost</div>
+            <div class="metric-val mono">$112.20</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Channel Card: Uncast -->
+      <article class="card">
+        <div class="card-top">
+          <div>
+            <h2 class="channel-title">Declassified History</h2>
+            <div class="channel-id mono">ID: CH-103</div>
+            <div class="uncast-hint mono">REQ: CHARACTER</div>
+          </div>
+          <div class="thumb uncast" aria-label="No Character Cast">
+            <span class="mono">∅</span>
+          </div>
+        </div>
+        <div class="metrics">
+          <div>
+            <div class="metric-label">Active Jobs</div>
+            <div class="metric-val mono">
+              <div class="status-dot idle"></div> 00
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div class="metric-label">30D Cost</div>
+            <div class="metric-val mono">$0.00</div>
+          </div>
+        </div>
+      </article>
       
-      <!-- GLOBAL ACTION CENTER -->
-      <a href="#" class="action-banner">
-        <div class="action-banner-content">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-            <line x1="12" y1="9" x2="12" y2="13"></line>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-          </svg>
-          <span class="text-amber">ACTION REQUIRED: 3 jobs awaiting financial approval</span>
+      <!-- Channel Card: Cast + Active Runs -->
+      <article class="card">
+        <div class="card-top">
+          <div>
+            <h2 class="channel-title">Deep Space Signals</h2>
+            <div class="channel-id mono">ID: CH-105</div>
+          </div>
+          <div class="thumb cast" aria-label="Character Cast">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
         </div>
-        <button class="btn-primary mono">Triage Queue</button>
-      </a>
-
-      <!-- CHANNELS HUB -->
-      <section>
-        <div class="section-header">
-          <h1 class="section-title mono text-secondary">/ CHANNELS</h1>
+        <div class="metrics">
+          <div>
+            <div class="metric-label">Active Jobs</div>
+            <div class="metric-val mono">
+              <div class="status-dot"></div> 01
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div class="metric-label">30D Cost</div>
+            <div class="metric-val mono">$28.75</div>
+          </div>
         </div>
+      </article>
 
-        <div class="channels-grid">
-          
-          <!-- Card 1: Cast & Active -->
-          <a href="#" class="card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Weird Food</h2>
-                <div class="card-subtitle text-secondary mono">ID: WF-092</div>
-              </div>
-              <div class="status-dot active" title="System Active"></div>
-            </div>
-            
-            <div class="character-block">
-              <div class="avatar cast-1">JS</div>
-              <div class="character-info">
-                <span class="character-name">Jiro Sushi</span>
-                <span class="text-secondary mono" style="font-size: 11px;">CAST_ASSIGNED</span>
-              </div>
-            </div>
+    </div>
+  </main>
 
-            <div class="metrics-row mono">
-              <div class="metric">
-                <span class="metric-label">Active Jobs</span>
-                <span class="metric-value text-green">03</span>
-              </div>
-              <div class="metric" style="text-align: right;">
-                <span class="metric-label">30D Cost</span>
-                <span class="metric-value">$124.50</span>
-              </div>
-            </div>
-          </a>
+  <script>
+    // Self-contained theme toggling script
+    const themeBtn = document.getElementById('themeBtn');
+    const htmlNode = document.documentElement;
 
-          <!-- Card 2: Cast & Active -->
-          <a href="#" class="card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Declassified History</h2>
-                <div class="card-subtitle text-secondary mono">ID: DH-114</div>
-              </div>
-              <div class="status-dot active" title="System Active"></div>
-            </div>
-            
-            <div class="character-block">
-              <div class="avatar cast-2">AX</div>
-              <div class="character-info">
-                <span class="character-name">Agent X</span>
-                <span class="text-secondary mono" style="font-size: 11px;">CAST_ASSIGNED</span>
-              </div>
-            </div>
-
-            <div class="metrics-row mono">
-              <div class="metric">
-                <span class="metric-label">Active Jobs</span>
-                <span class="metric-value text-green">08</span>
-              </div>
-              <div class="metric" style="text-align: right;">
-                <span class="metric-label">30D Cost</span>
-                <span class="metric-value">$201.00</span>
-              </div>
-            </div>
-          </a>
-
-          <!-- Card 3: Uncast & Inactive -->
-          <a href="#" class="card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Unusual Animal Facts</h2>
-                <div class="card-subtitle text-secondary mono">ID: UA-003</div>
-              </div>
-              <div class="status-dot pending" title="Configuration Pending"></div>
-            </div>
-            
-            <div class="character-block">
-              <div class="avatar uncast">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-              </div>
-              <div class="character-info">
-                <span class="character-name text-amber">No Character</span>
-                <span class="text-secondary mono" style="font-size: 11px;">UNCAST_WARNING</span>
-              </div>
-            </div>
-
-            <div class="metrics-row mono">
-              <div class="metric">
-                <span class="metric-label">Active Jobs</span>
-                <span class="metric-value text-secondary">00</span>
-              </div>
-              <div class="metric" style="text-align: right;">
-                <span class="metric-label">30D Cost</span>
-                <span class="metric-value text-secondary">$0.00</span>
-              </div>
-            </div>
-          </a>
-
-          <!-- Card 4: Cast & Low Activity -->
-          <a href="#" class="card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Zen Gardens</h2>
-                <div class="card-subtitle text-secondary mono">ID: ZG-041</div>
-              </div>
-              <div class="status-dot active" title="System Active"></div>
-            </div>
-            
-            <div class="character-block">
-              <div class="avatar cast-3">MK</div>
-              <div class="character-info">
-                <span class="character-name">Master Koji</span>
-                <span class="text-secondary mono" style="font-size: 11px;">CAST_ASSIGNED</span>
-              </div>
-            </div>
-
-            <div class="metrics-row mono">
-              <div class="metric">
-                <span class="metric-label">Active Jobs</span>
-                <span class="metric-value text-green">01</span>
-              </div>
-              <div class="metric" style="text-align: right;">
-                <span class="metric-label">30D Cost</span>
-                <span class="metric-value">$14.70</span>
-              </div>
-            </div>
-          </a>
-
-          <!-- Card 5: New Channel -->
-          <a href="#" class="card card-new">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            <span class="mono" style="font-weight: 600; letter-spacing: 0.05em;">INITIALIZE CHANNEL</span>
-          </a>
-
-        </div>
-      </section>
-
-    </main>
-  </div>
-
+    themeBtn.addEventListener('click', () => {
+      const currentTheme = htmlNode.getAttribute('data-theme');
+      if (currentTheme === 'dark') {
+        htmlNode.setAttribute('data-theme', 'light');
+        themeBtn.textContent = 'NIGHT MODE';
+      } else {
+        htmlNode.setAttribute('data-theme', 'dark');
+        themeBtn.textContent = 'DAY MODE';
+      }
+    });
+  </script>
 </body>
 </html>

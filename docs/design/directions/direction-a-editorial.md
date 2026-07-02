@@ -1,22 +1,25 @@
 DIRECTION: ELEVATED EDITORIAL
 
-RATIONALE:
-This direction establishes a highly refined, trustworthy workspace for the solo operator by leveraging a high-contrast, warm-literary palette (warm cream-and-ink) and sharp editorial typography. By pairing an elegant serif typeface for structural headers with a high-readability sans-serif for interactive elements and metadata, the dashboard feels like a curated ledger or high-end financial dashboard rather than a generic SaaS app. This aesthetic reads as credible, precise, and serious—perfectly matching a workflow managing real capital and brand-sensitive automated content where hasty decisions carry legal and financial risk. The primary risk of this approach is that it could feel too passive or static if not balanced by clear interactive affordances and crisp, active states.
+### RATIONALE
+The "Elevated Editorial" direction positions this Control Room not as a standard, busy software dashboard, but as a prestigious production office. It uses a sophisticated system serif for prominent titles and crisp system sans-serif for numbers and metadata, evoking the confidence and precision of an established print masthead or high-end curatorial institution. This tone reassures the solo operator that their capital approvals and brand standards are handled with structural gravitas and dignity rather than casual, gamified interfaces. The biggest risk of this direction is that it could feel too passive or slow if the typographical hierarchy lacks clear interactive cues; we mitigate this with a sharp, warm rust accent color and structured structural divisions that focus attention directly on high-importance actions.
 
-TOKENS:
-- Palette: 
-  - `--bg-canvas`: `#FDFCF7` (Alabaster cream; baseline page background)
-  - `--bg-card`: `#FFFFFF` (Pure paper white for structured containers)
-  - `--text-primary`: `#1C1B18` (Deep charcoal ink; contrast ratio 15.9:1 against cream, 16.5:1 against white)
-  - `--text-secondary`: `#6B665F` (Muted warm taupe; contrast ratio 4.9:1 against cream, 5.1:1 against white)
-  - `--accent`: `#8B4A30` (Rust terracotta; contrast ratio 5.2:1 against cream; used sparingly for primary alerts and active counts)
-  - `--border`: `#E5E2D8` (Warm grey divider line)
-  - `--border-focus`: `#1C1B18` (Sharp, high-contrast focus rings)
-- Typography:
-  - Headings (Serif): `Georgia, 'Times New Roman', serif` (Confident, authoritative, structured)
-  - Body/UI (Sans): `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif` (Calm, highly legible, precise)
-  - Scale: Heading 1 (1.875rem/30px), Heading 2 (1.25rem/20px), Body/UI (0.875rem/14px), Micro (0.75rem/12px)
-- Spacing Rhythm: 4px base grid. Common steps: `8px` (compact label-to-value), `16px` (card padding), `24px` (container gaps), `48px` (major page margins).
-- Radius & Elevation: Absolute precision. Very sharp corners (`--radius: 2px`). Zero heavy drop-shadows; separation is achieved cleanly through borders and flat structural depth.
-- Motion: Snappy, natural transitions (`150ms cubic-bezier(0.16, 1, 0.3, 1)`) applied exclusively to focus states and action hover states; no playful bounces or decorative entries.
+**TOKENS**
+- **Palette (Light - Native)**:
+  - `--bg-base`: `#FAF8F5` (Warm cream. Contrast vs primary text: 17.5:1)
+  - `--bg-surface`: `#FFFFFF` (Pure white. Contrast vs primary text: 19.5:1)
+  - `--border-color`: `#E6DFD5` (Soft warm clay border)
+  - `--text-primary`: `#1A1917` (Rich carbon ink)
+  - `--text-secondary`: `#6E675F` (Muted warm graphite. Contrast vs surface: 4.8:1)
+  - `--accent`: `#B84A39` (Restrained warm rust. Contrast vs surface: 5.2:1)
+- **Palette (Dark)**:
+  - `--bg-base`: `#141312` (Deep warm coal. Contrast vs primary text: 16.8:1)
+  - `--bg-surface`: `#1D1C1A` (Lighter warm coal. Contrast vs primary text: 14.5:1)
+  - `--border-color`: `#33302B` (Soft dark-brown border)
+  - `--text-primary`: `#F4EFEA` (Warm ivory)
+  - `--text-secondary`: `#A39B93` (Warm muted gray. Contrast vs surface: 5.1:1)
+  - `--accent`: `#E27D60` (Softer terracotta. Contrast vs surface: 5.4:1)
+- **Typography**: Headings: `Georgia, 'Times New Roman', serif` (elegant weight hierarchy). Body/UI: `system-ui, -apple-system, sans-serif` (highly legible).
+- **Spacing**: Derived from an `8px` grid (8px, 16px, 24px, 48px, 72px) for structured, generous breathing room.
+- **Radius & Elevation**: `0px` to `4px` maximum radius (sharp, crafted corners). Elevation is flat, relying instead on clean, deliberate border rules to separate contexts.
+- **Motion**: Subtle CSS transition on theme switch and hover states (`150ms cubic-bezier(0.4, 0, 0.2, 1)`). Respects `prefers-reduced-motion` by disabling transitions when requested.
 

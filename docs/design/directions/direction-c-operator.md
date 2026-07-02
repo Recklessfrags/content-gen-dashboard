@@ -1,13 +1,13 @@
 DIRECTION: HIGH-CONTRAST OPERATOR CONSOLE
 
-RATIONALE:
-This direction evokes the focused, high-density environment of a trading terminal or mission control center. It targets the "power operator" who treats their automated workforce as a serious, money-making engine where precision and triage are paramount. By relying on a dark theme, rigid grids, and status-driven colors (amber for pending, green for active), it instills trust and emphasizes the critical nature of brand/legal approvals and cost management. The biggest risk of this direction is that the utilitarian density might feel slightly intimidating or overly technical for a purely non-technical founder, requiring careful typographic hierarchy to maintain clarity.
+RATIONALE
+This direction delivers a strictly utilitarian, data-dense interface tailored for a high-stakes daily triage loop. Designed for a solo operator managing real-world money and brand guardrails, it abandons standard soft SaaS aesthetics in favor of a mission-control paradigm where status dictates color and structure prioritizes immediate scanability. The aesthetic builds trust through pure functional clarity, leaving no ambiguity about system states, unassigned roles, or pending financial approvals. Both the dark (native) and light (override) modes treat the interface as a physical console, utilizing tight borders and sharp typography. The primary risk is that the technical density feels overly severe, though this rigid structure actively minimizes daily decision-fatigue.
 
-TOKENS:
-- Palette: Background `#0F1115`, Surface `#16191E`, Borders `#2A2F3A`. Text Primary `#F8FAFC` (14:1 on bg), Text Secondary `#94A3B8` (4.7:1 on bg). Semantic: Action/Cyan `#38BDF8` (5.2:1), Warning/Amber `#FBBF24` (6.2:1), Active/Green `#34D399` (5.7:1).
-- Typography: System sans-serif for UI labels, `ui-monospace, SF Mono, Consolas, monospace` for all data, counts, and costs. Base size 13px/14px for high density.
-- Spacing: Tight 4px rhythm (4, 8, 12, 16, 24).
-- Radius: Tactile and sharp — `2px` for inner elements, `4px` for outer containers.
-- Elevation: Flat with sharp 1px borders; hover states use subtle background lightening and border color shifts, no deep shadows.
-- Motion: Snappy, mechanical 100ms `ease-out` for color transitions.
+TOKENS
+- Palette (Dark/Native): Base `#09090b`, Surface `#18181b`, Border `#3f3f46`, Text `#fafafa` (20.5:1 vs Base), Dim Text `#a1a1aa` (7.1:1 vs Base).
+- Palette (Light): Base `#f8f8fa`, Surface `#ffffff`, Border `#d4d4d8`, Text `#09090b` (19:1 vs Base), Dim Text `#52525b` (7.4:1 vs Base).
+- Semantics: Green/Active `#10b981` (Dark) / `#059669` (Light). Amber/Alert Banner uses `#f59e0b` with `#000000` text universally (10.4:1) for maximum, unambiguous urgency.
+- Typography: System sans-serif for structure/labels (11px–14px), pure Monospace for all counts/financials (ui-monospace, SF Mono).
+- Rhythm & Radius: Dense 8px/16px spatial grid. Sharp 2px border-radii for a tactile, hardware-like precision. No decorative shadows; depth is defined purely by border structures.
+- Motion: Near-instant utility transitions (150ms border color shifts), stripped completely if `prefers-reduced-motion` is active.
 

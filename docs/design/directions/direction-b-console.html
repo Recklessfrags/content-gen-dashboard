@@ -1,62 +1,64 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control Room - Channels Hub</title>
+  <title>Control Room - Channels</title>
   <style>
+    /* NATIVE THEME (DARK) */
     :root {
-      /* Palette */
-      --bg-color: #0f172a;
-      --surface-color: #1e293b;
-      --surface-hover: #263346;
-      --border-color: #334155;
-      --border-focus: #60a5fa;
+      --bg-base: #0f1115;
+      --bg-surface: #1a1d24;
+      --bg-surface-hover: #232832;
+      --border-subtle: #2e3440;
+      --border-strong: #434c5e;
       
-      --text-primary: #f8fafc;
-      --text-secondary: #94a3b8;
-      --text-inverse: #ffffff;
+      --text-primary: #eceff4;
+      --text-secondary: #9ca3af;
+      --text-tertiary: #6b7280;
       
-      --accent: #2563eb;
+      --accent-primary: #3b82f6;
+      --accent-hover: #60a5fa;
+      --accent-alpha: rgba(59, 130, 246, 0.15);
+      
+      --status-warn-bg: #422006;
+      --status-warn-text: #fde047;
+      --status-warn-border: #713f12;
+      
+      --focus-ring: #60a5fa;
+      
+      /* Avatars (semantic representation, works in both) */
+      --avatar-1: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      --avatar-2: linear-gradient(135deg, #10b981, #0ea5e9);
+      --avatar-uncast: #2e3440;
+    }
+
+    /* LIGHT THEME OVERRIDE */
+    html[data-theme="light"] {
+      --bg-base: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-surface-hover: #f1f5f9;
+      --border-subtle: #e2e8f0;
+      --border-strong: #cbd5e1;
+      
+      --text-primary: #0f172a;
+      --text-secondary: #64748b;
+      --text-tertiary: #94a3b8;
+      
+      --accent-primary: #2563eb;
       --accent-hover: #1d4ed8;
-      --warning: #f59e0b;
-      --warning-bg: rgba(245, 158, 11, 0.1);
+      --accent-alpha: rgba(37, 99, 235, 0.1);
       
-      /* Spacing (4px scale) */
-      --space-1: 4px;
-      --space-2: 8px;
-      --space-3: 12px;
-      --space-4: 16px;
-      --space-5: 20px;
-      --space-6: 24px;
-      --space-8: 32px;
+      --status-warn-bg: #fffbeb;
+      --status-warn-text: #b45309;
+      --status-warn-border: #fde68a;
       
-      /* Typography */
-      --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      --text-xs: 0.75rem;     /* 12px */
-      --text-sm: 0.875rem;    /* 14px */
-      --text-base: 1rem;      /* 16px */
-      --text-lg: 1.125rem;    /* 18px */
-      --text-xl: 1.25rem;     /* 20px */
+      --focus-ring: #2563eb;
       
-      /* Radii */
-      --radius-sm: 4px;
-      --radius-md: 6px;
-      --radius-full: 9999px;
-      
-      /* Transitions */
-      --transition-fast: 150ms ease-out;
+      --avatar-uncast: #e2e8f0;
     }
 
-    @media (prefers-reduced-motion: reduce) {
-      *, ::before, ::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
-      }
-    }
-
+    /* RESET & BASE */
     * {
       box-sizing: border-box;
       margin: 0;
@@ -64,468 +66,490 @@
     }
 
     body {
-      background-color: var(--bg-color);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      background-color: var(--bg-base);
       color: var(--text-primary);
-      font-family: var(--font-family);
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Accessibility: Focus states */
+    /* ACCESSIBILITY & MOTION */
+    :focus {
+      outline: none;
+    }
     :focus-visible {
-      outline: 2px solid var(--border-focus);
+      outline: 2px solid var(--focus-ring);
       outline-offset: 2px;
     }
+    
+    .transition {
+      transition: all 0.15s ease-out;
+    }
 
-    /* Layout & Utilities */
+    @media (prefers-reduced-motion: reduce) {
+      .transition {
+        transition: none !important;
+      }
+    }
+
+    /* LAYOUT UTILITIES */
     .container {
       max-width: 1200px;
       margin: 0 auto;
-      padding: var(--space-6);
+      padding: 0 1.5rem;
     }
 
     .flex { display: flex; }
-    .flex-col { flex-direction: column; }
+    .flex-col { display: flex; flex-direction: column; }
     .items-center { align-items: center; }
     .justify-between { justify-content: space-between; }
-    .gap-2 { gap: var(--space-2); }
-    .gap-3 { gap: var(--space-3); }
-    .gap-4 { gap: var(--space-4); }
+    .gap-2 { gap: 0.5rem; }
+    .gap-4 { gap: 1rem; }
+    .gap-6 { gap: 1.5rem; }
 
-    .text-xs { font-size: var(--text-xs); }
-    .text-sm { font-size: var(--text-sm); }
-    .text-base { font-size: var(--text-base); }
-    .text-lg { font-size: var(--text-lg); }
-    .text-xl { font-size: var(--text-xl); }
-    
+    /* TYPOGRAPHY */
+    .text-sm { font-size: 0.875rem; }
+    .text-xs { font-size: 0.75rem; }
     .font-medium { font-weight: 500; }
     .font-semibold { font-weight: 600; }
-    
     .text-secondary { color: var(--text-secondary); }
-    .text-warning { color: var(--warning); }
+    .text-tertiary { color: var(--text-tertiary); }
 
+    /* COMPONENTS */
     /* Top Bar */
-    .top-bar {
-      border-bottom: 1px solid var(--border-color);
-      background-color: var(--bg-color);
+    header {
+      border-bottom: 1px solid var(--border-subtle);
+      background-color: var(--bg-surface);
       position: sticky;
       top: 0;
       z-index: 10;
     }
 
-    .top-bar-content {
-      padding: var(--space-4) var(--space-6);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: var(--space-4);
+    .header-inner {
+      height: 4rem;
     }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
+    .logo {
+      font-size: 1.125rem;
       font-weight: 600;
-      letter-spacing: -0.01em;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
 
-    .brand svg {
-      color: var(--accent);
+    .logo svg {
+      color: var(--accent-primary);
     }
 
+    nav {
+      display: flex;
+      gap: 1.5rem;
+      margin-left: 3rem;
+    }
+
+    nav a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 0.5rem 0;
+    }
+
+    nav a:hover {
+      color: var(--text-primary);
+    }
+
+    nav a[aria-current="page"] {
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--accent-primary);
+    }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 0.375rem;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .theme-toggle:hover {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+    }
+
+    html[data-theme="dark"] .icon-sun { display: none; }
+    html[data-theme="light"] .icon-moon { display: none; }
+
+    /* System Glance */
     .system-glance {
       display: flex;
-      gap: var(--space-6);
-      background: var(--surface-color);
-      padding: var(--space-2) var(--space-4);
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border-color);
+      gap: 1.5rem;
+      padding: 1rem 1.5rem;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
     }
 
     .glance-item {
       display: flex;
-      flex-direction: column;
+      align-items: baseline;
+      gap: 0.375rem;
     }
 
-    .glance-val {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: var(--text-sm);
-      font-weight: 600;
+    .glance-item strong {
       color: var(--text-primary);
+      font-weight: 600;
     }
 
-    .action-btn {
-      background-color: var(--accent);
-      color: var(--text-inverse);
-      border: none;
-      border-radius: var(--radius-full);
-      padding: var(--space-2) var(--space-4);
-      font-size: var(--text-sm);
+    /* Action Center Banner */
+    .action-center {
+      background-color: var(--status-warn-bg);
+      border: 1px solid var(--status-warn-border);
+      border-radius: 6px;
+      padding: 1rem 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .action-text {
+      color: var(--status-warn-text);
       font-weight: 500;
       display: flex;
       align-items: center;
-      gap: var(--space-2);
+      gap: 0.5rem;
+    }
+
+    .btn-action {
+      background-color: var(--status-warn-text);
+      color: var(--status-warn-bg);
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      font-weight: 600;
       cursor: pointer;
-      transition: background-color var(--transition-fast);
-      text-decoration: none;
     }
 
-    .action-btn:hover {
-      background-color: var(--accent-hover);
+    .btn-action:hover {
+      opacity: 0.9;
     }
 
-    .action-badge {
-      background-color: var(--text-inverse);
-      color: var(--accent);
-      border-radius: var(--radius-full);
-      padding: 0 6px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      height: 18px;
+    /* Hub Header */
+    .section-header {
+      margin: 2rem 0 1rem 0;
     }
 
-    /* Main Content */
-    .page-header {
-      margin-bottom: var(--space-6);
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
     }
 
-    .grid-hub {
+    /* Grid */
+    .channel-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: var(--space-4);
+      gap: 1.25rem;
+      padding-bottom: 3rem;
     }
 
-    /* Cards */
+    /* Channel Card */
     .card {
-      background-color: var(--surface-color);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 1.25rem;
+      position: relative;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
       display: flex;
       flex-direction: column;
-      transition: border-color var(--transition-fast), background-color var(--transition-fast);
-      position: relative;
+      gap: 1rem;
     }
 
     .card:hover {
-      border-color: #475569; /* Slate 600 */
-      background-color: var(--surface-hover);
+      border-color: var(--border-strong);
+      background-color: var(--bg-surface-hover);
     }
 
-    .card-body {
-      padding: var(--space-5);
-      display: flex;
-      gap: var(--space-4);
-      flex: 1;
-    }
-
-    .card-footer {
-      border-top: 1px solid var(--border-color);
-      padding: var(--space-3) var(--space-5);
+    .card-header {
       display: flex;
       justify-content: space-between;
-      background-color: rgba(0, 0, 0, 0.1);
-      border-bottom-left-radius: var(--radius-md);
-      border-bottom-right-radius: var(--radius-md);
+      align-items: flex-start;
     }
 
-    /* Avatars (No external images) */
-    .avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius-full);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      color: var(--text-inverse);
-      flex-shrink: 0;
-      font-size: var(--text-lg);
-    }
-
-    .avatar.cast-1 { background: linear-gradient(135deg, #10b981, #047857); }
-    .avatar.cast-2 { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
-    .avatar.cast-3 { background: linear-gradient(135deg, #ec4899, #be185d); }
-    
-    .avatar.uncast {
-      background-color: var(--bg-color);
-      border: 2px dashed var(--border-color);
-      color: var(--text-secondary);
-    }
-
-    .channel-info {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      min-width: 0; /* for text truncation if needed */
-    }
-
-    .channel-title {
-      font-size: var(--text-base);
+    .card-title {
+      font-size: 1rem;
       font-weight: 600;
       color: var(--text-primary);
-      margin-bottom: 2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      margin-bottom: 0.25rem;
     }
 
-    .cast-status {
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 4px; /* Slightly squared for industrial feel */
       display: flex;
       align-items: center;
-      gap: 4px;
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
+      justify-content: center;
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.875rem;
+      flex-shrink: 0;
+      border: 1px solid rgba(0,0,0,0.1);
     }
-    
-    .cast-status.warning {
-      color: var(--warning);
-      font-weight: 500;
+
+    .avatar.cast-1 { background: var(--avatar-1); }
+    .avatar.cast-2 { background: var(--avatar-2); }
+    .avatar.uncast { 
+      background: var(--avatar-uncast); 
+      color: var(--text-tertiary);
+      border: 1px dashed var(--border-strong);
+    }
+
+    .card-metrics {
+      display: flex;
+      gap: 1.5rem;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 1rem;
+      margin-top: auto;
     }
 
     .metric {
       display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
+      flex-direction: column;
+      gap: 0.25rem;
     }
 
     .metric-val {
-      color: var(--text-primary);
+      font-size: 1rem;
       font-weight: 500;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
     }
 
-    /* New Channel Affordance */
+    /* New Channel Card */
     .card-new {
+      border: 1px dashed var(--border-strong);
       background-color: transparent;
-      border: 2px dashed var(--border-color);
       align-items: center;
       justify-content: center;
+      gap: 0.75rem;
       min-height: 140px;
-      cursor: pointer;
-      color: var(--text-secondary);
     }
 
     .card-new:hover {
-      border-color: var(--text-secondary);
-      color: var(--text-primary);
-      background-color: transparent;
+      background-color: var(--accent-alpha);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
     }
 
-    .card-new svg {
-      margin-bottom: var(--space-2);
-      transition: transform var(--transition-fast);
+    .card-new .text-primary {
+      color: inherit;
     }
-
-    .card-new:hover svg {
-      transform: scale(1.1);
-    }
-
-    /* SVG Icons */
-    .icon {
-      width: 16px;
-      height: 16px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    .icon-sm { width: 14px; height: 14px; }
-    .icon-lg { width: 24px; height: 24px; }
 
     /* Responsive */
     @media (max-width: 768px) {
-      .top-bar-content {
-        flex-direction: column;
-        align-items: flex-start;
-      }
+      nav { display: none; } /* Hide on mobile for this mock */
       .system-glance {
-        width: 100%;
-        overflow-x: auto;
-        padding: var(--space-3);
-      }
-      .action-btn {
-        width: 100%;
-        justify-content: center;
+        flex-direction: column;
+        gap: 0.75rem;
       }
     }
-
+    
     @media (max-width: 412px) {
-      .grid-hub {
+      .channel-grid {
         grid-template-columns: 1fr;
       }
-      .container {
-        padding: var(--space-4);
+      .action-center {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
       }
     }
   </style>
 </head>
 <body>
 
-  <!-- TOP BAR -->
-  <header class="top-bar">
-    <div class="top-bar-content">
-      <div class="brand">
-        <svg class="icon icon-lg" viewBox="0 0 24 24">
-          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-          <line x1="8" y1="21" x2="16" y2="21"></line>
-          <line x1="12" y1="17" x2="12" y2="21"></line>
-        </svg>
-        Control Room
+  <!-- Top Navigation Rail -->
+  <header>
+    <div class="container header-inner flex items-center justify-between">
+      <div class="flex items-center">
+        <div class="logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          Control Room
+        </div>
+        <nav>
+          <a href="#" aria-current="page">Channels</a>
+          <a href="#" class="transition">Production</a>
+          <a href="#" class="transition">Guidelines</a>
+        </nav>
       </div>
-
-      <nav class="system-glance" aria-label="System Overview">
-        <div class="glance-item">
-          <span class="text-xs text-secondary">Channels</span>
-          <span class="glance-val">4</span>
-        </div>
-        <div class="glance-item">
-          <span class="text-xs text-secondary">Active Runs</span>
-          <span class="glance-val">12</span>
-        </div>
-        <div class="glance-item">
-          <span class="text-xs text-secondary">Spend (30d)</span>
-          <span class="glance-val">$1,240.00</span>
-        </div>
-        <div class="glance-item">
-          <span class="text-xs text-secondary">Spend (Today)</span>
-          <span class="glance-val">$45.00</span>
-        </div>
-      </nav>
-
-      <a href="#action-center" class="action-btn">
-        <svg class="icon" viewBox="0 0 24 24">
-          <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0"></path>
+      
+      <button class="theme-toggle transition" id="themeToggle" aria-label="Toggle light/dark mode">
+        <!-- Sun icon for Dark Mode -->
+        <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
         </svg>
-        Action Center
-        <span class="action-badge">3</span>
-      </a>
+        <!-- Moon icon for Light Mode -->
+        <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
     </div>
   </header>
 
-  <!-- MAIN HUB -->
   <main class="container">
-    <header class="page-header">
-      <h1 class="text-xl font-semibold">Channels Hub</h1>
-      <p class="text-sm text-secondary">Manage shows, characters, and automated production pipelines.</p>
-    </header>
+    
+    <!-- System Overview Glance -->
+    <section class="system-glance transition">
+      <div class="glance-item">
+        <span class="text-secondary">Channels</span>
+        <strong>4</strong>
+      </div>
+      <div class="glance-item">
+        <span class="text-secondary">Active Runs</span>
+        <strong>7</strong>
+      </div>
+      <div class="glance-item" style="margin-left: auto;">
+        <span class="text-secondary">Spend Today</span>
+        <strong>$14.50</strong>
+      </div>
+      <div class="glance-item">
+        <span class="text-secondary">30d Total</span>
+        <strong>$412.00</strong>
+      </div>
+    </section>
 
-    <div class="grid-hub">
+    <!-- Global Action Center -->
+    <section class="action-center flex items-center justify-between transition">
+      <div class="action-text">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <span>Action Center: 3 jobs awaiting financial approval</span>
+      </div>
+      <button class="btn-action transition">Review & Approve</button>
+    </section>
+
+    <div class="section-header">
+      <h1 class="section-title">Channels</h1>
+    </div>
+
+    <!-- Channels Grid -->
+    <div class="channel-grid">
       
-      <!-- Card 1: Cast -->
-      <article class="card">
-        <div class="card-body">
-          <div class="avatar cast-1" aria-label="Avatar for Chef Bot">CB</div>
-          <div class="channel-info">
-            <h2 class="channel-title">Weird Food</h2>
-            <div class="cast-status">
-              <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              Chef Bot
-            </div>
+      <!-- Card 1 (Cast) -->
+      <a href="#" class="card transition">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Weird Food</h2>
+            <p class="text-xs text-secondary">Character: Cast</p>
+          </div>
+          <div class="avatar cast-1" aria-label="Character thumbnail">JD</div>
+        </div>
+        <div class="card-metrics">
+          <div class="metric">
+            <span class="text-xs text-secondary">Active Jobs</span>
+            <span class="metric-val">3</span>
+          </div>
+          <div class="metric">
+            <span class="text-xs text-secondary">30d Cost</span>
+            <span class="metric-val">$142.50</span>
           </div>
         </div>
-        <div class="card-footer">
-          <div class="metric" title="Active Jobs">
-            <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="metric-val">5</span> Active
-          </div>
-          <div class="metric" title="30-day Cost">
-            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            <span class="metric-val">$450</span>
-          </div>
-        </div>
-      </article>
+      </a>
 
-      <!-- Card 2: Cast -->
-      <article class="card">
-        <div class="card-body">
-          <div class="avatar cast-2" aria-label="Avatar for Safari Sam">SS</div>
-          <div class="channel-info">
-            <h2 class="channel-title">Unusual Animal Facts</h2>
-            <div class="cast-status">
-              <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              Safari Sam
-            </div>
+      <!-- Card 2 (Uncast) -->
+      <a href="#" class="card transition">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Unusual Animal Facts</h2>
+            <p class="text-xs text-tertiary">Character: Uncast</p>
           </div>
-        </div>
-        <div class="card-footer">
-          <div class="metric" title="Active Jobs">
-            <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="metric-val">3</span> Active
-          </div>
-          <div class="metric" title="30-day Cost">
-            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            <span class="metric-val">$320</span>
-          </div>
-        </div>
-      </article>
-
-      <!-- Card 3: Uncast (Warning state) -->
-      <article class="card">
-        <div class="card-body">
           <div class="avatar uncast" aria-label="Uncast placeholder">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          </div>
-          <div class="channel-info">
-            <h2 class="channel-title">Declassified History</h2>
-            <div class="cast-status warning">
-              <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              Requires Character
-            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
           </div>
         </div>
-        <div class="card-footer">
-          <div class="metric" title="Active Jobs">
-            <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="metric-val">0</span> Active
+        <div class="card-metrics">
+          <div class="metric">
+            <span class="text-xs text-secondary">Active Jobs</span>
+            <span class="metric-val">1</span>
           </div>
-          <div class="metric" title="30-day Cost">
-            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            <span class="metric-val">$0</span>
+          <div class="metric">
+            <span class="text-xs text-secondary">30d Cost</span>
+            <span class="metric-val">$18.20</span>
           </div>
         </div>
-      </article>
+      </a>
 
-      <!-- Card 4: Cast -->
-      <article class="card">
-        <div class="card-body">
-          <div class="avatar cast-3" aria-label="Avatar for Night Watcher">NW</div>
-          <div class="channel-info">
-            <h2 class="channel-title">Urban Legends</h2>
-            <div class="cast-status">
-              <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              Night Watcher
-            </div>
+      <!-- Card 3 (Cast) -->
+      <a href="#" class="card transition">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Declassified History</h2>
+            <p class="text-xs text-secondary">Character: Cast</p>
+          </div>
+          <div class="avatar cast-2" aria-label="Character thumbnail">SR</div>
+        </div>
+        <div class="card-metrics">
+          <div class="metric">
+            <span class="text-xs text-secondary">Active Jobs</span>
+            <span class="metric-val">3</span>
+          </div>
+          <div class="metric">
+            <span class="text-xs text-secondary">30d Cost</span>
+            <span class="metric-val">$251.30</span>
           </div>
         </div>
-        <div class="card-footer">
-          <div class="metric" title="Active Jobs">
-            <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="metric-val">4</span> Active
-          </div>
-          <div class="metric" title="30-day Cost">
-            <svg class="icon icon-sm" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            <span class="metric-val">$470</span>
-          </div>
-        </div>
-      </article>
+      </a>
 
-      <!-- Action: New Channel -->
-      <button class="card card-new" aria-label="Create New Channel">
-        <svg class="icon icon-lg" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        <span class="font-medium">New Channel</span>
+      <!-- Card 4 (New Affordance) -->
+      <button class="card card-new transition" aria-label="Create new channel">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span class="font-medium text-sm text-primary transition">New channel</span>
       </button>
 
     </div>
   </main>
 
+  <script>
+    // Theme toggle functionality
+    const toggleBtn = document.getElementById('themeToggle');
+    const root = document.documentElement;
+
+    toggleBtn.addEventListener('click', () => {
+      const currentTheme = root.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', newTheme);
+    });
+  </script>
 </body>
 </html>
