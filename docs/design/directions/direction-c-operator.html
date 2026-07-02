@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Room - Hub</title>
+  <style>
+    :root {
+      /* Palette */
+      --bg-base: #0F1115;
+      --bg-surface: #16191E;
+      --bg-surface-hover: #1E232A;
+      --bg-warning: #38250A;
+      --border-subtle: #2A2F3A;
+      --border-focus: #38BDF8;
+      
+      /* Text */
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --text-inverse: #0F1115;
+      
+      /* Semantic */
+      --color-cyan: #38BDF8;
+      --color-amber: #FBBF24;
+      --color-green: #34D399;
+      
+      /* Typography */
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      
+      /* Spacing & Radius */
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --radius-sm: 2px;
+      --radius-md: 4px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a, button {
+      color: inherit;
+      text-decoration: none;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    /* Focus states */
+    :focus-visible {
+      outline: 2px solid var(--border-focus);
+      outline-offset: 2px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Utilities */
+    .mono { font-family: var(--font-mono); }
+    .text-secondary { color: var(--text-secondary); }
+    .text-amber { color: var(--color-amber); }
+    .text-green { color: var(--color-green); }
+    .text-cyan { color: var(--color-cyan); }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.active { background-color: var(--color-green); box-shadow: 0 0 8px rgba(52, 211, 153, 0.4); }
+    .status-dot.pending { background-color: var(--color-amber); box-shadow: 0 0 8px rgba(251, 191, 36, 0.4); }
+    .status-dot.inactive { background-color: var(--border-subtle); }
+
+    /* Layout */
+    .app-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-6);
+    }
+
+    /* Top Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+      gap: var(--space-4);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-size: 13px;
+    }
+
+    .brand svg {
+      color: var(--color-cyan);
+    }
+
+    .system-overview {
+      display: flex;
+      gap: var(--space-6);
+      font-size: 12px;
+      background: var(--bg-surface);
+      padding: var(--space-2) var(--space-4);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+    }
+
+    .overview-item {
+      display: flex;
+      gap: var(--space-2);
+      align-items: center;
+    }
+
+    .nav-actions {
+      display: flex;
+      gap: var(--space-4);
+    }
+
+    /* Action Center Banner */
+    .action-banner {
+      background-color: var(--bg-warning);
+      border: 1px solid var(--color-amber);
+      border-radius: var(--radius-md);
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background-color 0.1s ease-out;
+    }
+
+    .action-banner:hover {
+      background-color: rgba(251, 191, 36, 0.15);
+    }
+
+    .action-banner-content {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-weight: 500;
+    }
+
+    .btn-primary {
+      background-color: var(--color-amber);
+      color: var(--text-inverse);
+      border: none;
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .btn-primary:hover {
+      background-color: #FCD34D;
+    }
+
+    /* Channels Section */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-4);
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .channels-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-8);
+    }
+
+    /* Card */
+    .card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      transition: border-color 0.1s ease-out, background-color 0.1s ease-out;
+      position: relative;
+    }
+
+    .card:hover {
+      border-color: var(--color-cyan);
+      background-color: var(--bg-surface-hover);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .card-title {
+      font-weight: 500;
+      font-size: 15px;
+      margin-bottom: var(--space-1);
+    }
+    
+    .card-subtitle {
+      font-size: 12px;
+    }
+
+    /* Avatar/Character */
+    .character-block {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-2);
+      background-color: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--text-inverse);
+    }
+
+    .avatar.uncast {
+      background: transparent;
+      border: 1px dashed var(--text-secondary);
+      color: var(--text-secondary);
+    }
+
+    .avatar.cast-1 { background: linear-gradient(135deg, #38BDF8, #818CF8); }
+    .avatar.cast-2 { background: linear-gradient(135deg, #F472B6, #FB7185); }
+    .avatar.cast-3 { background: linear-gradient(135deg, #34D399, #10B981); }
+
+    .character-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .character-name {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    /* Metrics */
+    .metrics-row {
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: var(--space-3);
+      margin-top: auto;
+    }
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-value {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    /* New Channel Card */
+    .card-new {
+      border: 1px dashed var(--border-subtle);
+      background-color: transparent;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--text-secondary);
+      min-height: 200px;
+    }
+
+    .card-new:hover {
+      border-color: var(--color-cyan);
+      color: var(--color-cyan);
+      background-color: rgba(56, 189, 248, 0.05);
+    }
+
+    .card-new svg {
+      margin-bottom: var(--space-2);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .top-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .system-overview {
+        flex-direction: column;
+        gap: var(--space-2);
+      }
+    }
+
+    @media (max-width: 412px) {
+      .channels-grid {
+        grid-template-columns: 1fr;
+      }
+      .action-banner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-3);
+      }
+      .btn-primary {
+        text-align: center;
+      }
+    }
+
+    /* Accessibility / Preferences */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- TOP BAR -->
+    <header class="top-bar">
+      <div class="brand">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+        <span>CTRL_RM</span>
+      </div>
+
+      <div class="system-overview mono">
+        <div class="overview-item">
+          <span class="text-secondary">CH:</span>
+          <span>4</span>
+        </div>
+        <div class="overview-item">
+          <span class="text-secondary">RUNS:</span>
+          <span class="text-green">12</span>
+        </div>
+        <div class="overview-item">
+          <span class="text-secondary">SPEND_24H:</span>
+          <span>$42.50</span>
+        </div>
+        <div class="overview-item">
+          <span class="text-secondary">SPEND_30D:</span>
+          <span>$340.20</span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <a href="#" class="text-secondary mono" style="font-size: 12px; display: flex; align-items: center; gap: 4px;">
+          [ SYSTEM LOGS ]
+        </a>
+      </div>
+    </header>
+
+    <main style="display: flex; flex-direction: column; gap: var(--space-6);">
+      
+      <!-- GLOBAL ACTION CENTER -->
+      <a href="#" class="action-banner">
+        <div class="action-banner-content">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span class="text-amber">ACTION REQUIRED: 3 jobs awaiting financial approval</span>
+        </div>
+        <button class="btn-primary mono">Triage Queue</button>
+      </a>
+
+      <!-- CHANNELS HUB -->
+      <section>
+        <div class="section-header">
+          <h1 class="section-title mono text-secondary">/ CHANNELS</h1>
+        </div>
+
+        <div class="channels-grid">
+          
+          <!-- Card 1: Cast & Active -->
+          <a href="#" class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Weird Food</h2>
+                <div class="card-subtitle text-secondary mono">ID: WF-092</div>
+              </div>
+              <div class="status-dot active" title="System Active"></div>
+            </div>
+            
+            <div class="character-block">
+              <div class="avatar cast-1">JS</div>
+              <div class="character-info">
+                <span class="character-name">Jiro Sushi</span>
+                <span class="text-secondary mono" style="font-size: 11px;">CAST_ASSIGNED</span>
+              </div>
+            </div>
+
+            <div class="metrics-row mono">
+              <div class="metric">
+                <span class="metric-label">Active Jobs</span>
+                <span class="metric-value text-green">03</span>
+              </div>
+              <div class="metric" style="text-align: right;">
+                <span class="metric-label">30D Cost</span>
+                <span class="metric-value">$124.50</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Card 2: Cast & Active -->
+          <a href="#" class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Declassified History</h2>
+                <div class="card-subtitle text-secondary mono">ID: DH-114</div>
+              </div>
+              <div class="status-dot active" title="System Active"></div>
+            </div>
+            
+            <div class="character-block">
+              <div class="avatar cast-2">AX</div>
+              <div class="character-info">
+                <span class="character-name">Agent X</span>
+                <span class="text-secondary mono" style="font-size: 11px;">CAST_ASSIGNED</span>
+              </div>
+            </div>
+
+            <div class="metrics-row mono">
+              <div class="metric">
+                <span class="metric-label">Active Jobs</span>
+                <span class="metric-value text-green">08</span>
+              </div>
+              <div class="metric" style="text-align: right;">
+                <span class="metric-label">30D Cost</span>
+                <span class="metric-value">$201.00</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Card 3: Uncast & Inactive -->
+          <a href="#" class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Unusual Animal Facts</h2>
+                <div class="card-subtitle text-secondary mono">ID: UA-003</div>
+              </div>
+              <div class="status-dot pending" title="Configuration Pending"></div>
+            </div>
+            
+            <div class="character-block">
+              <div class="avatar uncast">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <div class="character-info">
+                <span class="character-name text-amber">No Character</span>
+                <span class="text-secondary mono" style="font-size: 11px;">UNCAST_WARNING</span>
+              </div>
+            </div>
+
+            <div class="metrics-row mono">
+              <div class="metric">
+                <span class="metric-label">Active Jobs</span>
+                <span class="metric-value text-secondary">00</span>
+              </div>
+              <div class="metric" style="text-align: right;">
+                <span class="metric-label">30D Cost</span>
+                <span class="metric-value text-secondary">$0.00</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Card 4: Cast & Low Activity -->
+          <a href="#" class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Zen Gardens</h2>
+                <div class="card-subtitle text-secondary mono">ID: ZG-041</div>
+              </div>
+              <div class="status-dot active" title="System Active"></div>
+            </div>
+            
+            <div class="character-block">
+              <div class="avatar cast-3">MK</div>
+              <div class="character-info">
+                <span class="character-name">Master Koji</span>
+                <span class="text-secondary mono" style="font-size: 11px;">CAST_ASSIGNED</span>
+              </div>
+            </div>
+
+            <div class="metrics-row mono">
+              <div class="metric">
+                <span class="metric-label">Active Jobs</span>
+                <span class="metric-value text-green">01</span>
+              </div>
+              <div class="metric" style="text-align: right;">
+                <span class="metric-label">30D Cost</span>
+                <span class="metric-value">$14.70</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Card 5: New Channel -->
+          <a href="#" class="card card-new">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span class="mono" style="font-weight: 600; letter-spacing: 0.05em;">INITIALIZE CHANNEL</span>
+          </a>
+
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+</body>
+</html>
