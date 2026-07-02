@@ -76,6 +76,7 @@ export function isValidEpisodeCap(n: number): boolean {
 export type JobEnqueueInput = {
   food: string;
   character: string | null;
+  channel?: string | null;
   anchor_citation: string | null;
   anchor_url: string | null;
   inject_claims: Json[];
@@ -184,6 +185,7 @@ export function idempotencyKeyFor(input: JobEnqueueInput): string {
     anchor_citation: input.anchor_citation,
     anchor_url: input.anchor_url,
     character: input.character,
+    ...(input.channel != null ? { channel: input.channel } : {}),
     episode_cap: input.episode_cap,
     food: input.food,
     inject_claims: canonicalizeJson(
@@ -213,6 +215,7 @@ export function buildJobInsert(
   return {
     food: input.food,
     character: input.character,
+    channel: input.channel ?? null,
     anchor_citation: input.anchor_citation,
     anchor_url: input.anchor_url,
     inject_claims: input.inject_claims,
@@ -228,6 +231,36 @@ export function buildJobInsert(
       input.idempotency_key === undefined
         ? idempotencyKeyFor(input)
         : input.idempotency_key,
+  };
+}
+
+export function normalizeJobInputArray(value: Json): Json[] {
+  return Array.isArray(value) ? value : [];
+}
+
+export function jobInputFromRow(
+  job: QueueJob,
+  overrides: {
+    spendApproved?: boolean;
+    publishApproved?: boolean;
+    idempotencyKey?: string | null;
+  } = {},
+): JobEnqueueInput {
+  return {
+    food: job.food,
+    character: job.character,
+    channel: job.channel ?? null,
+    anchor_citation: job.anchor_citation,
+    anchor_url: job.anchor_url,
+    inject_claims: normalizeJobInputArray(job.inject_claims),
+    episode_cap: job.episode_cap,
+    routes: job.routes,
+    live_adapters: job.live_adapters,
+    stub_upstream: job.stub_upstream,
+    spend_approved: overrides.spendApproved ?? job.spend_approved,
+    publish_approved: overrides.publishApproved ?? job.publish_approved,
+    idempotency_key:
+      "idempotencyKey" in overrides ? overrides.idempotencyKey : job.idempotency_key,
   };
 }
 

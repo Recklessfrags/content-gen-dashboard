@@ -518,6 +518,7 @@ body{font-family:var(--body)}
   background:rgba(21,24,30,.2);
 }
 .enqueue-form input:disabled,
+.enqueue-form select:disabled,
 .enqueue-form textarea:disabled{
   color:var(--paper-faint);
   border-color:var(--line-soft);

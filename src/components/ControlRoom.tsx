@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Json } from "@/lib/database.types";
 import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
 import { useChannelProfiles } from "@/lib/hooks/useChannelProfiles";
 import { useCharacters } from "@/lib/hooks/useCharacters";
@@ -22,6 +21,7 @@ import {
   detectParkKind,
   isActionableStatus,
   isTerminalStatus,
+  jobInputFromRow,
   JOB_STATUS_LABELS,
   publishSourceEpisodeId,
   type JobEnqueueInput,
@@ -125,35 +125,6 @@ function formatQueueTimestamp(createdAt: string) {
   }
 
   return new Date(createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
-}
-
-function normalizeJobInputArray(value: Json): Json[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function jobInputFromRow(
-  job: QueueJob,
-  overrides: {
-    spendApproved?: boolean;
-    publishApproved?: boolean;
-    idempotencyKey?: string | null;
-  } = {},
-): JobEnqueueInput {
-  return {
-    food: job.food,
-    character: job.character,
-    anchor_citation: job.anchor_citation,
-    anchor_url: job.anchor_url,
-    inject_claims: normalizeJobInputArray(job.inject_claims),
-    episode_cap: job.episode_cap,
-    routes: job.routes,
-    live_adapters: job.live_adapters,
-    stub_upstream: job.stub_upstream,
-    spend_approved: overrides.spendApproved ?? job.spend_approved,
-    publish_approved: overrides.publishApproved ?? job.publish_approved,
-    idempotency_key:
-      "idempotencyKey" in overrides ? overrides.idempotencyKey : job.idempotency_key,
-  };
 }
 
 function fieldControlId(characterId: string | null, label: string) {
@@ -1951,6 +1922,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                               <div className="title">{job.food}</div>
                               <div className="queue-card-meta">
                                 <span>OPERATOR: {job.character ?? "default"}</span>
+                                {job.channel != null && (
+                                  <span className="chip queue-channel-chip">{job.channel}</span>
+                                )}
                                 <span>CREATED: {formatQueueTimestamp(job.created_at)}</span>
                                 <span>Attempts: {job.attempts}/3</span>
                                 {terminal && <span>Terminal</span>}
@@ -2225,6 +2199,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           idea={activeEnqueueIdea}
           character={activeEnqueueCharacter}
           characters={chars}
+          channelProfiles={channelProfiles}
           onClose={closeEnqueuePanel}
           onSubmit={enqueueJob}
           restoreFocusRef={enqueueRestoreFocusRef}

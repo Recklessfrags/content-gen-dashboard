@@ -258,6 +258,7 @@ repo.**
 | `spend_approved` | bool | default `false` (migration `0013`). Clears a **spend** park. |
 | `publish_approved` | bool | default `false` (migration `0015`). Clears a **publish** park; **double-gated** — never posts without a wired Buffer adapter. |
 | `idempotency_key` | text | UNIQUE; **dashboard generates its own** unique-per-logical-job key (no CLI parity). Duplicate → `409` "already queued". |
+| `channel` | text | pipeline `0018` (**APPLIED live 2026-07-01**, operator GO) — routes the job to a `channel_profiles` row. **Tolerant resolution worker-side:** absent/`null`/unknown → the `default` profile, so it is always safe to omit. Participates in the dashboard's idempotency hash **only when non-null** (legacy keys stay byte-stable). |
 
 **Worker-owned columns — the dashboard MUST NOT set them** (RLS `jobs_enqueue` WITH CHECK
 rejects a row that does): `status` (defaults `'queued'`), `attempts` (defaults `0`),

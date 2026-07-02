@@ -1,4 +1,5 @@
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
+import type { ChannelProfile } from "@/lib/channelProfiles";
 import type { Json } from "@/lib/database.types";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import { useScrollLock } from "@/lib/hooks/useScrollLock";
@@ -22,6 +23,7 @@ type EnqueueIdeaPanelProps = {
   idea: WireIdea;
   character: FlatChar | null;
   characters: FlatChar[];
+  channelProfiles: ChannelProfile[];
   onClose: () => void;
   onSubmit: (input: JobEnqueueInput) => Promise<EnqueueSubmitResult>;
   restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
@@ -74,19 +76,49 @@ function isHttpUrl(value: string): boolean {
   return value.startsWith("http://") || value.startsWith("https://");
 }
 
+function channelProfileValueForIdea(
+  ideaChannel: string,
+  channelProfiles: ChannelProfile[],
+): string {
+  const normalizedIdeaChannel = ideaChannel.trim().toLowerCase();
+  const match = channelProfiles.find(
+    (profile) =>
+      profile.channel.trim().toLowerCase() === normalizedIdeaChannel ||
+      profile.display_name.trim().toLowerCase() === normalizedIdeaChannel,
+  );
+
+  return match?.channel.trim().toLowerCase() === "default" ? "" : (match?.channel ?? "");
+}
+
 export function EnqueueIdeaPanel({
   idea,
   character,
   characters,
+  channelProfiles,
   onClose,
   onSubmit,
   restoreFocusRef,
 }: EnqueueIdeaPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const characterInputRef = useRef<HTMLInputElement>(null);
+  const sortedChannelProfiles = useMemo(
+    () =>
+      channelProfiles
+        .filter((profile) => profile.channel.trim().toLowerCase() !== "default")
+        .sort((left, right) => {
+          const byName = left.display_name.localeCompare(right.display_name, undefined, {
+            sensitivity: "base",
+          });
+          return byName || left.channel.localeCompare(right.channel);
+        }),
+    [channelProfiles],
+  );
   const [recipeKey, setRecipeKey] = useState<RecipeKey>("provenRender");
   const [characterName, setCharacterName] = useState(
     idea.character_id && character ? character.codename : "",
+  );
+  const [channelProfile, setChannelProfile] = useState(() =>
+    channelProfileValueForIdea(idea.channel, sortedChannelProfiles),
   );
   const [episodeCap, setEpisodeCap] = useState(String(RECIPES.provenRender.episode_cap));
   const [anchorCitation, setAnchorCitation] = useState("");
@@ -179,6 +211,7 @@ export function EnqueueIdeaPanel({
     const input: JobEnqueueInput = {
       food: idea.title,
       character: characterName.trim().length > 0 ? characterName.trim() : null,
+      channel: channelProfile.length > 0 ? channelProfile : null,
       anchor_citation: isFullEpisode ? trimmedAnchorCitation : null,
       anchor_url: isFullEpisode ? trimmedAnchorUrl : null,
       inject_claims: injectClaimsResult.value,
@@ -264,6 +297,28 @@ export function EnqueueIdeaPanel({
               disabled={submitting}
               autoComplete="off"
             />
+          </div>
+
+          <div className="field">
+            <label htmlFor="enqueue-channel-profile">
+              <span className="eyebrow">CHANNEL PROFILE</span>
+              <span className="field-label-side">
+                <span className="hint">Worker routing profile</span>
+              </span>
+            </label>
+            <select
+              id="enqueue-channel-profile"
+              value={channelProfile}
+              onChange={(event) => setChannelProfile(event.target.value)}
+              disabled={submitting}
+            >
+              <option value="">(default profile)</option>
+              {sortedChannelProfiles.map((profile) => (
+                <option key={profile.channel} value={profile.channel}>
+                  {profile.display_name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="field">
