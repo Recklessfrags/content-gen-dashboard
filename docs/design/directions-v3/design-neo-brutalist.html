@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Room - Channels</title>
+<style>
+  /* DESIGN TOKENS & SYSTEM */
+  :root {
+    --bg: #EBEBE6;
+    --surface: #FFFFFF;
+    --text: #0F0F0F;
+    --text-dim: #595959;
+    --text-inv: #FFFFFF;
+    --brand: #FF4500;
+    --success: #00D05E;
+    --warn: #FFB800;
+    --danger: #FF003C;
+    
+    --border-color: var(--text);
+    --border-thick: 3px;
+    --shadow-offset: 6px;
+    
+    --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "Courier New", Courier, "Lucida Sans Typewriter", monospace;
+    
+    --nav-height: 4.5rem;
+  }
+
+  html[data-theme="dark"] {
+    --bg: #121212;
+    --surface: #1E1E1E;
+    --text: #F0F0F0;
+    --text-dim: #A3A3A3;
+    --text-inv: #0F0F0F;
+    --brand: #FF5E23;
+    --success: #00E676;
+    --warn: #FFD54F;
+    --danger: #FF425A;
+    --border-color: var(--text);
+  }
+
+  /* RESET & BASE */
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* TEXTURE OVERLAY */
+  .texture-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.35;
+    mix-blend-mode: multiply;
+  }
+  html[data-theme="dark"] .texture-overlay {
+    opacity: 0.15;
+    mix-blend-mode: screen;
+  }
+
+  /* TYPOGRAPHY UTILS */
+  .mono { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; }
+  .grotesk { font-family: var(--font-sans); font-weight: 900; text-transform: uppercase; letter-spacing: -0.02em; }
+  .text-dim { color: var(--text-dim); }
+
+  /* STRUCTURAL LAYOUT */
+  .app-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem 4rem 2rem;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  header {
+    height: var(--nav-height);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: var(--border-thick) solid var(--border-color);
+    margin-bottom: 2rem;
+  }
+
+  .wordmark {
+    display: flex;
+    align-items: stretch;
+    border: var(--border-thick) solid var(--border-color);
+    box-shadow: 4px 4px 0 var(--border-color);
+    background: var(--surface);
+    height: 2.5rem;
+  }
+  
+  .wordmark-brand {
+    background: var(--brand);
+    color: var(--text-inv);
+    padding: 0 0.75rem;
+    display: flex;
+    align-items: center;
+    font-size: 1.25rem;
+  }
+  html[data-theme="light"] .wordmark-brand { color: #FFFFFF; }
+  html[data-theme="dark"] .wordmark-brand { color: #000000; }
+
+  .wordmark-text {
+    padding: 0 0.75rem;
+    display: flex;
+    align-items: center;
+    font-size: 1.25rem;
+  }
+
+  .theme-toggle {
+    background: var(--surface);
+    border: var(--border-thick) solid var(--border-color);
+    color: var(--text);
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 4px 4px 0 var(--border-color);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .theme-toggle:active {
+    transform: translate(4px, 4px);
+    box-shadow: 0px 0px 0 var(--border-color);
+  }
+  .theme-toggle:focus-visible {
+    outline: 3px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  /* TOP GLANCE & ACTION CENTER (BENTO ROW 1) */
+  .dashboard-top {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 2rem;
+    margin-bottom: 3rem;
+  }
+  @media (max-width: 1024px) {
+    .dashboard-top { grid-template-columns: 1fr; }
+  }
+
+  .system-glance {
+    display: flex;
+    flex-direction: column;
+    border: var(--border-thick) solid var(--border-color);
+    background: var(--surface);
+    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
+  }
+  .glance-header {
+    border-bottom: var(--border-thick) solid var(--border-color);
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    background: var(--border-color);
+    color: var(--text-inv);
+  }
+  html[data-theme="light"] .glance-header { color: #FFFFFF; }
+  html[data-theme="dark"] .glance-header { color: #000000; }
+
+  .glance-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    flex-grow: 1;
+  }
+  .metric-box {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .metric-box:first-child {
+    border-right: var(--border-thick) solid var(--border-color);
+  }
+  .metric-label { font-size: 0.75rem; font-weight: bold; margin-bottom: 0.25rem; }
+  .metric-value { font-size: 2rem; font-weight: 900; }
+
+  .action-center {
+    border: var(--border-thick) solid var(--border-color);
+    background: var(--brand);
+    color: #000000; /* Forced black for brutalist high contrast on brand orange */
+    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  html[data-theme="dark"] .action-center { color: #000000; } /* Keep black text on orange in dark mode too */
+  
+  .action-center::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%; width: 200%; height: 200%;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(0,0,0,0.1) 10px,
+      rgba(0,0,0,0.1) 20px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  .action-content { position: relative; z-index: 1; }
+  .action-title { font-size: 2.5rem; line-height: 1; margin-bottom: 0.5rem; }
+  .action-subtitle { font-size: 1rem; font-weight: bold; }
+  
+  .action-btn {
+    position: relative;
+    z-index: 1;
+    background: var(--surface);
+    color: var(--text);
+    border: var(--border-thick) solid var(--border-color);
+    padding: 1rem 2rem;
+    font-size: 1.25rem;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--border-color);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .action-btn:active {
+    transform: translate(4px, 4px);
+    box-shadow: 0px 0px 0 var(--border-color);
+  }
+
+  /* SECTION HEADER */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .section-title {
+    font-size: 1.5rem;
+    background: var(--border-color);
+    color: var(--text-inv);
+    padding: 0.25rem 0.75rem;
+    display: inline-block;
+  }
+  html[data-theme="light"] .section-title { color: #FFFFFF; }
+  html[data-theme="dark"] .section-title { color: #000000; }
+  
+  .section-line {
+    flex-grow: 1;
+    height: var(--border-thick);
+    background: var(--border-color);
+  }
+
+  /* CHANNELS GRID (BENTO) */
+  .channels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 2rem;
+  }
+
+  /* CHANNEL CARD */
+  .channel-card {
+    background: var(--surface);
+    border: var(--border-thick) solid var(--border-color);
+    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.1s, box-shadow 0.1s;
+    text-decoration: none;
+    color: inherit;
+  }
+  .channel-card:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0 var(--border-color);
+  }
+  @media (prefers-reduced-motion) {
+    .channel-card:hover { transform: none; box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color); }
+  }
+  .channel-card:focus-visible {
+    outline: 4px solid var(--brand);
+    outline-offset: 4px;
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: var(--border-thick) solid var(--border-color);
+    background: var(--bg);
+  }
+  .channel-id { font-size: 0.75rem; font-weight: bold; }
+  
+  /* STATUS CHIPS */
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    border: 2px solid var(--border-color);
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: #000000; /* Enforce black text on status chips for contrast */
+  }
+  .status-chip::before {
+    content: ''; display: block; width: 0.5rem; height: 0.5rem;
+    background: #000000; border-radius: 50%;
+  }
+  .status-active { background: var(--success); }
+  .status-busy { background: var(--warn); }
+  
+  .card-body {
+    padding: 1.5rem 1rem;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .card-title {
+    font-size: 2rem;
+    line-height: 1.1;
+    word-break: break-word;
+  }
+
+  .card-footer {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    border-top: var(--border-thick) solid var(--border-color);
+  }
+  
+  /* CHARACTER AVATAR / UNCAST */
+  .character-block {
+    width: 80px;
+    border-right: var(--border-thick) solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    padding: 0.5rem;
+  }
+  
+  .avatar-svg {
+    width: 48px; height: 48px;
+    border: 2px solid var(--border-color);
+    border-radius: 0; /* Brutalist square avatar */
+  }
+  .avatar-c1 { background: linear-gradient(45deg, #FF00FF, #00FFFF); }
+  .avatar-c2 { background: linear-gradient(45deg, #FFFF00, #FF0000); }
+
+  .uncast-block {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--danger),
+      var(--danger) 10px,
+      #000000 10px,
+      #000000 20px
+    );
+    position: relative;
+  }
+  .uncast-label {
+    position: absolute;
+    background: #000000;
+    color: var(--danger);
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 0.2rem 0.4rem;
+    border: 2px solid var(--danger);
+    transform: rotate(-10deg);
+  }
+
+  .stats-block {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .stat {
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .stat:first-child { border-right: var(--border-thick) solid var(--border-color); }
+  .stat-val { font-size: 1.25rem; font-weight: bold; }
+  .stat-lbl { font-size: 0.65rem; font-weight: bold; }
+
+  /* NEW CHANNEL BUTTON */
+  .new-channel {
+    background: transparent;
+    border: var(--border-thick) dashed var(--text-dim);
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 250px;
+    cursor: pointer;
+    color: var(--text-dim);
+    transition: all 0.1s;
+  }
+  .new-channel:hover {
+    border-style: solid;
+    border-color: var(--border-color);
+    color: var(--text);
+    background: var(--surface);
+    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
+    transform: translate(-2px, -2px);
+  }
+  .new-icon { font-size: 4rem; line-height: 1; margin-bottom: 1rem; }
+  .new-label { font-size: 1.25rem; }
+
+  /* RESPONSIVE */
+  @media (max-width: 600px) {
+    .app-container { padding: 0 1rem 2rem 1rem; }
+    .action-center { flex-direction: column; align-items: flex-start; gap: 1rem; }
+    .action-title { font-size: 2rem; }
+    header { flex-direction: column; height: auto; padding: 1rem 0; gap: 1rem; align-items: stretch; border-bottom: none; }
+    .theme-toggle { align-self: flex-start; }
+    .channels-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Grain Texture Overlay -->
+  <svg class="texture-overlay">
+    <filter id="noiseFilter">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="1 0 0 0 0, 0 1 0 0 0, 0 0 1 0 0, 0 0 0 0.3 0" />
+    </filter>
+    <rect width="100%" height="100%" filter="url(#noiseFilter)"/>
+  </svg>
+
+  <div class="app-container">
+    
+    <header>
+      <div class="wordmark grotesk">
+        <div class="wordmark-brand">CTRL</div>
+        <div class="wordmark-text">ROOM</div>
+      </div>
+      <button class="theme-toggle mono" id="themeBtn" aria-label="Toggle Theme">
+        MODE: LIGHT
+      </button>
+    </header>
+
+    <div class="dashboard-top">
+      
+      <!-- System Overview -->
+      <section class="system-glance" aria-label="System Overview">
+        <div class="glance-header grotesk">SYS // OVERVIEW</div>
+        <div class="glance-metrics mono">
+          <div class="metric-box">
+            <div class="metric-label text-dim">ACTIVE RUNS</div>
+            <div class="metric-value">014</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label text-dim">30D SPEND</div>
+            <div class="metric-value">$842</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Action Center -->
+      <section class="action-center" aria-label="Action Center">
+        <div class="action-content">
+          <h2 class="action-title grotesk">03 APPROVALS</h2>
+          <div class="action-subtitle mono">REQUIRE IMMEDIATE CLEARANCE</div>
+        </div>
+        <button class="action-btn grotesk">TRIAGE NOW &rarr;</button>
+      </section>
+
+    </div>
+
+    <!-- Channels Hub -->
+    <main>
+      <div class="section-header">
+        <h1 class="section-title grotesk">PRODUCTION CHANNELS</h1>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="channels-grid">
+        
+        <!-- Card 1: Cast & Active -->
+        <a href="#" class="channel-card">
+          <div class="card-top mono">
+            <span class="channel-id">CH-01</span>
+            <span class="status-chip status-active">ACTIVE</span>
+          </div>
+          <div class="card-body">
+            <h3 class="card-title grotesk">COSMIC<br>MYSTERIES</h3>
+          </div>
+          <div class="card-footer mono">
+            <div class="character-block">
+              <div class="avatar-svg avatar-c1" aria-label="Character Cast"></div>
+            </div>
+            <div class="stats-block">
+              <div class="stat">
+                <span class="stat-val">04</span>
+                <span class="stat-lbl text-dim">JOBS</span>
+              </div>
+              <div class="stat">
+                <span class="stat-val">$240</span>
+                <span class="stat-lbl text-dim">30D COST</span>
+              </div>
+            </div>
+          </div>
+        </a>
+
+        <!-- Card 2: Uncast Alert -->
+        <a href="#" class="channel-card">
+          <div class="card-top mono">
+            <span class="channel-id">CH-02</span>
+            <span class="status-chip status-busy">PAUSED</span>
+          </div>
+          <div class="card-body">
+            <h3 class="card-title grotesk">DECLASSIFIED<br>HISTORY</h3>
+          </div>
+          <div class="card-footer mono">
+            <div class="character-block uncast-block" aria-label="Character Uncast">
+              <span class="uncast-label mono">UNCAST</span>
+            </div>
+            <div class="stats-block">
+              <div class="stat">
+                <span class="stat-val">00</span>
+                <span class="stat-lbl text-dim">JOBS</span>
+              </div>
+              <div class="stat">
+                <span class="stat-val">$000</span>
+                <span class="stat-lbl text-dim">30D COST</span>
+              </div>
+            </div>
+          </div>
+        </a>
+
+        <!-- Card 3: Cast & Active -->
+        <a href="#" class="channel-card">
+          <div class="card-top mono">
+            <span class="channel-id">CH-03</span>
+            <span class="status-chip status-active">ACTIVE</span>
+          </div>
+          <div class="card-body">
+            <h3 class="card-title grotesk">WEIRD<br>FOOD</h3>
+          </div>
+          <div class="card-footer mono">
+            <div class="character-block">
+              <div class="avatar-svg avatar-c2" aria-label="Character Cast"></div>
+            </div>
+            <div class="stats-block">
+              <div class="stat">
+                <span class="stat-val">10</span>
+                <span class="stat-lbl text-dim">JOBS</span>
+              </div>
+              <div class="stat">
+                <span class="stat-val">$602</span>
+                <span class="stat-lbl text-dim">30D COST</span>
+              </div>
+            </div>
+          </div>
+        </a>
+
+        <!-- New Channel Button -->
+        <button class="channel-card new-channel grotesk">
+          <div class="new-icon">+</div>
+          <div class="new-label">NEW CHANNEL</div>
+        </button>
+
+      </div>
+    </main>
+
+  </div>
+
+  <script>
+    const btn = document.getElementById('themeBtn');
+    const html = document.documentElement;
+    
+    btn.addEventListener('click', () => {
+      const isLight = html.getAttribute('data-theme') === 'light';
+      html.setAttribute('data-theme', isLight ? 'dark' : 'light');
+      btn.textContent = isLight ? 'MODE: DARK' : 'MODE: LIGHT';
+    });
+  </script>
+</body>
+</html>

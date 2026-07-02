@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Room - Channels Hub</title>
+    <style>
+        /* === TOKENS & RESET === */
+        :root {
+            --bg: #F4F2EE;
+            --surface: #FFFFFF;
+            --surface-raised: #FAFAFA;
+            --surface-accent: #F3E8FF;
+            --border: #E5E2DC;
+            --text: #1C1B1A;
+            --text-dim: #6B6863;
+            --text-inverse: #FFFFFF;
+            
+            --accent: #6D28D9;
+            --accent-hover: #5B21B6;
+            --success: #059669;
+            --success-bg: #D1FAE5;
+            --warn: #D97706;
+            --warn-bg: #FEF3C7;
+            --danger: #DC2626;
+            --danger-bg: #FEE2E2;
+            
+            --shadow-sm: 0 2px 8px -2px rgba(28, 27, 26, 0.05), 0 1px 2px rgba(28, 27, 26, 0.02);
+            --shadow-md: 0 12px 32px -8px rgba(28, 27, 26, 0.08), 0 4px 12px rgba(28, 27, 26, 0.03);
+            --shadow-lift: 0 20px 40px -12px rgba(28, 27, 26, 0.12), 0 8px 16px rgba(28, 27, 26, 0.04);
+            
+            --radius-card: 28px;
+            --radius-pill: 16px;
+            --radius-btn: 12px;
+            
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            
+            --noise-opacity: 0.35;
+            --noise-blend: multiply;
+        }
+
+        html[data-theme="dark"] {
+            --bg: #121110;
+            --surface: #1C1B1A;
+            --surface-raised: #262524;
+            --surface-accent: #2E1065;
+            --border: #2E2C2A;
+            --text: #EBE7E0;
+            --text-dim: #9CA3AF;
+            --text-inverse: #FFFFFF;
+            
+            --accent: #A78BFA;
+            --accent-hover: #C4B5FD;
+            --success: #34D399;
+            --success-bg: #064E3B;
+            --warn: #FBBF24;
+            --warn-bg: #78350F;
+            --danger: #F87171;
+            --danger-bg: #7F1D1D;
+
+            --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --shadow-md: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            --shadow-lift: 0 24px 48px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+            --noise-opacity: 0.15;
+            --noise-blend: overlay;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100vh;
+            position: relative;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Texture / Grain */
+        .texture-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: var(--noise-opacity);
+            mix-blend-mode: var(--noise-blend);
+        }
+
+        /* Focus & Accessibility */
+        :focus-visible {
+            outline: 3px solid var(--accent);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; animation: none !important; }
+        }
+
+        /* === TYPOGRAPHY === */
+        h1, h2, h3, .wordmark {
+            letter-spacing: -0.03em;
+            font-weight: 700;
+        }
+        .mono {
+            font-family: var(--font-mono);
+            letter-spacing: -0.02em;
+        }
+        .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            color: var(--text-dim);
+        }
+
+        /* === LAYOUT & BENTO GRID === */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 6rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1rem;
+        }
+
+        .wordmark {
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .wordmark svg {
+            width: 28px; height: 28px;
+            color: var(--accent);
+        }
+
+        .theme-toggle {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-btn);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+        }
+        .theme-toggle:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            grid-auto-rows: minmax(140px, auto);
+            gap: 1.5rem;
+        }
+
+        /* === CARD BASE === */
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius-card);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.2s ease;
+        }
+        .card.interactive:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: var(--shadow-lift);
+            background: var(--surface-raised);
+        }
+
+        /* === SPECIFIC BENTO TILES === */
+        
+        /* Action Center - Hero Tile */
+        .tile-action {
+            grid-column: span 8;
+            grid-row: span 2;
+            background: var(--surface-accent);
+            border-color: var(--accent);
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 2.5rem;
+        }
+        .action-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-width: 60%;
+        }
+        .action-title {
+            font-size: 2.5rem;
+            line-height: 1.1;
+            color: var(--accent);
+        }
+        .action-btn {
+            align-self: flex-start;
+            background: var(--accent);
+            color: var(--text-inverse);
+            border: none;
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-pill);
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+        .action-btn:hover {
+            background: var(--accent-hover);
+            transform: scale(1.05);
+        }
+        .action-graphic {
+            width: 140px; height: 140px;
+            background: var(--surface);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-md);
+            color: var(--accent);
+        }
+
+        /* System Stats Tiles */
+        .tile-stat {
+            grid-column: span 4;
+            grid-row: span 1;
+            justify-content: space-between;
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text);
+            display: flex;
+            align-items: baseline;
+            gap: 0.25rem;
+        }
+        .stat-unit {
+            font-size: 1rem;
+            color: var(--text-dim);
+            font-family: var(--font-sans);
+            font-weight: 600;
+        }
+
+        /* Section Header */
+        .section-header {
+            grid-column: span 12;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-top: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+        .section-header h2 {
+            font-size: 1.5rem;
+            color: var(--text);
+        }
+
+        /* Channel Cards */
+        .tile-channel {
+            grid-column: span 4;
+            grid-row: span 2;
+            justify-content: space-between;
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .tile-channel.wide {
+            grid-column: span 6;
+        }
+
+        .channel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+        }
+
+        .channel-title {
+            font-size: 1.25rem;
+            color: var(--text);
+            margin-bottom: 0.25rem;
+        }
+        .channel-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Avatars & Uncast */
+        .avatar-wrap {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: rgba(255,255,255,0.9);
+        }
+        .avatar-1 { background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%); }
+        .avatar-2 { background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;}
+        
+        .uncast-wrap {
+            background: var(--danger-bg);
+            border: 2px dashed var(--danger);
+            color: var(--danger);
+            box-shadow: none;
+        }
+
+        .uncast-banner {
+            background: var(--danger-bg);
+            color: var(--danger);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Status & Data Pills */
+        .data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            background: var(--bg);
+            padding: 1rem;
+            border-radius: var(--radius-pill);
+            margin-top: auto;
+        }
+        .data-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .data-val {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+        
+        .status-dot {
+            display: inline-block;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+        }
+        .status-dot.active { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
+        .status-dot.idle { background-color: var(--text-dim); }
+
+        /* New Channel Button */
+        .tile-new {
+            grid-column: span 4;
+            grid-row: span 2;
+            border: 2px dashed var(--border);
+            background: transparent;
+            box-shadow: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-dim);
+            font-weight: 600;
+            font-size: 1.25rem;
+            gap: 0.75rem;
+            cursor: pointer;
+        }
+        .tile-new:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--surface-accent);
+        }
+        .tile-new svg {
+            width: 32px; height: 32px;
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 1024px) {
+            .tile-action { grid-column: span 12; }
+            .tile-stat { grid-column: span 6; }
+            .tile-channel { grid-column: span 6; }
+            .tile-channel.wide { grid-column: span 12; }
+            .tile-new { grid-column: span 6; }
+        }
+        @media (max-width: 768px) {
+            .bento-grid { display: flex; flex-direction: column; }
+            .action-content { max-width: 100%; }
+            .action-graphic { display: none; }
+            .tile-action { padding: 1.5rem; }
+            .action-title { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Texture Overlay for "Grain" -->
+    <svg class="texture-overlay" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <filter id="noiseFilter">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/>
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noiseFilter)"/>
+    </svg>
+
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <div class="wordmark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="4"/>
+                    <path d="M12 12h.01"/>
+                    <path d="M8 12h.01"/>
+                    <path d="M16 12h.01"/>
+                </svg>
+                CTRL_RM
+            </div>
+            <button class="theme-toggle" id="themeBtn" aria-label="Toggle Theme">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"/>
+                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42 1.42"/>
+                </svg>
+                Switch Theme
+            </button>
+        </header>
+
+        <!-- BENTO GRID -->
+        <main class="bento-grid">
+            
+            <!-- ACTION CENTER (HERO) -->
+            <article class="card tile-action interactive">
+                <div class="action-content">
+                    <span class="label" style="color: var(--accent);">Action Center</span>
+                    <h1 class="action-title">3 approvals awaiting you.</h1>
+                    <p style="color: var(--text-dim); max-width: 400px;">Two scripts are ready for review on Weird Food, and one final video cut is pending on Cosmic Mysteries.</p>
+                    <button class="action-btn">
+                        Review Queue
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="action-graphic">
+                    <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                </div>
+            </article>
+
+            <!-- STAT: SPEND -->
+            <aside class="card tile-stat interactive">
+                <div>
+                    <span class="label">30-Day Network Spend</span>
+                    <div class="stat-value mono mt-2">
+                        $4,285<span class="stat-unit">.00</span>
+                    </div>
+                </div>
+                <div style="color: var(--success); font-size: 0.875rem; font-weight: 600; margin-top: 1rem; display: flex; align-items: center; gap: 4px;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                    2.4% vs last month
+                </div>
+            </aside>
+
+            <!-- STAT: ACTIVE RUNS -->
+            <aside class="card tile-stat interactive">
+                <div>
+                    <span class="label">Total Active Jobs</span>
+                    <div class="stat-value mono mt-2">
+                        18 <span class="stat-unit">tasks</span>
+                    </div>
+                </div>
+                <div style="color: var(--text-dim); font-size: 0.875rem; font-weight: 500; margin-top: 1rem;">
+                    Across 4 active channels
+                </div>
+            </aside>
+
+            <!-- SECTION DIVIDER -->
+            <div class="section-header">
+                <h2>Channels</h2>
+                <span class="label">5 Total / 4 Active</span>
+            </div>
+
+            <!-- CHANNEL CARD: WEIRD FOOD (WIDE) -->
+            <a href="#" class="card tile-channel wide interactive">
+                <div class="channel-header">
+                    <div>
+                        <div class="channel-meta">
+                            <span class="status-dot active"></span>
+                            <span class="label">In Production</span>
+                        </div>
+                        <h3 class="channel-title">Weird Food</h3>
+                        <div class="label" style="text-transform: none; color: var(--text-dim);">Faceless / Shorts</div>
+                    </div>
+                    <div class="avatar-wrap avatar-1">
+                        WF
+                    </div>
+                </div>
+                <div class="data-grid">
+                    <div class="data-item">
+                        <span class="label">Active Jobs</span>
+                        <span class="data-val mono">08</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="label">30D Cost</span>
+                        <span class="data-val mono">$1,240</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- CHANNEL CARD: COSMIC MYSTERIES (SQUARE) -->
+            <a href="#" class="card tile-channel interactive">
+                <div class="channel-header">
+                    <div>
+                        <div class="channel-meta">
+                            <span class="status-dot active"></span>
+                            <span class="label">In Production</span>
+                        </div>
+                        <h3 class="channel-title">Cosmic Mysteries</h3>
+                    </div>
+                    <div class="avatar-wrap avatar-2">
+                        CM
+                    </div>
+                </div>
+                <div class="data-grid">
+                    <div class="data-item">
+                        <span class="label">Active Jobs</span>
+                        <span class="data-val mono">10</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="label">30D Cost</span>
+                        <span class="data-val mono">$2,800</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- CHANNEL CARD: UNCAST (SQUARE) -->
+            <a href="#" class="card tile-channel interactive" style="border-color: var(--danger-bg);">
+                <div class="channel-header">
+                    <div>
+                        <div class="channel-meta">
+                            <span class="status-dot idle" style="background-color: var(--danger);"></span>
+                            <span class="label" style="color: var(--danger);">Blocked</span>
+                        </div>
+                        <h3 class="channel-title">Declassified History</h3>
+                        <div class="uncast-banner">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            UNCAST
+                        </div>
+                    </div>
+                    <div class="avatar-wrap uncast-wrap">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+                    </div>
+                </div>
+                <div class="data-grid">
+                    <div class="data-item">
+                        <span class="label">Active Jobs</span>
+                        <span class="data-val mono">00</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="label">30D Cost</span>
+                        <span class="data-val mono">$45</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- NEW CHANNEL BUTTON -->
+            <button class="card tile-new interactive">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Deploy New Channel
+            </button>
+
+        </main>
+    </div>
+
+    <script>
+        const btn = document.getElementById('themeBtn');
+        const html = document.documentElement;
+        
+        // Simple theme toggle
+        btn.addEventListener('click', () => {
+            const current = html.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', next);
+        });
+    </script>
+</body>
+</html>
