@@ -93,7 +93,9 @@ assertions are not acceptable evidence.**
   "Sign out <email>" — voice-control "tap Exit" may miss; future pass.
 - Filter chips were absent from the frozen B8 floor list; floored (44px) during the fix
   round — folded here so the spec matches shipped reality.
-- **Reviewer-set note:** Gemini was degraded/unavailable this session (flash-fallback,
-  off-topic output; 5 jobs hung). Substitute protocol used: Architect + independent
-  suerta per lane + suerta re-verify of the fix round + 53 measured gates. A retroactive
-  Gemini aggregate pass (code + docs) is OWED when the service recovers.
+- **Reviewer-set note (corrected):** Gemini was never down — the orchestrator passed the
+  prompt as the wrapper's MODEL argument instead of stdin, so calls 404'd to a fallback
+  fed an EMPTY prompt (hence off-topic output) or hung on stdin. Reviews ran as
+  Architect + independent suerta per lane + suerta fix-round re-verify + 53 measured
+  gates; the retroactive Gemini aggregate pass (code + docs) ran post-merge with the
+  corrected invocation — verdict recorded in the ledger/HQ.
