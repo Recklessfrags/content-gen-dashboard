@@ -85,6 +85,7 @@ export type JobEnqueueInput = {
   live_adapters: Json | null;
   stub_upstream: boolean;
   spend_approved: boolean;
+  fact_approved?: boolean;
   publish_approved?: boolean;
   publish_only?: boolean;
   source_episode_id?: string | null;
@@ -181,23 +182,29 @@ function fnv1a32Hex(input: string): string {
 }
 
 export function idempotencyKeyFor(input: JobEnqueueInput): string {
+  const {
+    channel,
+    fact_approved: factApproved,
+    ...baseInput
+  } = input;
   const canonicalInput = {
-    anchor_citation: input.anchor_citation,
-    anchor_url: input.anchor_url,
-    character: input.character,
-    ...(input.channel != null ? { channel: input.channel } : {}),
-    episode_cap: input.episode_cap,
-    food: input.food,
+    anchor_citation: baseInput.anchor_citation,
+    anchor_url: baseInput.anchor_url,
+    character: baseInput.character,
+    ...(channel != null ? { channel } : {}),
+    episode_cap: baseInput.episode_cap,
+    ...(factApproved === true ? { fact_approved: true } : {}),
+    food: baseInput.food,
     inject_claims: canonicalizeJson(
-      input.inject_claims,
+      baseInput.inject_claims,
       CANONICAL_ARRAY_SORT,
     ),
     live_adapters: canonicalizeJson(
-      input.live_adapters,
+      baseInput.live_adapters,
       CANONICAL_ARRAY_SORT,
     ),
-    routes: canonicalizeJson(input.routes, CANONICAL_ARRAY_KEEP_ORDER),
-    stub_upstream: input.stub_upstream,
+    routes: canonicalizeJson(baseInput.routes, CANONICAL_ARRAY_KEEP_ORDER),
+    stub_upstream: baseInput.stub_upstream,
   };
 
   return fnv1a32Hex(stableStringify(canonicalInput));
@@ -224,6 +231,7 @@ export function buildJobInsert(
     live_adapters: input.live_adapters,
     stub_upstream: input.stub_upstream,
     spend_approved: input.spend_approved,
+    fact_approved: input.fact_approved ?? false,
     publish_approved: input.publish_approved ?? false,
     publish_only: input.publish_only ?? false,
     source_episode_id: input.source_episode_id ?? null,
@@ -258,6 +266,7 @@ export function jobInputFromRow(
     live_adapters: job.live_adapters,
     stub_upstream: job.stub_upstream,
     spend_approved: overrides.spendApproved ?? job.spend_approved,
+    fact_approved: job.fact_approved,
     publish_approved: overrides.publishApproved ?? job.publish_approved,
     idempotency_key:
       "idempotencyKey" in overrides ? overrides.idempotencyKey : job.idempotency_key,
@@ -275,6 +284,21 @@ export function buildSpendApprovalReenqueue(
   const input = {
     ...originalInput,
     spend_approved: true,
+    idempotency_key: null,
+  };
+
+  return {
+    ...buildJobInsert(input),
+    idempotency_key: null,
+  };
+}
+
+export function buildFactApprovalReenqueue(
+  originalInput: JobEnqueueInput,
+): TablesInsert<"jobs"> {
+  const input = {
+    ...originalInput,
+    fact_approved: true,
     idempotency_key: null,
   };
 
@@ -363,4 +387,23 @@ export function detectParkKind(
   }
 
   return "unknown";
+}
+
+export function resolveParkKind(
+  parkKindColumn: string | null | undefined,
+  lastReceiptStage: string | null | undefined,
+): "fact" | "spend" | "publish" | "unknown" {
+  if (
+    parkKindColumn === "fact" ||
+    parkKindColumn === "spend" ||
+    parkKindColumn === "publish"
+  ) {
+    return parkKindColumn;
+  }
+
+  if (parkKindColumn === "blocked" || parkKindColumn === "exhausted") {
+    return "unknown";
+  }
+
+  return detectParkKind(lastReceiptStage);
 }

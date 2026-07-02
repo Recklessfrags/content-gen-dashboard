@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildFactApprovalReenqueue,
   buildJobInsert,
   buildPublishApprovalReenqueue,
   buildSpendApprovalReenqueue,
@@ -12,6 +13,7 @@ import {
   isValidEpisodeCap,
   jobInputFromRow,
   publishSourceEpisodeId,
+  resolveParkKind,
   type QueueJob,
   type JobEnqueueInput,
 } from "@/lib/jobs";
@@ -39,10 +41,20 @@ describe("idempotencyKeyFor", () => {
   it("keeps the known pre-slice key for channel-less inputs", () => {
     expect(idempotencyKeyFor(jobInput())).toBe("d844ecdb");
     expect(idempotencyKeyFor(jobInput({ channel: null }))).toBe("d844ecdb");
+    expect(idempotencyKeyFor(jobInput({ fact_approved: false }))).toBe("d844ecdb");
+    expect(idempotencyKeyFor(jobInput({ channel: null, fact_approved: false }))).toBe(
+      "d844ecdb",
+    );
   });
 
   it("changes the key when a channel is set", () => {
     expect(idempotencyKeyFor(jobInput({ channel: "dark-history" }))).not.toBe(
+      idempotencyKeyFor(jobInput()),
+    );
+  });
+
+  it("changes the key when fact approval is true", () => {
+    expect(idempotencyKeyFor(jobInput({ fact_approved: true }))).not.toBe(
       idempotencyKeyFor(jobInput()),
     );
   });
@@ -101,6 +113,7 @@ describe("buildJobInsert", () => {
       live_adapters: { buffer: false, elevenlabs: true },
       stub_upstream: true,
       spend_approved: false,
+      fact_approved: false,
       publish_approved: false,
       publish_only: false,
       channel: null,
@@ -180,6 +193,39 @@ describe("approval re-enqueue builders", () => {
     });
   });
 
+  it("marks fact approval, clears idempotency_key, and preserves original inputs", () => {
+    expect(
+      buildFactApprovalReenqueue(
+        jobInput({
+          channel: "dark-history",
+          spend_approved: false,
+          publish_approved: false,
+          idempotency_key: "parked-key",
+        }),
+      ),
+    ).toEqual({
+      food: "cottage cheese",
+      character: "Mad Dog",
+      anchor_citation: "USDA",
+      anchor_url: "https://example.test/source",
+      inject_claims: [
+        { b: 2, a: 1 },
+        ["z", "a"],
+      ],
+      episode_cap: 2,
+      routes: { render: ["script", "assembly"], nested: { b: true, a: false } },
+      live_adapters: { buffer: false, elevenlabs: true },
+      stub_upstream: true,
+      spend_approved: false,
+      fact_approved: true,
+      publish_approved: false,
+      publish_only: false,
+      channel: "dark-history",
+      source_episode_id: null,
+      idempotency_key: null,
+    });
+  });
+
   it("marks publish-only resume fields and clears idempotency_key without forcing spend approval", () => {
     expect(
       buildPublishApprovalReenqueue(jobInput({ spend_approved: false }), "episode-reviewed-001"),
@@ -215,7 +261,14 @@ describe("approval re-enqueue builders", () => {
     expect(input.channel).toBe("dark-history");
     expect(buildSpendApprovalReenqueue(input)).toMatchObject({
       channel: "dark-history",
+      fact_approved: false,
       spend_approved: true,
+      idempotency_key: null,
+    });
+    expect(buildFactApprovalReenqueue(input)).toMatchObject({
+      channel: "dark-history",
+      fact_approved: true,
+      spend_approved: false,
       idempotency_key: null,
     });
     expect(buildPublishApprovalReenqueue(input, "episode-rendered-001")).toMatchObject({
@@ -272,6 +325,34 @@ describe("publishSourceEpisodeId", () => {
         episode_id: "",
       }),
     ).toBeNull();
+  });
+});
+
+describe("resolveParkKind", () => {
+  it("uses approval park_kind column values before receipt-stage inference", () => {
+    expect(resolveParkKind("fact", "assembly")).toBe("fact");
+    expect(resolveParkKind("spend", "distribution")).toBe("spend");
+    expect(resolveParkKind("publish", "assembly")).toBe("publish");
+  });
+
+  it("falls back to receipt-stage inference when park_kind is null", () => {
+    expect(resolveParkKind(null, "assembly")).toBe("spend");
+    expect(resolveParkKind(null, "distribution")).toBe("publish");
+    expect(resolveParkKind(null, null)).toBe("unknown");
+  });
+
+  it("returns unknown for recognized hard-park values without receipt-stage inference", () => {
+    expect(resolveParkKind("blocked", "assembly")).toBe("unknown");
+    expect(resolveParkKind("blocked", "distribution")).toBe("unknown");
+    expect(resolveParkKind("exhausted", "assembly")).toBe("unknown");
+    expect(resolveParkKind("exhausted", "distribution")).toBe("unknown");
+    expect(resolveParkKind("blocked", null)).toBe("unknown");
+    expect(resolveParkKind("exhausted", null)).toBe("unknown");
+  });
+
+  it("falls back to receipt-stage inference for unrecognized park_kind strings", () => {
+    expect(resolveParkKind("legacy-spend-gate", "assembly")).toBe("spend");
+    expect(resolveParkKind("legacy-publish-gate", "distribution")).toBe("publish");
   });
 });
 
