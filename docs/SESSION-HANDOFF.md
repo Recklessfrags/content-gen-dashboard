@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-02 (casting voice-upgrade session)** by the Architect (Claude).
+_Last updated: **2026-07-02 (governance re-adoption + channel persona auto-suggest session)** by the Architect (Claude).
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -254,12 +254,22 @@ Everything is ready: enqueue with `character=Fine Print` (pipeline's kit page sa
 follow-on: re-audit pre-playbook voices (Mad Dog, Grandma Pearl) while nothing is
 published — operator's call.
 
-### E. Channel-onboarding auto-fill + new channels — ⏸ ON HOLD (operator)
-Recorded in `docs/roadmap-dashboard.md` item 5 + HQ. Pipeline prereq done; immediately
-buildable when the operator lifts the hold. Do not build until then. **New sub-scope
-(operator ask, 2026-07-02):** on channel creation, **auto-suggest a Casting-Card persona
-archetype** (the bank is currently a static curated list; this is the deferred AI-expand
-family — roadmap item 5, `slice-casting-voice-upgrade.md` §3). Fold into onboarding scoping.
+### E. Channel-onboarding auto-fill + new channels — hold LIFTED; E1 shipped, E2 deferred
+Spec: `docs/slices/slice-channel-onboarding.md` (frozen). Operator lifted the hold
+2026-07-02 ("do in order of importance"; the "finish the voice work" precondition was met).
+- **E1 — on-creation persona auto-suggest: ✅ DONE, merged to production (PR #58).** A
+  pure curated mapping (`src/lib/suggestPersona.ts`, channel fields → `PERSONA_BANK` chip)
+  → non-binding advisory hint in `ChannelProfilesPanel`. No spend/LLM/migration. Full loop
+  green (Gemini spec+build review, Architect, **10/10 in-browser gates** — `GATES.md` E1).
+  Mapping table is operator-redlinable data (draft seeded from the phrase-bank roster-fit).
+- **E1.b — pre-select the persona chip in the Casting Studio** for a channel-linked
+  character: deferred to phase-2 (the `channel_profiles.character`↔`characters` link is
+  loose/free-text today; needs a link decision).
+- **E2 — guideline auto-fill editor: DEFERRED/blocked** on the unbuilt channel-researcher
+  + the undecided cast-brief storage (roadmap item 5 gap; likely a `dash_*` migration).
+  Its own slice when prioritized. Any editor UI around packaging/music-mood sentinels must
+  be labelled non-enforcing (recipe §B: SPEC'D-NOT-BUILT).
+- **New channel rows** (e.g. `weird_food`, §4.F.4) remain operator-priority calls.
 
 ### F. Mobile batch-1 residuals (recorded in `docs/slices/slice-mobile-ux-batch1.md`)
 (1) 481–620px coarse band: savebar can occlude up to ~70px worst-case (extend the 340px
@@ -269,11 +279,11 @@ are in the pipeline's FOOD brief (§2 of their page), create when the operator w
 (it's channel work → arguably under the hold).
 
 ### G. Standing smaller items
-- **Governance re-adoption OWED (HQ, from pipeline PRs #49/#50):** dashboard must (a)
-  re-adopt the **refined rules 20 & 32** and (b) adopt **new rules 35–41 + the
-  strengthened rule 34** into our `governance.md` from the HQ verbatim mirror — same loop
-  as the 30–34 adoption (Gemini fidelity + Opus second-lens). Governance change = its own
-  review + HQ row close. A clean fresh-session task.
+- **Governance re-adoption — ✅ DONE, merged to production (PR #57).** Re-adopted the
+  refined rules **20 & 32**, strengthened **34**, and new **35–41** verbatim from the HQ
+  mirror; numbering restored to **1–41**; count refs fixed in `governance.md`/`AGENTS.md`/
+  this file. Reviews: Gemini fidelity PASS + suerta/Opus second-lens PASS. Both HQ
+  governance rows CLOSED.
 - **Operator audition of v3 casting audio** (§4.A) — the last quality gate; operator-owned.
 - **QA login not in this container** — `.env.local` is gitignored + ephemeral; the QA
   creds (`RATIFY_EMAIL`/`RATIFY_PASSWORD`) must be **re-requested from the operator** each
