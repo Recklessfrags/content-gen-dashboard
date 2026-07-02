@@ -1,7 +1,7 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-02 (late session)** by the Architect (Claude). This is the **one
-authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
+_Last updated: **2026-07-02 (casting voice-upgrade session)** by the Architect (Claude).
+This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
 
@@ -63,7 +63,33 @@ shared Supabase project:**
 
 ---
 
-## 2. Current status (what's DONE) — through PR #51, 2026-07-02
+## 2. Current status (what's DONE) — through PR #55, 2026-07-02
+
+**LATEST — Casting Studio voice-design upgrade SHIPPED (§4.A, PRs #53/#54/#55, all
+merged to production):** the "flat/generic voice" root cause is fixed. The
+`casting-proxy` edge function is **deployed live (version 5)** and now forwards +
+**server-clamps** `model_id` (**pinned `eleven_ttv_v3`** — it was defaulting to the flat
+`ttv_v2`), `guidance_scale` [0,100], `seed` [0,2147483647], and **drops the v2-only
+`quality` param on v3** (live-ratification catch: EL 400s `quality` on v3). The proxy is
+the true clamp boundary (verified by direct authed calls, out-of-range → clamp not
+reject). The Casting Studio input is now a **"Casting Card"** (Fable-5 synthesis): six
+KIT-slot chip pickers backed by curated rich-prose phrase banks that live-assemble an
+editable ~200–600-char `voice_description` paragraph (one-way sync, detach-on-edit,
+never reverse-parse) — slider-level ease **and** KIT-compliant richness. `voice_recipe`
+now records the full **birth certificate** (raw description + preview + `builder_state` +
+generation params) — **no migration** (CHECKs are permissive-additive). **Operator
+audition gate** before lock (single active focus trap; cancel = no write/no spend).
+Persona archetype bank curated to the live roster + expanded to **19** archetypes
+(`docs/design/casting-phrase-bank.md` = the curated content source of truth;
+`src/lib/castingPhrases.ts` = transcription). Reviews: Gemini spec + build + suerta(Opus)
+all folded; money path measured live; browser smoke passed. **`quality` has NO operator
+UI in v1** (plumbing kept; EL publishes no range and v3 rejects it). **Still pending:
+the operator's audition of live v3 audio** (the generative-quality gate — no programmatic
+gate exists; do it on production `content-gen-dashboard.vercel.app`) and, per the
+operator, residual "AI vibe" reduction is a **future research item spanning voice +
+script** (logged in the HQ Process Learnings Ledger).
+
+**Prior foundation — through PR #51, 2026-07-02**
 
 **Production = default branch `claude/new-session-3l99vs`, live at
 `https://content-gen-dashboard.vercel.app` (Vercel team `canicode`). Pushing a branch
@@ -187,21 +213,21 @@ follow-up: operator still intends to rotate the QA password.**
 > programmatic gate — **the operator's ear/eye IS the gate** (spec an operator audition
 > step; ledger 2026-07-02).
 
-### A. Casting Studio voice-design upgrade — NEXT BUILD (operator-confirmed)
-Operator: "we will have to make these adjustments to the dashboard… the whole auto-gen
-spec should come soon." Build against the pipeline's **CASTING KIT** (HQ child page,
-mirrored from their 429-line playbook — the ledger records why it must be followed).
-Scope to spec: (1) **rich free-text persona description mode** in the studio
-(slot-ordered: native language / gender+age / quality tag / persona / emotion /
-timbre-pacing-delivery, 200–600 chars) alongside or replacing the slider composer;
-(2) proxy passes **`model_id: eleven_ttv_v3`**, `guidance_scale`, `seed`, `quality`
-(server-side clamped allowlist — the proxy currently sends only
-`voice_description`+`text`, so EL defaults/ttv_v2 apply); (3) performance-script preview
-text guidance (longer, punctuation-driven); (4) templates store the raw description
-(the `voice_recipe`/template CHECKs are permissive-additive — `voice_description_raw`
-precedent already written on Fine Print); (5) **operator audition gate** in the flow.
-Full loop: spec → Gemini spec review → Codex → Gemini + suerta(Opus) → measured
-ratification (+ operator audition for any generated audio).
+### A. Casting Studio voice-design upgrade — ✅ DONE (shipped PRs #53/#54/#55, 2026-07-02)
+Shipped exactly the spec (`docs/slices/slice-casting-voice-upgrade.md`, frozen v3):
+proxy v3 + server clamps (casting-proxy deployed **v5** live), the **Casting Card**
+(chip builder → editable KIT-format description — the §3 "solve both" synthesis chosen
+over retire-vs-keep-sliders after operator redirect + a Fable-5 consult), birth-certificate
+`voice_recipe`, operator audition gate, 19 curated persona archetypes. No migration; worker
+TTS contract untouched. Full loop ran (Gemini spec + build + suerta reviews; money path
+measured live; browser smoke). **Two residual/handoff items:**
+- **Operator audition of live v3 audio is the last gate** (generative quality — the
+  operator's ear; do on production). Merged ahead of it on explicit operator GO.
+- **Residual "AI vibe" reduction** (operator, may be partly the *script* = pipeline-side)
+  is a **future research item** — logged in the HQ Process Learnings Ledger; not scoped.
+- The `casting-proxy` edge function is **deployed to the shared live project** (v5) — it
+  is NOT branch-scoped and NOT redeployed by a Vercel merge; if you change it, redeploy
+  via the Supabase MCP `deploy_edge_function` (keep `verify_jwt: true`).
 
 ### B. Casting 2b — visual candidate generation (ruled, deferred; provider fork OPEN)
 Operator ruled Option 3 (in-dashboard generation) but deferred. The two reviewers
@@ -230,7 +256,10 @@ published — operator's call.
 
 ### E. Channel-onboarding auto-fill + new channels — ⏸ ON HOLD (operator)
 Recorded in `docs/roadmap-dashboard.md` item 5 + HQ. Pipeline prereq done; immediately
-buildable when the operator lifts the hold. Do not build until then.
+buildable when the operator lifts the hold. Do not build until then. **New sub-scope
+(operator ask, 2026-07-02):** on channel creation, **auto-suggest a Casting-Card persona
+archetype** (the bank is currently a static curated list; this is the deferred AI-expand
+family — roadmap item 5, `slice-casting-voice-upgrade.md` §3). Fold into onboarding scoping.
 
 ### F. Mobile batch-1 residuals (recorded in `docs/slices/slice-mobile-ux-batch1.md`)
 (1) 481–620px coarse band: savebar can occlude up to ~70px worst-case (extend the 340px
@@ -240,7 +269,15 @@ are in the pipeline's FOOD brief (§2 of their page), create when the operator w
 (it's channel work → arguably under the hold).
 
 ### G. Standing smaller items
-- **QA password rotation** — operator-owned, still open.
+- **Governance re-adoption OWED (HQ, from pipeline PRs #49/#50):** dashboard must (a)
+  re-adopt the **refined rules 20 & 32** and (b) adopt **new rules 35–41 + the
+  strengthened rule 34** into our `governance.md` from the HQ verbatim mirror — same loop
+  as the 30–34 adoption (Gemini fidelity + Opus second-lens). Governance change = its own
+  review + HQ row close. A clean fresh-session task.
+- **Operator audition of v3 casting audio** (§4.A) — the last quality gate; operator-owned.
+- **QA login not in this container** — `.env.local` is gitignored + ephemeral; the QA
+  creds (`RATIFY_EMAIL`/`RATIFY_PASSWORD`) must be **re-requested from the operator** each
+  fresh container for ratification. **QA password rotation** remains operator-owned + open.
 - **Worker-key Music scope question** — operator challenged whether the EL worker key
   needs Music (Epidemic key exists on Railway); pipeline owes a grep-verified answer
   (comment on the voice ask page). Key already created WITH Music — worst case it's
@@ -269,6 +306,12 @@ are in the pipeline's FOOD brief (§2 of their page), create when the operator w
   weight. Local map in `AGENTS.md` L-5.
 - **2b = Option 3 (in-dashboard gen), deferred** until parallel capacity or a useful
   moment; provider fork open (§4.B).
+- **Casting voice input = the "Casting Card" (§4.A, ruled 2026-07-02):** chip builder
+  that emits an editable rich KIT-format `voice_description` (NOT sliders composing a
+  one-liner — that caused the flat voices; NOT a bare free-text box). `eleven_ttv_v3`
+  pinned; **`quality` is v2-only** (EL rejects it on v3 — proxy drops it on v3). Persona
+  bank is a **static curated list** (auto-gen is deferred → §4.E). AI "punch-up" =
+  phase-2, deferred.
 
 ---
 
