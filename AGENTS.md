@@ -1,8 +1,13 @@
-# AGENTS.md — canonical rules for this project
+# AGENTS.md — project-specific rules for this repo
 
-This file is the **single canonical statement of the loop rules**. README, the role
-prompts, and any Notion page mirror it — they never restate rules, they point here.
-Every agent (Architect, Designer, Builder, and any sub-agent) reads this first.
+**The loop rules are canonical in [`governance.md`](governance.md)** (the shared
+29-rule file merged cross-team, adopted 2026-07-02 from the pipeline-repo canonical
+via the HQ verbatim mirror — see the Coordination Log "Adopt merged governance.md"
+row). Read `governance.md` FIRST; this file supplies only what is **specific to this
+project**: the vendor/role mapping, dashboard-local operator directives (marked
+ADDITIVE — they extend, never override, governance), git mechanics, and operational
+setup. README, role prompts, and Notion pages point here and to `governance.md`;
+they never restate rules.
 
 ## Project
 
@@ -31,95 +36,39 @@ Every agent (Architect, Designer, Builder, and any sub-agent) reads this first.
 
 ## The rules
 
-1. **The repo is the memory** — not in `docs/HANDOFF.md` = didn't happen.
-2. **No one grades their own work** — the Builder never judges its own build; the
-   Architect judges, the human ratifies.
-3. **Disagreement is mandatory** — surface it in your first response, citing real
-   files. Silent compliance = failure. Silent scope additions = failure.
-4. **Freeze before results exist** — gates in `GATES.md` and contracts in
-   `docs/contracts/` are written before the work and are read-only after freeze for
-   the rest of the slice, including their author. Changes need an Architect ruling
-   logged in `HANDOFF.md`.
-5. **Right model on the right job** — Architect spends tokens on judgment, Designer
-   on design, Builder on building. Stay in your lane.
-6. **Verify against reality** — versions, prices, API shapes, design-platform
-   capabilities checked against current reality and cited (source + date). No
-   training-data values. This cuts **both ways**: investigate THEN conclude —
-   reflexive agreement and reflexive alarm are the same error (concluding without
-   checking). Endorsement is earned by surviving scrutiny, not granted by default.
-7. **Keep HQ current (shared convention with the pipeline)** — the Notion 📮
-   Coordination Log's **Open Cross-Team Items tracker** is **jointly owned**. Whenever
-   something surfaces that is (a) useful to the other team, (b) an upcoming cross-team
-   task, or (c) a conflict/roadblock, record it in the Log: add/update its tracker row
-   (+ a short dated sub-note if it needs detail) at natural checkpoints — after a
-   decision, around coordination-touching work, and **before ending a session**.
-   **Re-fetch HQ before relying on it** (it changes between sessions; a cached view is
-   how stale-state bugs happen). This is model-judgment, not a hook. **In particular
-   (operator directive, 2026-07-01): never tell the operator "nothing is buildable /
-   nothing to do" from a cached view — a fresh Coordination Log fetch comes FIRST;
-   the other team ships between our fetches.**
-8. **Triage questions before spending operator turnaround (three buckets)** — when the
-   team has a question for the operator, the Architect sorts it **first**; a pre-vet that
-   rubber-stamps is worse than none (it launders a guess), so the buckets are gated:
-   - **Bucket 1 — already answered** by a doc/contract/locked decision: quote the source,
-     act **without** the operator.
-   - **Bucket 2 — derivable AND cheap-and-reversible**: reason it from the constraints and
-     **act on it now — do NOT wait on the operator.** Return the answer **plus its
-     derivation** as a proposal the asker can flag, **and log a receipt to the Coordination
-     Log** (question · sources · derivation · scope-limit · why-not-bucket-3 · operator-ack
-     ∈ pending|acknowledged|rejected). The receipt exists so the operator can review the
-     one-off call **asynchronously** — `pending` means "proceeding, flag me if wrong," not
-     "blocked waiting for ack." **Two hard exits back to bucket 3:** (a) it would spend
-     money, touch a live/prod surface, or commit architecture **the other team** (the
-     pipeline — a separate repo/workforce) builds on; (b) the answer would become
-     **precedent / a standing rule**.
-   - **Bucket 3 — operator-only** (held hard even when derivable): irreversible/external
-     (publish, spend, prod/live), **brand & legal** (any GREEN/YELLOW/RED, fact-anchor,
-     engagement floor), **product direction** (scope, priorities, what's next), and anything
-     expensive-if-wrong that can't be falsified cheaply. Surface as a **sharpened question +
-     recommendation**, never a raw pass-through. Derivability is a *floor* for buckets 1/2,
-     **not** the only gate — the hard exits force bucket 3 regardless. (Adopted from the
-     pipeline's ratified rule, 2026-06-30.)
-9. **Every change gets an independent cross-vendor review before it lands** — sharpens
-   rule 2 ("no one grades their own work") into concrete gates:
-   - **Gate = the push/merge to a shared/handoff branch or the default branch.** Throwaway
-     local WIP is exempt; the gate is *landing where another session or the operator treats
-     it as real*.
-   - **Reviewer is a different vendor than the author** (our split: Codex builds → Gemini +
-     the Architect review; **Architect/Claude-authored specs, proposals, and governance/HQ
-     docs → Gemini reviews before they land**). "Different vendor than the author" is the
-     principle, not "Gemini specifically."
-   - **The reviewer grades severity from the raw diff** — the author does **not** pre-label
-     it "low-risk" to dodge scrutiny. A genuine typo gets a quick confirming pass; a
-     governance rule / money-path / acceptance-criterion change gets a full adversarial,
-     **default-NOT-PASS** pass.
-   - **Same-vendor can't self-bless** (even a fresh subagent may triage but not satisfy the
-     gate); if no different-vendor reviewer is available, don't push/merge. **A fix the
-     review prompts is re-audited, not self-blessed** ("I committed it" ≠ "it was ratified").
-   - **The orchestrating Architect is not the final Architect-side reviewer on important
-     slices (operator directive, 2026-07-02).** The session that wrote the spec and directed
-     the fix rounds has spec-author blind spots; before landing a slice that touches a
-     migration, a money path, or a shared contract, spawn a **fresh independent Fable-5
-     agent ("suerta")** to review the aggregate working-tree diff Architect-style. This is
-     *in addition to* the cross-vendor gate, not a substitute (suerta is same-vendor).
-     Live-validated day one: suerta caught a BLOCKER (dead-voice cache reuse) that the
-     Gemini aggregate review, a fresh-Codex triage, and a Gemini re-audit all missed.
-   - **Applies to docs and specs too**, not just code. **Review the *aggregate* diff that
-     will actually land**, not each edit in isolation — isolated-edit reviews hide
-     interaction bugs (the lesson that motivated this). (Adopted from the pipeline's
-     ratified rule, 2026-06-30.)
+**Canonical: [`governance.md`](governance.md) rules 1–29.** Project bindings for its
+role/place-holders: durable store = this repo (`docs/HANDOFF.md` + `GATES.md` +
+`docs/contracts/*`) — not in the repo = didn't happen; coordination log = the Notion
+📮 Coordination Log's **Open Cross-Team Items tracker**; learnings log = the HQ
+**Process Learnings Ledger**; frozen-AC changes = an Architect ruling logged in
+`HANDOFF.md`; "another team" in the triage hard-exits = the pipeline (separate
+repo/workforce); brand & legal (GREEN/YELLOW/RED, fact-anchor, engagement floor) is
+always human-only.
 
-10. **Terse operator updates (operator directive, 2026-07-01)** — play-by-play
-   narration between tool steps is clutter, especially on mobile. Per task, the
-   Architect posts at most: **one line when starting something substantial, a prompt
-   only on a real problem or operator decision (still a sharpened bucket-3
-   question + recommendation, just concise), and the final result.** Execute tool
-   calls without conversational filler in between. This governs chat narration
-   only — it does NOT reduce what gets recorded in `docs/HANDOFF.md`, HQ, or
-   reviews (rule 1 still holds: the repo is the memory), and **rule 3 still holds:
-   surface disagreements and review failures immediately — terseness is never an
-   excuse for silent compliance.** The operator adjusts the volume up or down by
-   saying so.
+**Dashboard-local ADDITIVE rules** (operator directives; they extend governance,
+never override it):
+
+- **L-1 · HQ before any "nothing to do" claim (2026-07-01)** — never tell the
+  operator "nothing is buildable" from a cached view; a fresh Coordination Log fetch
+  comes FIRST (sharpens governance rule 22 — the other team ships between our
+  fetches).
+- **L-2 · The "suerta" reviewer (2026-07-02)** — the orchestrating Architect is not
+  the final Architect-side reviewer on important slices (spec-author blind spots).
+  Before landing anything touching a migration, a money path, or a shared contract,
+  spawn a **fresh independent Fable-5 agent ("suerta")** to review the aggregate
+  working-tree diff Architect-style — *in addition to* the cross-vendor gate, never
+  a substitute (suerta is same-vendor; governance rule 4 stands). Live-validated day
+  one: suerta caught a BLOCKER three prior review passes missed.
+- **L-3 · Terse operator updates (2026-07-01)** — per task, chat carries at most:
+  one line at start, a prompt only on a real problem or human-only decision
+  (sharpened question + recommendation, concise), and the final result. No
+  narration between tool steps. Chat volume only — repo/HQ record-keeping
+  (governance rule 1) and mandatory disagreement (rule 14) are unreduced. The
+  operator adjusts the volume by saying so.
+- **L-4 · Our vendor split for the review gate** — Codex builds → Gemini + the
+  Architect review; Architect-authored specs/proposals/governance docs → Gemini
+  reviews before they land. "Different vendor than the author" is the principle,
+  not "Gemini specifically."
 
 ## Git policy (critical)
 
