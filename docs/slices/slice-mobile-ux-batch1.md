@@ -32,7 +32,12 @@ tab bar) and B9 are explicitly OUT (redesign-scale / low value)._
   area ≥ 32px effective).
 - **B8:** add to the coarse floor: base `.btn`, `.ccr-tpl-save-btn`,
   `.ccr-tpl-trigger`, the History drawer back button's class, `.receipt-json-summary`
-  — min 44px effective target height under coarse.
+  — min 44px effective target height under coarse. _(Fix round additions, shipped:
+  the coarse block moves to the END of the file — its floors were dead by source
+  order against later base rules, the same cascade class A2 fixes; descendant-scoped
+  `.revision-actions .btn` / `.budget-target-controls .btn` added to the floor list;
+  the new `.cap .filter-chips .chip` buttons floored at 44px; bare `.btn` removed
+  from the coarse PADDING rule — min-height alone reaches the floor.)_
 - **C2:** `.icard .tags select{max-width:100%}`.
 - **Chip-filter CSS (support for Lane B):** add `.cap .filter-chips` row styles and
   an `.on` state for chip buttons (reusing the existing `.chip` look — Lane B's JSX
@@ -51,11 +56,16 @@ tab bar) and B9 are explicitly OUT (redesign-scale / low value)._
   insert already accepts them).
 - **A3:** touch equivalents for hover-only info: the rail active-operator chip shows
   the codename (truncated with ellipsis is fine) as text; the Exit control gains
-  visible/aria text with the signed-in email; the run-detail availability
+  visible/aria text with the signed-in email _(REVISED in the fix round: a visible
+  email breaks the 84px rail — shipped as visible "Exit" + the email in
+  `aria-label`/`title`; G-A3 verifies the aria text)_; the run-detail availability
   explanation renders as small text, not `title`-only.
 - **C3:** clamp queue-card error text with the native `<details>` +
   `.receipt-json-summary` pattern already used in drill-downs (first line visible,
-  disclosure for the rest).
+  disclosure for the rest). _(Fix round, shipped: the 160-char clamp also applies
+  to a long FIRST line of multiline errors with the disclosure carrying the full
+  text; no `aria-label` on the summary — the clamped line IS the accessible name;
+  whitespace-only errors render nothing.)_
 - **C4:** wire note textarea `rows={2}` so the placeholder isn't clipped.
 
 ## Lane C — `src/components/controlroom/ChannelProfilesPanel.tsx` + `src/components/controlroom/EnqueueIdeaPanel.tsx` ONLY
@@ -64,7 +74,9 @@ tab bar) and B9 are explicitly OUT (redesign-scale / low value)._
   jobs already routed keep working via the default profile).
 - **C1:** the enqueue "EXECUTION RECIPE" label row must not collide with the
   segmented control at 412px — structural fix inside the component (stack the label
-  above the control), no CSS-file edits.
+  above the control), no CSS-file edits. _(Fix round, shipped: the flex column uses
+  `alignItems:"flex-start"` — `stretch` blockified the inline-flex segmented pill to
+  full field width on desktop.)_
 
 ## Gates (aggregate, after lanes merge)
 | # | Gate | How verified |
@@ -93,7 +105,9 @@ assertions are not acceptable evidence.**
   "Sign out <email>" — voice-control "tap Exit" may miss; future pass.
 - Filter chips were absent from the frozen B8 floor list; floored (44px) during the fix
   round — folded here so the spec matches shipped reality.
-- **Reviewer-set note:** Gemini was degraded/unavailable this session (flash-fallback,
-  off-topic output; 5 jobs hung). Substitute protocol used: Architect + independent
-  suerta per lane + suerta re-verify of the fix round + 53 measured gates. A retroactive
-  Gemini aggregate pass (code + docs) is OWED when the service recovers.
+- **Reviewer-set note (corrected):** Gemini was never down — the orchestrator passed the
+  prompt as the wrapper's MODEL argument instead of stdin, so calls 404'd to a fallback
+  fed an EMPTY prompt (hence off-topic output) or hung on stdin. Reviews ran as
+  Architect + independent suerta per lane + suerta fix-round re-verify + 53 measured
+  gates; the retroactive Gemini aggregate pass (code + docs) ran post-merge with the
+  corrected invocation — verdict recorded in the ledger/HQ.
