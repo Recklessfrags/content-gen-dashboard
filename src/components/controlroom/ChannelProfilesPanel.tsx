@@ -325,6 +325,44 @@ export function ChannelProfilesPanel({
       </div>
 
       <section className="dossier" aria-labelledby="channel-profile-title">
+        <div className="mobile-roster">
+          <label className="eyebrow" htmlFor="mobile-channel-roster-select">
+            SELECT CHANNEL
+          </label>
+          <select
+            id="mobile-channel-roster-select"
+            className="mobile-roster-select"
+            value={creating ? "" : form?.channel ?? ""}
+            onChange={(event) => {
+              const nextProfile = profiles.find(
+                (profile) => profile.channel === event.target.value,
+              );
+              if (nextProfile) selectProfile(nextProfile);
+            }}
+            disabled={creating}
+            aria-label="Select channel"
+          >
+            {creating ? (
+              <option value="">(new channel)</option>
+            ) : (
+              profiles.map((profile) => (
+                <option key={profile.channel} value={profile.channel}>
+                  {profile.display_name || profile.channel}
+                </option>
+              ))
+            )}
+          </select>
+          <button
+            className="mobile-roster-new"
+            type="button"
+            onClick={startNew}
+            disabled={creating}
+            aria-label="Create new channel"
+          >
+            + NEW
+          </button>
+        </div>
+
         <header className="dossier-head">
           <div className="filecode">
             <span>CHANNEL PROFILE</span>

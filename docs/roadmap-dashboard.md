@@ -44,7 +44,14 @@ the Rule-9 cross-vendor gate (2026-07-01 architecture review — 4 gaps below fo
 4. **Per-character cost (Tier-2) + episode↔character drill-down** _(pipeline-gated data)_
    - Reads `episodes.character_id` (schema live; 0 rows until the pipeline runs a
      character-linked episode — Mad Dog → Acoustic Kitty). Fills in for free at that run.
-5. **Channel-onboarding auto-fill** _(future surface; DIRECTION being corrected)_
+5. **Channel-onboarding auto-fill** — **⏸ ON HOLD (operator, 2026-07-02: "put
+   channel creation on hold… we need to finish the voice agent work").** Do NOT
+   forget: the operator has more channel ideas queued and explicitly asked that this
+   be recorded. The pipeline prerequisite is DONE (their onboarding recipe merged
+   2026-07-02, §C guideline/must-do split canonical), and manual channel creation
+   works on all screen sizes (mobile bar fixed, PR #46) — so when the hold lifts,
+   the auto-fill editor (brief-in → researched draft-out) is immediately buildable.
+   Original scope: _(future surface; DIRECTION being corrected)_
    - Per-channel **GUIDELINE** selection fields only (archetype/audience/hook-mix/vocab).
      Craft **MUST-DOs** are enforced by pipeline graders/sentinels — **never editable
      dashboard fields** (or a user drifts away from the law). Research per **sub-niche +
