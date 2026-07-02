@@ -25,6 +25,7 @@ import {
   setWinner,
   synthesizePreview,
   voiceSettingsFrom,
+  writeCastToCharacter,
   VOICE_DESIGN_DEFAULTS,
   VOICE_SETTINGS_RANGES,
   type AuditionCandidate,
@@ -34,6 +35,13 @@ import {
   type VoiceSettings,
 } from "@/lib/casting";
 import { createClient } from "@/lib/supabase/client";
+import {
+  createVoiceTemplate,
+  deleteVoiceTemplate,
+  listVoiceTemplates,
+  templateRecipe,
+  type VoiceTemplate,
+} from "@/lib/voiceTemplates";
 import { toBible, type FlatChar } from "./shared";
 
 type CastingStudioPanelProps = {
@@ -77,6 +85,17 @@ const SYNTH_SLIDERS: ReadonlyArray<{
   { key: "speed", label: "Speed", hint: "Narration pace (0.7–1.2)." },
 ];
 
+export function purgeCreatedVoiceId(
+  createdVoiceIds: Map<string, string>,
+  deletedVoiceId: string,
+): void {
+  for (const [generatedVoiceId, createdVoiceId] of createdVoiceIds) {
+    if (createdVoiceId === deletedVoiceId) {
+      createdVoiceIds.delete(generatedVoiceId);
+    }
+  }
+}
+
 export function CastingStudioPanel({
   character,
   supabase,
@@ -87,6 +106,14 @@ export function CastingStudioPanel({
 }: CastingStudioPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const firstFieldRef = useRef<HTMLButtonElement>(null);
+  const mainInitialFocusRef = useRef<HTMLElement | null>(null);
+  const browseRecordsRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const drawerReturnRef = useRef<HTMLButtonElement>(null);
+  const saveDialogRef = useRef<HTMLDivElement>(null);
+  const saveNameRef = useRef<HTMLInputElement>(null);
+  const saveTriggerRef = useRef<HTMLButtonElement>(null);
+  const createdVoiceIdsRef = useRef<Map<string, string>>(new Map());
 
   const [prompt, setPrompt] = useState<VoiceDesignPrompt>({ ...VOICE_DESIGN_DEFAULTS });
   const [sampleText, setSampleText] = useState(() =>
@@ -110,6 +137,19 @@ export function CastingStudioPanel({
   const [testAudioSrc, setTestAudioSrc] = useState<string | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [locking, setLocking] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<VoiceTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [appliedTemplateName, setAppliedTemplateName] = useState<string | null>(null);
+  const [appliedNotice, setAppliedNotice] = useState<string | null>(null);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [saveTemplateError, setSaveTemplateError] = useState<string | null>(null);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
 
   const synthDirty = useMemo(
     () => (Object.keys(synth) as Array<keyof VoiceSettings>).some((k) => synth[k] !== savedSynth[k]),
@@ -120,13 +160,59 @@ export function CastingStudioPanel({
 
   useScrollLock();
 
+  const closeDrawer = useCallback(() => {
+    mainInitialFocusRef.current = browseRecordsRef.current;
+    setDrawerOpen(false);
+  }, []);
+
+  const closeSaveDialog = useCallback(() => {
+    mainInitialFocusRef.current = saveTriggerRef.current;
+    setSaveDialogOpen(false);
+    setTemplateName("");
+    setTemplateDescription("");
+    setSaveTemplateError(null);
+  }, []);
+
+  const openSaveDialog = useCallback(() => {
+    setDrawerOpen(false);
+    setSaveDialogOpen(true);
+  }, []);
+
+  const openDrawer = useCallback(() => {
+    closeSaveDialog();
+    setDrawerOpen(true);
+  }, [closeSaveDialog]);
+
   useFocusTrap({
-    active: true,
+    active: !saveDialogOpen && !drawerOpen,
     containerRef: panelRef,
-    onEscape: onClose,
-    initialFocusRef: firstFieldRef,
+    onEscape: () => {
+      onClose();
+    },
+    initialFocusRef: mainInitialFocusRef,
     restoreFocusRef,
   });
+
+  useFocusTrap({
+    active: saveDialogOpen,
+    containerRef: saveDialogRef,
+    onEscape: closeSaveDialog,
+    initialFocusRef: saveNameRef,
+    restoreFocusRef: saveTriggerRef,
+  });
+
+  useFocusTrap({
+    active: drawerOpen,
+    containerRef: drawerRef,
+    onEscape: closeDrawer,
+    initialFocusRef: drawerReturnRef,
+    restoreFocusRef: browseRecordsRef,
+  });
+
+  useEffect(() => {
+    if (saveDialogOpen || drawerOpen) return;
+    mainInitialFocusRef.current = firstFieldRef.current;
+  }, [drawerOpen, saveDialogOpen]);
 
   // Guard against setState after the panel is closed/unmounted mid-request
   // (Edge/ElevenLabs calls can be slow).
@@ -179,8 +265,101 @@ export function CastingStudioPanel({
     void refreshCastsLeft();
   }, [refreshCastsLeft]);
 
+  const refreshTemplates = useCallback(async () => {
+    setTemplatesLoading(true);
+    setTemplateError(null);
+    try {
+      const rows = await listVoiceTemplates(supabase);
+      if (!aliveRef.current) return;
+      setTemplates(rows);
+    } catch (e) {
+      if (!aliveRef.current) return;
+      setTemplateError(e instanceof Error ? e.message : "Could not load voice templates.");
+    } finally {
+      if (aliveRef.current) setTemplatesLoading(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    void refreshTemplates();
+  }, [refreshTemplates]);
+
+  useEffect(() => {
+    if (!appliedNotice) return undefined;
+    const timer = window.setTimeout(() => {
+      if (aliveRef.current) setAppliedNotice(null);
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [appliedNotice]);
+
+  useEffect(() => {
+    if (drawerOpen) {
+      drawerRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [drawerOpen]);
+
+  useEffect(() => {
+    if (saveDialogOpen) {
+      saveDialogRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [saveDialogOpen]);
+
   const handleLayerMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) onClose();
+  };
+
+  const handleApplyTemplate = (template: VoiceTemplate) => {
+    const recipe = templateRecipe(template);
+    setPrompt(recipe.design_prompt);
+    setSynth(recipe.voice_settings);
+    setAppliedTemplateName(recipe.template_name ?? null);
+    setAppliedNotice(recipe.template_name ?? null);
+    closeDrawer();
+    setTemplateError(null);
+  };
+
+  const handleSaveTemplate = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (savingTemplate) return;
+    setSaveTemplateError(null);
+    setSavingTemplate(true);
+    try {
+      const created = await createVoiceTemplate(supabase, {
+        name: templateName,
+        description: templateDescription,
+        designPrompt: prompt,
+        voiceSettings: synth,
+        sourceCodename: character.codename || null,
+      });
+      if (!aliveRef.current) return;
+      setTemplates((rows) =>
+        [...rows, created].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      closeSaveDialog();
+      showFlash("✓ Voice profile filed");
+    } catch (e) {
+      if (!aliveRef.current) return;
+      setSaveTemplateError(e instanceof Error ? e.message : "Could not save template.");
+    } finally {
+      if (aliveRef.current) setSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (deletingTemplateId) return;
+    setDeletingTemplateId(templateId);
+    setTemplateError(null);
+    try {
+      await deleteVoiceTemplate(supabase, templateId);
+      if (!aliveRef.current) return;
+      setTemplates((rows) => rows.filter((row) => row.id !== templateId));
+      setConfirmDeleteId(null);
+    } catch (e) {
+      if (!aliveRef.current) return;
+      setTemplateError(e instanceof Error ? e.message : "Could not delete template.");
+    } finally {
+      if (aliveRef.current) setDeletingTemplateId(null);
+    }
   };
 
   const handleGenerate = async () => {
@@ -190,8 +369,12 @@ export function CastingStudioPanel({
     try {
       const candidates = await generateVoicePreviews(supabase, prompt, sampleText);
       if (!aliveRef.current) return;
-      setBracket((b) => setPool(b, candidates));
-      if (candidates.length === 0) {
+      const stamped = candidates.map((candidate) => ({
+        ...candidate,
+        ...(appliedTemplateName ? { template_name: appliedTemplateName } : {}),
+      }));
+      setBracket((b) => setPool(b, stamped));
+      if (stamped.length === 0) {
         setError("ElevenLabs returned no previews — try adjusting the design.");
       }
       await refreshCastsLeft();
@@ -218,22 +401,27 @@ export function CastingStudioPanel({
     setLocking(candidate.generated_voice_id);
     try {
       const description = composeVoiceDescription(candidate.prompt_state);
-      const voiceId = await saveVoiceWinner(
-        supabase,
-        character.codename || "Untitled character",
-        description,
-        candidate.generated_voice_id,
-      );
-      const { error: updateError } = await supabase
-        .from("characters")
-        .update({ voice_id: voiceId })
-        .eq("id", character.id);
-      if (!aliveRef.current) return;
-      if (updateError) {
-        setError(`Saved the voice but could not write it to the character: ${updateError.message}`);
-        return;
+      const nextSettings = clampVoiceSettings(synth);
+      const recipe = {
+        design_prompt: candidate.prompt_state,
+        voice_settings: nextSettings,
+        ...(candidate.template_name ? { template_name: candidate.template_name } : {}),
+      };
+      let voiceId = createdVoiceIdsRef.current.get(candidate.generated_voice_id);
+      if (!voiceId) {
+        voiceId = await saveVoiceWinner(
+          supabase,
+          character.codename || "Untitled character",
+          description,
+          candidate.generated_voice_id,
+        );
+        createdVoiceIdsRef.current.set(candidate.generated_voice_id, voiceId);
       }
-      onCharacterPatched(character.id, { voice_id: voiceId });
+      await writeCastToCharacter(supabase, character.id, voiceId, nextSettings, recipe);
+      if (!aliveRef.current) return;
+      onCharacterPatched(character.id, { voice_id: voiceId, voice_settings: nextSettings as unknown as Json });
+      setSynth(nextSettings);
+      setSavedSynth(nextSettings);
       setBracket((b) => setWinner(b, candidate, voiceId));
       showFlash("✓ Voice cast and locked to character");
       if (previousVoiceId && previousVoiceId !== voiceId) {
@@ -241,6 +429,7 @@ export function CastingStudioPanel({
           // Intentional: character_bible_revisions is bible-only; keeping dead
           // voice ids needs a future voice-history table, not a schema change here.
           await deleteVoice(supabase, previousVoiceId);
+          purgeCreatedVoiceId(createdVoiceIdsRef.current, previousVoiceId);
         } catch (deleteError) {
           console.warn("Could not remove the previous voice from the ElevenLabs library.", deleteError);
         }
@@ -367,6 +556,71 @@ export function CastingStudioPanel({
     );
   };
 
+  const renderTemplateCard = (template: VoiceTemplate) => {
+    const recipe = templateRecipe(template);
+    const promptTags = recipe.design_prompt;
+    const settingsTags = recipe.voice_settings;
+    const confirming = confirmDeleteId === template.id;
+    const deleting = deletingTemplateId === template.id;
+
+    return (
+      <li
+        key={template.id}
+        className={"ccr-tpl-card" + (confirming ? " is-confirming" : "") + (deleting ? " is-deleting" : "")}
+      >
+        <div className="ccr-tpl-card__head">
+          <div>
+            <h4 className="ccr-tpl-card__title">{template.name}</h4>
+            {template.source_codename && (
+              <p className="ccr-tpl-card__meta">SRC: {template.source_codename}</p>
+            )}
+          </div>
+        </div>
+        {template.description && <p className="ccr-tpl-card__desc">{template.description}</p>}
+        <div className="ccr-tpl-recipe" aria-label={`Recipe for ${template.name}`}>
+          <span className="ccr-tpl-recipe__tag">GEN: {genderTag(promptTags.gender)}</span>
+          <span className="ccr-tpl-recipe__tag">AGE: {percentTag(promptTags.age)}</span>
+          <span className="ccr-tpl-recipe__tag">GRT: {percentTag(promptTags.grit)}</span>
+          <span className="ccr-tpl-recipe__tag">TON: {percentTag(promptTags.comedy_menace)}</span>
+          <span className="ccr-tpl-recipe__tag">DEL: {percentTag(promptTags.bombast)}</span>
+          <span className="ccr-tpl-recipe__tag">SPD: {settingsTags.speed.toFixed(2)}</span>
+        </div>
+        <div className="ccr-tpl-actions">
+          {confirming ? (
+            <>
+              <button
+                className="btn ghost compact"
+                type="button"
+                disabled={deleting}
+                onClick={() => setConfirmDeleteId(null)}
+              >
+                [ CANCEL ]
+              </button>
+              <button
+                className="btn compact ccr-btn-purge"
+                type="button"
+                disabled={deleting}
+                aria-busy={deleting}
+                onClick={() => void handleDeleteTemplate(template.id)}
+              >
+                {deleting ? "[ PURGING... ]" : "[ CONFIRM PURGE ]"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn compact ccr-btn-stamp" type="button" onClick={() => handleApplyTemplate(template)}>
+                [ LOAD PROFILE ]
+              </button>
+              <button className="ccr-btn-purge" type="button" onClick={() => setConfirmDeleteId(template.id)}>
+                [ PURGE ]
+              </button>
+            </>
+          )}
+        </div>
+      </li>
+    );
+  };
+
   return (
     <div className="history-layer" role="presentation" onMouseDown={handleLayerMouseDown}>
       <aside
@@ -383,9 +637,14 @@ export function CastingStudioPanel({
             </button>
             <h2 id="casting-panel-title">Casting Studio</h2>
           </div>
-          <span className={"chip " + (cast ? "active" : "draft")}>
-            {cast ? "CAST" : "UNCAST"}
-          </span>
+          <div className="casting-header-actions">
+            <button ref={browseRecordsRef} className="ccr-tpl-trigger" type="button" onClick={openDrawer}>
+              [ BROWSE RECORDS ({templates.length}) ]
+            </button>
+            <span className={"chip " + (cast ? "active" : "draft")}>
+              {cast ? "CAST" : "UNCAST"}
+            </span>
+          </div>
         </div>
 
         <div className="detail-cap">
@@ -412,14 +671,51 @@ export function CastingStudioPanel({
               {error}
             </p>
           )}
+          {drawerOpen && (
+            <div ref={drawerRef} className="ccr-tpl-drawer" role="region" aria-label="Voice template library">
+              <div className="ccr-tpl-header">
+                <div>
+                  <h3>STANDARDIZED VOICE PROFILES</h3>
+                  <p>NOTICE: PREVIEWS UNAVAILABLE IN ARCHIVE. LOAD PROFILE TO AUDITION.</p>
+                </div>
+                <button ref={drawerReturnRef} className="ccr-tpl-trigger" type="button" onClick={closeDrawer}>
+                  [X] RETURN
+                </button>
+              </div>
+              {templateError && (
+                <p className="history-error" role="alert">
+                  {templateError}
+                </p>
+              )}
+              {templatesLoading ? (
+                <p className="ccr-tpl-loading" role="status">[ LOADING RECORDS... ]</p>
+              ) : templates.length === 0 ? (
+                <div className="ccr-tpl-empty">
+                  <h4>NO PROFILES ON RECORD.</h4>
+                  <p>
+                    The archive is barren. To establish a standardized profile, calibrate the parameters in the
+                    Casting Studio and execute the [ FILE AS TEMPLATE ] directive. Hypothetical entries are strictly
+                    prohibited; only tested configurations may be filed.
+                  </p>
+                </div>
+              ) : (
+                <ul className="ccr-tpl-list">{templates.map(renderTemplateCard)}</ul>
+              )}
+            </div>
+          )}
 
           {/* ── Voice design (re-cast) ─────────────────────────────────── */}
           <section className="casting-section" aria-labelledby="casting-design-title">
             <h3 id="casting-design-title" className="casting-section-title">
               Voice Design <span className="casting-cost-tag">spends credits · re-cast</span>
             </h3>
+            {appliedNotice && (
+              <p className="ccr-tpl-applied" role="status">
+                [ PARAMETERS LOADED: {appliedNotice} — design + synthesis settings staged ]
+              </p>
+            )}
 
-            <div className="casting-sliders">
+            <div className={"casting-sliders" + (appliedNotice ? " is-template-applied" : "")}>
               {DESIGN_SLIDERS.map((s) => (
                 <div className="casting-slider" key={s.key}>
                   <label htmlFor={`casting-design-${s.key}`}>
@@ -460,6 +756,80 @@ export function CastingStudioPanel({
               </div>
             </div>
 
+            <div className="casting-generate-row">
+              <p className="casting-credit-warning" role="note">
+                ⚠ Generating previews spends ElevenLabs credits.
+                {castsLeft !== null && (
+                  <> {castsLeft} of {CASTING_DAILY_CAP} casts left today.</>
+                )}
+              </p>
+              <div className="casting-primary-actions">
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={designing || !sampleValid || capReached}
+                  aria-busy={designing}
+                  onClick={handleGenerate}
+                >
+                  {designing ? "Synthesizing…" : "Generate previews"}
+                </button>
+                <button ref={saveTriggerRef} className="ccr-tpl-save-btn" type="button" onClick={openSaveDialog}>
+                  [ FILE AS TEMPLATE ]
+                </button>
+                {appliedTemplateName && (
+                  <span className="ccr-tpl-source">seeded from: {appliedTemplateName}</span>
+                )}
+              </div>
+            </div>
+
+            {saveDialogOpen && (
+              <div className="ccr-tpl-dialog" role="dialog" aria-modal="true" aria-labelledby="ccr-tpl-dialog-title" ref={saveDialogRef}>
+                <form onSubmit={handleSaveTemplate}>
+                  <h4 id="ccr-tpl-dialog-title">FILE VOICE PROFILE</h4>
+                  <label htmlFor="ccr-tpl-name">
+                    <span className="eyebrow">DESIGNATION</span>
+                  </label>
+                  <input
+                    ref={saveNameRef}
+                    id="ccr-tpl-name"
+                    type="text"
+                    value={templateName}
+                    minLength={2}
+                    maxLength={60}
+                    required
+                    aria-invalid={Boolean(saveTemplateError)}
+                    aria-describedby={saveTemplateError ? "ccr-tpl-name-error" : undefined}
+                    onChange={(event) => {
+                      setTemplateName(event.target.value);
+                      setSaveTemplateError(null);
+                    }}
+                  />
+                  {saveTemplateError && (
+                    <p id="ccr-tpl-name-error" className="ccr-tpl-error" role="alert">
+                      {saveTemplateError}
+                    </p>
+                  )}
+                  <label htmlFor="ccr-tpl-description">
+                    <span className="eyebrow">REMARKS</span>
+                  </label>
+                  <textarea
+                    id="ccr-tpl-description"
+                    rows={3}
+                    value={templateDescription}
+                    onChange={(event) => setTemplateDescription(event.target.value)}
+                  />
+                  <div className="ccr-tpl-dialog-actions">
+                    <button className="btn ghost compact" type="button" disabled={savingTemplate} onClick={closeSaveDialog}>
+                      [ CANCEL ]
+                    </button>
+                    <button className="btn compact ccr-btn-stamp" type="submit" disabled={savingTemplate} aria-busy={savingTemplate}>
+                      {savingTemplate ? "[ PROCESSING... ]" : "[ STAMP RECORD ]"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
             <div className="field">
               <label htmlFor="casting-sample">
                 <span className="eyebrow">Audition sample</span>
@@ -475,24 +845,6 @@ export function CastingStudioPanel({
                 onChange={(e) => setSampleText(e.target.value)}
               />
               <p className="hint casting-prose">Prompt sent: “{composeVoiceDescription(prompt)}”</p>
-            </div>
-
-            <div className="casting-generate-row">
-              <p className="casting-credit-warning" role="note">
-                ⚠ Generating previews spends ElevenLabs credits.
-                {castsLeft !== null && (
-                  <> {castsLeft} of {CASTING_DAILY_CAP} casts left today.</>
-                )}
-              </p>
-              <button
-                className="btn"
-                type="button"
-                disabled={designing || !sampleValid || capReached}
-                aria-busy={designing}
-                onClick={handleGenerate}
-              >
-                {designing ? "Synthesizing…" : "Generate previews"}
-              </button>
             </div>
             {capReached && (
               <p className="history-error" role="status">
@@ -615,4 +967,14 @@ export function CastingStudioPanel({
 function describePrompt(p: VoiceDesignPrompt): string {
   const band = (n: number) => (n < 1 / 3 ? "low" : n < 2 / 3 ? "mid" : "high");
   return `age ${band(p.age)} · grit ${band(p.grit)} · tone ${band(p.comedy_menace)} · delivery ${band(p.bombast)}`;
+}
+
+function percentTag(value: number): string {
+  return String(Math.round(Math.max(0, Math.min(1, value)) * 100));
+}
+
+function genderTag(value: VoiceGender | undefined): string {
+  if (value === "female") return "F";
+  if (value === "male") return "M";
+  return "A";
 }

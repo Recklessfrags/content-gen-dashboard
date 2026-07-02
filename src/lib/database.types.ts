@@ -166,6 +166,7 @@ export type Database = {
           updated_at: string
           visual_style: string | null
           voice_id: string | null
+          voice_recipe: Json | null
           voice_settings: Json | null
         }
         Insert: {
@@ -180,6 +181,7 @@ export type Database = {
           updated_at?: string
           visual_style?: string | null
           voice_id?: string | null
+          voice_recipe?: Json | null
           voice_settings?: Json | null
         }
         Update: {
@@ -194,7 +196,41 @@ export type Database = {
           updated_at?: string
           visual_style?: string | null
           voice_id?: string | null
+          voice_recipe?: Json | null
           voice_settings?: Json | null
+        }
+        Relationships: []
+      }
+      voice_templates: {
+        Row: {
+          created_at: string
+          description: string
+          design_prompt: Json
+          id: string
+          name: string
+          source_codename: string | null
+          updated_at: string
+          voice_settings: Json
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          design_prompt?: Json
+          id?: string
+          name: string
+          source_codename?: string | null
+          updated_at?: string
+          voice_settings?: Json
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          design_prompt?: Json
+          id?: string
+          name?: string
+          source_codename?: string | null
+          updated_at?: string
+          voice_settings?: Json
         }
         Relationships: []
       }
