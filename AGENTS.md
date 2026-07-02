@@ -1,9 +1,10 @@
 # AGENTS.md — project-specific rules for this repo
 
 **The loop rules are canonical in [`governance.md`](governance.md)** (the shared
-29-rule file merged cross-team, adopted 2026-07-02 from the pipeline-repo canonical
-via the HQ verbatim mirror — see the Coordination Log "Adopt merged governance.md"
-row). Read `governance.md` FIRST; this file supplies only what is **specific to this
+41-rule file merged cross-team, adopted 2026-07-02 from the pipeline-repo canonical
+via the HQ verbatim mirror — rules 1–29 then 30–34 (model budget), 20 & 32 refined,
+35–41 promoted + 34 strengthened — see the Coordination Log governance rows). Read
+`governance.md` FIRST; this file supplies only what is **specific to this
 project**: the vendor/role mapping, dashboard-local operator directives (marked
 ADDITIVE — they extend, never override, governance), git mechanics, and operational
 setup. README, role prompts, and Notion pages point here and to `governance.md`;
@@ -36,7 +37,7 @@ they never restate rules.
 
 ## The rules
 
-**Canonical: [`governance.md`](governance.md) rules 1–29.** Project bindings for its
+**Canonical: [`governance.md`](governance.md) rules 1–41.** Project bindings for its
 role/place-holders: durable store = this repo (`docs/HANDOFF.md` + `GATES.md` +
 `docs/contracts/*`) — not in the repo = didn't happen; coordination log = the Notion
 📮 Coordination Log's **Open Cross-Team Items tracker**; learnings log = the HQ
