@@ -1,17 +1,13 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-01 (evening session)** by the Architect (Claude). This is the **one authoritative
-"start here"** for a **new chat** picking up the work. Read this top-to-bottom, then the
-canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file is the
-fast path._
+_Last updated: **2026-07-02 (late session)** by the Architect (Claude). This is the **one
+authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
+then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
+is the fast path._
 
 > **Built against the hardened-handoff checklist** (pipeline lesson, 2026-06-30): one
 > authoritative start-here · branch state pinned · don't-stall/don't-drift constraints ·
-> contract matched to the real schema · DONE = falsifiable gates ("floor ≠ done"). A
-> **cold-start (MD) review** was run against this doc set on 2026-06-30 and its findings
-> folded in (reconciled cross-file contradictions in `AGENTS.md` / `data-contract.md` on
-> commit-ownership and the `character_id` / `0016` live-vs-pending status; fixed dead
-> references to `dashboardbuildbrief.md` and the pipeline-repo `dashboard-contract.md`).
+> contract matched to the real schema · DONE = falsifiable gates ("floor ≠ done").
 
 ---
 
@@ -19,25 +15,27 @@ fast path._
 
 1. **`git fetch` BEFORE judging anything.** Local refs lie. Production = the GitHub default
    branch **`claude/new-session-3l99vs`**; confirm its tip before assuming merge state.
-2. **Check HQ — but do NOT run a fixed-interval timer.** Operator directive (2026-06-30):
-   *"don't use a finger 6 — just check frequently, after sessions, after commits."* So poll
-   the Notion 📮 Coordination Log + its sub-pages at **natural checkpoints** (after commits/
-   merges, around coordination work, before ending a session), respond as needed, and update
-   the tracker — model-judgment, not a `ScheduleWakeup` heartbeat. (The old 5-min auto-monitor
-   is retired.)
-3. **Read, in order:** this file → `AGENTS.md` (loop rules) → `DIRECTION.md` (scope) →
-   `docs/contracts/data-contract.md` (DB shapes + ownership) → `GATES.md` → the 📮
-   Coordination Log in Notion (current cross-team state, §6).
-4. **Don't-drift / don't-stall:** the dashboard is a **focused control tool, NOT a
-   kanban/production board** (D-2). Don't invent scope. If you park, say why; don't stall
-   silently. Build app code **only through Codex** (§3); the Architect commits docs only.
-5. **Talk terse (operator directive 2026-07-01, `AGENTS.md` rule 10):** no play-by-play
-   narration to the operator — one line at task start, a note only on real problems or
-   operator decisions, then the final result. Docs/HQ record-keeping stays full.
+2. **Model budget (governance rules 30–34, operator-ratified 2026-07-02 — binding):**
+   sessions default to **Opus**; Fable-5 by operator pick or agent judgment for the hardest
+   fork/architecture work only. Reviewer seats default to Opus (escalate by judgment).
+   Bulk reading → down-tiered (Haiku/Sonnet) subagents, conclusions only. **Fetch HQ by
+   child page, not the whole log.** End the session when the context outgrows the remaining
+   work. Tier→model map = `AGENTS.md` L-5.
+3. **Check HQ at natural checkpoints** (after commits/merges, around coordination work,
+   before ending a session) — the 📮 Coordination Log tracker first, then only the child
+   pages you need. Always fresh-fetch before telling the operator "nothing is buildable"
+   (L-1).
+4. **Read, in order:** this file → `governance.md` (34 shared rules) → `AGENTS.md` (project
+   layer, L-1..L-5) → `DIRECTION.md` (scope) → `docs/contracts/data-contract.md` (DB shapes +
+   ownership) → `GATES.md` → the 📮 Coordination Log tracker (§6).
+5. **Don't-drift / don't-stall:** the dashboard is a **focused control tool, NOT a
+   kanban/production board** (D-2). Don't invent scope. If you park, say why. Build app code
+   **only through Codex** (§3); the Architect commits docs + Codex's reviewed edits.
+6. **Talk terse (L-3):** one line at task start, a prompt only on real problems or
+   human-only decisions (sharpened question + recommendation), then the final result.
 
-**What "done" means here:** a slice is done when it's **merged to the default branch, its
-gates are green on the real artifact** (not just unit-green — see §4 "floor ≠ done"), and an
-**independent reviewer that did not build it** signed off. The human ratifies/merges.
+**What "done" means here:** merged to the default branch, gates green **on the real
+artifact** (measured, not presence-only — see §4 header), independent reviewer sign-off.
 
 ---
 
@@ -47,318 +45,248 @@ An automated agent workforce that produces faceless short-form video. **Two repo
 shared Supabase project:**
 
 - **Dashboard** (`recklessfrags/content-gen-dashboard`, THIS repo) — the **Character
-  Control Room**: a focused control tool. Owns characters/bibles, ideas, casting, channel
-  profiles; surfaces Runs (pipeline output) read-only + Overview + Cost Box + a run-queue.
-  **Read `DIRECTION.md`** — product ground truth (focused tool, NOT a kanban board).
+  Control Room**: owns characters/bibles, ideas, casting (voice + visual), channel
+  profiles; surfaces Runs/Queue (pipeline output) read-only + Overview + Cost Box.
+  **Read `DIRECTION.md`** — product ground truth.
 - **Pipeline** (a SEPARATE repo, **out of this session's GitHub scope**) — owns research →
   fact-check → gate → script → assembly → distribution. Writes `episodes`/`receipts`/`jobs`;
-  the dashboard reads them read-only and enqueues `jobs` input fields.
+  the dashboard reads them and enqueues `jobs` input fields (RLS-constrained).
 
-**The loop (separation of powers — `AGENTS.md` is canonical; "no one grades their own work"):**
-- **Architect (Claude / you)** — judgment only: specs, gates, briefs, review, ratify,
-  cross-team coordination. **Never writes app code.** Commits **docs/markdown only** (logged
-  exception). Pushes back; investigates THEN concludes (in both directions — reflexive
-  agreement and reflexive alarm are the same error).
-- **Designer (Gemini)** — UI/UX artifacts + independent review (a vendor different from the
-  builder).
-- **Builder (Codex)** — all app code + migrations, in a sandbox. **Cannot commit** (sandbox
-  `.git` is read-only) — the Architect commits Codex's edits.
-- **Independent review** — the two agents that did NOT build (Claude + Gemini) review each
-  diff adversarially; the **human** ratifies/merges.
-
-**Canonical docs after this:** `AGENTS.md`, `DIRECTION.md`, `GATES.md`,
-`docs/contracts/data-contract.md`, `docs/slices/*`, `docs/design/*`, `docs/HANDOFF.md` (full
-history).
+**The loop (separation of powers — `governance.md` canonical, `AGENTS.md` binds it locally):**
+- **Architect (Claude)** — judgment only: specs, gates, reviews, coordination, commits.
+  **Never authors app code.**
+- **Builder (Codex)** — all app code + migrations, sandboxed, cannot commit.
+- **Cross-vendor reviewer (Gemini)** — via `scripts/gemini.sh` (STDIN! see §3).
+- **suerta (independent Claude reviewer, Opus default)** — second lens on
+  migration/money-path/contract slices (L-2), additive to the cross-vendor gate.
+- **Human operator** — ratifies; has authorized the Architect to squash-merge PRs.
 
 ---
 
-## 2. Current status (what's DONE) — through PR #35, 2026-07-01
+## 2. Current status (what's DONE) — through PR #51, 2026-07-02
 
 **Production = default branch `claude/new-session-3l99vs`, live at
-`https://content-gen-dashboard.vercel.app` (Vercel project `content-gen-dashboard`, team
-`canicode`). Production tracks the default branch; pushing a branch auto-deploys a preview.**
+`https://content-gen-dashboard.vercel.app` (Vercel team `canicode`). Pushing a branch
+auto-deploys a preview; merging to default deploys production.**
 
-Shipped & merged (high level — see `docs/HANDOFF.md` + `GATES.md` for per-slice detail):
+Foundation through 2026-07-01 (detail in `docs/HANDOFF.md` + `GATES.md`): slices 1–4
+(CRUD/bible/RLS, drill-down + history, Overview, Cost Box T1+T2), CI safety net, security
+hardening, jobs enqueue + run-queue + approvals, Casting Studio (voice design via
+`casting-proxy` edge function, `dash_0001`), ControlRoom decomposition into
+`src/components/controlroom/*` + feature hooks, 0016 publish_only wiring,
+channel_profiles (`dash_0002` + editor), #37 5s-polling (active Queue/Runs only),
+Casting 2a visual identity (`dash_0003`, private `character-refs` bucket, upload→lock,
+bucket-relative paths), voice_templates (`dash_0004`, recipe library +
+`characters.voice_recipe` provenance), ADR-005 badge flip.
 
-- **Slices 1–4** (foundation: characters/ideas CRUD + bible jsonb + owner-scoped RLS;
-  drill-down + bible history `0002`; Overview; Tier-1 Cost Box).
-- **Test safety-net + CI gate** — Vitest on `lib/*`, pinned Supabase deps,
-  `.github/workflows/ci.yml` (`tsc --noEmit` + `npm test` + `npm run build`). Note: repo
-  checks are **not merge-blocking** today (merges succeed with CI in_progress).
-- **Security hardening** — casting-proxy CORS allowlist; sign-up UI removed; open sign-ups
-  off + leaked-password protection on (Supabase console).
-- **Jobs feature** — idea→`jobs` enqueue + run-queue view + `ready_for_review` approval.
-- **Casting Studio** — edge function + `casting_usage` migration (`dash_0001`), client lib
-  (`src/lib/casting.ts`), UI, follow-ups (bracket library + decision gate), and the
-  **bracket↔voice_id reconcile** (`reconcileBracket`, PR #15).
-- **Per-character Cost Box** (Tier 2 / C1) — `computeCostStats(... characters)` +
-  Per-Character Cost card (PR #16).
-- **Gemini REST wrapper** — `scripts/gemini.sh` (the `gemini` CLI 503s; use the wrapper),
-  default model `gemini-3.1-pro-preview`, fallback `gemini-3.5-flash` (PR #17).
-- **ControlRoom decomposition** — phase 1 extracted sub-components into
-  `src/components/controlroom/*`; phase 2 lifted read-state into feature hooks
-  `useEpisodes` / `useJobs` / `useCostReceipts` (PRs #18–#20). `Field` lifted into
-  `controlroom/shared.tsx` (PR #24).
-- **0016 wiring** — resume-to-distribution publish path (`publish_only` +
-  `source_episode_id`) + `jobs.error`/`park_kind` display (PR #21); publish-retry trap fix:
-  source resolves as `source_episode_id || episode_id` (PR #22).
-- **channel_profiles** (dashboard-owned, **fully shipped**) — `dash_0002` migration + data
-  layer (PR #23) and the Channel Profile editor + `channels` view (PR #24). **`dash_0002`
-  is APPLIED to the live DB** (table + 4 `authenticated` CRUD policies + `default`
-  food-behavior seed, verified). Engagement dials (`claim_discipline`/`arousal_ceiling`)
-  render with a **"stored — not yet active"** badge — the pipeline does not enforce them yet.
+**2026-07-02 session (all merged to production):**
+- **fact-approval + park_kind adoption** (PR #45) — column-first park resolution
+  (`resolveParkKind`; receipts inference only as null-legacy fallback; hard-park values
+  `blocked|exhausted` never inferred), fact-approval dialog (fresh re-enqueue with
+  `fact_approved=true`, **NO auto-spend**, warns if already spend-approved), cache
+  re-resolution closes the status-before-park_kind race. `jobs.channel` enqueue landed
+  just before (PR #42) with the CI lockfile fix.
+- **governance.md adopted** (PR #44) — canonical 29-rule shared file at repo root;
+  `AGENTS.md` restructured to the project layer. **Extended to rules 30–34** (model-budget,
+  PR #51) + L-4 two-lens staffing + **L-5 tier→model map**.
+- **Mobile channels bar** (PR #46 broken placement → PR #47 fix → **PR #49 hotfix**: the
+  #47 cherry-pick had resurrected the old duplicate `.mobile-roster` block, wrecking the
+  Channels view on phones — deletion-only fix, 9 measured gates).
+- **Mobile-UX batch 1** (PR #50) — three parallel Codex lanes from the independent audit
+  (`docs/design/mobile-audit-2026-07-02.md`, spec `docs/slices/slice-mobile-ux-batch1.md`):
+  queue actionable-first sort + filter chips (poll-surviving), runs chips, wire-capture
+  selects enabled (`""`→`null` for the uuid FK), fixed bottom savebar ≤880px (240/340px
+  reserve + safe-area), Visual-Identity bottom-sheet cascade fix, coarse tap floors
+  (44px, block moved to end-of-file — floors were dead by source order), delete confirm,
+  clamped error disclosures, misc. Per-lane suerta reviews (3× REQUEST CHANGES, blockers
+  fixed + re-verified), **53 measured gates** at 412/700/1440px, retro Gemini aggregate
+  PASS. Residuals recorded in the slice doc (§4.F).
+- **FOOD voice cast + locked — the pipeline's voice roadblock is CLEARED.** Character
+  **"Fine Print"** (id `ead6f8d2-…`), `voice_id: UaeNbtcDFAdeGzcWxlV8`, operator-picked
+  winner; `voice_recipe` birth-certificate written (raw rich description embedded);
+  template **"Honest Demystifier v1"** filed. Pipeline verified live and closed the row.
+  **ElevenLabs two-key split done by operator:** worker key (TTS+Music) on Railway;
+  Casting key (TTS + Voice Generation + Voices write) in the Supabase edge-function
+  secret. **Casting quality lesson (major):** slider-composed one-line prompts produce
+  flat generic voices; the winner came from a **rich persona-format description + long
+  performance-script preview** (per EL's design guide + the pipeline's CASTING KIT,
+  now mirrored on HQ). The proxy still calls EL defaults (ttv_v2, no guidance) — §4.A.
 
-**Since #24 (this session, 2026-07-01):**
-- **ControlRoom decomposition finished** — read/list state fully in feature hooks:
-  `useReceipts` (drill-down, PR #26), `useIdeas` (PR #29), `useCharacters` (PR #30). See §4.A.
-- **`ChannelProfilesPanel` form-reset clobber-fix** (PR #27) — the #37-polling pre-req.
-- **Loop governance hardened** — `AGENTS.md` **rules 8 (three-bucket question triage)** +
-  **9 (every change cross-vendor reviewed before it lands; reviewer grades the aggregate
-  diff; same-vendor can't self-bless; applies to docs/specs)** + the adopted **anti-bias**
-  rule (author can't pre-lean a fork → forced steelman) (PR #28).
-- **Casting phase-2 proposal** repo-canonical (`docs/proposals/casting-phase2-image-style.md`,
-  PR #28) and **`docs/roadmap-dashboard.md`** — the durable scope of upcoming cross-contract
-  work (PR #32).
-- **Turnkey ratify harness** — `scripts/ratify.mjs` + `npm run ratify` + `docs/ratify.md`
-  (PR #33). Prod-build + Playwright + `*.supabase.co` Node-fetch bridge + real auth; two
-  green live runs (roster=2 pcards, no overflow, clean teardown). See §3.
-- **Design nits** (PR #34) — login retains the email on a failed sign-in (controlled input);
-  mobile CAST-stamp no longer overlaps the FILE/HISTORY row.
-- **Overview "0 Failed" polish** (PR #35) — the count is muted (`accent-dim`) at zero, red
-  only when `failed > 0`. The single finding that survived an independent multimodal
-  (Gemini) site review against a strict QA rubric; the other flags were screenshot-viewport
-  artifacts or already-disabled controls (verified against code, not rubber-stamped).
+**Migrations.** Repo tracks 6 dashboard-owned: `0001_init`, `0002_bible_revisions`,
+`dash_0001_casting_usage`, `dash_0002_channel_profiles`, `dash_0003_visual_identity`,
+`dash_0004_voice_templates` — all APPLIED + VALIDATED live. Pipeline migrations are
+bare `NNNN_*` (theirs; do NOT absorb). Expand/contract choreography is mandatory for
+shared-seam migrations (§5).
 
-**Evening session 2026-07-01 (branch `claude/session-handoff-review-devqkm`, operator GO'd
-QA baseline + #37 + Casting 2a):**
-- **Task #37 — live Queue/Runs via 5s polling** ✅ SHIPPED (spec `docs/slices/
-  slice-37-polling.md` v3). Polls only the active Queue/Runs view; pauses on hidden tab /
-  other views / open overlays; immediate refresh on resume; poll errors never blank a
-  populated list; zero writes. Ratified 9/9 P-gates on the prod build with bridge-counted
-  request evidence. §4.B is DONE.
-- **Casting 2a — visual identity** ✅ BUILT + migration LIVE (spec `docs/slices/
-  slice-casting-2a-visual-identity.md` v2, design `docs/design/casting-2a-visual-identity.md`).
-  Upload→preview→LOCK one reference image + style per character ("dumb receiver" — no
-  in-dashboard gen). **`dash_0003_visual_identity` APPLIED + VALIDATED live** (HQ-posted
-  first; negative contract tests passed; probe cleaned): `pg_jsonschema` +
-  `characters_bible_shape` CHECK, `characters.reference_image_url`/`visual_style`, private
-  `character-refs` bucket (5MB, png/jpeg/webp, owner-scoped RLS). The column stores the
-  **bucket-relative object path, never a URL** (bucket-2 receipt on HQ, operator-ack
-  pending). Full loop both slices: cross-vendor spec review → Codex build → cross-vendor
-  diff review → real-artifact ratification.
-- **QA creds** now live only in gitignored `.env.local` (`RATIFY_EMAIL`/`RATIFY_PASSWORD`);
-  operator still owns rotating the password (§2 security follow-up stands).
-- **`voice_templates` slice** ✅ (2026-07-02) — recipe library in the Casting Studio
-  (save/apply/delete, no-audio-in-library credit guard) + `characters.voice_recipe`
-  provenance; **`dash_0004` APPLIED + VALIDATED live**. Money-path
-  hardened (create/write split, zero-row guard, retry skips the EL create, dead-voice
-  cache purge). Review chain: Gemini aggregate + fresh-Codex triage + Gemini re-audit +
-  **"suerta"** (independent Fable-5 Architect-side reviewer — now an AGENTS.md rule-9
-  clause for migration/money-path/contract slices; it caught a BLOCKER the other three
-  passes missed). ADR-005 badge flip also shipped (PR #40).
-
-**Migrations.** Repo tracks **5 dashboard-owned** migrations: `0001_init`,
-`0002_bible_revisions`, `dash_0001_casting_usage`, `dash_0002_channel_profiles`,
-`dash_0003_visual_identity` (applied + VALIDATED live 2026-07-01). The live
-project has more — the rest are **pipeline-domain** (jobs queue, live-adapters,
-`published_posts`, `asset_ledger`, `episodes.character_id`, bare-`0016`
-`publish_only`/`source_episode_id`/`park_kind`, audit-log). **Namespacing is the contract:**
-dashboard migrations are `dash_NNNN_*`; pipeline migrations are bare `NNNN_*`. Do NOT absorb
-pipeline migrations here.
-
-**Supabase:** project `reels-content` = `tyeejhaknqkeftjykqog`. Login
-`cameronnicodemus@gmail.com`; QA password was reset this session (2026-07-01). **Security
-follow-up (open):** operator to change it to their own and move creds out of tracked docs
-into a **gitignored `.env.local`** (`RATIFY_EMAIL`/`RATIFY_PASSWORD`) — the ratify harness
-already reads them from env, so no raw password needs to live in a tracked file. Storage:
-`render-assets` (public, pipeline-owned).
+**Supabase:** project `reels-content` = `tyeejhaknqkeftjykqog`. QA login =
+`cameronnicodemus@gmail.com`; creds live ONLY in gitignored `.env.local`
+(`RATIFY_EMAIL`/`RATIFY_PASSWORD` — password has NO space; quote it). **Open security
+follow-up: operator still intends to rotate the QA password.**
 
 ---
 
 ## 3. Operational setup the new session MUST know (these cost real time)
 
-- **Builder = Codex.** Invoke non-interactively:
-  `codex exec --sandbox workspace-write --skip-git-repo-check "<prompt>" < /dev/null`.
-  Codex **cannot commit** (sandbox `.git` read-only) — it edits files; **the Architect
-  reviews + commits**. **Codex habitually edits `docs/HANDOFF.md`** to narrate its work on
-  feature branches — **revert that** (`git checkout -- docs/HANDOFF.md`) before committing.
-  - **AUTH (fresh container, 2026-06-30):** on a new container Codex is **logged out**
-    (`~/.codex/auth.json` missing) and every `codex exec` 401s against `api.openai.com`.
-    Fix once per session: **`printenv OPENAI_API_KEY | codex login --with-api-key`** (the
-    old `--api-key` flag is gone; pipe it). Verify with `codex login status`. Only then do
-    builds run. Parallel lanes use `git worktree` per lane with `node_modules` symlinked
-    from the main checkout so each worktree can run `tsc`/`vitest`/`build`.
-- **Designer/reviewer = Gemini, via the REST wrapper.** The `gemini` CLI 503s — use
-  **`bash scripts/gemini.sh [model] < prompt`** (default `gemini-3.1-pro-preview`, fallback
-  `gemini-3.5-flash` on 503/UNAVAILABLE or 404/NOT_FOUND). **On a fresh checkout the script
-  can lose its exec bit → call it via `bash scripts/gemini.sh`.** Large payloads can time
-  out (~3 min) — send the diff/critical functions, not whole large files.
-- **Reviewer discipline (anti-lazy-pass).** Prompt reviewers to "find the most likely
-  failure; default to REQUEST CHANGES on doubt." **Verify every verdict against reality** —
-  APPROVE ≠ correct, REQUEST CHANGES ≠ correct. Examples this session: Gemini called
-  `character` (a column name) a "fatal reserved word" → **empirically refuted** with a
-  Postgres temp-table test (it's non-reserved); Gemini wanted the publish source flipped to
-  `episode_id`-first → **declined** (the worker posts `source_episode_id` for publish_only
-  jobs). A second independent reviewer catches what one misses (different vendors, different
-  blind spots).
-- **Supabase MCP:** runs SQL / `apply_migration` / buckets + RLS. **CANNOT delete storage
-  buckets** (protect trigger). Applying a `dash_*` migration to the live DB is a deliberate
-  gated step — **post the migration name to HQ first**, then apply, then verify.
-- **Notion MCP editing is fragile on legacy pages.** The HQ root's older decision-log blocks
-  store inline markdown such that fine-grained `update_content` string-deletion can't match
-  cleanly and can mangle adjacent markup. **Prefer rebuilding a section or hand-editing** over
-  surgical string-replace on those blocks. `notion-create-comment` intermittently returns
-  "stream closed before response" — verify with `get-comments` and retry.
-- **In-browser ratification bridge:** headless Chromium can't TLS-egress the sandbox proxy;
-  run `next build` + `next start`, launch global Playwright
-  (`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`), and bridge `page.route('**/*supabase.co/**')`
-  → Node `fetch` (carry the JWT so RLS applies). **`next dev` renders UNSTYLED in this
-  sandbox — always use the prod build for design review.**
-- **Turnkey ratify harness (persisted):** `npm run ratify` → `scripts/ratify.mjs`
-  (`docs/ratify.md`). Does the whole prod-build + bridge + real-login + view-walk +
-  pass/fail dance with idempotent teardown (`fuser -k` by port, never pattern-kill — a
-  `pkill -f` self-matches the shell). Env: `RATIFY_BASE`/`RATIFY_PORT`(3100)/`RATIFY_EMAIL`/
-  `RATIFY_PASSWORD`/`RATIFY_OUT`/`RATIFY_MIN_PCARDS`. A future session can run a pass without
-  rebuilding the rig. **Kill lingering `next` by port on a dedicated port** — a stale child
-  on 3000 gives false "empty roster / unstyled" readings.
-- **Independent site review (multimodal):** a reviewer that did NOT build can review the
-  **actual rendered site**, not just mockups — capture read-only screenshots (prod build +
-  Playwright, no Save/submit/create), then have **Gemini** grade them against a strict QA
-  rubric via `generateContent` with base64 `inline_data` image parts
-  (`gemini-3.1-pro-preview` → `gemini-3.5-flash` fallback; `NODE_EXTRA_CA_CERTS=`
-  `/root/.ccr/ca-bundle.crt` so Node fetch trusts the proxy). **Verify every finding against
-  the code** before reporting (most "cutoff"/"clipping" flags are screenshot-viewport
-  artifacts of a scrollable panel — check `overflow` before believing them).
-- **RATIFY ON MOBILE TOO** for any UI slice: load at **412px**, assert
-  `scrollWidth == clientWidth`, no stray `position:absolute`/`transform:rotate` bleed.
-- **Git:** cut each task's branch **fresh from production** —
-  `git checkout -B claude/<task> origin/claude/new-session-3l99vs` — do NOT reuse old
-  feature branches (25+ stale near-identical `claude/*` branches exist; reusing one is a
-  drift trap). `git push -u origin <branch>` (retry w/ backoff on network errors). Don't
-  create PRs unless asked; the human merges via "merge" (squash → one verified commit on
-  production; branch-level commits showing Unverified is expected). Never push to a
-  different branch without explicit permission.
+- **Codex (builder):** `codex exec --sandbox workspace-write --skip-git-repo-check
+  "<prompt>" < /dev/null`. Cannot commit. **Fresh container: `printenv OPENAI_API_KEY |
+  codex login --with-api-key` once**, verify `codex login status`. Codex habitually edits
+  `docs/HANDOFF.md` — revert that before committing. Parallel lanes: one `git worktree`
+  per lane, `node_modules` symlinked, disjoint declared files only (governance rule 25).
+- **Gemini (cross-vendor reviewer) — INVOCATION MATTERS:** `bash scripts/gemini.sh
+  [model] < prompt.txt`. **The prompt goes on STDIN; the first ARGUMENT is the MODEL
+  name.** Passing the prompt as the argument makes every call 404 into a flash fallback
+  fed an EMPTY prompt → fluent, totally off-topic output (or a hang waiting on stdin).
+  This burned a whole review cycle on 2026-07-02 and got misread as a vendor outage
+  (ledger lesson: verify with a minimal direct call before substituting a costlier
+  reviewer). Default model `gemini-3.1-pro-preview`; flash for light passes. Assemble all
+  context INTO the prompt (REST wrapper reads no files).
+- **suerta (L-2 second lens):** spawn via the Agent tool, **`model: "opus"` by default**
+  (Fable-5 by judgment for high-stakes reviews only — rule 33). Prompt it adversarially
+  with file paths + the spec; verify its verdicts against reality like any reviewer's.
+- **Supabase MCP:** SQL / `apply_migration` / RLS. Cannot delete storage buckets.
+  Applying a `dash_*` migration live = gated: **HQ heads-up first**, apply, verify
+  structure, negative contract tests, VALIDATE as a separate step.
+- **Ratification harness:** `npm run ratify` (`scripts/ratify.mjs`, `docs/ratify.md`) or
+  bespoke Playwright walks. Prod build + `next start` on a dedicated port (never 3000) +
+  Chromium at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome` (pass `executablePath`;
+  `npm i --no-save playwright` per container) + **bridge `context.route('**/*.supabase.co/**')`
+  → Node fetch** (forward `request.headers()` into the Node fetch so the browser's JWT
+  rides along and RLS applies; Node trusts the proxy CA). Patterns proven
+  this session: **intercept-and-abort** for writes (fulfill POST with 503, capture the
+  payload — zero live writes), **live REST counts fetched at assert time** for data gates,
+  `page.on("dialog")` for `window.confirm` gates. **Gates measure the EXPERIENCED property**
+  (widths, positions, reachability, tap sizes, payload contents) — presence-only gates
+  false-pass (ledger, twice). **Scroll the actual scroll container** — on mobile the
+  document scrolls, `.dossier` doesn't (a walk-script bug faked 3 failures on 2026-07-02).
+  Ratify mobile at 412px (+ a mid-width spot-check) AND desktop 1440px. **Re-walk the
+  merged result after any conflict resolution** — #46/#47's cherry-pick resurrected dead
+  code that gates had passed pre-merge (ledger).
+- **Casting proxy (edge function `casting-proxy`):** actions design/create/tts/delete,
+  daily cap 25 design+create per user. Direct authed calls for ops work: password-grant
+  token via `POST /auth/v1/token?grant_type=password`, then hit
+  `/functions/v1/casting-proxy` with curl (python urllib truncates the big chunked
+  responses — use curl). Previews return base64 mp3s (`previews[].audio_base_64`).
+- **Notion MCP:** fine-grained `update_content` string-matching fails on
+  formatting-mixed table cells — prefer short unique substrings; fall back to comments
+  (status still belongs in the tracker). Fetch child pages, not the whole log (rule 34).
+- **Git:** cut branches fresh from `origin/claude/new-session-3l99vs` (that IS the
+  default/production branch — verify with `git remote show origin`, don't assume `main`).
+  After a squash merge, prefer cutting a fresh branch; if the working branch carries
+  commits NOT in the squashed set, reset it onto the new default tip and cherry-pick
+  **only those post-squash commits** (`git checkout -B <branch> origin/<default> &&
+  git cherry-pick <shas>`) — never re-pick content the squash already landed — then
+  `--force-with-lease`. The operator has authorized Architect squash-merges via the
+  GitHub MCP. Commit trailers per harness instructions.
 
 ---
 
 ## 4. WHAT'S LEFT (prioritized, with triggers)
 
-> **"Floor ≠ done."** Some quality only shows on the **real artifact** (rendered UI / real
-> data), not unit-green. "renders without error," "200 OK," "migration applied" are green
-> checks that don't prove the **UX or data is correct**. For every gate ask: *could this
-> pass while the thing I care about is broken?*
+> **"Floor ≠ done."** For every gate ask: *could this pass while the thing I care about
+> is broken?* UI gates measure experienced properties; generative-output quality has NO
+> programmatic gate — **the operator's ear/eye IS the gate** (spec an operator audition
+> step; ledger 2026-07-02).
 
-### A. ControlRoom decomposition — task #40 ✅ COMPLETE (2026-06-30)
-All read/list state is now in feature hooks: `useEpisodes`/`useJobs`/`useCostReceipts`
-(earlier) + **`useReceipts`** (drill-down, PR #26), **`useIdeas`** (PR #29), and
-**`useCharacters`** (PR #30, the highest-risk slice — `activeId` selection, `savedSnapshots`/
-dirty timing, and `save()`→revision/history orchestration all deliberately kept in
-`ControlRoom`; only list-data primitives moved). Each behavior-preserving, one slice per PR,
-reviewed by two non-builders (Codex built; Gemini + Architect reviewed). Nothing left here.
+### A. Casting Studio voice-design upgrade — NEXT BUILD (operator-confirmed)
+Operator: "we will have to make these adjustments to the dashboard… the whole auto-gen
+spec should come soon." Build against the pipeline's **CASTING KIT** (HQ child page,
+mirrored from their 429-line playbook — the ledger records why it must be followed).
+Scope to spec: (1) **rich free-text persona description mode** in the studio
+(slot-ordered: native language / gender+age / quality tag / persona / emotion /
+timbre-pacing-delivery, 200–600 chars) alongside or replacing the slider composer;
+(2) proxy passes **`model_id: eleven_ttv_v3`**, `guidance_scale`, `seed`, `quality`
+(server-side clamped allowlist — the proxy currently sends only
+`voice_description`+`text`, so EL defaults/ttv_v2 apply); (3) performance-script preview
+text guidance (longer, punctuation-driven); (4) templates store the raw description
+(the `voice_recipe`/template CHECKs are permissive-additive — `voice_description_raw`
+precedent already written on Fine Print); (5) **operator audition gate** in the flow.
+Full loop: spec → Gemini spec review → Codex → Gemini + suerta(Opus) → measured
+ratification (+ operator audition for any generated audio).
 
-### B. Realtime / polling (task #37) — ✅ SHIPPED (2026-07-01, polling-only)
-**Built per the pipeline's 2026-06-30 ruling (poll, don't flip `supabase_realtime`).**
-`usePolling` + silent `poll()` on `useEpisodes`/`useJobs`; 5s on the active Queue/Runs view
-only, paused for overlays/hidden tab, immediate-fire on resume, stale-list-preserving error
-behavior. Ratified 9/9 P-gates (`docs/slices/slice-37-polling.md`). Revisit realtime only if
-concurrent operators / write-rate grow (post a "go"). The PR #27 clobber caution stands for
-any FUTURE editor fed by a polled hook (current polled views are read-only).
+### B. Casting 2b — visual candidate generation (ruled, deferred; provider fork OPEN)
+Operator ruled Option 3 (in-dashboard generation) but deferred. The two reviewers
+**split** on provider: suerta → Gemini image API (NEW dedicated key, ~30 images/day,
+count-enforced); Gemini → Higgsfield (prepaid credits bound leak damage, Soul models,
+~50/day). Both agree: count-based cap, never the shared reviews key, no dual-provider
+build. **Must-verify before deciding: can Higgsfield's cloud API spend the operator's
+existing consumer credits?** (If not, its main argument collapses.) Bucket-3 —
+operator decides; no spend until then. 2c image-to-video stays pipeline-owned.
 
-### C. channel_profiles enforcement (pipeline-side; we flip a badge)
-The table + editor are shipped; the **worker-read + ADR-005 dial enforcement are later
-pipeline work** (post their quality slice). When they ping that it's live, flip the editor
-dials' **"stored — not yet active"** badge to active. No dashboard schema change expected.
+### C. HQ tracker prune — pipeline executes; we watch
+Co-decision DONE (dashboard answered on the prune page: approach agreed; **10 archive /
+6 keep** — realtime/polling → archive, Casting phase-2 → keep, park_kind → archive).
+The 2026-07-02 session armed an hourly **session-local cron watch** (down-tiered
+subagent checks the prune page; acks + closes when executed). **Crons die with the
+session** — if this container is gone and the prune is still pending, re-check at
+natural checkpoints or re-arm a watch.
 
-### D. Casting phase-2 — ✅ 2a SHIPPED (2026-07-01); next = 2b candidates / 2c pipeline
-**Operator GO'd 2026-07-01; 2a built the same session** (see §2 evening block): upload →
-preview → LOCK one reference image + `visual_style` per character, private `character-refs`
-bucket, signed-URL rendering, `dash_0003` live. Remaining phases: **2b — candidate
-generation** (3–4 options, operator picks/remixes; reuses 2a storage + lock) needs its own
-operator GO + spec; **2c — image-to-video** is pipeline-owned (they consume
-`reference_image_url` as `locked_character` at Assembly). The path-format receipt
-(bucket-relative object path, never a URL) sits on HQ with operator-ack pending — pipeline
-should confirm before building 2c against it.
+### D. Gate-2 first character-linked run — OPERATOR step (pipeline side)
+Everything is ready: enqueue with `character=Fine Print` (pipeline's kit page says
+`fineprint` — codename consistency: check what their enqueue expects), approve spend,
+`verify_quality_real.py`, watch the MP4. This run also populates
+`episodes.character_id` → per-character cost (Tier-2) fills in for free. Optional
+follow-on: re-audit pre-playbook voices (Mad Dog, Grandma Pearl) while nothing is
+published — operator's call.
 
-### D-arch. Shared-seam plan for the Casting burst — OPERATOR GO (2026-07-01)
-The cross-team architecture question (repo consolidation + coordinator) is **DECIDED**: keep
-**two repos**, harden the seam with **`pg_jsonschema`** DB-CHECK constraints on shared jsonb
-columns + **shared generated Supabase types**, and **defer** a cross-repo coordinator. Fold
-`pg_jsonschema` into the **first Casting migration** (the DB becomes the enforced contract,
-repo-agnostic — kills the #1 integration failure, jsonb key-shape mismatch). **Adopt
-expand/contract migration choreography** for the burst: **add-nullable → backfill → enforce**
-(never a breaking change in one step), **additive-first deploy order** so old readers/writers
-keep working, **negative contract tests**, **versioned rollout notes** — this is the
-deployment-sequencing / schema-version-skew safeguard the combined both-vendor review caught
-(a mis-ordered deploy makes the lagging repo 500 once the CHECK lands). EL two-key split is
-**verified viable** on ONE workspace (failure mode is different-account only). Details in
-`docs/roadmap-dashboard.md` + the HQ tracker.
+### E. Channel-onboarding auto-fill + new channels — ⏸ ON HOLD (operator)
+Recorded in `docs/roadmap-dashboard.md` item 5 + HQ. Pipeline prereq done; immediately
+buildable when the operator lifts the hold. Do not build until then.
 
-### E. Tier-3 ROI table — furthest out
-Needs publishing live AND an analytics-ingestion service (per-platform API + OAuth + sync).
-`DIRECTION.md` says analytics "deferred, not killed." Order: cost now → per-character (done)
-→ ROI after publishing.
+### F. Mobile batch-1 residuals (recorded in `docs/slices/slice-mobile-ux-batch1.md`)
+(1) 481–620px coarse band: savebar can occlude up to ~70px worst-case (extend the 340px
+reserve to ~640px or measure the bar); (2) Exit button label-in-name (WCAG 2.5.3);
+(3) `.ccr-tpl-trigger` flush alignment on touch; (4) `weird_food` channel row — values
+are in the pipeline's FOOD brief (§2 of their page), create when the operator wants it
+(it's channel work → arguably under the hold).
 
-### F. Cosmetic HQ cleanup (trivial, human or rebuild)
-The decision-log prune (2026-06-30) left **one stray `***…*` asterisk line** near the
-Task #21 tombstone on the HQ root — the Notion editor can't match it to delete. 15-second
-manual delete in Notion, or rebuild that section. Non-blocking.
-
-### G. Pipeline-side keystone (out of our scope, unblocks our Tier-2 data)
-The first real **Mad Dog → Acoustic Kitty** run populates `episodes.character_id` (D-1).
-The column is live; 0 episodes linked yet, so per-character cost has the seam but no data.
+### G. Standing smaller items
+- **QA password rotation** — operator-owned, still open.
+- **Worker-key Music scope question** — operator challenged whether the EL worker key
+  needs Music (Epidemic key exists on Railway); pipeline owes a grep-verified answer
+  (comment on the voice ask page). Key already created WITH Music — worst case it's
+  removable width.
+- **Tier-3 ROI table** — furthest out (needs publishing + analytics ingestion).
+- **CI checks are not merge-blocking** — unchanged.
 
 ---
 
 ## 5. Decisions already locked (don't reopen without new info)
 
-- **D-1** Episode↔character link — lands at the Acoustic Kitty run (`character_id` live, 0
-  linked).
-- **D-2** Dashboard = focused control tool, not a kanban board — encoded in `DIRECTION.md`.
-- **D-3** Auth — "me now, scoped others later" (owner-scoped RLS for user data).
-- **D-4** `character_bible_revisions` — ratified (`0002`).
-- **D-5** Storage — `render-assets` (public, pipeline-owned) vs user-uploads (private,
-  owner-scoped, designed-not-built).
-- **publish_only (0016)** — resume-to-distribution: a `publish_only` job mints **no new
-  episode**; the worker sets `jobs.episode_id = source_episode_id` on start and resumes at
-  Distribution (no re-render, no double-spend). **Source-first precedence is correct**
-  (our PR #22). Still double-gated (nothing posts without a Buffer token).
-- **channel_profiles contract** (locked cross-team) — dashboard-owned; **text columns, not
-  PG enums**; jsonb for structured fields; **RLS = `authenticated` full CRUD** (operation-
-  global, no `owner` column; worker reads via service role); `default`/unknown channel →
-  food behavior. Dials are **stored, not yet enforced**.
-- **Runtime field** — **operator-owned/editable** (pipeline ruling; reverted the earlier
-  "advisory/pipeline-measured" framing).
-- **Cost tiers** — Tier 1 (shipped) → Tier 2 (per-character, shipped; data at D-1) → Tier 3
-  (ROI, after publishing + analytics).
-- **Architecture (2026-07-01, operator GO)** — **two repos** (not a monorepo) + **`pg_jsonschema`**
-  DB-CHECK on shared jsonb + **shared generated types** + **expand/contract migration
-  choreography**; **coordinator deferred**. A monorepo would forfeit per-repo agent isolation
-  (a safety property); schema-rejection is the safety net working, not a merge signal.
-  Revisit only on a real coordinated-change bottleneck. (§4.D-arch.)
-- **Anti-bias review rule** — an author may not pre-*lean* a fork; reviews present even-handed
-  options + a forced steelman (extends `AGENTS.md` rule 9). Live-validated: it reversed the
-  casting-provider lean to the "dumb receiver."
+- **D-1..D-5, publish_only/0016, channel_profiles contract, runtime field, cost tiers,
+  two-repos + pg_jsonschema + expand/contract choreography (no coordinator), anti-bias
+  forced-steelman** — all as previously recorded (see git history of this file /
+  `docs/HANDOFF.md`).
+- **park_kind vocabulary (operator-ruled):** approval parks `fact|spend|publish`
+  (status `ready_for_review`), hard parks `blocked|exhausted` (status `error`),
+  explicit null otherwise; column-first resolution, hard parks never inferred.
+- **Fact approval ≠ spend approval:** fact re-enqueue never auto-approves spend.
+- **Food register (operator-locked):** "The Honest Demystifier" — deadpan-with-
+  personality, fact-first regulatory demystification; cast for timbre, the worker
+  drives per-line energy. Voice = Fine Print (locked).
+- **Model-budget rules 30–34 (operator-ratified 2026-07-02):** right-sizing, not
+  minimizing; top tier by judgment; reviewer seat Opus-default; down-tiered bulk
+  sweeps only for mechanical work; child-page HQ fetches; sessions scoped by context
+  weight. Local map in `AGENTS.md` L-5.
+- **2b = Option 3 (in-dashboard gen), deferred** until parallel capacity or a useful
+  moment; provider fork open (§4.B).
 
 ---
 
-## 6. Where things live (HQ is now restructured)
+## 6. Where things live
 
-- **Notion "Reels Content — Agent Workforce"** (`38cd346e-22d2-81e9-9dbf-fa8c4a2dcf7b`) — the
-  *thinking/tracking* layer (decisions, roadmap, brand, ideas). **Canonical specs live in
-  the repo, not here.**
-- **📮 Coordination Log** (`38fd346e-22d2-8133-bd2e-e5b7f97f7c2e`) — the cross-team message
-  bus, with an **Open Cross-Team Items tracker** at the top (read it instead of opening every
-  thread). New dated pipeline↔dashboard exchanges and pipeline build/lesson pages are
-  parented under it. **Keep the tracker current as state changes.** As of **2026-07-01** the
-  open tracker rows are: **Casting phase-2** (🟡 awaiting operator GO), **per-character cost**
-  (🟡 low-urgency, data-blocked), and the **Process Learnings Ledger** (🟡 adopt the append
-  habit — both teams log a one-liner when a lesson surfaces, before it's encoded into
-  `AGENTS.md`, so insights survive encoding lag). The **repo-consolidation/coordinator**
-  question is now **✅ OPERATOR GO · DECIDED** (§4.D-arch). Everything else is CLOSED/CONFIRMED
-  except the cosmetic HQ residue (§4.F).
-- Repo memory: `docs/HANDOFF.md` (full), this file (fast path), `GATES.md`, `DIRECTION.md`,
-  `docs/contracts/data-contract.md`, `docs/slices/*`, `docs/design/*`.
-- **Honest caveats carried forward:** Slice 1 foundation was Claude-solo/Claude-verified
-  (provenance caveat in `docs/HANDOFF.md`). CI checks are not merge-blocking. The cottage-
-  cheese pipeline slice proved **fact-discipline, not video quality** (pipeline's own
-  Clarification page).
+- **Notion "Reels Content — Agent Workforce"** (`38cd346e-22d2-81e9-9dbf-fa8c4a2dcf7b`) —
+  thinking/tracking layer. Canonical specs live in the repo.
+- **📮 Coordination Log** (`38fd346e-22d2-8133-bd2e-e5b7f97f7c2e`) — cross-team bus +
+  Open Cross-Team Items tracker. **Fetch child pages, not the whole log.** Key child
+  pages: the CASTING KIT (playbook mirror), FOOD CHANNEL design brief, model-budget
+  rules page, prune co-decision page, Process Learnings Ledger
+  (`390d346e-22d2-8152-bb7c-deef7d4c246b` — append lessons the moment they surface).
+  After the prune executes, closed rows live in a 🗄 Tracker-archive child page.
+- Repo memory: `governance.md` (rules 1–34) → `AGENTS.md` (L-1..L-5) → this file →
+  `docs/HANDOFF.md` (full history) → `GATES.md`, `DIRECTION.md`,
+  `docs/contracts/data-contract.md`, `docs/slices/*`, `docs/design/*`,
+  `docs/roadmap-dashboard.md`.
+- **Honest caveats carried forward:** Slice-1 provenance caveat; CI not merge-blocking;
+  the cottage-cheese pipeline slice proved fact-discipline, not video quality; PR #46
+  and the #47 cherry-pick both shipped broken mobile UI past green gates — the measured-
+  gate + re-walk-the-merge rules exist because of them.
