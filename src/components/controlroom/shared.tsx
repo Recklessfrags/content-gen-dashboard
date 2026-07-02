@@ -21,6 +21,7 @@ export type FlatChar = {
   created_at: string;
   voice_id: string | null;
   voice_settings: Json | null;
+  voice_recipe: Json | null;
   reference_image_url: string | null;
   visual_style: string | null;
 } & { [K in (typeof BIBLE_FIELDS)[number]]: string };
@@ -92,6 +93,7 @@ export function flatten(row: Character): FlatChar {
     ...(flat as FlatChar),
     voice_id: row.voice_id ?? null,
     voice_settings: row.voice_settings ?? null,
+    voice_recipe: row.voice_recipe ?? null,
     reference_image_url: row.reference_image_url ?? null,
     visual_style: row.visual_style ?? null,
   };
@@ -142,6 +144,7 @@ export function flattenRevision(row: CharacterBibleRevision, character: Pick<Fla
     ...(flat as FlatChar),
     voice_id: null,
     voice_settings: null,
+    voice_recipe: null,
     reference_image_url: null,
     visual_style: null,
   };

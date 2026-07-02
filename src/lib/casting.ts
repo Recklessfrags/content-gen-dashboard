@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json } from "@/lib/database.types";
 import type { SupabaseCompatibleDatabase } from "@/lib/supabase/compat";
 import type { Character } from "@/lib/types";
+import { isBuilderSelections, type BuilderSelections } from "@/lib/castingPhrases";
 
 /**
  * Casting Studio contract layer (dashboard side).
@@ -11,7 +12,7 @@ import type { Character } from "@/lib/types";
  * lives server-side only). This module owns:
  *   - voice_settings defaults / ranges / clamping (the WORKER DOES NOT CLAMP —
  *     an out-of-range value errors at ElevenLabs, so this is the safety boundary),
- *   - the design-slider -> voice_description composition,
+ *   - legacy design-slider -> voice_description composition for old recipes,
  *   - the typed edge-function wrappers (design / create / tts),
  *   - the localStorage tournament-bracket model.
  *
@@ -135,16 +136,24 @@ export function voiceSettingsFrom(
  * each tournament candidate).
  */
 export type VoiceGender = "male" | "female" | "androgynous";
+export type VoiceDesignModelId = "eleven_ttv_v3" | "eleven_multilingual_ttv_v2";
 
 export type VoiceDesignPrompt = {
-  age: number; // 0 young → 1 old
-  grit: number; // 0 smooth → 1 gravelly
-  comedy_menace: number; // 0 comedic → 1 menacing
-  bombast: number; // 0 understated → 1 bombastic
+  age?: number; // legacy only: 0 young -> 1 old
+  grit?: number; // legacy only: 0 smooth -> 1 gravelly
+  comedy_menace?: number; // legacy only: 0 comedic -> 1 menacing
+  bombast?: number; // legacy only: 0 understated -> 1 bombastic
   gender?: VoiceGender; // optional; ElevenLabs design benefits from it
+  voice_description_raw?: string;
+  preview_text_raw?: string;
+  builder_state?: BuilderSelections;
 };
 
-export const VOICE_DESIGN_DEFAULTS: VoiceDesignPrompt = {
+export type LegacyVoiceDesignPrompt = Required<
+  Pick<VoiceDesignPrompt, "age" | "grit" | "comedy_menace" | "bombast" | "gender">
+>;
+
+export const VOICE_DESIGN_DEFAULTS: LegacyVoiceDesignPrompt = {
   age: 0.5,
   grit: 0.5,
   comedy_menace: 0.5,
@@ -152,8 +161,43 @@ export const VOICE_DESIGN_DEFAULTS: VoiceDesignPrompt = {
   gender: "androgynous",
 };
 
+export type VoiceGeneration = {
+  model_id: VoiceDesignModelId;
+  guidance_scale: number;
+  seed: number | null;
+  quality: number | null;
+};
+
+export const VOICE_DESIGN_MODEL_IDS: readonly VoiceDesignModelId[] = [
+  "eleven_ttv_v3",
+  "eleven_multilingual_ttv_v2",
+];
+
+export const GENERATION_DEFAULTS: VoiceGeneration = {
+  model_id: "eleven_ttv_v3",
+  guidance_scale: 5,
+  seed: null,
+  quality: null,
+};
+
+export const GENERATION_RANGES = {
+  // ElevenLabs POST /v1/text-to-voice/design documents guidance_scale as 0-100.
+  guidance_scale: { min: 0, max: 100 },
+  // ElevenLabs documents seed as 0-2147483647, not the frozen spec's 0-4294967295 recommendation.
+  seed: { min: 0, max: 2147483647 },
+  // ElevenLabs now documents quality as -1-1; the UI still omits it in this slice.
+  quality: { min: -1, max: 1 },
+} as const;
+
+export const VOICE_DESCRIPTION_MIN = 200;
+export const VOICE_DESCRIPTION_SOFT_MAX = 600;
+
+export const KIT_PREVIEW_SCAFFOLD =
+  "Tonight, the recipe looks harmless: a pan, a little heat, and a smell everybody thinks they recognize. Then the first strange detail lands. The kitchen goes quiet, the camera pushes in, and the truth is not in the ingredient list. It is in the choice someone made thirty seconds too late.";
+
 export type VoiceRecipe = {
   design_prompt: VoiceDesignPrompt;
+  generation: VoiceGeneration;
   voice_settings: VoiceSettings;
   template_name?: string;
 };
@@ -162,22 +206,96 @@ export function clampVoiceDesignPrompt(
   prompt: Partial<VoiceDesignPrompt> | null | undefined,
 ): VoiceDesignPrompt {
   const input = prompt ?? {};
+  const hasRaw =
+    typeof input.voice_description_raw === "string" || typeof input.preview_text_raw === "string";
+  const hasLegacySliders =
+    input.age !== undefined ||
+    input.grit !== undefined ||
+    input.comedy_menace !== undefined ||
+    input.bombast !== undefined ||
+    input.gender !== undefined;
   const gender =
     input.gender === "male" || input.gender === "female" || input.gender === "androgynous"
       ? input.gender
       : VOICE_DESIGN_DEFAULTS.gender;
 
-  return {
-    age: clampNumber(input.age, 0, 1, VOICE_DESIGN_DEFAULTS.age),
-    grit: clampNumber(input.grit, 0, 1, VOICE_DESIGN_DEFAULTS.grit),
-    comedy_menace: clampNumber(
+  const output: VoiceDesignPrompt = {
+    ...(typeof input.voice_description_raw === "string"
+      ? { voice_description_raw: input.voice_description_raw }
+      : {}),
+    ...(typeof input.preview_text_raw === "string"
+      ? { preview_text_raw: input.preview_text_raw }
+      : {}),
+    ...(isBuilderSelections(input.builder_state) ? { builder_state: input.builder_state } : {}),
+  };
+  if (!hasRaw || hasLegacySliders) {
+    output.age = clampNumber(input.age, 0, 1, VOICE_DESIGN_DEFAULTS.age);
+    output.grit = clampNumber(input.grit, 0, 1, VOICE_DESIGN_DEFAULTS.grit);
+    output.comedy_menace = clampNumber(
       input.comedy_menace,
       0,
       1,
       VOICE_DESIGN_DEFAULTS.comedy_menace,
-    ),
-    bombast: clampNumber(input.bombast, 0, 1, VOICE_DESIGN_DEFAULTS.bombast),
-    gender,
+    );
+    output.bombast = clampNumber(input.bombast, 0, 1, VOICE_DESIGN_DEFAULTS.bombast);
+    output.gender = gender;
+  }
+  return output;
+}
+
+export function clampVoiceDesignModelId(value: unknown): VoiceDesignModelId {
+  return value === "eleven_multilingual_ttv_v2" || value === "eleven_ttv_v3"
+    ? value
+    : GENERATION_DEFAULTS.model_id;
+}
+
+export function clampGuidanceScale(value: unknown): number {
+  return clampNumber(
+    value,
+    GENERATION_RANGES.guidance_scale.min,
+    GENERATION_RANGES.guidance_scale.max,
+    GENERATION_DEFAULTS.guidance_scale,
+  );
+}
+
+export function clampSeed(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  let n: number;
+  if (typeof value === "number") {
+    n = value;
+  } else if (typeof value === "string" && value.trim().length > 0) {
+    n = Number(value.trim());
+  } else {
+    return null;
+  }
+  if (!Number.isInteger(n)) return null;
+  return Math.min(GENERATION_RANGES.seed.max, Math.max(GENERATION_RANGES.seed.min, n));
+}
+
+export function clampQuality(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(GENERATION_RANGES.quality.max, Math.max(GENERATION_RANGES.quality.min, n));
+}
+
+export function clampGeneration(
+  generation:
+    | {
+        model_id?: unknown;
+        guidance_scale?: unknown;
+        seed?: unknown;
+        quality?: unknown;
+      }
+    | null
+    | undefined,
+): VoiceGeneration {
+  const input = generation ?? {};
+  return {
+    model_id: clampVoiceDesignModelId(input.model_id),
+    guidance_scale: clampGuidanceScale(input.guidance_scale),
+    seed: clampSeed(input.seed),
+    quality: clampQuality(input.quality),
   };
 }
 
@@ -221,11 +339,12 @@ const DESIGN_PHRASES: Record<BucketedSlider, Record<Bucket, string>> = {
  * reproducible tournament).
  */
 export function composeVoiceDescription(prompt: VoiceDesignPrompt): string {
-  const age = DESIGN_PHRASES.age[bucket(prompt.age)];
-  const grit = DESIGN_PHRASES.grit[bucket(prompt.grit)];
-  const tone = DESIGN_PHRASES.comedy_menace[bucket(prompt.comedy_menace)];
-  const delivery = DESIGN_PHRASES.bombast[bucket(prompt.bombast)];
-  const gender = prompt.gender && prompt.gender !== "androgynous" ? `${prompt.gender} ` : "";
+  const legacy = { ...VOICE_DESIGN_DEFAULTS, ...clampVoiceDesignPrompt(prompt) };
+  const age = DESIGN_PHRASES.age[bucket(legacy.age)];
+  const grit = DESIGN_PHRASES.grit[bucket(legacy.grit)];
+  const tone = DESIGN_PHRASES.comedy_menace[bucket(legacy.comedy_menace)];
+  const delivery = DESIGN_PHRASES.bombast[bucket(legacy.bombast)];
+  const gender = legacy.gender && legacy.gender !== "androgynous" ? `${legacy.gender} ` : "";
   return `${age} ${gender}voice, ${grit}, ${tone}, ${delivery}. Suited to narrating short-form video with a strong, characterful presence.`;
 }
 
@@ -261,6 +380,10 @@ export function isValidDesignSample(text: string): boolean {
   return len >= DESIGN_SAMPLE_MIN && len <= DESIGN_SAMPLE_MAX;
 }
 
+export function isValidVoiceDescription(text: string): boolean {
+  return text.trim().length >= VOICE_DESCRIPTION_MIN;
+}
+
 // ── cast status ───────────────────────────────────────────────────────────────
 
 /** Canonical "cast" signal per the contract: voice_id IS NOT NULL. */
@@ -274,7 +397,14 @@ export type AuditionCandidate = {
   generated_voice_id: string;
   audio_base_64: string; // ephemeral; not persisted server-side
   media_type: string;
-  prompt_state: VoiceDesignPrompt; // stamped for a reproducible tournament
+  voice_description_raw: string;
+  preview_text_raw: string;
+  model_id: VoiceDesignModelId;
+  guidance_scale: number;
+  seed: number | null;
+  quality: number | null;
+  builder_state?: BuilderSelections;
+  prompt_state?: VoiceDesignPrompt; // legacy persisted bracket support
   template_name?: string; // stamped at generation time for recipe provenance
 };
 
@@ -283,7 +413,9 @@ type DesignResponse = {
     generated_voice_id?: string;
     audio_base_64?: string;
     media_type?: string;
+    seed?: unknown;
   }>;
+  seed?: unknown;
   error?: string;
 };
 
@@ -328,17 +460,42 @@ function edgeErrorMessage(error: unknown, fallback: string): {
  */
 export async function generateVoicePreviews(
   client: CastingClient,
-  prompt: VoiceDesignPrompt,
-  sampleText: string,
+  input: {
+    voice_description_raw: string;
+    preview_text: string;
+    model_id?: unknown;
+    guidance_scale?: unknown;
+    seed?: unknown;
+    quality?: unknown;
+    builder_state?: BuilderSelections;
+  },
 ): Promise<AuditionCandidate[]> {
-  if (!isValidDesignSample(sampleText)) {
+  const voiceDescription = input.voice_description_raw;
+  const previewText = input.preview_text;
+  if (!isValidVoiceDescription(voiceDescription)) {
+    throw new CastingError(`Voice description must be at least ${VOICE_DESCRIPTION_MIN} characters.`);
+  }
+  if (!isValidDesignSample(previewText)) {
     throw new CastingError(
       `Design sample must be ${DESIGN_SAMPLE_MIN}–${DESIGN_SAMPLE_MAX} characters.`,
     );
   }
-  const voice_description = composeVoiceDescription(prompt);
+  const generation = clampGeneration({
+    model_id: input.model_id,
+    guidance_scale: input.guidance_scale,
+    seed: input.seed,
+    quality: input.quality,
+  });
   const { data, error } = await client.functions.invoke<DesignResponse>(EDGE_FUNCTION, {
-    body: { action: "design", voice_description, text: sampleText },
+    body: {
+      action: "design",
+      voice_description: voiceDescription,
+      text: previewText,
+      model_id: generation.model_id,
+      guidance_scale: generation.guidance_scale,
+      seed: generation.seed,
+      quality: generation.quality,
+    },
   });
   if (error) {
     const mapped = edgeErrorMessage(error, "Could not generate previews.");
@@ -348,16 +505,27 @@ export async function generateVoicePreviews(
     throw new CastingError(data.error);
   }
   const previews = data?.previews ?? [];
+  const responseSeed = clampSeed(data?.seed);
   return previews
-    .filter((p): p is { generated_voice_id: string; audio_base_64: string; media_type?: string } =>
+    .filter((p): p is { generated_voice_id: string; audio_base_64: string; media_type?: string; seed?: unknown } =>
       typeof p.generated_voice_id === "string" && typeof p.audio_base_64 === "string",
     )
-    .map((p) => ({
-      generated_voice_id: p.generated_voice_id,
-      audio_base_64: p.audio_base_64,
-      media_type: p.media_type ?? "audio/mpeg",
-      prompt_state: { ...prompt },
-    }));
+    .map((p) => {
+      const previewSeed = clampSeed(p.seed);
+      return {
+        generated_voice_id: p.generated_voice_id,
+        audio_base_64: p.audio_base_64,
+        media_type: p.media_type ?? "audio/mpeg",
+        voice_description_raw: voiceDescription,
+        preview_text_raw: previewText,
+        model_id: generation.model_id,
+        guidance_scale: generation.guidance_scale,
+        // Current ElevenLabs docs do not expose the random seed; persist it only if returned.
+        seed: generation.seed ?? previewSeed ?? responseSeed,
+        quality: generation.quality,
+        ...(isBuilderSelections(input.builder_state) ? { builder_state: input.builder_state } : {}),
+      };
+    });
 }
 
 /**
@@ -401,6 +569,7 @@ export async function writeCastToCharacter(
   const nextSettings = clampVoiceSettings(settings);
   const nextRecipe: VoiceRecipe = {
     design_prompt: clampVoiceDesignPrompt(recipe.design_prompt),
+    generation: clampGeneration(recipe.generation),
     voice_settings: nextSettings,
     ...(recipe.template_name ? { template_name: recipe.template_name } : {}),
   };

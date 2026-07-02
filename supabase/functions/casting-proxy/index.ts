@@ -28,6 +28,18 @@ const TTS_MODEL = "eleven_multilingual_v2";
 const DAILY_CAP = 25;
 const SAMPLE_MIN = 100;
 const SAMPLE_MAX = 1000;
+const DESIGN_MODEL_DEFAULT = "eleven_ttv_v3";
+const DESIGN_MODEL_IDS = new Set(["eleven_ttv_v3", "eleven_multilingual_ttv_v2"]);
+const GUIDANCE_SCALE_DEFAULT = 5;
+const GUIDANCE_SCALE_MIN = 0;
+// ElevenLabs POST /v1/text-to-voice/design documents guidance_scale as 0-100.
+const GUIDANCE_SCALE_MAX = 100;
+// ElevenLabs documents seed as 0-2147483647, not the frozen spec's 0-4294967295 recommendation.
+const SEED_MIN = 0;
+const SEED_MAX = 2147483647;
+// ElevenLabs now documents quality as -1-1; no operator UI is exposed in this slice.
+const QUALITY_MIN = -1;
+const QUALITY_MAX = 1;
 const CASTING_ALLOWED_ORIGINS = Deno.env.get("CASTING_ALLOWED_ORIGINS");
 const allowedOrigins = CASTING_ALLOWED_ORIGINS
   ? new Set(
@@ -66,6 +78,39 @@ function json(
     status,
     headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
   });
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function clampDesignModelId(value: unknown): string {
+  return typeof value === "string" && DESIGN_MODEL_IDS.has(value)
+    ? value
+    : DESIGN_MODEL_DEFAULT;
+}
+
+function clampSeed(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  let n: number;
+  if (typeof value === "number") {
+    n = value;
+  } else if (typeof value === "string" && value.trim().length > 0) {
+    n = Number(value.trim());
+  } else {
+    return null;
+  }
+  if (!Number.isInteger(n)) return null;
+  return Math.min(SEED_MAX, Math.max(SEED_MIN, n));
+}
+
+function clampQuality(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(QUALITY_MAX, Math.max(QUALITY_MIN, n));
 }
 
 Deno.serve(async (req: Request) => {
@@ -179,14 +224,43 @@ Deno.serve(async (req: Request) => {
     if (action === "design") {
       const voiceDescription = String(body.voice_description ?? "");
       const text = String(body.text ?? "");
+      const modelId = clampDesignModelId(body.model_id);
+      const seed = clampSeed(body.seed);
+      const quality = clampQuality(body.quality);
+      const payload: Record<string, unknown> = {
+        voice_description: voiceDescription,
+        text,
+        model_id: modelId,
+        guidance_scale: clampNumber(
+          body.guidance_scale,
+          GUIDANCE_SCALE_MIN,
+          GUIDANCE_SCALE_MAX,
+          GUIDANCE_SCALE_DEFAULT,
+        ),
+      };
+      if (seed !== null) payload.seed = seed;
+      // ElevenLabs rejects `quality` on eleven_ttv_v3 ("only supported for
+      // eleven_multilingual_ttv_v2") — verified live 2026-07-02. v3 is the pinned
+      // default, so only forward quality on the v2 model; drop it otherwise.
+      if (quality !== null && modelId === "eleven_multilingual_ttv_v2") {
+        payload.quality = quality;
+      }
       const res = await fetch(`${EL_BASE}/v1/text-to-voice/design`, {
         method: "POST",
         headers: elHeaders,
-        body: JSON.stringify({ voice_description: voiceDescription, text }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) return await elError(res, origin);
       const data = await res.json();
-      return json({ previews: data?.previews ?? [] }, 200, origin);
+      const returnedSeed = clampSeed(data?.seed);
+      return json(
+        {
+          previews: data?.previews ?? [],
+          ...(returnedSeed !== null ? { seed: returnedSeed } : {}),
+        },
+        200,
+        origin,
+      );
     }
 
     if (action === "create") {

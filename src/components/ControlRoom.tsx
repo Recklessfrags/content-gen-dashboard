@@ -901,11 +901,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     if (!active || !pendingRestore) return;
     setRestoreDialogFocusTarget(true);
     // Revisions snapshot the bible only, not the cast — preserve the live
-    // voice_id / voice_settings so restoring a bible draft never wipes casting.
+    // voice_id / voice_settings / voice_recipe so restoring a bible draft never wipes casting.
     const restored: FlatChar = {
       ...flattenRevision(pendingRestore, active),
       voice_id: active.voice_id,
       voice_settings: active.voice_settings,
+      voice_recipe: active.voice_recipe,
     };
     applyCharacter(active.id, restored);
     setPendingRestore(null);

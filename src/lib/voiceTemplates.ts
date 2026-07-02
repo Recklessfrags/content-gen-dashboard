@@ -1,9 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json, Tables, TablesInsert } from "@/lib/database.types";
 import {
+  GENERATION_DEFAULTS,
+  clampGeneration,
   clampVoiceDesignPrompt,
   clampVoiceSettings,
+  composeVoiceDescription,
   type VoiceDesignPrompt,
+  type VoiceGeneration,
   type VoiceRecipe,
   type VoiceSettings,
 } from "@/lib/casting";
@@ -16,6 +20,7 @@ export type VoiceTemplateInsertInput = {
   name: string;
   description?: string | null;
   designPrompt: Partial<VoiceDesignPrompt>;
+  generation?: Partial<VoiceGeneration> | null;
   voiceSettings: Partial<VoiceSettings>;
   sourceCodename?: string | null;
 };
@@ -45,10 +50,16 @@ export function buildVoiceTemplateInsert(
     throw new Error(errors.join(" "));
   }
 
+  const prompt = clampVoiceDesignPrompt(input.designPrompt);
+  const generation = clampGeneration(input.generation);
+
   return {
     name,
     description: input.description?.trim() ?? "",
-    design_prompt: clampVoiceDesignPrompt(input.designPrompt) as unknown as Json,
+    design_prompt: {
+      ...prompt,
+      generation,
+    } as unknown as Json,
     voice_settings: clampVoiceSettings(input.voiceSettings) as unknown as Json,
     source_codename: input.sourceCodename?.trim() || null,
   };
@@ -101,9 +112,32 @@ export async function deleteVoiceTemplate(
   }
 }
 
+function recordFromJson(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
 export function templateRecipe(template: Pick<VoiceTemplate, "name" | "design_prompt" | "voice_settings">): VoiceRecipe {
+  const designPromptRecord = recordFromJson(template.design_prompt);
+  const designPrompt = clampVoiceDesignPrompt(designPromptRecord as Partial<VoiceDesignPrompt>);
+  const voiceDescriptionRaw =
+    typeof designPrompt.voice_description_raw === "string" && designPrompt.voice_description_raw.trim().length > 0
+      ? designPrompt.voice_description_raw
+      : composeVoiceDescription(designPrompt);
+  const previewTextRaw =
+    typeof designPrompt.preview_text_raw === "string" ? designPrompt.preview_text_raw : "";
+  const generationRecord = recordFromJson(designPromptRecord.generation);
+
   return {
-    design_prompt: clampVoiceDesignPrompt(template.design_prompt as Partial<VoiceDesignPrompt>),
+    design_prompt: {
+      ...designPrompt,
+      voice_description_raw: voiceDescriptionRaw,
+      preview_text_raw: previewTextRaw,
+    },
+    generation: Object.keys(generationRecord).length > 0
+      ? clampGeneration(generationRecord as Partial<VoiceGeneration>)
+      : { ...GENERATION_DEFAULTS },
     voice_settings: clampVoiceSettings(template.voice_settings as Partial<VoiceSettings>),
     template_name: template.name,
   };

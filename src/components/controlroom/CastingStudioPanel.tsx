@@ -7,7 +7,12 @@ import {
   audioSrcFromBase64,
   CASTING_DAILY_CAP,
   CastingError,
+  GENERATION_DEFAULTS,
+  GENERATION_RANGES,
+  KIT_PREVIEW_SCAFFOLD,
   clampVoiceSettings,
+  clampVoiceDesignPrompt,
+  clampGeneration,
   clearBracket,
   composeVoiceDescription,
   deleteVoice,
@@ -15,6 +20,7 @@ import {
   emptyBracket,
   generateVoicePreviews,
   isCast,
+  isValidVoiceDescription,
   loadBracket,
   reconcileBracket,
   removeFavorite,
@@ -26,14 +32,31 @@ import {
   synthesizePreview,
   voiceSettingsFrom,
   writeCastToCharacter,
-  VOICE_DESIGN_DEFAULTS,
+  VOICE_DESCRIPTION_MIN,
+  VOICE_DESCRIPTION_SOFT_MAX,
   VOICE_SETTINGS_RANGES,
   type AuditionCandidate,
   type BracketState,
   type VoiceDesignPrompt,
-  type VoiceGender,
+  type VoiceGeneration,
+  type VoiceRecipe,
   type VoiceSettings,
 } from "@/lib/casting";
+import {
+  ACCENT_BANK,
+  AGE_BAND_OPTIONS,
+  EMOTION_BANK,
+  GENDER_OPTIONS,
+  PACE_BANK,
+  PERSONA_BANK,
+  PITCH_BANK,
+  TIMBRE_BANK,
+  assembleKitDescription,
+  isBuilderSelections,
+  type BuilderSelections,
+  type PhraseChip,
+  type PhraseSlot,
+} from "@/lib/castingPhrases";
 import { createClient } from "@/lib/supabase/client";
 import {
   createVoiceTemplate,
@@ -50,28 +73,16 @@ type CastingStudioPanelProps = {
   onClose: () => void;
   onCharacterPatched: (
     id: string,
-    patch: { voice_id?: string | null; voice_settings?: Json | null },
+    patch: { voice_id?: string | null; voice_settings?: Json | null; voice_recipe?: Json | null },
   ) => void;
   showFlash: (msg: string, err?: boolean) => void;
   restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
 };
 
-const DESIGN_SLIDERS: ReadonlyArray<{
-  key: "age" | "grit" | "comedy_menace" | "bombast";
-  label: string;
-  left: string;
-  right: string;
-}> = [
-  { key: "age", label: "Age", left: "Young", right: "Older" },
-  { key: "grit", label: "Grit", left: "Smooth", right: "Gravelly" },
-  { key: "comedy_menace", label: "Tone", left: "Comedic", right: "Menacing" },
-  { key: "bombast", label: "Delivery", left: "Understated", right: "Bombastic" },
-];
-
-const GENDER_OPTIONS: ReadonlyArray<{ value: VoiceGender; label: string }> = [
-  { value: "androgynous", label: "Androgynous" },
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
+const GUIDANCE_PRESETS: ReadonlyArray<{ label: string; value: number }> = [
+  { label: "Low", value: 2 },
+  { label: "Mid", value: GENERATION_DEFAULTS.guidance_scale },
+  { label: "High", value: 12 },
 ];
 
 const SYNTH_SLIDERS: ReadonlyArray<{
@@ -83,6 +94,30 @@ const SYNTH_SLIDERS: ReadonlyArray<{
   { key: "similarity_boost", label: "Similarity", hint: "Adherence to the cast voice." },
   { key: "style", label: "Style", hint: "Style exaggeration (0 = neutral)." },
   { key: "speed", label: "Speed", hint: "Narration pace (0.7–1.2)." },
+];
+
+const DEFAULT_BUILDER_SELECTIONS: BuilderSelections = {
+  gender: "female",
+  ageBand: "40s",
+  accent: "general-american",
+  timbre: "warm-smooth",
+  pitch: "downward-authority",
+  pace: "measured-unhurried",
+  persona: "deadpan-demystifier",
+  emotion: "dry-amused",
+};
+
+const CHIP_ROWS: ReadonlyArray<{
+  slot: PhraseSlot;
+  label: string;
+  chips: readonly PhraseChip[];
+}> = [
+  { slot: "accent", label: "Accent", chips: ACCENT_BANK },
+  { slot: "timbre", label: "Timbre", chips: TIMBRE_BANK },
+  { slot: "pitch", label: "Pitch", chips: PITCH_BANK },
+  { slot: "pace", label: "Pace", chips: PACE_BANK },
+  { slot: "persona", label: "Persona", chips: PERSONA_BANK },
+  { slot: "emotion", label: "Emotion", chips: EMOTION_BANK },
 ];
 
 export function purgeCreatedVoiceId(
@@ -113,15 +148,39 @@ export function CastingStudioPanel({
   const saveDialogRef = useRef<HTMLDivElement>(null);
   const saveNameRef = useRef<HTMLInputElement>(null);
   const saveTriggerRef = useRef<HTMLButtonElement>(null);
+  const lockDialogRef = useRef<HTMLDivElement>(null);
+  const lockAckRef = useRef<HTMLInputElement>(null);
+  const lockReturnRef = useRef<HTMLButtonElement | null>(null);
   const createdVoiceIdsRef = useRef<Map<string, string>>(new Map());
+  const characterRecipeInputs = useMemo(
+    () => castingInputsFromRecipe(character.voice_recipe),
+    [character.voice_recipe],
+  );
+  const initialBuilderSelections = characterRecipeInputs?.builderState ?? DEFAULT_BUILDER_SELECTIONS;
 
-  const [prompt, setPrompt] = useState<VoiceDesignPrompt>({ ...VOICE_DESIGN_DEFAULTS });
+  const [voiceDescription, setVoiceDescription] = useState(
+    () => characterRecipeInputs?.voiceDescription ?? assembleKitDescription(initialBuilderSelections),
+  );
+  const [builderSelections, setBuilderSelections] = useState<BuilderSelections>(() => initialBuilderSelections);
+  const [builderDetached, setBuilderDetached] = useState(() => characterRecipeInputs?.detached ?? false);
   const [sampleText, setSampleText] = useState(() =>
+    characterRecipeInputs?.previewText ||
     sampleTextFor({
       codename: character.codename,
       concept: character.concept,
       bible: toBible(character),
     }),
+  );
+  const [generation, setGeneration] = useState<VoiceGeneration>(
+    () => pinUiGeneration(characterRecipeInputs?.generation),
+  );
+  const [seedInput, setSeedInput] = useState(() =>
+    characterRecipeInputs?.generation.seed !== null && characterRecipeInputs?.generation.seed !== undefined
+      ? String(characterRecipeInputs.generation.seed)
+      : "",
+  );
+  const [seedNeedsClear, setSeedNeedsClear] = useState(
+    () => characterRecipeInputs?.generation.seed !== null && characterRecipeInputs?.generation.seed !== undefined,
   );
   const [bracket, setBracket] = useState<BracketState>(() => loadBracket(character.id));
   const bracketRef = useRef(bracket);
@@ -150,6 +209,8 @@ export function CastingStudioPanel({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+  const [lockConfirmCandidate, setLockConfirmCandidate] = useState<AuditionCandidate | null>(null);
+  const [lockAcknowledged, setLockAcknowledged] = useState(false);
 
   const synthDirty = useMemo(
     () => (Object.keys(synth) as Array<keyof VoiceSettings>).some((k) => synth[k] !== savedSynth[k]),
@@ -157,6 +218,9 @@ export function CastingStudioPanel({
   );
   const sampleLen = sampleText.trim().length;
   const sampleValid = sampleLen >= 100 && sampleLen <= 1000;
+  const descriptionLen = voiceDescription.trim().length;
+  const descriptionValid = isValidVoiceDescription(voiceDescription);
+  const canGenerate = descriptionValid && sampleValid && !capReached && !designing;
 
   useScrollLock();
 
@@ -183,8 +247,14 @@ export function CastingStudioPanel({
     setDrawerOpen(true);
   }, [closeSaveDialog]);
 
+  const closeLockDialog = useCallback(() => {
+    mainInitialFocusRef.current = lockReturnRef.current;
+    setLockConfirmCandidate(null);
+    setLockAcknowledged(false);
+  }, []);
+
   useFocusTrap({
-    active: !saveDialogOpen && !drawerOpen,
+    active: !saveDialogOpen && !drawerOpen && !lockConfirmCandidate,
     containerRef: panelRef,
     onEscape: () => {
       onClose();
@@ -194,7 +264,7 @@ export function CastingStudioPanel({
   });
 
   useFocusTrap({
-    active: saveDialogOpen,
+    active: saveDialogOpen && !lockConfirmCandidate,
     containerRef: saveDialogRef,
     onEscape: closeSaveDialog,
     initialFocusRef: saveNameRef,
@@ -202,17 +272,25 @@ export function CastingStudioPanel({
   });
 
   useFocusTrap({
-    active: drawerOpen,
+    active: drawerOpen && !lockConfirmCandidate,
     containerRef: drawerRef,
     onEscape: closeDrawer,
     initialFocusRef: drawerReturnRef,
     restoreFocusRef: browseRecordsRef,
   });
 
+  useFocusTrap({
+    active: Boolean(lockConfirmCandidate),
+    containerRef: lockDialogRef,
+    onEscape: closeLockDialog,
+    initialFocusRef: lockAckRef,
+    restoreFocusRef: lockReturnRef,
+  });
+
   useEffect(() => {
-    if (saveDialogOpen || drawerOpen) return;
+    if (saveDialogOpen || drawerOpen || lockConfirmCandidate) return;
     mainInitialFocusRef.current = firstFieldRef.current;
-  }, [drawerOpen, saveDialogOpen]);
+  }, [drawerOpen, saveDialogOpen, lockConfirmCandidate]);
 
   // Guard against setState after the panel is closed/unmounted mid-request
   // (Edge/ElevenLabs calls can be slow).
@@ -227,6 +305,33 @@ export function CastingStudioPanel({
   useEffect(() => {
     bracketRef.current = bracket;
   }, [bracket]);
+
+  useEffect(() => {
+    const inputs = castingInputsFromRecipe(character.voice_recipe);
+    const nextBuilder = inputs?.builderState ?? DEFAULT_BUILDER_SELECTIONS;
+    setBuilderSelections(nextBuilder);
+    setBuilderDetached(inputs?.detached ?? false);
+    setVoiceDescription(inputs?.voiceDescription ?? assembleKitDescription(nextBuilder));
+    setSampleText(
+      inputs?.previewText ||
+        sampleTextFor({
+          codename: character.codename,
+          concept: character.concept,
+          bible: toBible(character),
+        }),
+    );
+    const nextGeneration = pinUiGeneration(inputs?.generation);
+    setGeneration(nextGeneration);
+    if (nextGeneration.seed !== null) {
+      setSeedInput(String(nextGeneration.seed));
+      setSeedNeedsClear(true);
+    } else {
+      setSeedInput("");
+      setSeedNeedsClear(false);
+    }
+    setAppliedTemplateName(null);
+    setAppliedNotice(null);
+  }, [character.id, character.voice_recipe, character.codename, character.concept]);
 
   // Reconcile the local bracket against the canonical DB voice on mount and whenever
   // characters.voice_id changes underneath (e.g. a re-cast elsewhere once Realtime lands).
@@ -304,13 +409,34 @@ export function CastingStudioPanel({
     }
   }, [saveDialogOpen]);
 
+  useEffect(() => {
+    if (lockConfirmCandidate) {
+      lockDialogRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [lockConfirmCandidate]);
+
   const handleLayerMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) onClose();
   };
 
   const handleApplyTemplate = (template: VoiceTemplate) => {
     const recipe = templateRecipe(template);
-    setPrompt(recipe.design_prompt);
+    const nextInputs = castingInputsFromRecipe(recipe as unknown as Json);
+    const nextBuilder = nextInputs?.builderState ?? DEFAULT_BUILDER_SELECTIONS;
+    setBuilderSelections(nextBuilder);
+    setBuilderDetached(nextInputs?.detached ?? !recipe.design_prompt.builder_state);
+    setVoiceDescription(nextInputs?.voiceDescription ?? composeVoiceDescription(recipe.design_prompt));
+    if (recipe.design_prompt.preview_text_raw) {
+      setSampleText(recipe.design_prompt.preview_text_raw);
+    }
+    setGeneration(pinUiGeneration(recipe.generation));
+    if (recipe.generation.seed !== null) {
+      setSeedInput(String(recipe.generation.seed));
+      setSeedNeedsClear(true);
+    } else {
+      setSeedInput("");
+      setSeedNeedsClear(false);
+    }
     setSynth(recipe.voice_settings);
     setAppliedTemplateName(recipe.template_name ?? null);
     setAppliedNotice(recipe.template_name ?? null);
@@ -327,7 +453,15 @@ export function CastingStudioPanel({
       const created = await createVoiceTemplate(supabase, {
         name: templateName,
         description: templateDescription,
-        designPrompt: prompt,
+        designPrompt: {
+          voice_description_raw: voiceDescription,
+          preview_text_raw: sampleText,
+          builder_state: builderSelections,
+        },
+        generation: {
+          ...generation,
+          seed: seedNeedsClear ? null : generation.seed,
+        },
         voiceSettings: synth,
         sourceCodename: character.codename || null,
       });
@@ -363,17 +497,32 @@ export function CastingStudioPanel({
   };
 
   const handleGenerate = async () => {
-    if (designing || !sampleValid) return;
+    if (!canGenerate) return;
     setError(null);
     setDesigning(true);
     try {
-      const candidates = await generateVoicePreviews(supabase, prompt, sampleText);
+      const activeGeneration = {
+        ...generation,
+        seed: seedNeedsClear ? null : generation.seed,
+      };
+      const candidates = await generateVoicePreviews(supabase, {
+        voice_description_raw: voiceDescription,
+        preview_text: sampleText,
+        model_id: activeGeneration.model_id,
+        guidance_scale: activeGeneration.guidance_scale,
+        seed: activeGeneration.seed,
+        quality: activeGeneration.quality,
+        builder_state: builderSelections,
+      });
       if (!aliveRef.current) return;
       const stamped = candidates.map((candidate) => ({
         ...candidate,
         ...(appliedTemplateName ? { template_name: appliedTemplateName } : {}),
       }));
       setBracket((b) => setPool(b, stamped));
+      if (activeGeneration.seed !== null) {
+        setSeedNeedsClear(true);
+      }
       if (stamped.length === 0) {
         setError("ElevenLabs returned no previews — try adjusting the design.");
       }
@@ -394,16 +543,32 @@ export function CastingStudioPanel({
     }
   };
 
+  const handleRequestLock = (
+    candidate: AuditionCandidate,
+    trigger: HTMLButtonElement,
+  ) => {
+    lockReturnRef.current = trigger;
+    setDrawerOpen(false);
+    setSaveDialogOpen(false);
+    setLockConfirmCandidate(candidate);
+    setLockAcknowledged(false);
+  };
+
   const handleLock = async (candidate: AuditionCandidate) => {
     if (locking) return;
     const previousVoiceId = character.voice_id;
     setError(null);
     setLocking(candidate.generated_voice_id);
     try {
-      const description = composeVoiceDescription(candidate.prompt_state);
       const nextSettings = clampVoiceSettings(synth);
-      const recipe = {
-        design_prompt: candidate.prompt_state,
+      const recipe: VoiceRecipe = {
+        design_prompt: {
+          ...(candidate.prompt_state ?? {}),
+          voice_description_raw: candidateDescription(candidate),
+          preview_text_raw: candidatePreviewText(candidate),
+          ...(candidate.builder_state ? { builder_state: candidate.builder_state } : {}),
+        },
+        generation: candidateGeneration(candidate),
         voice_settings: nextSettings,
         ...(candidate.template_name ? { template_name: candidate.template_name } : {}),
       };
@@ -412,17 +577,22 @@ export function CastingStudioPanel({
         voiceId = await saveVoiceWinner(
           supabase,
           character.codename || "Untitled character",
-          description,
+          candidateDescription(candidate),
           candidate.generated_voice_id,
         );
         createdVoiceIdsRef.current.set(candidate.generated_voice_id, voiceId);
       }
       await writeCastToCharacter(supabase, character.id, voiceId, nextSettings, recipe);
       if (!aliveRef.current) return;
-      onCharacterPatched(character.id, { voice_id: voiceId, voice_settings: nextSettings as unknown as Json });
+      onCharacterPatched(character.id, {
+        voice_id: voiceId,
+        voice_settings: nextSettings as unknown as Json,
+        voice_recipe: recipe as unknown as Json,
+      });
       setSynth(nextSettings);
       setSavedSynth(nextSettings);
       setBracket((b) => setWinner(b, candidate, voiceId));
+      closeLockDialog();
       showFlash("✓ Voice cast and locked to character");
       if (previousVoiceId && previousVoiceId !== voiceId) {
         try {
@@ -496,23 +666,72 @@ export function CastingStudioPanel({
     setBracket(emptyBracket(character.id));
   };
 
+  const applyBuilderSelections = (nextSelections: BuilderSelections) => {
+    setBuilderSelections(nextSelections);
+    setVoiceDescription(assembleKitDescription(nextSelections));
+    setBuilderDetached(false);
+  };
+
+  const confirmManualOverwrite = () =>
+    !builderDetached || window.confirm("This overwrites your manual edits — proceed?");
+
+  const updateBuilderSelection = (patch: Partial<BuilderSelections>) => {
+    if (!confirmManualOverwrite()) return;
+    applyBuilderSelections({
+      ...builderSelections,
+      ...patch,
+      other: {
+        ...(builderSelections.other ?? {}),
+        ...(patch.other ?? {}),
+      },
+    });
+  };
+
+  const updateBuilderSlot = (slot: PhraseSlot, chipId: string) => {
+    if (!confirmManualOverwrite()) return;
+    const nextOther = { ...(builderSelections.other ?? {}) };
+    delete nextOther[slot];
+    applyBuilderSelections({
+      ...builderSelections,
+      [slot]: chipId,
+      other: nextOther,
+    });
+  };
+
+  const updateBuilderOther = (slot: PhraseSlot, text: string) => {
+    const nextOther = { ...(builderSelections.other ?? {}), [slot]: text };
+    applyBuilderSelections({
+      ...builderSelections,
+      [slot]: "other",
+      other: nextOther,
+    });
+  };
+
+  const resetBuilderDescription = () => {
+    applyBuilderSelections(builderSelections);
+  };
+
   const renderCandidate = (candidate: AuditionCandidate, kind: "pool" | "favorite") => {
     const isWinner = bracket.winner?.generated_voice_id === candidate.generated_voice_id;
+    const stampedGeneration = candidateGeneration(candidate);
+    const ariaLabel = `Audition candidate — ${stampedGeneration.model_id}, guidance ${stampedGeneration.guidance_scale}, seed ${stampedGeneration.seed ?? "random"}`;
     return (
       <li key={candidate.generated_voice_id} className={"casting-candidate" + (isWinner ? " is-winner" : "")}>
         <div className="casting-candidate-head">
           <span className="eyebrow">
             {isWinner ? "WINNER · " : ""}
-            {GENDER_OPTIONS.find((g) => g.value === (candidate.prompt_state.gender ?? "androgynous"))?.label}
+            {stampedGeneration.model_id === "eleven_ttv_v3" ? "Voice Design v3" : "Voice Design v2"}
           </span>
-          <span className="casting-stamp">{describePrompt(candidate.prompt_state)}</span>
+          <span className="casting-stamp">
+            guidance {stampedGeneration.guidance_scale} · seed {stampedGeneration.seed ?? "random"}
+          </span>
         </div>
         {/* eslint-disable-next-line jsx-a11y/media-has-caption -- ephemeral TTS audition, no captions exist */}
         <audio
           className="casting-audio"
           controls
           preload="none"
-          aria-label={`Audition candidate — ${describePrompt(candidate.prompt_state)}`}
+          aria-label={ariaLabel}
           src={audioSrcFromBase64(candidate.audio_base_64, candidate.media_type)}
         />
         <div className="casting-candidate-actions">
@@ -547,7 +766,7 @@ export function CastingStudioPanel({
             type="button"
             disabled={locking !== null}
             aria-busy={locking === candidate.generated_voice_id}
-            onClick={() => handleLock(candidate)}
+            onClick={(event) => handleRequestLock(candidate, event.currentTarget)}
           >
             {locking === candidate.generated_voice_id ? "Locking…" : "Lock as winner"}
           </button>
@@ -558,8 +777,8 @@ export function CastingStudioPanel({
 
   const renderTemplateCard = (template: VoiceTemplate) => {
     const recipe = templateRecipe(template);
-    const promptTags = recipe.design_prompt;
     const settingsTags = recipe.voice_settings;
+    const descriptionPreview = recipe.design_prompt.voice_description_raw ?? composeVoiceDescription(recipe.design_prompt);
     const confirming = confirmDeleteId === template.id;
     const deleting = deletingTemplateId === template.id;
 
@@ -578,11 +797,12 @@ export function CastingStudioPanel({
         </div>
         {template.description && <p className="ccr-tpl-card__desc">{template.description}</p>}
         <div className="ccr-tpl-recipe" aria-label={`Recipe for ${template.name}`}>
-          <span className="ccr-tpl-recipe__tag">GEN: {genderTag(promptTags.gender)}</span>
-          <span className="ccr-tpl-recipe__tag">AGE: {percentTag(promptTags.age)}</span>
-          <span className="ccr-tpl-recipe__tag">GRT: {percentTag(promptTags.grit)}</span>
-          <span className="ccr-tpl-recipe__tag">TON: {percentTag(promptTags.comedy_menace)}</span>
-          <span className="ccr-tpl-recipe__tag">DEL: {percentTag(promptTags.bombast)}</span>
+          <span className="ccr-tpl-recipe__tag">DESC: {descriptionPreview.trim().length}</span>
+          <span className="ccr-tpl-recipe__tag">
+            MODEL: {recipe.generation.model_id === "eleven_ttv_v3" ? "v3" : "v2"}
+          </span>
+          <span className="ccr-tpl-recipe__tag">GUIDE: {recipe.generation.guidance_scale}</span>
+          <span className="ccr-tpl-recipe__tag">SEED: {recipe.generation.seed ?? "random"}</span>
           <span className="ccr-tpl-recipe__tag">SPD: {settingsTags.speed.toFixed(2)}</span>
         </div>
         <div className="ccr-tpl-actions">
@@ -715,50 +935,238 @@ export function CastingStudioPanel({
               </p>
             )}
 
-            <div className={"casting-sliders" + (appliedNotice ? " is-template-applied" : "")}>
-              {DESIGN_SLIDERS.map((s) => (
-                <div className="casting-slider" key={s.key}>
-                  <label htmlFor={`casting-design-${s.key}`}>
-                    <span className="eyebrow">{s.label}</span>
-                    <span className="casting-slider-ends">
-                      <span>{s.left}</span>
-                      <span>{s.right}</span>
-                    </span>
-                  </label>
-                  <input
-                    id={`casting-design-${s.key}`}
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={prompt[s.key]}
-                    disabled={designing}
-                    onChange={(e) => setPrompt((p) => ({ ...p, [s.key]: Number(e.target.value) }))}
-                  />
+            <div className={"casting-card" + (builderDetached ? " is-detached" : "")}>
+              <div className="casting-pick-grid">
+                <div className="field">
+                  <span className="eyebrow">Gender</span>
+                  <div className="casting-chip-row" role="group" aria-label="Gender">
+                    {GENDER_OPTIONS.map((option) => (
+                      <button
+                        key={option.id}
+                        className={"casting-choice-chip" + (builderSelections.gender === option.id ? " is-selected" : "")}
+                        type="button"
+                        aria-pressed={builderSelections.gender === option.id}
+                        disabled={designing}
+                        onClick={() => updateBuilderSelection({ gender: option.id })}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              ))}
+                <div className="field">
+                  <span className="eyebrow">Age band</span>
+                  <div className="casting-chip-row" role="group" aria-label="Age band">
+                    {AGE_BAND_OPTIONS.map((option) => (
+                      <button
+                        key={option.id}
+                        className={"casting-choice-chip" + (builderSelections.ageBand === option.id ? " is-selected" : "")}
+                        type="button"
+                        aria-pressed={builderSelections.ageBand === option.id}
+                        disabled={designing}
+                        onClick={() => updateBuilderSelection({ ageBand: option.id })}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {CHIP_ROWS.map((row) => {
+                const selected = builderSelections[row.slot];
+                const otherText = builderSelections.other?.[row.slot] ?? "";
+                const otherActive = selected === "other" || otherText.trim().length > 0;
+                return (
+                  <div className="casting-chip-bank" key={row.slot}>
+                    <span className="eyebrow">{row.label}</span>
+                    <div className="casting-chip-row" role="group" aria-label={row.label}>
+                      {row.chips.map((chip) => (
+                        <button
+                          key={chip.id}
+                          className={"casting-choice-chip" + (selected === chip.id ? " is-selected" : "")}
+                          type="button"
+                          aria-pressed={selected === chip.id}
+                          disabled={designing}
+                          onClick={() => updateBuilderSlot(row.slot, chip.id)}
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
+                      <button
+                        className={"casting-choice-chip" + (otherActive ? " is-selected" : "")}
+                        type="button"
+                        aria-pressed={otherActive}
+                        disabled={designing}
+                        onClick={() => updateBuilderSelection({ [row.slot]: "other", other: { [row.slot]: otherText } })}
+                      >
+                        Other...
+                      </button>
+                    </div>
+                    {otherActive && (
+                      <input
+                        className="casting-other-input"
+                        type="text"
+                        value={otherText}
+                        disabled={designing || builderDetached}
+                        aria-label={`Other ${row.label}`}
+                        onChange={(event) => updateBuilderOther(row.slot, event.target.value)}
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="field">
-              <div className="status-segmented-control" role="group" aria-label="Gender hint">
-                {GENDER_OPTIONS.map((g) => (
-                  <button
-                    key={g.value}
-                    className={"segment-btn" + (prompt.gender === g.value ? " active-segment" : "")}
-                    type="button"
-                    aria-pressed={prompt.gender === g.value}
+              <label htmlFor="casting-description">
+                <span className="eyebrow">Assembled voice description</span>
+                <span className="field-label-side">
+                  {builderDetached && (
+                    <button
+                      className="btn ghost compact"
+                      type="button"
+                      disabled={designing}
+                      onClick={resetBuilderDescription}
+                    >
+                      Reset to picks
+                    </button>
+                  )}
+                  <span className={"hint" + (descriptionValid ? "" : " error-hint")}>
+                    {descriptionLen} chars · min {VOICE_DESCRIPTION_MIN} · target {VOICE_DESCRIPTION_SOFT_MAX}
+                  </span>
+                </span>
+              </label>
+              <textarea
+                id="casting-description"
+                value={voiceDescription}
+                rows={8}
+                disabled={designing}
+                aria-invalid={!descriptionValid}
+                onChange={(event) => {
+                  setVoiceDescription(event.target.value);
+                  setBuilderDetached(true);
+                }}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="casting-sample">
+                <span className="eyebrow">Audition script</span>
+                <span className="field-label-side">
+                  <span className={"hint" + (sampleValid ? "" : " error-hint")}>{sampleLen}/1000 · min 100</span>
+                </span>
+              </label>
+              <textarea
+                id="casting-sample"
+                value={sampleText}
+                rows={5}
+                disabled={designing}
+                aria-invalid={!sampleValid}
+                onChange={(event) => setSampleText(event.target.value)}
+              />
+              <p className="hint casting-prose">
+                Use a real cold-open + a reveal beat; punctuation drives the delivery.
+              </p>
+              <div className="casting-inline-actions">
+                <button
+                  className="btn ghost compact"
+                  type="button"
+                  disabled={designing}
+                  onClick={() => setSampleText(KIT_PREVIEW_SCAFFOLD)}
+                >
+                  Insert KIT preview scaffold
+                </button>
+              </div>
+            </div>
+
+            <div className="casting-generation-grid">
+              <div className="field">
+                <span className="eyebrow">Model</span>
+                <div className="casting-readonly-pill" aria-label="Voice model">Voice Design v3</div>
+              </div>
+              <div className="field">
+                <label htmlFor="casting-guidance">
+                  <span className="eyebrow">Guidance scale</span>
+                  <span className="field-label-side">
+                    <span className="hint">{generation.guidance_scale}</span>
+                  </span>
+                </label>
+                <div className="status-segmented-control casting-guidance-presets" role="group" aria-label="Guidance presets">
+                  {GUIDANCE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      className={"segment-btn" + (generation.guidance_scale === preset.value ? " active-segment" : "")}
+                      type="button"
+                      aria-pressed={generation.guidance_scale === preset.value}
+                      disabled={designing}
+                      onClick={() => setGeneration((value) => ({ ...value, guidance_scale: preset.value }))}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  id="casting-guidance"
+                  type="range"
+                  min={GENERATION_RANGES.guidance_scale.min}
+                  max={GENERATION_RANGES.guidance_scale.max}
+                  step={1}
+                  value={generation.guidance_scale}
+                  disabled={designing}
+                  onChange={(event) =>
+                    setGeneration((value) => ({ ...value, guidance_scale: Number(event.target.value) }))
+                  }
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="casting-seed">
+                  <span className="eyebrow">Seed</span>
+                  <span className="field-label-side">
+                    <span className="hint">{seedInput.trim() ? "pinned" : "random"}</span>
+                  </span>
+                </label>
+                <div className="casting-seed-row">
+                  <input
+                    id="casting-seed"
+                    type="number"
+                    min={GENERATION_RANGES.seed.min}
+                    max={GENERATION_RANGES.seed.max}
+                    step={1}
+                    value={seedInput}
                     disabled={designing}
-                    onClick={() => setPrompt((p) => ({ ...p, gender: g.value }))}
+                    placeholder="Random"
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setSeedInput(next);
+                      setSeedNeedsClear(false);
+                      setGeneration((value) => ({ ...value, seed: clampGeneration({ ...value, seed: next }).seed }));
+                    }}
+                  />
+                  <button
+                    className="btn ghost compact"
+                    type="button"
+                    disabled={designing}
+                    onClick={() => {
+                      setSeedInput("");
+                      setSeedNeedsClear(false);
+                      setGeneration((value) => ({ ...value, seed: null }));
+                    }}
                   >
-                    {g.label}
+                    New seed / clear
                   </button>
-                ))}
+                </div>
+                {seedNeedsClear && (
+                  <p className="hint casting-seed-warning" role="status">
+                    Loaded seed will not be reused unless edited; clear it for a visibly random run.
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="casting-generate-row">
               <p className="casting-credit-warning" role="note">
-                ⚠ Generating previews spends ElevenLabs credits.
+                Generating previews spends ElevenLabs credits.
                 {castsLeft !== null && (
                   <> {castsLeft} of {CASTING_DAILY_CAP} casts left today.</>
                 )}
@@ -767,7 +1175,7 @@ export function CastingStudioPanel({
                 <button
                   className="btn"
                   type="button"
-                  disabled={designing || !sampleValid || capReached}
+                  disabled={!canGenerate}
                   aria-busy={designing}
                   onClick={handleGenerate}
                 >
@@ -830,28 +1238,70 @@ export function CastingStudioPanel({
               </div>
             )}
 
-            <div className="field">
-              <label htmlFor="casting-sample">
-                <span className="eyebrow">Audition sample</span>
-                <span className="field-label-side">
-                  <span className={"hint" + (sampleValid ? "" : " error-hint")}>{sampleLen}/1000 · min 100</span>
-                </span>
-              </label>
-              <textarea
-                id="casting-sample"
-                value={sampleText}
-                rows={4}
-                disabled={designing}
-                onChange={(e) => setSampleText(e.target.value)}
-              />
-              <p className="hint casting-prose">Prompt sent: “{composeVoiceDescription(prompt)}”</p>
-            </div>
             {capReached && (
               <p className="history-error" role="status">
                 Daily casting cap reached. Re-casting unlocks tomorrow.
               </p>
             )}
           </section>
+
+          {lockConfirmCandidate && (
+            <div
+              ref={lockDialogRef}
+              className="ccr-tpl-dialog casting-lock-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="casting-lock-title"
+            >
+              <h4 id="casting-lock-title">CONFIRM AUDITIONED WINNER</h4>
+              <div className="casting-lock-summary">
+                <div>
+                  <span className="eyebrow">TARGET</span>
+                  <p>{character.codename || "Untitled character"}</p>
+                </div>
+                <div>
+                  <span className="eyebrow">DESCRIPTION</span>
+                  <pre>{candidateDescription(lockConfirmCandidate)}</pre>
+                </div>
+                <div>
+                  <span className="eyebrow">AUDITION SCRIPT</span>
+                  <pre>{candidatePreviewText(lockConfirmCandidate)}</pre>
+                </div>
+                <div>
+                  <span className="eyebrow">GENERATION</span>
+                  <p>{generationSummary(candidateGeneration(lockConfirmCandidate))}</p>
+                </div>
+              </div>
+              <label className="casting-toggle casting-ack">
+                <input
+                  ref={lockAckRef}
+                  type="checkbox"
+                  checked={lockAcknowledged}
+                  onChange={(event) => setLockAcknowledged(event.target.checked)}
+                />
+                <span>I&apos;ve auditioned this voice on representative copy</span>
+              </label>
+              <div className="ccr-tpl-dialog-actions">
+                <button
+                  className="btn ghost compact"
+                  type="button"
+                  disabled={locking !== null}
+                  onClick={closeLockDialog}
+                >
+                  [ CANCEL ]
+                </button>
+                <button
+                  className="btn compact ccr-btn-stamp"
+                  type="button"
+                  disabled={!lockAcknowledged || locking !== null}
+                  aria-busy={locking === lockConfirmCandidate.generated_voice_id}
+                  onClick={() => void handleLock(lockConfirmCandidate)}
+                >
+                  {locking === lockConfirmCandidate.generated_voice_id ? "[ LOCKING... ]" : "[ CONFIRM LOCK ]"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── Tournament ─────────────────────────────────────────────── */}
           {(bracket.pool.length > 0 || bracket.favorites.length > 0) && (
@@ -964,17 +1414,73 @@ export function CastingStudioPanel({
   );
 }
 
-function describePrompt(p: VoiceDesignPrompt): string {
-  const band = (n: number) => (n < 1 / 3 ? "low" : n < 2 / 3 ? "mid" : "high");
-  return `age ${band(p.age)} · grit ${band(p.grit)} · tone ${band(p.comedy_menace)} · delivery ${band(p.bombast)}`;
+function candidateDescription(candidate: AuditionCandidate): string {
+  return candidate.voice_description_raw || composeVoiceDescription(candidate.prompt_state ?? {});
 }
 
-function percentTag(value: number): string {
-  return String(Math.round(Math.max(0, Math.min(1, value)) * 100));
+function candidatePreviewText(candidate: AuditionCandidate): string {
+  return candidate.preview_text_raw || "";
 }
 
-function genderTag(value: VoiceGender | undefined): string {
-  if (value === "female") return "F";
-  if (value === "male") return "M";
-  return "A";
+function candidateGeneration(candidate: AuditionCandidate): VoiceGeneration {
+  return clampGeneration({
+    model_id: candidate.model_id,
+    guidance_scale: candidate.guidance_scale,
+    seed: candidate.seed,
+    quality: candidate.quality,
+  });
+}
+
+function generationSummary(generation: VoiceGeneration): string {
+  return [
+    `model_id: ${generation.model_id}`,
+    `guidance_scale: ${generation.guidance_scale}`,
+    `seed: ${generation.seed ?? "random"}`,
+    `quality: ${generation.quality ?? "default"}`,
+  ].join(" · ");
+}
+
+function jsonRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function castingInputsFromRecipe(recipeJson: Json | null): {
+  voiceDescription: string;
+  previewText: string;
+  generation: VoiceGeneration;
+  builderState: BuilderSelections | null;
+  detached: boolean;
+} | null {
+  const recipe = jsonRecord(recipeJson);
+  if (Object.keys(recipe).length === 0) return null;
+  const designPrompt = clampVoiceDesignPrompt(
+    jsonRecord(recipe.design_prompt) as Partial<VoiceDesignPrompt>,
+  );
+  const voiceDescription =
+    typeof designPrompt.voice_description_raw === "string" &&
+    designPrompt.voice_description_raw.trim().length > 0
+      ? designPrompt.voice_description_raw
+      : composeVoiceDescription(designPrompt);
+  const builderState = isBuilderSelections(designPrompt.builder_state)
+    ? designPrompt.builder_state
+    : null;
+  const assembled = builderState ? assembleKitDescription(builderState) : "";
+  const previewText =
+    typeof designPrompt.preview_text_raw === "string" ? designPrompt.preview_text_raw : "";
+  return {
+    voiceDescription,
+    previewText,
+    generation: clampGeneration(jsonRecord(recipe.generation)),
+    builderState,
+    detached: builderState ? voiceDescription !== assembled : true,
+  };
+}
+
+function pinUiGeneration(generation: VoiceGeneration | null | undefined): VoiceGeneration {
+  return {
+    ...(generation ?? GENERATION_DEFAULTS),
+    model_id: GENERATION_DEFAULTS.model_id,
+  };
 }
