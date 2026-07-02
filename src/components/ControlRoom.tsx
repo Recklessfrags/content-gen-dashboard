@@ -187,9 +187,12 @@ function splitQueueErrorText(error: string) {
   const trimmed = error.trim();
   const [firstRaw, ...restLines] = trimmed.split(/\r?\n/);
   if (restLines.length > 0) {
+    const firstLine =
+      firstRaw.length > 160 ? `${firstRaw.slice(0, 160).trimEnd()}...` : firstRaw;
+
     return {
-      firstLine: firstRaw,
-      rest: restLines.join("\n").trim(),
+      firstLine,
+      rest: trimmed,
     };
   }
   if (firstRaw.length <= 160) {
@@ -1359,7 +1362,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             aria-label={`Sign out ${userEmail}`}
           >
             <Icon name="exit" />
-            <span>Exit {userEmail}</span>
+            <span>Exit</span>
             <div className="dot" />
           </button>
         </form>
@@ -2106,13 +2109,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                           {job.error &&
                             (() => {
                               const errorText = `${job.park_kind ? `${job.park_kind}: ` : ""}${job.error}`;
+                              if (!errorText.trim()) return null;
                               const { firstLine, rest } = splitQueueErrorText(errorText);
                               return rest ? (
                                 <details className="receipt-json-details queue-card-substatus">
-                                  <summary
-                                    className="receipt-json-summary"
-                                    aria-label="Toggle queue error detail"
-                                  >
+                                  <summary className="receipt-json-summary">
                                     {firstLine}
                                   </summary>
                                   <pre className="receipt-json-content">

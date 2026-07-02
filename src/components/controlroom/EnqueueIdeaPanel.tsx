@@ -321,7 +321,7 @@ export function EnqueueIdeaPanel({
             </select>
           </div>
 
-          <div className="field" style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+          <div className="field" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
             <span className="eyebrow">EXECUTION RECIPE</span>
             <div
               className="status-segmented-control"

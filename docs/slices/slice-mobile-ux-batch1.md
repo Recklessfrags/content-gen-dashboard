@@ -81,3 +81,19 @@ tab bar) and B9 are explicitly OUT (redesign-scale / low value)._
 **Gate discipline (ledger lesson 2026-07-02): every UI gate above measures the
 experienced property (position, size, collision, reachability) — presence-only
 assertions are not acceptable evidence.**
+
+## Post-review residuals (recorded 2026-07-02, follow-ups — not blockers)
+- **481–620px coarse band under-reserve (MEDIUM residual, suerta re-verify):** the 240px
+  dossier reserve assumes a 2-row savebar wrap; in the ~481–620px band the 7 buttons wrap
+  to 4–5 rows (~254–310px) and up to ~70px can occlude. Follow-up: extend the 340px rule
+  to ~640px or measure the bar. Mainstream phones (≤480) and tablets (≥768) verified clear.
+- `.ccr-tpl-trigger` loses its flush text-link alignment by 12px on touch (newly-live
+  coarse padding — intended tap-size fix, cosmetic side effect).
+- Exit button label-in-name (WCAG 2.5.3): visible "Exit" not contained in aria-label
+  "Sign out <email>" — voice-control "tap Exit" may miss; future pass.
+- Filter chips were absent from the frozen B8 floor list; floored (44px) during the fix
+  round — folded here so the spec matches shipped reality.
+- **Reviewer-set note:** Gemini was degraded/unavailable this session (flash-fallback,
+  off-topic output; 5 jobs hung). Substitute protocol used: Architect + independent
+  suerta per lane + suerta re-verify of the fix round + 53 measured gates. A retroactive
+  Gemini aggregate pass (code + docs) is OWED when the service recovers.

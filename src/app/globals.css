@@ -932,8 +932,8 @@ body{font-family:var(--body)}
   .casting-stamp{position:static;align-self:flex-end;transform:rotate(7deg) scale(.8);
     transform-origin:center;margin:2px 4px 0 auto}
   .sheet,.dossier-head,.cap,.wire-list,.savebar{padding-left:18px;padding-right:18px}
-  .dossier{padding-bottom:128px}
-  .dossier .savebar{position:fixed;left:84px;right:0;bottom:0;z-index:50}
+  .dossier{padding-bottom:240px}
+  .dossier .savebar{position:fixed;left:84px;right:0;bottom:0;z-index:50;padding-bottom:calc(18px + env(safe-area-inset-bottom))}
   .preview-banner{padding-left:18px;padding-right:18px}
   .history-drawer{width:100%}
 }
@@ -967,6 +967,7 @@ body{font-family:var(--body)}
   .mobile-roster-new,.mobile-roster-select{width:100%;min-height:44px}
   .cap .row{flex-direction:column}
   .cap .row .btn{width:100%;text-align:center}
+  .dossier{padding-bottom:340px}
   .savebar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:stretch}
   .savebar .btn{width:100%;min-width:0;padding-left:10px;padding-right:10px;text-align:center}
   .savebar .flash,.savebar .restore-warning{grid-column:1/-1}
@@ -977,22 +978,6 @@ body{font-family:var(--body)}
   .rail [role="tablist"]{gap:4px}
   .navbtn{width:52px;height:48px;gap:3px}
   .navbtn svg{width:17px;height:17px}
-}
-@media (pointer:coarse){
-  .statusbtn,.segment-btn,.tag-select,.history-trigger,.close-btn,.history-x,
-  .btn,.btn.compact,.ccr-tpl-save-btn,.ccr-tpl-trigger,.receipt-json-summary,
-  .advanced-job-details summary{
-    min-height:44px;
-    min-width:44px;
-  }
-  input[type="range"]{
-    min-height:32px;
-  }
-  .statusbtn,.segment-btn,.tag-select,.history-trigger,.btn,.btn.compact,
-  .ccr-tpl-save-btn,.ccr-tpl-trigger,.receipt-json-summary,
-  .advanced-job-details summary{
-    padding:10px 12px;
-  }
 }
 @media (prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
@@ -2375,4 +2360,23 @@ body{font-family:var(--body)}
   .ccr-tpl-drawer{animation:none}
   .ccr-tpl-card{transition:none}
   .ccr-tpl-card.is-deleting{transform:none}
+}
+
+@media (pointer:coarse){
+  .statusbtn,.segment-btn,.tag-select,.history-trigger,.close-btn,.history-x,
+  .btn,.btn.compact,.revision-actions .btn,.budget-target-controls .btn,
+  .ccr-tpl-save-btn,.ccr-tpl-trigger,.receipt-json-summary,
+  .advanced-job-details summary{
+    min-height:44px;
+    min-width:44px;
+  }
+  input[type="range"]{
+    min-height:32px;
+  }
+  .statusbtn,.segment-btn,.tag-select,.history-trigger,.btn.compact,
+  .ccr-tpl-save-btn,.ccr-tpl-trigger,.receipt-json-summary,
+  .advanced-job-details summary{
+    padding:10px 12px;
+  }
+  .cap .filter-chips .chip{min-height:44px}
 }
