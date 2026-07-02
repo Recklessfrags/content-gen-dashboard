@@ -21,9 +21,15 @@ tool, not kanban). **Ratified into `DIRECTION.md` as D-6.**
 
 - **The design + phased plan + full review trail:** **`docs/design/channel-first-redefinition.md`**
   (Gemini high-thinking design pass + suerta/Opus adversarial review, synthesized +
-  fact-checked vs the data contract). Hub-and-spoke IA (global Channels hub → per-channel
-  workspace: Production · Character · Guidelines · Cost), casting elevated, onboarding
-  handoffs, `character_id` FK, global inline action queue.
+  fact-checked vs the data contract; **D-6 doc-fidelity Gemini pass = PASS 2026-07-02**).
+  Hub-and-spoke IA (global Channels hub → per-channel workspace: Production · Character ·
+  Guidelines · Cost), casting elevated, onboarding handoffs, `character_id` FK, global inline
+  action queue.
+- **VISUAL-DESIGN MANDATE (operator, 2026-07-02):** the current look & feel is **not good enough**
+  → the redesign includes a **first-class visual/UI rebuild**, not an IA re-skin. **Phase 0/1
+  stands up a real design system** (type/color/spacing/components/states/motion, WCAG 2.2 AA) and
+  the re-parented surfaces are **rebuilt against it** — "reuse today's components" = reuse the
+  **data/logic seams, not the current styling.** Design vendor = Gemini (`docs/design/`).
 - **NEXT SESSION = Phase 1 planning/build** (dashboard-autonomous): the Channels hub +
   channel-workspace shell, **re-parenting today's screens** into it (reuse, don't rewrite
   the 2,472-line monolith). Phase 2 = character-link FK (expand/contract, HQ heads-up) +

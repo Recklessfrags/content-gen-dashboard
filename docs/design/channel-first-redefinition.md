@@ -38,6 +38,15 @@ is a first-class table; `ideas`/`jobs`/`episodes` already carry a channel. So th
 **redesign of information architecture, navigation, and the mental model — NOT a database
 teardown.** The one genuinely missing seam is a real character↔channel link (§3).
 
+**Visual-design mandate (operator, 2026-07-02):** the current **look & feel is not good enough**
+and is to be **rebuilt to first-class** as part of this work — this is IA *and* a visual/UI
+overhaul, not a re-skin of the existing styling. Phase 1 stands up a **proper design system**
+(type scale, color/neutrals, spacing, components, states, motion, WCAG 2.2 AA) that the
+re-parented surfaces are rebuilt against; "reuse today's components" means **reuse the data/logic
+seams, not the current visual styling**. Treat the visual-design track as a first-class
+deliverable of the redesign, spec'd and reviewed like the IA. (Design vendor per AGENTS.md =
+Gemini; artifacts into `docs/design/`.)
+
 ---
 
 ## 1. Accepted design — hub-and-spoke, channel-rooted
@@ -147,11 +156,13 @@ still needs **one** small pipeline change — it does **not** escape cross-team 
 
 ## 5. Phased migration (reuse components; no big-bang; 2,472-line monolith split incrementally)
 
-- **Phase 1 — Hub & workspace shell (high impact, medium lift, dashboard-autonomous).** Channels
-  home + channel-workspace wrapper with sub-nav; **re-parent existing components** (Channels
-  editor, dossier, Wire, Queue, Runs, Cost) into it as channel-scoped tabs — re-housed, not
-  rewritten. Extend the existing Next.js URL-state routing (**not** a new router lib). Kills F1/F2
-  for the create path + most of the tab-hop tax immediately.
+- **Phase 0/1 — Design system + Hub & workspace shell (high impact, dashboard-autonomous).**
+  FIRST establish the **first-class design system** (per the visual-design mandate above) — the
+  new look & feel the redesign is built in. Then Channels home + channel-workspace wrapper with
+  sub-nav, **re-parenting existing data/logic seams** (Channels editor, dossier, Wire, Queue,
+  Runs, Cost) into it as channel-scoped tabs — **rebuilt against the new design system**, not
+  re-housed with old styling. Extend the existing Next.js URL-state routing (**not** a new router
+  lib). Kills F1/F2/F6 + the tab-hop tax and lands the visual uplift.
 - **Phase 2 — Character link + casting elevation (medium impact; expand/contract, cross-team
   heads-up).** `character_id` FK (Correction 2); pull casting out of modals into the split-screen
   Character surface. Fixes F3/F5.
