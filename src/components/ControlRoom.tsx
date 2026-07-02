@@ -14,6 +14,7 @@ import { usePolling } from "@/lib/hooks/usePolling";
 import { useReceipts } from "@/lib/hooks/useReceipts";
 import { useScrollLock } from "@/lib/hooks/useScrollLock";
 import {
+  buildFactApprovalReenqueue,
   buildPublishApprovalReenqueue,
   buildSpendApprovalReenqueue,
   buildJobInsert,
@@ -24,6 +25,7 @@ import {
   jobInputFromRow,
   JOB_STATUS_LABELS,
   publishSourceEpisodeId,
+  resolveParkKind,
   type JobEnqueueInput,
 } from "@/lib/jobs";
 import { isCast } from "@/lib/casting";
@@ -92,6 +94,12 @@ function viewUrl(view: View): string {
   const params = new URLSearchParams(window.location.search);
   params.set("view", view);
   return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+}
+
+function isApprovalParkKind(
+  parkKind: string | null | undefined,
+): parkKind is "fact" | "spend" | "publish" {
+  return parkKind === "fact" || parkKind === "spend" || parkKind === "publish";
 }
 
 
@@ -380,7 +388,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [adding, setAdding] = useState(false);
   const [pendingQueueAction, setPendingQueueAction] = useState<{
     job: QueueJob;
-    action: "spend" | "publish" | "stale";
+    action: "fact" | "spend" | "publish" | "stale";
   } | null>(null);
   const [queueActionSubmitting, setQueueActionSubmitting] = useState(false);
 
@@ -469,7 +477,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   useEffect(() => {
     const readyJobs = jobs.filter((job) => {
       const status = classifyJobStatus(job.status);
-      return status === "ready_for_review" && jobParkById[job.id] === undefined;
+      if (status !== "ready_for_review") return false;
+
+      const cachedPark = jobParkById[job.id];
+      return (
+        cachedPark === undefined ||
+        (!cachedPark.loading &&
+          isApprovalParkKind(job.park_kind) &&
+          cachedPark.kind !== job.park_kind)
+      );
     });
 
     if (readyJobs.length === 0) return undefined;
@@ -483,6 +499,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     });
 
     for (const job of readyJobs) {
+      const columnKind = resolveParkKind(job.park_kind, null);
+      if (columnKind !== "unknown") {
+        setJobParkById((current) => ({
+          ...current,
+          [job.id]: { kind: columnKind, loading: false, stage: null, error: null },
+        }));
+        continue;
+      }
+
       if (!job.episode_id) {
         setJobParkById((current) => ({
           ...current,
@@ -877,7 +902,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const requestQueueAction = (
     job: QueueJob,
-    action: "spend" | "publish" | "stale",
+    action: "fact" | "spend" | "publish" | "stale",
     trigger: HTMLButtonElement,
   ) => {
     queueActionRestoreFocusRef.current = trigger;
@@ -895,7 +920,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     setQueueActionSubmitting(true);
     const { job, action } = pendingQueueAction;
     const input =
-      action === "spend" || action === "publish"
+      action === "fact" || action === "spend" || action === "publish"
         ? jobInputFromRow(job)
         : jobInputFromRow(job, {
             idempotencyKey: `job_rerun_${job.id}_${Date.now()}`,
@@ -903,12 +928,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
     let payload: ReturnType<typeof buildJobInsert>;
     try {
-      if (action === "spend") {
+      if (action === "fact") {
+        payload = buildFactApprovalReenqueue(input);
+      } else if (action === "spend") {
         payload = buildSpendApprovalReenqueue(input);
       } else if (action === "publish") {
         const sourceEpisodeId = publishSourceEpisodeId(job);
         if (!sourceEpisodeId) {
           setQueueActionSubmitting(false);
+          setPendingQueueAction(null);
           showFlash("Cannot publish-approve: this job has no source episode yet.", true);
           return;
         }
@@ -928,7 +956,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
     if (error) {
       showFlash(
-        action === "spend"
+        action === "fact"
+          ? "Fact approval failed — " + error.message
+          : action === "spend"
           ? "Spend approval failed — " + error.message
           : action === "publish"
             ? "Publish approval failed — " + error.message
@@ -940,7 +970,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
     setPendingQueueAction(null);
     showFlash(
-      action === "spend"
+      action === "fact"
+        ? "✓ Facts approved. Job re-entered the pipeline."
+        : action === "spend"
         ? "✓ Spend approved. Job re-entered the pipeline."
         : action === "publish"
           ? "✓ Publish approved. Job re-entered the pipeline."
@@ -1954,6 +1986,22 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                                   <h4>Review Park Detected</h4>
                                   <p>Reading latest receipt to classify the parked gate.</p>
                                 </div>
+                              ) : park?.kind === "fact" ? (
+                                <div className="job-review-panel">
+                                  <h4>Fact Park Detected</h4>
+                                  <p>
+                                    Regulated-YELLOW claims are waiting on human sign-off.
+                                  </p>
+                                  <button
+                                    className="btn compact"
+                                    type="button"
+                                    onClick={(event) =>
+                                      requestQueueAction(job, "fact", event.currentTarget)
+                                    }
+                                  >
+                                    Approve facts &amp; continue
+                                  </button>
+                                </div>
                               ) : park?.kind === "publish" ? (
                                 <div className="job-review-panel">
                                   <h4>Publish Park Detected</h4>
@@ -1996,7 +2044,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                                 <div className="job-review-panel">
                                   <h4>Review Park Unresolved</h4>
                                   <p>
-                                    No episode receipt could classify this parked job yet.
+                                    The review gate could not be classified from the job or latest
+                                    receipt. Spend approval is only correct for a spend park; check
+                                    the run drill-down first if this might be a fact or publish park.
                                     {park?.error ? ` Receipt read failed: ${park.error}` : ""}
                                   </p>
                                   <button
@@ -2006,7 +2056,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                                       requestQueueAction(job, "spend", event.currentTarget)
                                     }
                                   >
-                                    Approve spend &amp; continue safely
+                                    Approve spend &amp; continue
                                   </button>
                                 </div>
                               )}

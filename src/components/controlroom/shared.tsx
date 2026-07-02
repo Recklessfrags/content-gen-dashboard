@@ -1,6 +1,6 @@
 import React from "react";
 import type { Json } from "@/lib/database.types";
-import { detectParkKind } from "@/lib/jobs";
+import { resolveParkKind } from "@/lib/jobs";
 import {
   BIBLE_FIELDS,
   type Bible,
@@ -28,7 +28,7 @@ export type FlatChar = {
 
 export type CostReceipt = Pick<Receipt, "episode_id" | "seq" | "provider" | "stage" | "spend_so_far">;
 export type { QueueJob } from "@/lib/jobs";
-export type ParkKind = ReturnType<typeof detectParkKind>;
+export type ParkKind = ReturnType<typeof resolveParkKind>;
 export type JobParkResolution = {
   kind: ParkKind;
   loading: boolean;

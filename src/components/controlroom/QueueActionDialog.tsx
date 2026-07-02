@@ -5,7 +5,7 @@ import type { QueueJob } from "./shared";
 
 type QueueActionDialogProps = {
   job: QueueJob;
-  action: "spend" | "publish" | "stale";
+  action: "fact" | "spend" | "publish" | "stale";
   submitting: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -22,18 +22,23 @@ export function QueueActionDialog({
 }: QueueActionDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const isFact = action === "fact";
   const isSpend = action === "spend";
   const isPublish = action === "publish";
-  const title = isSpend
-    ? "APPROVE SPEND LIMITS"
-    : isPublish
-      ? "APPROVE PUBLISH"
-      : "RE-RUN STRANDED JOB";
-  const descriptionId = isSpend
-    ? "spend-approval-desc"
-    : isPublish
-      ? "publish-approval-desc"
-      : "stale-rerun-desc";
+  const title = isFact
+    ? "APPROVE REGULATED CLAIMS"
+    : isSpend
+      ? "APPROVE SPEND LIMITS"
+      : isPublish
+        ? "APPROVE PUBLISH"
+        : "RE-RUN STRANDED JOB";
+  const descriptionId = isFact
+    ? "fact-approval-desc"
+    : isSpend
+      ? "spend-approval-desc"
+      : isPublish
+        ? "publish-approval-desc"
+        : "stale-rerun-desc";
 
   useScrollLock();
 
@@ -51,14 +56,33 @@ export function QueueActionDialog({
     <div className="restore-layer" role="presentation">
       <div
         ref={dialogRef}
-        className={"restore-dialog" + (isSpend ? " spend-approval-dialog" : "")}
+        className={"restore-dialog" + (isFact || isSpend ? " spend-approval-dialog" : "")}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="queue-action-title"
         aria-describedby={descriptionId}
       >
         <h2 id="queue-action-title">{title}</h2>
-        {isSpend ? (
+        {isFact ? (
+          <div id={descriptionId} className="queue-action-desc">
+            <p className="spend-approval-copy">
+              You are about to approve regulated-YELLOW claims for topic:{" "}
+              <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
+              re-enqueue a fresh row with fact_approved=true. The parked row stays as the
+              audit record.
+            </p>
+            {job.spend_approved ? (
+              <p className="restore-warning">
+                ⚠ this job is already spend-approved — approving facts starts a run that
+                will NOT park again before spending.
+              </p>
+            ) : (
+              <p className="spend-approval-copy">
+                The run may still park later at the spend gate.
+              </p>
+            )}
+          </div>
+        ) : isSpend ? (
           <p id={descriptionId} className="spend-approval-copy">
             You are about to authorize extra-budgetary spend for topic:{" "}
             <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
@@ -92,12 +116,16 @@ export function QueueActionDialog({
           </button>
           <button className="btn" type="button" onClick={onConfirm} disabled={submitting}>
             {submitting
-              ? isSpend
+              ? isFact
+                ? "TRANSMITTING FACT APPROVAL..."
+                : isSpend
                 ? "TRANSMITTING APPROVAL..."
                 : isPublish
                   ? "TRANSMITTING PUBLISH APPROVAL..."
                   : "TRANSMITTING RE-RUN..."
-              : isSpend
+              : isFact
+                ? "APPROVE FACTS"
+                : isSpend
                 ? "AUTHORIZE & CONTINUE"
                 : isPublish
                   ? "APPROVE & PUBLISH"

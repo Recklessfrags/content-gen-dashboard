@@ -10,8 +10,12 @@ the Rule-9 cross-vendor gate (2026-07-01 architecture review — 4 gaps below fo
 ## Cross-contract items (touch the shared seam — coordinate before building)
 
 1. **Casting phase-2 — visual identity** — ✅ **2a SHIPPED** (2026-07-01, PR #38;
-   `dash_0003` live + VALIDATED; upload→lock in production; signed-URL render). 2b
-   candidates / 2c image-to-video (pipeline) remain future phases. Original scope:
+   `dash_0003` live + VALIDATED; upload→lock in production; signed-URL render).
+   **2b RULED (operator, 2026-07-02, after a neutral 3-option steelman): in-dashboard
+   candidate generation (capped proxy, bible-driven prompts, no-real-person/copyright
+   guardrails) is the chosen shape — DEFERRED** until a parallel build lane can absorb
+   it or a concrete useful moment appears (also reopened by roster scale or external
+   designer batches). 2c image-to-video stays pipeline-owned. Original scope:
    - `dash_*` migration: `reference_image_url` + `visual_style` columns on `characters`.
    - Private, owner-scoped `character-refs` storage bucket; worker reads via service role;
      Assembly consumes the locked image as `locked_character`.

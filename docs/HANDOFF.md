@@ -410,6 +410,35 @@ ADDITIVE rules **L-1** (fresh HQ fetch before any "nothing buildable" claim), **
 adoption review: PASS — fidelity confirmed, all old rules 1–10 mapped (none lost),
 internal references (17→5, 25→14) intact.
 
+## Session 2026-07-02 (cont.) — fact approval + park_kind adoption
+
+- **Slice** (`docs/slices/slice-fact-approval-parkkind.md`, frozen v2): column-first
+  park resolution (`resolveParkKind`; `detectParkKind` kept only as null-fallback for
+  legacy rows), the `fact` approval action (fresh re-enqueue with `fact_approved=true`,
+  0017 regulated-YELLOW sign-off), conditional dialog copy that **warns** when the job
+  is already spend-approved (a fact approval then starts a run with no further spend
+  park). `fact_approved` joins the idempotency hash **only when true** via
+  destructure-then-conditional-include (explicit `false` hashes identically to
+  omitted; pin `d844ecdb` re-verified independently — suerta re-derived it with its
+  own from-scratch canonicalizer).
+- **RULING (fact ≠ approve-and-go):** unlike publish, a fact approval does NOT
+  auto-set `spend_approved` — a claims sign-off is not a spend decision; the correct
+  friction is a second park at the spend gate (governance rule 20 posture). Steelmanned
+  both ways in the spec review; the carried-flag warning covers the already-approved
+  case.
+- **Review chain:** Gemini spec review (2 findings folded: conditional dialog copy,
+  destructure hash rule) → Codex build → Gemini aggregate (a11y nested-alert +
+  redundant-fallback) + suerta (MAJOR: contract-doc drift landing in the same
+  aggregate; MEDIUM money path: the park cache never re-resolved, so a
+  status-before-park_kind write race or transient receipts error could permanently
+  mislabel a fact park under a spend-approval button; plus unresolved-panel copy,
+  publish dead-end dialog, hard-park fall-through, describedby) → consolidated fix
+  round → re-audits.
+- **Contract updated** (rule-13 ruling logged here): `park_kind` merged vocabulary +
+  0016 supersession, `fact_approved` row rewritten (explicit-false emit, hash rule,
+  no-auto-spend), approval-flow section covers all three kinds + column-first
+  resolution semantics.
+
 ## Git state
 
 - **Default branch (production):** `claude/new-session-3l99vs`. `main` does not exist.

@@ -259,7 +259,7 @@ repo.**
 | `publish_approved` | bool | default `false` (migration `0015`). Clears a **publish** park; **double-gated** — never posts without a wired Buffer adapter. |
 | `idempotency_key` | text | UNIQUE; **dashboard generates its own** unique-per-logical-job key (no CLI parity). Duplicate → `409` "already queued". |
 | `channel` | text | pipeline `0018` (**APPLIED live 2026-07-01**, operator GO) — routes the job to a `channel_profiles` row. **Tolerant resolution worker-side:** absent/`null`/unknown → the `default` profile, so it is always safe to omit. Participates in the dashboard's idempotency hash **only when non-null** (legacy keys stay byte-stable). |
-| `fact_approved` | bool | pipeline `0017` (**ANSWERED on HQ 2026-07-02**) — operator sign-off gate for **regulated-YELLOW claims** (mirror of `spend_approved`; RED/Gate behavior unaffected). Default `false`; omit on enqueue; set `true` only on an approved re-enqueue. **Dashboard `fact` approval UI is LOW priority until the pipeline wires `park_kind`** — they found `park_kind` (0016) is written by no worker code yet; wiring `park_kind ∈ {fact, spend, publish}` is queued pipeline-side (heads-up to follow). Until then `detectParkKind` inference remains the live mechanism. |
+| `fact_approved` | bool | pipeline `0017` — operator sign-off gate for **regulated-YELLOW claims** (mirror of `spend_approved`; RED/Gate behavior unaffected). Not in the `jobs_enqueue` WITH CHECK (verified live 2026-07-02) — the dashboard's `buildJobInsert` emits an explicit `false` on every insert and `true` only on a **fact approval re-enqueue** (fresh row, parked row stays as audit, null idempotency key). Participates in the idempotency hash **only when `true`** (explicit `false` hashes identically to omitted — legacy keys byte-stable). A fact approval does **NOT** auto-set `spend_approved` (a claims sign-off is not a spend decision); the parked row's spend state carries, and the dialog **warns** when it is already `true` (the re-run will not park again before spending). **Fact approval UI SHIPPED 2026-07-02.** |
 
 **Worker-owned columns — the dashboard MUST NOT set them** (RLS `jobs_enqueue` WITH CHECK
 rejects a row that does): `status` (defaults `'queued'`), `attempts` (defaults `0`),
@@ -272,22 +272,33 @@ them on insert; all have safe defaults. A forged running/done/spent row is rejec
   `status='queued'`, `attempts=0`, `episode_cap ∈ (0,50]`, and all worker-owned fields
   above are `null`.
 
-**Approval flow (both spend + publish parks):** approval is a **FRESH job row**, not an
+**Approval flow (fact + spend + publish parks):** approval is a **FRESH job row**, not an
 update of the parked one — the parked `ready_for_review` row stays as the audit record.
 **Omit `idempotency_key`** (NULLs are exempt from the UNIQUE index) so the re-enqueue
 isn't a 409. A **publish** approval re-enqueue sets **both** `publish_approved=true`
 **and** `spend_approved=true` ("approve & go", so the live re-run doesn't re-park at the
-spend gate). Park kind (spend vs publish) is told apart by the **parked stage in the
-run's last receipt** — the dashboard infers it (`detectParkKind`) **until the pipeline's
-`park_kind` column lands** (see below), at which point the dashboard reads the column and
-drops the regex inference.
+spend gate). A **fact** approval sets only `fact_approved=true` (carrying the parked
+row's other flags — see the `fact_approved` row above).
+
+**`park_kind` — WRITTEN by the worker since pipeline PR #42 (2026-07-02, operator-ruled
+merged vocabulary; SUPERSEDES 0016's `approval_required` value):** approval parks
+(`status='ready_for_review'`) carry **`fact` | `spend` | `publish`** (each cleared by
+its flag); hard parks (`status='error'`) carry **`blocked` | `exhausted`**; **`null`** =
+not parked or unmapped/legacy (fail-safe; self-healing — every job finish writes the
+key, explicit null on done/no_op/crash). **The dashboard resolves column-first**
+(`resolveParkKind`): an approval-kind column value is authoritative and skips the
+receipts round-trip; recognized hard-park values resolve "unknown" (never inferred);
+**`null` falls back to the legacy `detectParkKind` receipt-stage inference** (kept for
+rows parked before the worker deploy; the fallback cannot classify `fact` — such rows
+surface as unclassified, not mislabeled — and ages out via self-healing).
 
 > **APPLIED + LIVE — pipeline-owned, bare `0016`** (HQ 2026-06-30). The dashboard wired
 > the resume-to-distribution publish path against these in **PR #21/#22** (publish approval
 > enqueues `publish_only=true` + `source_episode_id`; `park_kind` surfaced in the run-queue).
 > The three `jobs` columns:
-> - **`park_kind text`** — structured spend-vs-publish discriminator (replaces
->   `detectParkKind` regex).
+> - **`park_kind text`** — originally documented as a spend-vs-publish discriminator;
+>   **vocabulary superseded 2026-07-02** (see the `park_kind` block above — pipeline
+>   PR #42 writes `fact|spend|publish|blocked|exhausted|null`).
 > - **`publish_only boolean not null default false`** + **`source_episode_id text`** —
 >   the **resume-to-distribution** path: when set, the worker SKIPS research→assembly and
 >   runs only Distribution against `source_episode_id`'s existing manifest + rendered MP4
