@@ -1,14 +1,17 @@
 # governance.md — working with AI coding agents
 
-<!-- ADOPTED VERBATIM from the canonical copy at the PIPELINE repo root (their PR #40,
-Gemini-reviewed PASS), via the HQ "governance.md — VERBATIM MIRROR" page (2026-07-02),
-per the cross-team adoption ask + rule 2. The pipeline repo file is canonical; it
-re-mirrors to HQ on any change (governance change = shared-surface change → HQ
-heads-up). Continuous rule numbering 1–29 restored from the mirror (Notion flattened
-per-section lists; the numbering is verified by the merge notes' cross-references:
-rule 11 = real-artifact, rule 17 = anti-bias, rule 20 = human-only tier).
-Dashboard-specific operational rules live in AGENTS.md as ADDITIVE local rules — they
-extend, never override, this file. -->
+<!-- ADOPTED VERBATIM from the canonical copy at the PIPELINE repo root, via the HQ
+"governance.md — VERBATIM MIRROR" page, per the cross-team adoption ask + rule 2. The
+pipeline repo file is canonical; it re-mirrors to HQ on any change (governance change
+= shared-surface change → HQ heads-up). Adoption history: rules 1–29 (their PR #40) +
+rules 30–34 "Spend the model budget deliberately" (their PR #48, our PR #51); then
+rules 20 & 32 REFINED (their PR #49) and rules 35–41 "Rules promoted from earned
+lessons" + rule 34 STRENGTHENED (their PR #50) — all Gemini + Codex reviewed PASS on
+the pipeline side. Continuous rule numbering 1–41 restored from the mirror (Notion
+flattens per-section lists; verified by the merge notes' cross-references: rule 11 =
+real-artifact, rule 17 = anti-bias, rule 20 = human-only tier, rules 35–41 = promoted
+lessons). Dashboard-specific operational rules live in AGENTS.md as ADDITIVE local
+rules — they extend, never override, this file. -->
 
 Portable, project-agnostic rules for running software work through AI agents: one or
 more **builders**, independent **reviewers**, an orchestrating **architect**, and a
@@ -135,10 +138,24 @@ Before asking a human, sort the question:
     commit architecture another team builds on; (b) the answer would become standing
     precedent / a general rule. A **real fork** — where the constraints don't
     converge and you would be *choosing* which to weight rather than applying them —
-    is also human-only. (A frozen doc can settle the *decision*, but executing an
-    irreversible / production / spend action still routes to the human — a
-    documented "we will deploy X" is not license for an agent to run the deploy
-    itself.)
+    is also human-only. **But test that before escalating it:** for a fork you could
+    otherwise be talked into deriving, first try to resolve it with **two independent
+    high-capability passes — a top-tier reasoner and a cross-vendor reviewer** — each
+    shown the options *neutrally* per rule 17 (unlabeled, no signaled order, forced
+    steelman of every option) and each sized to the stakes per rules 31 and 33 (don't
+    down-tier the attempt to save cost — this is judgment work, per rule 32). If the
+    two **converge** on one option *and* it clears **every** human-only trigger in
+    this rule — the two hard exits above **and** the irreversible/external,
+    product-direction, and expensive-if-wrong-that-can't-be-falsified-cheaply
+    categories (a brand-, quality-, or safety-stakes call that can't be cheaply
+    falsified is *one of* these, never an exception to them) — act on the converged
+    answer and log a bucket-2 receipt (rule 19). Escalate to the human only when the
+    passes **diverge** — the genuine fork — or a bucket-3 trigger remains. The
+    resolution attempt never overrides a hard exit; it only spares the human the
+    forks two independent passes can settle. (A frozen doc can settle the *decision*,
+    but executing an irreversible / production / spend action still routes to the
+    human — a documented "we will deploy X" is not license for an agent to run the
+    deploy itself.)
 
 ## Keep the shared coordination log current
 
@@ -219,12 +236,17 @@ tier.
     tracker/log touch-ups, routine replies). **Down-shift mid-session** when the
     remaining work turns mechanical; most runtimes let you switch model without
     restarting.
-32. **Delegate bulk reading and sweeps to a down-tiered subagent; keep only
-    conclusions in the main context.** When work means paging through many files,
+32. **Delegate bulk *mechanical* reading and sweeps to a down-tiered subagent; keep
+    only conclusions in the main context.** When work means paging through many files,
     logs, or search hits, spawn a subagent on a cheaper tier to do the reading and
     return *the conclusion* — the expensive main session never pages through
     material it could have had summarized. This compounds rule 30 by keeping the
-    main context small.
+    main context small. **The down-tier boundary is mechanical sweeps only.**
+    Judgment work — deciding what to keep, prune, or change; editing a
+    shared/cross-team surface; any call that is costly to get wrong — stays on the
+    capable tier even when farming it out would save context. Context savings never
+    justify down-tiering a judgment call: delegate the *reading*, keep the
+    *deciding*.
 33. **High-stakes changes get two independent reviewers with distinct lenses; small
     diffs keep the single severity-graded pass.** For money-path, governance,
     contract, or acceptance-criteria changes, one adversarial pass is not enough —
@@ -242,5 +264,53 @@ tier.
     whole log.** The shared tracker/coordination store grows without bound; paging
     the entire thing into context to read one row is the same waste as rule 32's
     un-summarized sweep. Fetch the child page, row, or query result you actually
-    need. Keeping the log pruned — archiving closed rows so the live view stays
-    small — is the write-side complement (see rule 21).
+    need. Keeping the log pruned — relocating closed rows to an archive (never
+    deleting or lossily summarizing shared history) so the live view stays small —
+    is the write-side complement (see rule 21); and pruning shared state is
+    co-decided judgment work (rule 32), never a delegated cheap sweep.
+
+## Rules promoted from earned lessons
+
+Appended (not inserted) so rule numbers 1–34 stay stable. Promoted from the living
+learnings log per rule 24 — the portable principle only; the incident that earned
+each stays in the project's ledger. Each names the section it extends.
+
+35. **(§ Verify against reality) Gates measure the property the user experiences,
+    never mere presence.** "The element exists / the request was sent / the row was
+    written" can pass while the thing is unusable. Assert the *experienced* property
+    — sizes, positions, reachability, payload contents, counts against live data.
+    Ask of every gate: *could this pass while the thing I care about is broken?* If
+    yes, it is measuring shape, not substance. (Sharpens rule 11 — that check must
+    assert what the user actually gets.)
+36. **(§ Verify against reality) Re-verify the merged result, not just the pre-merge
+    branch, whenever integration touched shipped files.** A pre-merge pass ratifies
+    the branch; the merge is a different artifact — conflict resolution can resurrect
+    deleted code, and a textually clean merge can still be logically wrong.
+    Runtime-verify again on the integrated result. (The post-merge complement to
+    rule 11's pre-merge preview; distinct from rule 7's re-audit of a revised change.)
+37. **(§ Verify against reality) Generative output has no programmatic gate — a
+    human's senses are the gate.** Measured proxies cannot hear or see; for generated
+    media (audio, image, video, voice) spec an explicit human audition/review step as
+    the acceptance gate. When a surface wraps a generative vendor's API, the build
+    spec cites the vendor's own craft/prompt guidance, not just the API contract.
+38. **(§ Verify against reality) A tool failing is not a dependency being down.**
+    Before declaring a dependency unavailable and switching to a costlier path,
+    reproduce the failure with a minimal direct call outside your own wrapper.
+    Fluent-but-off-topic output usually means the input never arrived — a plumbing
+    bug in your integration, not vendor degradation.
+39. **(§ Spend the model budget deliberately) A substitution that changes the cost
+    profile is flagged to the human at decision time, not discovered on the bill.**
+    If a fallback path costs materially more — a pricier tier, a redundant call, a
+    paid path where a free one failed — surface that at the moment of substituting so
+    the human can veto; cost changes never ride silently.
+40. **(§ Keep the shared coordination log current) Craft knowledge crosses team walls
+    when another team builds on it.** A summary of *what* to build is not the
+    *how-to-do-it-well* playbook. When another team/agent implements against a surface
+    you understand deeply, mirror the playbook where they can read it — a craft doc
+    that never crosses the repo/team wall predicts failures it never prevents.
+41. **(§ The memory) Every session ends with the handoff current.** Before ending,
+    write the handoff: branch/worktree state, what is *proven* versus merely
+    *asserted*, what's next, and the traps that cost real time. A session whose
+    context dies without a written handoff forces the next one to rediscover
+    everything. (The session-boundary complement to rule 21's "update the tracker
+    before ending.")

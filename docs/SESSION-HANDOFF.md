@@ -25,7 +25,7 @@ is the fast path._
    before ending a session) — the 📮 Coordination Log tracker first, then only the child
    pages you need. Always fresh-fetch before telling the operator "nothing is buildable"
    (L-1).
-4. **Read, in order:** this file → `governance.md` (34 shared rules) → `AGENTS.md` (project
+4. **Read, in order:** this file → `governance.md` (41 shared rules) → `AGENTS.md` (project
    layer, L-1..L-5) → `DIRECTION.md` (scope) → `docs/contracts/data-contract.md` (DB shapes +
    ownership) → `GATES.md` → the 📮 Coordination Log tracker (§6).
 5. **Don't-drift / don't-stall:** the dashboard is a **focused control tool, NOT a
@@ -325,7 +325,7 @@ are in the pipeline's FOOD brief (§2 of their page), create when the operator w
   rules page, prune co-decision page, Process Learnings Ledger
   (`390d346e-22d2-8152-bb7c-deef7d4c246b` — append lessons the moment they surface).
   After the prune executes, closed rows live in a 🗄 Tracker-archive child page.
-- Repo memory: `governance.md` (rules 1–34) → `AGENTS.md` (L-1..L-5) → this file →
+- Repo memory: `governance.md` (rules 1–41) → `AGENTS.md` (L-1..L-5) → this file →
   `docs/HANDOFF.md` (full history) → `GATES.md`, `DIRECTION.md`,
   `docs/contracts/data-contract.md`, `docs/slices/*`, `docs/design/*`,
   `docs/roadmap-dashboard.md`.
