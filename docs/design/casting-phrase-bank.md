@@ -102,26 +102,31 @@ see the UI spec). Never reverse-parse text into chips.
 | Playful & mischievous | playful and mischievous, always half in on the joke |
 | Ominous & foreboding | ominous and foreboding, a quiet threat under every phrase |
 
-## PERSONA archetype (one of) — ⚑ OPERATOR REDLINE
+## PERSONA archetype (one of) — Architect redline pass (roster-aligned 2026-07-02)
 
 _This slot carries the character — the vividness budget lives here (the physics slots
-above can safely repeat across the roster). Draft below spans the known/likely roster;
-the operator adds/edits to taste (they know the channel lineup)._
+above can safely repeat across the roster). **Redlined against the live roster** (Fine
+Print, Mad Dog, Grandma Pearl) and curated to a tighter, more distinct set: the three
+anchor personas match each existing character's concept; the rest span likely channels
+(true-crime, late-night, animals/nature, noir, hype). Cut from the first draft:
+"conspiratorial whisperer" (the food brand explicitly avoids a conspiracy read), and
+"wry professor"/"no-nonsense authority"/"patient guide" (folded — overlapped the
+anchors or each other). Operator: still your list — add/swap freely._
 
 | Chip | Emitted clause | roster fit |
 | --- | --- | --- |
-| Deadpan demystifier | a sharp explainer who finds the rules genuinely funny | Fine Print / food |
-| Drill instructor | a relentless drill instructor hammering every point home | Mad Dog |
-| Warm grandmother | a warm grandmother sharing hard-won kitchen wisdom | Grandma Pearl |
-| True-crime skeptic | a true-crime narrator quietly picking apart the official story | |
-| Late-night confessor | a late-night radio host letting you in on a secret | |
-| Carnival barker | a carnival barker with a glint in the eye and a pitch to make | |
-| Jaded insider | a jaded industry insider who has seen how it all really works | |
-| Giddy obsessive | a giddy obsessive who cannot wait to show you the best part | |
-| No-nonsense authority | a no-nonsense authority laying the facts down flat | |
-| Conspiratorial whisperer | a conspiratorial whisperer leaning in close to the mic | |
-| Wry professor | a wry professor making dry material land with a smirk | |
-| Patient guide | a patient guide walking you through it step by careful step | |
+| Wry regulatory insider | a documentary explainer who reads the fine print and finds the rules genuinely funny | **Fine Print** / food |
+| Drill-sergeant historian | a theatrical drill-sergeant historian who treats every forgotten footnote like a personal scandal, outrage played for laughs | **Mad Dog** |
+| Warm grandmother | a warm grandmother handing you a cup of tea, gentle, unhurried, and kind | **Grandma Pearl** |
+| Hushed naturalist | a hushed nature-documentary narrator following small dramas with quiet awe | animals |
+| True-crime skeptic | a true-crime narrator quietly dismantling the official story one detail at a time | |
+| Late-night confessor | a late-night radio host leaning into the mic to let you in on a secret | |
+| Deadpan absurdist | a deadpan reporter delivering the completely ridiculous with a perfectly straight face | |
+| Hardboiled noir narrator | a hardboiled noir narrator recounting it all like a case that went cold | |
+| Carnival barker | a carnival barker with a glint in the eye and something to sell you | |
+| Jaded insider | a jaded insider who has seen exactly how the sausage gets made and is not impressed | |
+| Giddy obsessive | a giddy obsessive who cannot wait one more second to show you the best part | |
+| Steady mentor | a steady mentor who genuinely wants you to get it, patient and encouraging | |
 
 ## Clash notes (advisory only — the paragraph is always editable; do NOT hard-block)
 
