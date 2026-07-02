@@ -26,6 +26,11 @@ describe("suggestPersonaForChannel", () => {
     [{ display_name: "Cozy Grandma" }, "warm-grandmother"],
     [{ display_name: "Hardboiled Detective" }, "hardboiled-noir-narrator"],
     [{ display_name: "Secret Confession" }, "late-night-confessor"],
+    [{ display_name: "Tutorial Guide" }, "steady-mentor"],
+    [{ channel: "gear-heads" }, "giddy-obsessive"],
+    [{ treatment: "Industry Expose" }, "jaded-insider"],
+    [{ display_name: "Deal Hunters" }, "carnival-barker"],
+    [{ fact_anchor: "Satire Commentary" }, "sardonic-wit"],
   ] satisfies ReadonlyArray<readonly [SuggestPersonaInput, string]>)(
     "maps %o to %s",
     (input, chipId) => {
@@ -76,7 +81,7 @@ describe("suggestPersonaForChannel", () => {
   );
 
   it("keeps every rule chip id inside PERSONA_BANK", () => {
-    expect(SUGGEST_PERSONA_RULES).toHaveLength(16);
+    expect(SUGGEST_PERSONA_RULES).toHaveLength(21);
     for (const rule of SUGGEST_PERSONA_RULES) {
       expect(personaIds.has(rule.chipId)).toBe(true);
     }

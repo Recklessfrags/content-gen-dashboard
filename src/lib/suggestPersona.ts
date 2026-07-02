@@ -47,6 +47,11 @@ export const SUGGEST_PERSONA_RULES = [
   { scope: "niche", keywords: ["grandma", "cozy", "wholesome", "heartwarming"], chipId: "warm-grandmother" },
   { scope: "niche", keywords: ["noir", "detective", "hardboiled"], chipId: "hardboiled-noir-narrator" },
   { scope: "niche", keywords: ["confession", "secret"], chipId: "late-night-confessor" },
+  { scope: "niche", keywords: ["tutorial", "guide", "lesson", "education", "teach", "mentor"], chipId: "steady-mentor" },
+  { scope: "niche", keywords: ["unboxing", "collector", "gear", "fandom", "haul", "collectible"], chipId: "giddy-obsessive" },
+  { scope: "niche", keywords: ["expose", "scam", "industry", "insider"], chipId: "jaded-insider" },
+  { scope: "niche", keywords: ["deal", "sale", "pitch", "promo", "hustle", "bargain"], chipId: "carnival-barker" },
+  { scope: "niche", keywords: ["satire", "commentary", "roast", "snark"], chipId: "sardonic-wit" },
 ] as const satisfies readonly SuggestPersonaRule[];
 
 const PERSONA_LABELS = new Map(PERSONA_BANK.map((persona) => [persona.id, persona.label]));

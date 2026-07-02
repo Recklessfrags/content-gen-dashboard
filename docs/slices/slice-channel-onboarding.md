@@ -105,6 +105,11 @@ both the explainer and wellness rows; use `npr`/`explainer` and `wellness`/`medi
 | 14 | niche | grandma / cozy / wholesome / heartwarming | `warm-grandmother` |
 | 15 | niche | noir / detective / hardboiled | `hardboiled-noir-narrator` |
 | 16 | niche | confession / secret | `late-night-confessor` |
+| 17 | niche | tutorial / guide / lesson / education / teach / mentor | `steady-mentor` |
+| 18 | niche | unboxing / collector / gear / fandom / haul / collectible | `giddy-obsessive` |
+| 19 | niche | expose / scam / industry / insider | `jaded-insider` |
+| 20 | niche | deal / sale / pitch / promo / hustle / bargain | `carnival-barker` |
+| 21 | niche | satire / commentary / roast / snark | `sardonic-wit` |
 | — | — | _(no row matched)_ | `null` — show no suggestion |
 
 _(Keyword lists are illustrative-extendable; the code holds the authoritative table.
