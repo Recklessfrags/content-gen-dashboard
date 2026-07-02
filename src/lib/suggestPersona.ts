@@ -85,10 +85,9 @@ export function suggestPersonaForChannel(
   for (const rule of SUGGEST_PERSONA_RULES) {
     const keyword = matchedKeyword(rule, rule.scope === "voice_archetype" ? voiceTokens : nicheTokens);
     if (keyword) {
-      const scope = rule.scope === "voice_archetype" ? "voice_archetype" : "niche";
       return {
         chipId: rule.chipId,
-        reason: `matched ${scope} "${keyword}" -> ${personaLabel(rule.chipId)}`,
+        reason: `matched ${rule.scope} "${keyword}" -> ${personaLabel(rule.chipId)}`,
       };
     }
   }
