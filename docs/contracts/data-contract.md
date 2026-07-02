@@ -259,6 +259,7 @@ repo.**
 | `publish_approved` | bool | default `false` (migration `0015`). Clears a **publish** park; **double-gated** — never posts without a wired Buffer adapter. |
 | `idempotency_key` | text | UNIQUE; **dashboard generates its own** unique-per-logical-job key (no CLI parity). Duplicate → `409` "already queued". |
 | `channel` | text | pipeline `0018` (**APPLIED live 2026-07-01**, operator GO) — routes the job to a `channel_profiles` row. **Tolerant resolution worker-side:** absent/`null`/unknown → the `default` profile, so it is always safe to omit. Participates in the dashboard's idempotency hash **only when non-null** (legacy keys stay byte-stable). |
+| `fact_approved` | bool | pipeline `0017` (**ANSWERED on HQ 2026-07-02**) — operator sign-off gate for **regulated-YELLOW claims** (mirror of `spend_approved`; RED/Gate behavior unaffected). Default `false`; omit on enqueue; set `true` only on an approved re-enqueue. **Dashboard `fact` approval UI is LOW priority until the pipeline wires `park_kind`** — they found `park_kind` (0016) is written by no worker code yet; wiring `park_kind ∈ {fact, spend, publish}` is queued pipeline-side (heads-up to follow). Until then `detectParkKind` inference remains the live mechanism. |
 
 **Worker-owned columns — the dashboard MUST NOT set them** (RLS `jobs_enqueue` WITH CHECK
 rejects a row that does): `status` (defaults `'queued'`), `attempts` (defaults `0`),
