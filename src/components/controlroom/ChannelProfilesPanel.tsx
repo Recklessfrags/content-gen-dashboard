@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Json } from "@/lib/database.types";
+import { PERSONA_BANK } from "@/lib/castingPhrases";
 import {
   AROUSAL_CEILING,
   CLAIM_DISCIPLINE,
@@ -18,6 +19,7 @@ import {
   type ChannelProfile,
   type ChannelProfileUpsertInput,
 } from "@/lib/channelProfiles";
+import { suggestPersonaForChannel } from "@/lib/suggestPersona";
 import type { createClient } from "@/lib/supabase/client";
 import { Field } from "./shared";
 
@@ -96,6 +98,29 @@ export function ChannelProfilesPanel({
     [profiles, selectedChannel],
   );
   const isDefaultProfile = !creating && form?.channel === "default";
+  const personaSuggestion = useMemo(() => {
+    if (!form) return null;
+
+    const suggestion = suggestPersonaForChannel({
+      channel: form.channel,
+      display_name: form.displayName,
+      voice_archetype: form.voiceArchetype,
+      treatment: form.treatment,
+      fact_anchor: form.factAnchor,
+      character: form.character,
+    });
+    if (!suggestion) return null;
+
+    const persona = PERSONA_BANK.find((chip) => chip.id === suggestion.chipId);
+    return persona ? { ...suggestion, label: persona.label } : null;
+  }, [
+    form?.channel,
+    form?.displayName,
+    form?.voiceArchetype,
+    form?.treatment,
+    form?.factAnchor,
+    form?.character,
+  ]);
 
   useEffect(() => {
     if (loading || creating) return;
@@ -433,6 +458,15 @@ export function ChannelProfilesPanel({
                   </select>
                 </div>
               </div>
+
+              {personaSuggestion && (
+                <div className="field" aria-live="polite">
+                  <p className="hint">
+                    <span aria-hidden="true">💡 </span>
+                    Suggested casting persona: <strong>{personaSuggestion.label}</strong> - seeds the Casting Card when you cast this channel&apos;s character. {personaSuggestion.reason}
+                  </p>
+                </div>
+              )}
 
               <fieldset className="dials-inert">
                 <legend>
