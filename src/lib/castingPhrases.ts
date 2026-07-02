@@ -83,6 +83,13 @@ export const PERSONA_BANK: readonly PhraseChip[] = [
   { id: "jaded-insider", label: "Jaded insider", clause: "a jaded insider who has seen exactly how the sausage gets made and is not impressed" },
   { id: "giddy-obsessive", label: "Giddy obsessive", clause: "a giddy obsessive who cannot wait one more second to show you the best part" },
   { id: "steady-mentor", label: "Steady mentor", clause: "a steady mentor who genuinely wants you to get it, patient and encouraging" },
+  { id: "street-energizer", label: "Street energizer", clause: "a hyped-up street voice hitting every syllable, all momentum and swagger" },
+  { id: "sardonic-wit", label: "Sardonic wit", clause: "a dry, sardonic wit who finds nearly everything mildly and delightfully absurd" },
+  { id: "serene-guide", label: "Serene guide", clause: "a serene, softly-spoken guide inviting you to slow down and breathe" },
+  { id: "breathless-announcer", label: "Breathless announcer", clause: "a breathless play-by-play announcer calling every moment like the final seconds" },
+  { id: "menacing-mastermind", label: "Menacing mastermind", clause: "a smooth, menacing mastermind savoring every word like a trap being set" },
+  { id: "broadcast-anchor", label: "Broadcast anchor", clause: "a crisp broadcast anchor delivering it with measured, unshakable authority" },
+  { id: "campfire-storyteller", label: "Campfire storyteller", clause: "a folksy storyteller leaning in to spin an intimate, late-night yarn" },
 ];
 
 export const EMOTION_BANK: readonly PhraseChip[] = [

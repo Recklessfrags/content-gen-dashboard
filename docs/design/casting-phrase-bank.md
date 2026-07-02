@@ -127,6 +127,13 @@ anchors or each other). Operator: still your list — add/swap freely._
 | Jaded insider | a jaded insider who has seen exactly how the sausage gets made and is not impressed | |
 | Giddy obsessive | a giddy obsessive who cannot wait one more second to show you the best part | |
 | Steady mentor | a steady mentor who genuinely wants you to get it, patient and encouraging | |
+| Street energizer | a hyped-up street voice hitting every syllable, all momentum and swagger | hype / shorts |
+| Sardonic wit | a dry, sardonic wit who finds nearly everything mildly and delightfully absurd | comedy |
+| Serene guide | a serene, softly-spoken guide inviting you to slow down and breathe | wellness / sleep |
+| Breathless announcer | a breathless play-by-play announcer calling every moment like the final seconds | sports / action |
+| Menacing mastermind | a smooth, menacing mastermind savoring every word like a trap being set | drama / villain |
+| Broadcast anchor | a crisp broadcast anchor delivering it with measured, unshakable authority | news |
+| Campfire storyteller | a folksy storyteller leaning in to spin an intimate, late-night yarn | storytelling |
 
 ## Clash notes (advisory only — the paragraph is always editable; do NOT hard-block)
 
