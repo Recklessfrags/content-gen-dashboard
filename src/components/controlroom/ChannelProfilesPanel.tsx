@@ -201,10 +201,15 @@ export function ChannelProfilesPanel({
   const deleteProfile = async () => {
     if (!form || creating || form.channel === "default" || deleting) return;
 
+    const deletingChannel = form.channel;
+    const confirmed = window.confirm(
+      `Delete channel "${form.displayName || deletingChannel}"? Jobs already routed to it keep working via the default profile.`,
+    );
+    if (!confirmed) return;
+
     setDeleting(true);
     setNotice(null);
     try {
-      const deletingChannel = form.channel;
       const { error: deleteError } = await supabase
         .from("channel_profiles")
         .delete()
