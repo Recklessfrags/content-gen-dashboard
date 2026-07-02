@@ -321,13 +321,12 @@ export function EnqueueIdeaPanel({
             </select>
           </div>
 
-          <div className="field">
+          <div className="field" style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 8 }}>
             <span className="eyebrow">EXECUTION RECIPE</span>
             <div
               className="status-segmented-control"
               role="group"
               aria-label="Execution recipe"
-              style={{ marginTop: 8 }}
             >
               <button
                 className={"segment-btn" + (recipeKey === "provenRender" ? " active-segment" : "")}
