@@ -1,5 +1,12 @@
 # Slice — E2: guideline auto-fill editor (§4.E E2) — SCOPING / DECISION doc
 
+> **⏸ PARKED 2026-07-02 — pending the channel-first redefinition.** The operator stepped back to
+> question the whole dashboard workflow; E2 is a workflow surface, so building it now is premature.
+> The forks below (A structured-paste, B2 cast_brief jsonb) and their review trail are preserved.
+> When the redefinition lands (`docs/design/channel-first-redefinition.md`), E2 **re-homes into the
+> channel "Guidelines" surface** and this doc is re-frozen against the new IA. Do not build from it
+> until then.
+
 _Status: **SCOPING — PARKED (not frozen, not building).** Author: Architect (Claude), 2026-07-02.
 **Parked 2026-07-02:** Fork B settled (B2, review-refined) and Fork A narrowed to A-hybrid/A0
 (both no-spend), but before a Fork-A ruling the operator stepped back to ask whether the
