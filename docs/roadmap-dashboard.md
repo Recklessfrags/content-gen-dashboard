@@ -49,7 +49,7 @@ the Rule-9 cross-vendor gate (2026-07-01 architecture review — 4 gaps below fo
    forget: the operator has more channel ideas queued and explicitly asked that this
    be recorded. The pipeline prerequisite is DONE (their onboarding recipe merged
    2026-07-02, §C guideline/must-do split canonical), and manual channel creation
-   works on all screen sizes (mobile bar fixed, PR #46) — so when the hold lifts,
+   works on all screen sizes (mobile bar shipped PR #46, placement fixed PR #47) — so when the hold lifts,
    the auto-fill editor (brief-in → researched draft-out) is immediately buildable.
    Original scope: _(future surface; DIRECTION being corrected)_
    - Per-channel **GUIDELINE** selection fields only (archetype/audience/hook-mix/vocab).
