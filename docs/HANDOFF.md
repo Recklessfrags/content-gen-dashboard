@@ -394,6 +394,22 @@ Operator GO'd three items at session start (QA baseline · #37 · Casting 2a). B
 - **Gemini quota note:** `gemini-3.1-pro` daily cap (250) exhausted mid-slice; the
   wrapper's `gemini-3.5-flash` fallback carried the remaining reviews as designed.
 
+## Session 2026-07-02 (cont.) — canonical governance.md ADOPTED
+
+Cross-team ask executed: the merged canonical `governance.md` (29 rules; dashboard's
+distillation as base + pipeline's steelman-every-option and real-fork upgrades;
+Gemini-reviewed pipeline-side, shipped to their `main` PR #40) is now at THIS repo
+root, adopted **verbatim from the HQ mirror page** (dashboard sessions can't read the
+pipeline repo; the mirror page records that the pipeline repo file wins on
+disagreement and re-mirrors on change). Continuous 1–29 numbering restored from
+Notion's flattened lists — verified by the merge notes' cross-references (11 =
+real-artifact, 17 = anti-bias, 20 = human-only). **`AGENTS.md` restructured** to the
+project-specific layer: bindings for governance's placeholders + dashboard-local
+ADDITIVE rules **L-1** (fresh HQ fetch before any "nothing buildable" claim), **L-2**
+(suerta reviewer), **L-3** (terse operator updates), **L-4** (vendor split). Gemini
+adoption review: PASS — fidelity confirmed, all old rules 1–10 mapped (none lost),
+internal references (17→5, 25→14) intact.
+
 ## Git state
 
 - **Default branch (production):** `claude/new-session-3l99vs`. `main` does not exist.
