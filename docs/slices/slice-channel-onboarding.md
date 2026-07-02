@@ -1,10 +1,12 @@
 # Slice — Channel onboarding auto-fill + on-creation persona auto-suggest (§4.E)
 
-_Status: **DRAFT for operator + Gemini review** (not frozen until approved). Author:
-Architect (Claude), 2026-07-02. Scopes roadmap item 5 (`docs/roadmap-dashboard.md`) +
+_Status: **FROZEN for build** (operator resumed 2026-07-02 → build E1; draft §2.1 mapping
+shipped as-is — operator may redline the mapping data anytime without touching code;
+E1.b carry-into-casting **deferred to phase-2**). Pending Gemini spec-review before Codex
+builds. Author: Architect (Claude). Scopes roadmap item 5 (`docs/roadmap-dashboard.md`) +
 the operator's 2026-07-02 "auto-suggest a Casting-Card persona on channel creation"
-sub-ask. Hold on §4.E is treated as **lifted** (its stated precondition — "finish the
-voice agent work" — is met: §4.A shipped, PRs #53–#56). Flag if that read is wrong._
+sub-ask. Hold on §4.E treated as **lifted** (precondition "finish the voice agent work"
+met: §4.A shipped, PRs #53–#56)._
 
 ---
 
@@ -56,11 +58,22 @@ suggestPersonaForChannel(profile: ChannelProfile): { chipId: PersonaId; reason: 
   function of the channel's own fields, it is recomputed wherever needed — **no new
   column, no migration.** (Making the suggestion sticky/overridable per-channel would be
   a phase-2 migration; explicitly out of scope here.)
-- **Signal priority** (first confident match wins; **no match → return `null`**, never
-  guess): (1) explicit `voice_archetype` free-text keyword; (2) niche keywords across
-  `display_name` + `channel` + `treatment` + `fact_anchor`; (3) `null`.
+- **One ordered rule list, first match wins** (`null` if none — never guess). The §2.1
+  table IS the rule list, evaluated **strictly top-to-bottom**; the first row whose
+  keyword hits wins. This makes ties fully deterministic (table order = precedence) and
+  subsumes "voice_archetype beats niche": the `voice_archetype` rows are listed first,
+  so they win before any niche row is tested. No reliance on object-key iteration order.
+- **Word-boundary matching, NOT substring `.includes()`.** Match each keyword as a whole
+  token (regex `\b`-delimited, or tokenize the field on non-alphanumerics and compare).
+  This prevents the Scunthorpe class of false hits — "tran**sport**" must NOT match
+  `sport`, "re**news**" must NOT match `news`. Underscored enum values (`calm_explainer`,
+  `standard_of_identity`) tokenize on `_`, so `explainer` and `identity` match cleanly.
+- **Null-safe over every field.** `voice_archetype`, `treatment`, `fact_anchor`,
+  `display_name`, `character` are all nullable/absent during channel creation. Coerce
+  missing→`""` before matching; the function must never throw on a half-filled or empty
+  profile (it returns `null`, and the panel shows no hint).
 - Emits a `PERSONA_BANK` **chip-id** (so it drops straight into `BuilderSelections`),
-  plus a short human `reason` ("matched food/FDA → Wry regulatory insider") for the hint.
+  plus a short human `reason` ("matched food / FDA → Wry regulatory insider") for the hint.
 
 ### 2.1 Draft curated mapping (DELIVERABLE FOR OPERATOR REDLINE — content, not a blocker)
 
@@ -68,25 +81,31 @@ Seeded from the phrase-bank doc's roster-fit column
 (`docs/design/casting-phrase-bank.md` §PERSONA). Operator: this is your taste to redline
 (same posture as the phrase bank — "a deliverable to review, not a blocking question").
 
-| Channel signal (lowercased keyword match) | → Persona chip-id |
-| --- | --- |
-| `voice_archetype` contains "drill" / "sergeant" | `drill-sergeant-historian` |
-| `voice_archetype` contains "hype" / "announcer" / "street" | `street-energizer` |
-| `voice_archetype` contains "npr" / "calm" / "explainer" | `wry-regulatory-insider` |
-| food / fda / `standard_of_identity` / ingredient / snack | `wry-regulatory-insider` |
-| animal / nature / wildlife / creature | `hushed-naturalist` |
-| crime / mystery / cold case / unsolved | `true-crime-skeptic` |
-| history / archival / historical / footnote | `drill-sergeant-historian` |
-| wellness / sleep / calm / meditation / mindful | `serene-guide` |
-| sport / action / match / game-day | `breathless-announcer` |
-| news / briefing / headline | `broadcast-anchor` |
-| comedy / absurd / weird / bizarre | `deadpan-absurdist` |
-| drama / villain / thriller | `menacing-mastermind` |
-| story / campfire / folklore / legend | `campfire-storyteller` |
-| grandma / cozy / wholesome / heartwarming | `warm-grandmother` |
-| noir / detective / hardboiled | `hardboiled-noir-narrator` |
-| late-night / confession / secret | `late-night-confessor` |
-| _(no confident match)_ | `null` — show no suggestion |
+**Evaluation = strictly top-to-bottom, first whole-token match wins** (§2 rules). The
+first three rows inspect **`voice_archetype`** only (explicit voice intent — highest
+precedence); the rest inspect the niche fields **`channel` + `display_name` + `treatment`
++ `fact_anchor`**. Keywords match on word boundaries (no bare "calm" — it collided with
+both the explainer and wellness rows; use `npr`/`explainer` and `wellness`/`meditation`).
+
+| # | Field(s) inspected | Whole-token keyword | → Persona chip-id |
+| --- | --- | --- | --- |
+| 1 | `voice_archetype` | drill / sergeant | `drill-sergeant-historian` |
+| 2 | `voice_archetype` | hype / announcer / street | `street-energizer` |
+| 3 | `voice_archetype` | npr / explainer | `wry-regulatory-insider` |
+| 4 | niche | food / fda / identity / ingredient / snack | `wry-regulatory-insider` |
+| 5 | niche | animal / nature / wildlife / creature | `hushed-naturalist` |
+| 6 | niche | crime / mystery / unsolved | `true-crime-skeptic` |
+| 7 | niche | history / archival / historical / footnote | `drill-sergeant-historian` |
+| 8 | niche | wellness / sleep / meditation / mindful | `serene-guide` |
+| 9 | niche | sport / sports / action / athletics | `breathless-announcer` |
+| 10 | niche | news / briefing / headline | `broadcast-anchor` |
+| 11 | niche | comedy / absurd / weird / bizarre | `deadpan-absurdist` |
+| 12 | niche | drama / villain / thriller | `menacing-mastermind` |
+| 13 | niche | story / campfire / folklore / legend | `campfire-storyteller` |
+| 14 | niche | grandma / cozy / wholesome / heartwarming | `warm-grandmother` |
+| 15 | niche | noir / detective / hardboiled | `hardboiled-noir-narrator` |
+| 16 | niche | confession / secret | `late-night-confessor` |
+| — | — | _(no row matched)_ | `null` — show no suggestion |
 
 _(Keyword lists are illustrative-extendable; the code holds the authoritative table.
 `default`/food channel → `wry-regulatory-insider`, matching the live Fine Print anchor.)_
@@ -109,8 +128,8 @@ match: render a **non-binding advisory chip** below the relevant fields —
 
 | # | Criterion |
 | --- | --- |
-| E1-1 | `suggestPersonaForChannel` is pure/deterministic, returns a valid `PERSONA_BANK` id or `null`; unit-tested across each mapping row + the null path. |
-| E1-2 | Every returned id **exists in `PERSONA_BANK`** (guard against bank drift; test asserts membership). |
+| E1-1 | `suggestPersonaForChannel` is pure/deterministic, returns a valid `PERSONA_BANK` id or `null`. Unit tests cover: each mapping row; the null/no-match path; **precedence** (a `voice_archetype` row wins over a simultaneously-matching niche row); **within-niche tie** (two niche rows match → the higher-listed row wins, top-to-bottom); **word-boundary negatives** ("transport" !→ `sport`, "renews" !→ `news`); **null-safety** (empty `{}`, and each field individually null/undefined/"" → returns `null`, never throws). |
+| E1-2 | Every returned id **exists in `PERSONA_BANK`** (guard against bank drift; test asserts membership for every mapping row). |
 | E1-3 | Channel create: hint appears once a confident match exists; **no-match → no hint** (not an empty box). |
 | E1-4 | Channel edit: hint **recomputes live** as `voice_archetype`/`treatment`/`fact_anchor`/name change. |
 | E1-5 | Hint is **advisory**: Save/upsert payload is **byte-identical** with and without the hint shown (zero new writes; intercept-and-verify). |
@@ -121,8 +140,10 @@ match: render a **non-binding advisory chip** below the relevant fields —
 
 ## 4. Non-happy / edge states (rule 29)
 
+- **Half-filled / empty profile during creation** → every field coerced missing→`""`; the function returns `null` and never throws; the panel shows no hint (§2 null-safety). This is the default state of a brand-new channel form.
 - **No confident match** → render nothing (E1-3). Never a blank/placeholder hint.
-- **`voice_archetype` conflicts with niche** → `voice_archetype` wins (explicit intent, §2 priority order). Documented, tested.
+- **Conflicting signals** → resolved by strict top-to-bottom row order (§2.1): a `voice_archetype` row (rows 1–3) wins over any niche row; among niche rows, the higher-listed wins. Deterministic, tested (E1-1).
+- **Near-miss substrings** ("transport", "renews", "grandmaster") → must NOT match via word-boundary rule; tested as negatives (E1-1).
 - **Persona bank id renamed/removed later** → E1-2 test fails loudly (bank is the source of truth).
 - **Operator ignores the hint** → zero consequence (advisory; no persistence).
 
