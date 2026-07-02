@@ -94,6 +94,48 @@ they don't hurt legibility** (function-first).
 
 ---
 
+## 4b. COLOR research (round 2 — the traffic-light problem)
+
+_Operator: likes the **Transmission** style + the **traffic-light** (red/amber/green) status idea,
+but the colors "aren't great." Correct read — the style got a detailed brief; the palette got a
+one-liner and the designer defaulted to stock traffic-light + a literal signal-red. This section
+is the missing color rigor._
+
+**Root diagnosis (color theory).** Transmission's `--accent` (red) is used for **both** the
+brand/priority moments (wordmark energy, the priority banner, "New channel") **and** the
+danger/uncast status. The #1 rule for semantic color systems: **a status color must never double
+as the brand/accent color** (≈5% of users also can't separate red/green, so leaning on a
+do-everything red is worse). Fix = give the brand a **distinct signature accent that is NOT red**,
+freeing red to mean only danger/alert, and tune the status trio into a **harmonious family**
+(consistent chroma/value, matched to the palette's warmth) rather than three stock saturated hues.
+
+**Principles to apply:**
+- **Signature ≠ status.** Introduce a distinct brand/signature color; keep success/warn/danger
+  purely semantic.
+- **Harmonized trio.** Success/warn/danger share a chroma+value discipline and lean slightly
+  earthy/desaturated so they read as one system on the warm base — still AA-distinct.
+- **Never color-alone** (already satisfied: Transmission uses text labels LIVE/BUSY/UNCAST + stamps
+  — keep them; that's the colorblind/AA safety net).
+- **AA in both modes**, ratios stated.
+
+**2026 palette cues (sources §5):** warm **elevated neutrals** (oatmeal, sand, stone, clay, taupe)
+over harsh white; signature-accent candidates **transformative teal / jade**, **honeyed gold /
+brass**, **terracotta / rust**; retro-editorial **burnt orange, deep mustard, dusty cyan**. All
+complement (rather than compete with) a red/amber/green status trio.
+
+**The three color treatments of Transmission (style byte-identical; palette-only):**
+- **CT1 — "Teal signature."** Warm oatmeal/ink base + a **cool teal/jade** brand signature (high
+  contrast against warm base, modern); red freed to pure danger; harmonized earthy green/amber/red
+  status trio.
+- **CT2 — "Warm brass/terracotta."** Fully warm/earthy — signature **brass or terracotta/rust**;
+  status trio muted-editorial (olive green / ochre amber / brick red) so even the traffic light
+  reads sophisticated. A vintage-editorial harmony.
+- **CT3 — "Designer's choice (experiment)."** Gemini **researches + chooses the entire palette
+  itself** (operator's experiment) — its own point of view on a harmonious traffic-light system,
+  keeping the Transmission style.
+
+Each keeps the Transmission layout/texture/type/stamps unchanged and ships light + dark.
+
 ## 5. Sources
 - Tubik — 7 UI Design Trends of 2026: https://blog.tubikstudio.com/ui-design-trends-2026/
 - Creative Bloq — Texture, warmth and tactile rebellion (2026 graphic design): https://www.creativebloq.com/design/graphic-design/texture-warmth-and-tactile-rebellion-the-big-graphic-design-trends-for-2026
@@ -103,3 +145,7 @@ they don't hurt legibility** (function-first).
 - Muzli — 50 Best Dashboard Design Examples for 2026: https://muz.li/blog/best-dashboard-design-examples-inspirations-for-2026/
 - UXPilot — 12 Product Design Trends for 2026: https://uxpilot.ai/blogs/product-design-trends
 - Orizon — 10 UI/UX Trends That Will Shape 2026: https://www.orizon.co/blog/10-ui-ux-trends-that-will-shape-2026
+- Jolicia Type — Color Forecast 2026: https://joliciatype.com/color-forecast-2026-the-most-popular-color-palettes-shaping-the-future-of-design/
+- Updivision — UI Color Trends to Watch in 2026: https://updivision.com/blog/post/ui-color-trends-to-watch-in-2026
+- Imperavi — Designing semantic colors for your system: https://imperavi.com/blog/designing-semantic-colors-for-your-system/
+- Medium (Zaim Asri) — Semantic Colors in UI/UX Design: https://medium.com/@zaimasri92/semantic-colors-in-ui-ux-design-a-beginners-guide-to-functional-color-systems-cc51cf79ac5a
