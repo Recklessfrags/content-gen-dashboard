@@ -126,3 +126,31 @@ no-suffix money format vs the Cost view's "USD" suffix (totals still agree).
 
 **Slice 4 is CLOSED.** Tier 2 (per-character cost) unblocks at the Acoustic Kitty /
 D-1 `character_id` landing; Tier 3 (ROI) waits on publishing + analytics ingestion.
+
+---
+
+# Slice E1 gates (§4.E — channel persona auto-suggest) — RATIFIED on branch
+
+Frozen spec: `docs/slices/slice-channel-onboarding.md`. Full loop: Architect spec →
+Gemini spec-review (REQUEST CHANGES → 5 findings folded → PASS) → Codex build →
+Gemini build-review + Architect review → in-browser ratification vs the live DB
+(Node-fetch bridge, QA login). All 10 measured gates **PASS** on the rendered artifact
+(prod build + `next start`, Chromium/Playwright, 1440px + 412px). Ratified on the branch
+against a local production build; not yet merged to production.
+
+| # | Gate | Status | Evidence (measured) |
+| --- | --- | --- | --- |
+| E1-1 | Pure suggester: all rows / null / precedence / tie / word-boundary / null-safety | **PASS** | 29/29 vitest (`suggestPersona.test.ts`). |
+| E1-2 | Every returned id ∈ `PERSONA_BANK` | **PASS** | Module-load membership guard + test asserts membership per row. |
+| E1-3 | Hint appears on a confident match; no-match → no hint (not empty box) | **PASS** | New-form default → "Wry regulatory insider" (matched niche `fda`); keyword-free channel → `p.hint` count **0**. |
+| E1-4 | Recomputes live; `voice_archetype` beats niche | **PASS** | `drill` → "Drill-sergeant historian" (voice), clear → reverts to niche; fact_anchor=none+treatment=motion_graphic+"Wildlife Weekly" → "Hushed naturalist". |
+| E1-5 | Advisory only: save payload unchanged, zero live writes | **PASS** | Upsert POST intercepted+aborted (503, 0 real writes); captured payload keys = real channel fields only, **no persona/suggested key**. |
+| E1-6 | States: default/no-match/label lookup | **PASS** | Covered by E1-3/E1-4; persona **label** (not id) rendered. |
+| E1-7 | Responsive 412/1440; hint non-interactive, no overflow | **PASS** | scrollWidth==clientWidth at 1440 and 412; hint is a non-focusable `<p>`; no page errors. |
+| E1-8 | Build clean; no migration/deps/network/`any` | **PASS** | `tsc --noEmit` clean; `next build` clean; pure function, no deps/migration. |
+| E1-9 | Independent review + runtime ratification | **PASS** | Gemini build-review (its lone BLOCKER a verified false positive — refuted by compilation; NIT folded) + Architect PASS + 10/10 browser gates. |
+
+Residual/deferred: **E1.b** (pre-selecting the persona chip in the Casting Studio for a
+channel-linked character) deferred to phase-2 (loose character↔channel link); **E2**
+(guideline auto-fill editor) blocked on the channel-researcher + cast-brief storage
+(spec §5). Mapping content (`suggestPersona.ts` table) is operator-redlinable data.
