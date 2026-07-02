@@ -337,6 +337,12 @@ quality is judged by the **operator audition** (G-9), not a script._
   literal fails review, not silently ships.
 - **§3 unresolved** blocks only the input UI lane; the proxy/recipe/audition value
   lands regardless of the ruling.
+- **`quality` is v2-only (runtime finding, 2026-07-02).** Live ratification against the
+  deployed proxy revealed ElevenLabs rejects `quality` on `eleven_ttv_v3` ("only
+  supported for eleven_multilingual_ttv_v2"). Since v3 is the pinned default and there is
+  no `quality` UI, the proxy now **only forwards `quality` on the v2 model** (drops it for
+  v3). This is exactly the rule-11 "verify on the real artifact" catch — the unit-tested
+  clamps were fine; only the live EL interaction exposed it.
 - **Old slider-only templates/recipes** (Fine Print, any earlier) remain valid — the
   reader treats missing `voice_description_raw` as "legacy slider recipe" and falls
   back to `composeVoiceDescription` for display only. No backfill.

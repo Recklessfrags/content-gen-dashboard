@@ -224,12 +224,13 @@ Deno.serve(async (req: Request) => {
     if (action === "design") {
       const voiceDescription = String(body.voice_description ?? "");
       const text = String(body.text ?? "");
+      const modelId = clampDesignModelId(body.model_id);
       const seed = clampSeed(body.seed);
       const quality = clampQuality(body.quality);
       const payload: Record<string, unknown> = {
         voice_description: voiceDescription,
         text,
-        model_id: clampDesignModelId(body.model_id),
+        model_id: modelId,
         guidance_scale: clampNumber(
           body.guidance_scale,
           GUIDANCE_SCALE_MIN,
@@ -238,7 +239,12 @@ Deno.serve(async (req: Request) => {
         ),
       };
       if (seed !== null) payload.seed = seed;
-      if (quality !== null) payload.quality = quality;
+      // ElevenLabs rejects `quality` on eleven_ttv_v3 ("only supported for
+      // eleven_multilingual_ttv_v2") — verified live 2026-07-02. v3 is the pinned
+      // default, so only forward quality on the v2 model; drop it otherwise.
+      if (quality !== null && modelId === "eleven_multilingual_ttv_v2") {
+        payload.quality = quality;
+      }
       const res = await fetch(`${EL_BASE}/v1/text-to-voice/design`, {
         method: "POST",
         headers: elHeaders,
