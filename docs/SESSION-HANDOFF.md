@@ -11,6 +11,41 @@ is the fast path._
 
 ---
 
+## ⚡ LATEST (2026-07-02) — CHANNEL-FIRST REDEFINITION RATIFIED (D-6). Read this first.
+
+The operator stepped back from incremental slices and questioned the whole dashboard
+workflow. Outcome: **the dashboard is being reorganized channel-first** (the channel/show
+is the root; the character is its face; 1 channel = 1 character for now, seam open for
+future many). This **reshapes the spine, not the scope** (D-2 stands — focused control
+tool, not kanban). **Ratified into `DIRECTION.md` as D-6.**
+
+- **The design + phased plan + full review trail:** **`docs/design/channel-first-redefinition.md`**
+  (Gemini high-thinking design pass + suerta/Opus adversarial review, synthesized +
+  fact-checked vs the data contract; **D-6 doc-fidelity Gemini pass = PASS 2026-07-02**).
+  Hub-and-spoke IA (global Channels hub → per-channel workspace: Production · Character ·
+  Guidelines · Cost), casting elevated, onboarding handoffs, `character_id` FK, global inline
+  action queue.
+- **VISUAL-DESIGN MANDATE (operator, 2026-07-02):** the current look & feel is **not good enough**
+  → the redesign includes a **first-class visual/UI rebuild**, not an IA re-skin. **Phase 0/1
+  stands up a real design system** (type/color/spacing/components/states/motion, WCAG 2.2 AA) and
+  the re-parented surfaces are **rebuilt against it** — "reuse today's components" = reuse the
+  **data/logic seams, not the current styling.** Design vendor = Gemini (`docs/design/`).
+- **NEXT SESSION = Phase 1 planning/build** (dashboard-autonomous): the Channels hub +
+  channel-workspace shell, **re-parenting today's screens** into it (reuse, don't rewrite
+  the 2,472-line monolith). Phase 2 = character-link FK (expand/contract, HQ heads-up) +
+  casting elevation. Phase 3 = the idea→episode thread, **gated on a pipeline correlation
+  key** (HQ ask filed 2026-07-02 — check its status before building Phase 3's job→episode
+  join; idea→job stitch is ours via a dashboard-owned idempotency_key↔idea map).
+- **Everything in §4 below is now sequenced UNDER D-6.** E2 (channel auto-fill) is **parked**
+  and re-homes into the channel Guidelines surface (`docs/slices/slice-channel-onboarding-e2.md`,
+  scoped + reviewed: A structured-paste + B2 cast_brief jsonb; no bucket-3 spend). E1.b
+  (persona chip into casting) is subsumed by the channel↔character link. New channel rows
+  become "create a channel" in the new hub.
+- **Deferred/operator-owned unchanged:** v3 casting-audio audition, QA password rotation,
+  §4.B visual-candidate provider fork (bucket-3), Gate-2 first character-linked run.
+
+---
+
 ## 0. First actions for a fresh session (do these in order)
 
 1. **`git fetch` BEFORE judging anything.** Local refs lie. Production = the GitHub default

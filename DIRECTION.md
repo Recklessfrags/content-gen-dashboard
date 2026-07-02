@@ -2,16 +2,37 @@
 
 > **Product-direction source of record** for the dashboard repo. Per `AGENTS.md`
 > §Notion→repo sync, Builders and the Designer read **this repo copy**, not Notion.
-> Authored by the Architect capturing the **human ruling D-2**.
-> **Last decided: 2026-06-28.**
+> Authored by the Architect capturing the **human rulings D-2 and D-6**.
+> **Last decided: 2026-07-02 (D-6 channel-first spine).**
+
+## D-6 — Channel-first spine (human ruling, 2026-07-02)
+
+**The operator ratified reorganizing the dashboard around the CHANNEL as the root
+object.** The work starts with "what do I want to talk about" (the channel/show), and
+the character is the **face of that channel**, not the starting point. Hierarchy:
+**Channel (show + guidelines) → Character/persona → Ideas (episode topics) → Run/episode
+→ Cost.** Cardinality: **1 channel = 1 character for now**, architected so it does not
+preclude a future 1-channel→many-characters or shared character.
+
+This **reshapes the spine, not the scope** — D-2 stands (still a focused control tool,
+NOT a kanban/analytics product; same owned inputs + read-only outputs). What changes is
+the information architecture: a **global Channels hub → per-channel workspace**
+(Production · Character · Guidelines · Cost) replacing today's 7 flat, disconnected tabs;
+casting elevated to first-class; a real character↔channel link; plain vocabulary; a
+global inline action queue for the daily approval loop. Design + phased plan + the
+independent-review trail (Gemini design pass + suerta/Opus): **`docs/design/channel-first-redefinition.md`**.
+Phased, component-reusing migration; the full idea→episode thread (Phase 3) depends on a
+pipeline-emitted correlation key (filed cross-team). The prior character-first framing
+below is **superseded on the spine** but its ownership/scope split is unchanged.
 
 ## The product
 
-The dashboard is a **focused control tool** — the **Character Control Room**. It is
-**not** an analytics product and **not** a production/kanban board.
+The dashboard is a **focused control tool** — the operator's **Control Room** (root =
+the **Channel**; see D-6). It is **not** an analytics product and **not** a
+production/kanban board.
 
-- **The dashboard owns inputs:** characters + their bibles (with version history),
-  and ideas (The Wire).
+- **The dashboard owns inputs:** channels + their guidelines, characters + their bibles
+  (with version history), and ideas.
 - **The dashboard surfaces outputs:** Runs (pipeline episodes) **read-only**, plus a
   **read-only Overview**.
 - **The pipeline owns the middle:** research → script → assembly. The dashboard
