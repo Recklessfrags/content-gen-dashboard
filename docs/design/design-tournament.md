@@ -34,7 +34,10 @@ Field:
 - **R2-D — Autonomous fusion** (Gemini's call): design a new winner that captures the best of both
   N1 and N3 in its own way.
 
-_Status: Round 2 in progress. Winners TBD by operator._
+_Status: **Round 2 field produced** (`directions-v4/`, all four rendered + verified, both modes;
+Supabase nit fixed). Architect seeded read: **C (Bento×Editorial hybrid)** and **B (Terminal Noir
+v2)** lead; A polished/safe; D solid-but-conventional. Convergence toward editorial-serif + bold
+signature + structured cards. **Winners TBD by operator.**_
 
 ---
 
