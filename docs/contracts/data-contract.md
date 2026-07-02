@@ -41,6 +41,7 @@ bypasses RLS.
 | `voice_settings` | jsonb NULL | casting phase-1 voice parameters |
 | `reference_image_url` | text NULL | casting phase-2a (`dash_0003`) — **bucket-relative storage object path** `<owner>/<character_id>/ref-<uuid>.<ext>` in the private `character-refs` bucket; **NEVER a URL** (signed URLs expire; readers mint their own access). Non-null = visually cast. Pipeline (Assembly) will consume it as the `locked_character` master asset via service-role download (their 2c). |
 | `visual_style` | text NULL | casting phase-2a — short operator-authored style descriptor accompanying the locked image |
+| `voice_recipe` | jsonb NULL | voice-templates slice (`dash_0004`, applied + VALIDATED 2026-07-02) — **immutable cast-time provenance snapshot** `{design_prompt, voice_settings, template_name?}` written with every cast (no FK/reference to `voice_templates` — the pipeline's "birth-certificate, don't link" rule). **Worker-invisible** (TTS reads `voice_id`/`voice_settings` only). Shape-enforced by `characters_voice_recipe_shape` CHECK (null-whitelisted, permissive-additive). |
 
 **`bible` keys (v1):** `voice`, `cadence`, `vocab`, `offlimits`, `lines`, `beats`,
 `runtime`. **jsonb on purpose** — new sections (catchphrase bank, voice-sample URL,
@@ -139,6 +140,27 @@ the **service role** (bypasses RLS).
 **Enforcement status:** the `engagement_posture` dials (`claim_discipline`,
 `arousal_ceiling`) are **stored, not yet enforced** — the worker-read + ADR-005 tiering are
 later pipeline work. The editor surfaces them as "stored — not yet active" until then.
+
+---
+
+## `voice_templates` — dashboard-owned (operation-global config)
+
+Voice-templates slice (`dash_0004`, applied + VALIDATED live 2026-07-02). Reusable
+voice **recipes** (Casting Studio design sliders + clamped ElevenLabs settings) the
+operator saves/applies/deletes. Same ownership class as `channel_profiles`:
+**operation-global config**, `authenticated` full CRUD (all four verbs,
+`using (true)`/`with check (true)`), no `owner` column. **The pipeline worker never
+reads this table** — its TTS path is `characters.voice_id` + `voice_settings`,
+unchanged.
+
+**Columns:** `id` uuid PK · `name` text (unique on `lower(name)`) · `description`
+text · `design_prompt` jsonb (`{age, grit, comedy_menace, bombast, gender}` — numbers
+0–1 + string; shape-CHECKed permissive-additive) · `voice_settings` jsonb (EL
+settings; shape-CHECKed) · `source_codename` text NULL (freeform breadcrumb, **not**
+a FK) · `created_at`/`updated_at` (+ `set_updated_at` trigger).
+
+On use, the recipe is **copied** into `characters.voice_recipe` — never referenced —
+so template deletion can never dangle a character.
 
 ---
 

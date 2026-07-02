@@ -96,6 +96,14 @@ Every agent (Architect, Designer, Builder, and any sub-agent) reads this first.
    - **Same-vendor can't self-bless** (even a fresh subagent may triage but not satisfy the
      gate); if no different-vendor reviewer is available, don't push/merge. **A fix the
      review prompts is re-audited, not self-blessed** ("I committed it" ≠ "it was ratified").
+   - **The orchestrating Architect is not the final Architect-side reviewer on important
+     slices (operator directive, 2026-07-02).** The session that wrote the spec and directed
+     the fix rounds has spec-author blind spots; before landing a slice that touches a
+     migration, a money path, or a shared contract, spawn a **fresh independent Fable-5
+     agent ("suerta")** to review the aggregate working-tree diff Architect-style. This is
+     *in addition to* the cross-vendor gate, not a substitute (suerta is same-vendor).
+     Live-validated day one: suerta caught a BLOCKER (dead-voice cache reuse) that the
+     Gemini aggregate review, a fresh-Codex triage, and a Gemini re-audit all missed.
    - **Applies to docs and specs too**, not just code. **Review the *aggregate* diff that
      will actually land**, not each edit in isolation — isolated-edit reviews hide
      interaction bugs (the lesson that motivated this). (Adopted from the pipeline's

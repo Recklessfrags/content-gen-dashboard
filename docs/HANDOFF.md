@@ -329,6 +329,44 @@ Operator GO'd three items at session start (QA baseline · #37 · Casting 2a). B
   posted (GO recap + `dash_0003` heads-up + path-format receipt), and two lessons
   appended to the Process Learnings Ledger.
 
+## Session 2026-07-01/02 (cont.) — voice_templates + the "suerta" reviewer
+
+- **`voice_templates` slice** (spec `docs/slices/slice-casting-voice-templates.md` v2,
+  design `docs/design/casting-voice-templates.md`): recipe library in the Casting
+  Studio (save/apply/delete, hard no-audio-in-library credit guard) +
+  `characters.voice_recipe` cast-time provenance. **`dash_0004` applied + VALIDATED
+  live** (HQ-posted first; 3/3 negative contract tests; separate enforce step).
+- **Review provenance (operator-directed escalation):** Gemini aggregate review +
+  fresh-Codex adversarial triage on the migration/money path + Gemini re-audit +
+  **"suerta"** — an independent Fable-5 agent acting Architect-only (the orchestrating
+  Architect wrote the spec, so per rule 2 it should not be the final Architect-side
+  reviewer on important slices). Suerta caught a **BLOCKER all three prior passes
+  missed**: the retry-guard cache (`createdVoiceIdsRef`) served **deleted** EL voice
+  ids on re-lock after a re-cast (lock A → lock B deletes voice_A → re-lock A stamps
+  dead voice_A). Fixed (purge cache entries matching the deleted `previousVoiceId`)
+  plus three minors (overlays anchored to scroll-origin; drawer+dialog double-trap;
+  sub-surface focus restore defeated by the main trap).
+- **ARCHITECT RULINGS:** (a) `onCharacterPatched` deliberately omits `voice_recipe`
+  (FlatChar carries render-relevant fields only; nothing reads it client-side —
+  suerta independently confirmed the ruling sound). (b) APPLY staging the template's
+  synthesis settings into the live "Save settings" section is intentional (they must
+  reach the eventual lock; nothing persists without the explicit save/lock click) —
+  the applied-notice copy now says so. (c) `template_name` stays sticky for the panel
+  session (provenance "seeded from", noisy-not-wrong; revisit if consumed
+  programmatically).
+- **Money-path hardening** (from the review chain): `saveVoiceWinner` reverted to
+  EL-create-only; new `writeCastToCharacter` does the single characters update with a
+  `.select("id").single()` zero-row guard; retries after a DB-write failure skip the
+  EL create (preview ids are consumed by creation — a blind retry double-spends or
+  strands the flow).
+- **Contract updated** (this file logs the rule-4 ruling): `voice_templates` section +
+  `characters.voice_recipe` row in `docs/contracts/data-contract.md`.
+- **Suerta re-audit: APPROVE WITH NITS.** Residual #1 (BROWSE-while-dialog double-trap)
+  fixed (mutual-exclusion opener). **Residual #2 accepted by ruling:** closing the whole
+  panel via backdrop while a sub-surface is open drops focus to `<body>` — pointer-only
+  path (keyboard users Escape the sub-surface first), low impact; an unmount-time
+  restore touches shared focus semantics and is deferred as a known-minor.
+
 ## Git state
 
 - **Default branch (production):** `claude/new-session-3l99vs`. `main` does not exist.
