@@ -55,6 +55,8 @@ import {
   flattenRevision,
   formatRevisionDate,
   formatUsd,
+  isClearedStatus,
+  isFailedStatus,
   toBible,
   type CostReceipt,
   type EnqueueSubmitResult,
@@ -110,6 +112,24 @@ const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
   used: "Used",
 };
 
+type QueueFilter = "all" | "review" | "errors" | "running" | "done";
+type RunsFilter = "all" | "success" | "running" | "failed";
+
+const QUEUE_FILTERS: ReadonlyArray<{ key: QueueFilter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "review", label: "Needs review" },
+  { key: "errors", label: "Errors" },
+  { key: "running", label: "Running" },
+  { key: "done", label: "Done" },
+];
+
+const RUNS_FILTERS: ReadonlyArray<{ key: RunsFilter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "success", label: "Success" },
+  { key: "running", label: "Running" },
+  { key: "failed", label: "Failed" },
+];
+
 
 
 function formatQueueTimestamp(createdAt: string) {
@@ -133,6 +153,52 @@ function formatQueueTimestamp(createdAt: string) {
   }
 
   return new Date(createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+}
+
+function timestampMs(createdAt: string) {
+  const timestamp = new Date(createdAt).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function queueActionPriority(job: QueueJob) {
+  const status = classifyJobStatus(job.status);
+  if (status === "ready_for_review") return 0;
+  if (status === "error" || status === "stale") return 1;
+  return 2;
+}
+
+function queueJobMatchesFilter(job: QueueJob, filter: QueueFilter) {
+  const status = classifyJobStatus(job.status);
+  if (filter === "all") return true;
+  if (filter === "review") return status === "ready_for_review";
+  if (filter === "errors") return status === "error" || status === "stale";
+  if (filter === "running") return status === "queued" || status === "running";
+  return status === "done" || status === "no_op";
+}
+
+function runMatchesFilter(status: string, filter: RunsFilter) {
+  if (filter === "all") return true;
+  if (filter === "success") return isClearedStatus(status);
+  if (filter === "failed") return isFailedStatus(status);
+  return !isClearedStatus(status) && !isFailedStatus(status);
+}
+
+function splitQueueErrorText(error: string) {
+  const trimmed = error.trim();
+  const [firstRaw, ...restLines] = trimmed.split(/\r?\n/);
+  if (restLines.length > 0) {
+    return {
+      firstLine: firstRaw,
+      rest: restLines.join("\n").trim(),
+    };
+  }
+  if (firstRaw.length <= 160) {
+    return { firstLine: firstRaw, rest: "" };
+  }
+  return {
+    firstLine: `${firstRaw.slice(0, 160).trimEnd()}...`,
+    rest: firstRaw,
+  };
 }
 
 function fieldControlId(characterId: string | null, label: string) {
@@ -382,7 +448,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [view, setView] = useState<View>("roster");
   const [draftIdea, setDraftIdea] = useState("");
   const [draftIdeaNote, setDraftIdeaNote] = useState("");
-  const [ideaNoteFocused, setIdeaNoteFocused] = useState(false);
+  const [draftIdeaCharacterId, setDraftIdeaCharacterId] = useState<string | null>(null);
+  const [draftIdeaChannel, setDraftIdeaChannel] = useState<string | null>(null);
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
+  const [runsFilter, setRunsFilter] = useState<RunsFilter>("all");
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -1074,13 +1143,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     const title = draftIdea.trim();
     const note = draftIdeaNote.trim();
     if (!title || ideaSubmittingTitle === title) return;
+    const characterId = selectedDraftIdeaCharacterId === "" ? null : selectedDraftIdeaCharacterId;
+    const channel = selectedDraftIdeaChannel;
 
     setDraftIdea("");
     setDraftIdeaNote("");
+    setDraftIdeaCharacterId(null);
+    setDraftIdeaChannel(null);
     window.requestAnimationFrame(() => {
       ideaTitleRef.current?.focus();
     });
-    await addIdea(title, note, activeId, CHANNELS[0]);
+    await addIdea(title, note, characterId, channel);
   };
 
   const handleIdeaTitleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1105,8 +1178,25 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const openIdeas = ideas.filter((i) => i.status !== "used").length;
   const activeQueueJobs = jobs.filter((job) => !isTerminalStatus(classifyJobStatus(job.status))).length;
+  const filteredQueueJobs = useMemo(
+    () =>
+      [...jobs]
+        .sort(
+          (a, b) =>
+            queueActionPriority(a) - queueActionPriority(b) ||
+            timestampMs(b.created_at) - timestampMs(a.created_at),
+        )
+        .filter((job) => queueJobMatchesFilter(job, queueFilter)),
+    [jobs, queueFilter],
+  );
+  const filteredEpisodes = useMemo(
+    () => episodes.filter((episode) => runMatchesFilter(episode.status, runsFilter)),
+    [episodes, runsFilter],
+  );
   const ideaCaptureDisabled = Boolean(ideaSubmittingTitle);
   const canSubmitIdea = draftIdea.trim().length > 0 && !ideaCaptureDisabled;
+  const selectedDraftIdeaCharacterId = draftIdeaCharacterId ?? activeId ?? "";
+  const selectedDraftIdeaChannel = draftIdeaChannel ?? CHANNELS[0];
   const dirtyCodename = active?.codename.trim() ? active.codename : "Untitled";
   const mobileActiveManuals = useMemo(
     () =>
@@ -1225,7 +1315,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           {active ? (
             <>
               <span aria-hidden="true">{active.status === "active" ? "● " : "○ "}</span>
-              ACTIVE: {active.codename || "Untitled"}
+              {active.codename || "Untitled"}
               {dirty ? "*" : ""}
             </>
           ) : (
@@ -1262,9 +1352,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           className="railspacer"
           onSubmit={handleExitSubmit}
         >
-          <button className="navbtn" type="submit" title={`Sign out · ${userEmail}`}>
+          <button
+            className="navbtn"
+            type="submit"
+            title={`Sign out · ${userEmail}`}
+            aria-label={`Sign out ${userEmail}`}
+          >
             <Icon name="exit" />
-            <span>Exit</span>
+            <span>Exit {userEmail}</span>
             <div className="dot" />
           </button>
         </form>
@@ -1636,12 +1731,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 </div>
                 <div className="field" style={{ marginTop: 10 }}>
                   <textarea
-                    rows={ideaNoteFocused || draftIdeaNote ? 4 : 1}
+                    rows={2}
                     value={draftIdeaNote}
                     placeholder="Tactical notes, dialogue fragments, or scene beats (optional)..."
                     onChange={(e) => setDraftIdeaNote(e.target.value)}
-                    onFocus={() => setIdeaNoteFocused(true)}
-                    onBlur={() => setIdeaNoteFocused(false)}
                     onKeyDown={handleIdeaNoteKeyDown}
                     disabled={ideaCaptureDisabled}
                     aria-label="New idea note"
@@ -1651,23 +1744,42 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 <div className="row" style={{ marginTop: 10, alignItems: "center" }}>
                   <select
                     className="tag-select"
-                    value={activeId ?? ""}
-                    disabled
+                    value={selectedDraftIdeaCharacterId}
+                    onChange={(event) => setDraftIdeaCharacterId(event.target.value)}
+                    disabled={ideaCaptureDisabled}
                     aria-label="Idea character assignment"
                   >
-                    {active ? (
-                      <option value={active.id}>{active.codename || "Untitled"}</option>
-                    ) : (
-                      <option value="">No dossier assigned</option>
+                    <option value="">No character</option>
+                    {active && (
+                      <option value={active.id}>Current Dossier: {active.codename || "Untitled"}</option>
                     )}
+                    {chars
+                      .filter((character) => character.id !== active?.id && character.status === "active")
+                      .map((character) => (
+                        <option key={character.id} value={character.id}>
+                          ● {character.codename || "Untitled"}
+                        </option>
+                      ))}
+                    {chars
+                      .filter((character) => character.id !== active?.id && character.status !== "active")
+                      .map((character) => (
+                        <option key={character.id} value={character.id}>
+                          ○ {character.codename || "Untitled"}
+                        </option>
+                      ))}
                   </select>
                   <select
                     className="tag-select"
-                    value={CHANNELS[0]}
-                    disabled
+                    value={selectedDraftIdeaChannel}
+                    onChange={(event) => setDraftIdeaChannel(event.target.value)}
+                    disabled={ideaCaptureDisabled}
                     aria-label="Idea channel assignment"
                   >
-                    <option value={CHANNELS[0]}>{CHANNELS[0]}</option>
+                    {CHANNELS.map((channel) => (
+                      <option key={channel} value={channel}>
+                        {channel}
+                      </option>
+                    ))}
                   </select>
                   <button
                     className="btn"
@@ -1889,6 +2001,19 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   Upstream jobs before production. Runs are finished episodes after the worker
                   pipeline writes output.
                 </span>
+                <div className="filter-chips" role="group" aria-label="Filter queue jobs">
+                  {QUEUE_FILTERS.map((filter) => (
+                    <button
+                      key={filter.key}
+                      className={"chip" + (queueFilter === filter.key ? " on" : "")}
+                      type="button"
+                      aria-pressed={queueFilter === filter.key}
+                      onClick={() => setQueueFilter(filter.key)}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {jobsLoading ? (
@@ -1926,9 +2051,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     from The Wire to engage the worker engines.
                   </p>
                 </div>
+              ) : filteredQueueJobs.length === 0 ? (
+                <div className="empty">
+                  <Icon name="queue" />
+                  <h3>No queue matches</h3>
+                  <p>Switch filters to see the rest of the pipeline queue.</p>
+                </div>
               ) : (
                 <div className="wire-list" aria-label="Pipeline jobs">
-                  {jobs.map((job) => {
+                  {filteredQueueJobs.map((job) => {
                     const status = classifyJobStatus(job.status);
                     const actionable = isActionableStatus(status);
                     const terminal = isTerminalStatus(status);
@@ -1972,12 +2103,28 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                               Spend: {formatUsd(job.spend ?? 0)}
                             </div>
                           )}
-                          {job.error && (
-                            <p className="queue-card-substatus" role="status">
-                              {job.park_kind ? `${job.park_kind}: ` : ""}
-                              {job.error}
-                            </p>
-                          )}
+                          {job.error &&
+                            (() => {
+                              const errorText = `${job.park_kind ? `${job.park_kind}: ` : ""}${job.error}`;
+                              const { firstLine, rest } = splitQueueErrorText(errorText);
+                              return rest ? (
+                                <details className="receipt-json-details queue-card-substatus">
+                                  <summary
+                                    className="receipt-json-summary"
+                                    aria-label="Toggle queue error detail"
+                                  >
+                                    {firstLine}
+                                  </summary>
+                                  <pre className="receipt-json-content">
+                                    <code>{rest}</code>
+                                  </pre>
+                                </details>
+                              ) : (
+                                <p className="queue-card-substatus" role="status">
+                                  {firstLine}
+                                </p>
+                              );
+                            })()}
 
                           {actionable && status === "ready_for_review" && (
                             <>
@@ -2094,14 +2241,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                                 }}
                                 aria-haspopup="dialog"
                                 aria-expanded={activeEpisodeId === job.episode_id}
-                                title={
-                                  episodeKnown
-                                    ? "Open run detail"
-                                    : "Episode id is present; run detail opens when the episode row is available."
-                                }
+                                title="Open run detail"
                               >
                                 Open Run Detail
                               </button>
+                            )}
+                            {job.episode_id && !episodeKnown && (
+                              <small className="queue-card-substatus">
+                                Episode id is present; run detail opens when the episode row is available.
+                              </small>
                             )}
                             {job.spend_approved && (
                               <span className="queue-card-substatus">spend authorized</span>
@@ -2140,7 +2288,22 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     : `pipeline output · ${episodes.length} episode${episodes.length === 1 ? "" : "s"}`}
                 </span>
               </div>
-              <div className="cap"><span className="eyebrow">Operation-wide pipeline output — every character&apos;s finished episodes.</span></div>
+              <div className="cap">
+                <span className="eyebrow">Operation-wide pipeline output — every character&apos;s finished episodes.</span>
+                <div className="filter-chips" role="group" aria-label="Filter runs">
+                  {RUNS_FILTERS.map((filter) => (
+                    <button
+                      key={filter.key}
+                      className={"chip" + (runsFilter === filter.key ? " on" : "")}
+                      type="button"
+                      aria-pressed={runsFilter === filter.key}
+                      onClick={() => setRunsFilter(filter.key)}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {episodesLoading ? (
                 <div className="loading">
                   <span className="spin" /> Loading pipeline output…
@@ -2164,9 +2327,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     to the same Supabase this dashboard reads.
                   </p>
                 </div>
+              ) : filteredEpisodes.length === 0 ? (
+                <div className="empty">
+                  <Icon name="runs" />
+                  <h3>No runs match</h3>
+                  <p>Switch filters to see the rest of the pipeline output.</p>
+                </div>
               ) : (
                 <div className="wire-list">
-                  {episodes.map((e) => {
+                  {filteredEpisodes.map((e) => {
                     const gate = e.sentinels?.[e.sentinels.length - 1];
                     return (
                       <button
