@@ -8,10 +8,10 @@ import type { AuroraTheme } from "@/lib/theme";
 
 type AuroraShellProps = {
   children: ReactNode;
-  headerActions?: ReactNode;
+  operatorInitials?: string;
 };
 
-export function AuroraShell({ children, headerActions }: AuroraShellProps) {
+export function AuroraShell({ children, operatorInitials = "OP" }: AuroraShellProps) {
   const [theme, setTheme] = useState<AuroraTheme>("dark");
 
   useEffect(() => {
@@ -28,32 +28,94 @@ export function AuroraShell({ children, headerActions }: AuroraShellProps) {
 
   return (
     <div className="aurora-app" data-aurora-shell="true" data-theme={theme}>
-      <div className="aurora-backdrop" aria-hidden="true" />
-      <div className="aurora-noise" aria-hidden="true" />
+      <div className="aurora-container" aria-hidden="true" />
+      <svg className="noise-overlay" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <filter id="noiseFilter">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.8"
+            numOctaves={3}
+            stitchTiles="stitch"
+          />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noiseFilter)" />
+      </svg>
 
-      <header className="app-header" aria-label="Control Room">
-        <div className="action-row">
-          <span className="avatar avatar--cast avatar--sm" aria-hidden="true">
-            CR
-          </span>
-          <span className="text-title">Control Room</span>
-        </div>
+      <div className="app-container">
+        <header className="app-header">
+          <div className="wordmark">
+            <div className="wordmark-icon avatar avatar--sm" aria-hidden="true">
+              C
+            </div>
+            <div className="wordmark-text text-display">Control Room</div>
+          </div>
+          <div className="header-actions">
+            <button
+              type="button"
+              className="theme-toggle"
+              aria-label={`Switch to ${nextTheme} theme`}
+              aria-pressed={theme === "dark"}
+              onClick={handleToggleTheme}
+            >
+              {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+            </button>
+            <div className="avatar avatar-op avatar--sm" aria-label="Operator">
+              {normalizeInitials(operatorInitials)}
+            </div>
+          </div>
+        </header>
 
-        <div className="action-row">
-          {headerActions}
-          <button
-            type="button"
-            className="au-btn au-btn-ghost"
-            aria-label={`Switch to ${nextTheme} theme`}
-            aria-pressed={theme === "dark"}
-            onClick={handleToggleTheme}
-          >
-            {theme === "dark" ? "Dark" : "Light"}
-          </button>
-        </div>
-      </header>
-
-      <main className="aurora-container">{children}</main>
+        <main>{children}</main>
+      </div>
     </div>
+  );
+}
+
+function normalizeInitials(initials: string): string {
+  const trimmed = initials.trim().slice(0, 3).toUpperCase();
+  return trimmed === "" ? "OP" : trimmed;
+}
+
+function SunIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="5" />
+      <line x1="12" y1="1" x2="12" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="23" />
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+      <line x1="1" y1="12" x2="3" y2="12" />
+      <line x1="21" y1="12" x2="23" y2="12" />
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+      <line x1="18.36" y1="4.22" x2="19.78" y2="5.64" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
   );
 }
