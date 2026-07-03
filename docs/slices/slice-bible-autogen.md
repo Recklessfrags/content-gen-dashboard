@@ -6,6 +6,25 @@ gen and E2 guideline auto-fill). Author: Architect (Claude), 2026-07-03, at oper
 which broke a live Gate-2 render (job #36 parked `exhausted`, wasted LLM spend) — HQ heads-up
 2026-07-02._
 
+## 0. In plain words (read this first)
+**What this is:** right now, someone has to hand-write each character's "bible" (its personality,
+speaking style, length, and legal rules). It's tedious, so it gets skipped or done thin — and when
+it's blank, the video pipeline can't make the episode (that's what broke Fine Print's first render).
+**The fix:** let an AI write a **first draft** of the bible automatically; you read it, tweak it, and
+approve it. You're never handed a blank page, and nothing saves without your OK.
+
+**Do you need to do anything now? No.** This is parked for later (it comes with the Phase-2 Character
+screen). It's written down here so it's ready when we get to it.
+
+**The one decision, when we build it — pre-filled so it's a single "yes":**
+> Using an AI to draft bibles costs a little money each time (roughly a cent or two per draft).
+> **My recommendation:** use **Claude** to write the drafts, with a **~$15/month spending cap**
+> (that's hundreds of drafts). It runs through our own secure setup — the same way the voice casting
+> already works — so no AI ever bills your account directly.
+> **Your choices:** ✅ "yes, do that" · 🔀 "use a different AI" · 💲 "different monthly cap."
+
+_(The rest of this doc is the technical detail for whoever builds it.)_
+
 ## 1. The real reason this exists (not semantics)
 **Manual authoring is the weak link.** A solo, non-technical operator will not reliably hand-author
 dense, structured, required content — a 7-key bible with a `runtime` word-window, register, and legal
@@ -85,10 +104,10 @@ D1's "sanctioned dashboard generation path" decision is **shared** across bible 
   (c) resolve D1 once (shared with E2/2b). **Nothing built until the operator greenlights the
   generation path + spend.**
 
-## 7. Open items for the operator
-1. Greenlight scoping bible auto-draft as a real roadmap item (this doc) — priority vs E2/2b?
-2. **D1 direction is recommended (dashboard edge-proxy generation path — §4).** Operator's part is
-   the **bucket-3 spend + provider/model + key** greenlight (same call as the 2b fork). On your go,
-   I file the **narrow HQ contract-confirm** (the bible fields/shape the worker reads) — not an ask
-   to host generation.
-3. Confirm the guard ships as the interim (Phase-2 fold vs sooner standalone).
+## 7. Open items for the operator (plain)
+Nothing is due now — this is parked. When we reach it, three simple choices (all pre-answered above):
+1. **Build it?** Yes/no — should an AI draft bibles for you (you still edit + approve)?
+2. **The money/AI choice** — my pre-filled recommendation: Claude, ~$15/month cap (see §0). You just
+   confirm, swap the AI, or change the cap.
+3. **The quick safety fix in the meantime** — the "don't let a blank bible slip through" guard: fold
+   it into the Phase-2 build, or do it sooner? (This one costs nothing.)
