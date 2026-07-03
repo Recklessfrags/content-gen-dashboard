@@ -209,3 +209,27 @@ opacity. Not fixed by guess now (locked dark token; approximate math).
 **Lane 1 = reviewed + build-green + visually smoked (not yet browser-ratified against the live DB —
 that gate needs the built screens + QA creds, arrives in the interactive lanes).** Next: Lane 2
 (URL-routing extension + global Channels hub).
+
+---
+
+# Phase-1 Channel-first — Lane 2 (part 1): URL-routing MODEL (pure, tested) — on branch
+
+`src/lib/route.ts` (+ `src/lib/__tests__/route.test.ts`). Pure TS implementation of slice §3's
+hub/channel/tab scope model — the single source of truth the ControlRoom wiring (next lane) will
+use. No React, no `window`, no deps. `parseScope` / `scopeToSearch` / `scopeToUrl` / `scopesEqual`
+/ `isSameScope`. Gate = spec-fidelity (§3) + unit tests; this is non-money/non-migration pure logic,
+so the full Gemini+suerta+browser-ratify gate applies to the *wiring* lane, not this module.
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| L2r-1 | Legacy `?view=*` → one-time redirect to hub channels (§3 Q3) | **PASS** | `parseScope("?view=queue") = {hub:channels, canonicalize:true}` (test). |
+| L2r-2 | Bare `/` and unknown params → hub channels | **PASS** | `""`, `"?"`, `"?foo=bar"` → hub channels, canonicalize:true (tests). |
+| L2r-3 | Unknown/missing `channel` → hub channels | **PASS** | `?channel=ghost` w/ knownChannels=['weird_food'] → hub, canonicalize:true. |
+| L2r-4 | Missing/invalid `tab` → production, canonicalized | **PASS** | `?channel=weird_food` and `&tab=bogus` → workspace production, canonicalize:true. |
+| L2r-5 | Valid scopes not re-canonicalized | **PASS** | `?hub=channels`, `?channel=weird_food&tab=cost` → canonicalize:false. |
+| L2r-6 | Round-trip idempotency parseScope∘scopeToSearch | **PASS** | asserted for hub + workspace scopes; codename w/ special char round-trips. |
+| L2r-7 | Build clean; no deps | **PASS** | `next build` clean; `vitest run` 12/12. |
+
+Next: Lane 2 (part 2) = wire this into ControlRoom.tsx (extend the existing local-state +
+`pushState`/`popstate` pattern — NOT `useSearchParams`-driven, per slice §3 App-Router note) +
+mount the global Channels hub in `.aurora-app`. That lane is the full review + ratify gate.
