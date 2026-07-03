@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { QueueJob } from "../controlroom/shared";
 
 type QueueAction = "fact" | "spend" | "publish" | "stale";
@@ -36,6 +37,21 @@ export function ActionCenter({
   onBack,
   statusLabel,
 }: ActionCenterProps) {
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const previousPendingRef = useRef<typeof pending>(pending);
+
+  useEffect(() => {
+    if (previousPendingRef.current && !pending) {
+      triggerRef.current?.focus();
+    }
+    previousPendingRef.current = pending;
+  }, [pending]);
+
+  const handleRequest: ActionCenterProps["onRequest"] = (job, action, trigger) => {
+    triggerRef.current = trigger;
+    onRequest(job, action, trigger);
+  };
+
   return (
     <section aria-labelledby="action-center-title">
       <div className="action-header">
@@ -91,13 +107,13 @@ export function ActionCenter({
                     park={park}
                     isStale={isStale}
                     publishAllowed={publishAllowed}
-                    onRequest={onRequest}
+                    onRequest={handleRequest}
                   />
                 </div>
 
                 {pendingForRow ? (
                   <InlineConfirm
-                    job={job}
+                    job={pendingForRow.job}
                     action={pendingForRow.action}
                     submitting={submitting}
                     onCancel={onCancel}
@@ -205,12 +221,28 @@ function InlineConfirm({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
   const isFact = action === "fact";
   const isSpend = action === "spend";
   const isPublish = action === "publish";
 
+  useEffect(() => {
+    cancelRef.current?.focus();
+  }, []);
+
   return (
-    <div className="au-inline-confirm" role="group" aria-live="polite">
+    <div
+      className="au-inline-confirm"
+      role="group"
+      aria-live="polite"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && !submitting) {
+          event.preventDefault();
+          event.stopPropagation();
+          onCancel();
+        }
+      }}
+    >
       {isFact ? (
         <div className="au-inline-confirm-copy">
           <p>
@@ -250,7 +282,13 @@ function InlineConfirm({
         </p>
       )}
       <div className="au-inline-confirm-actions">
-        <button className="btn ghost compact" type="button" onClick={onCancel} disabled={submitting}>
+        <button
+          ref={cancelRef}
+          className="btn ghost compact"
+          type="button"
+          onClick={onCancel}
+          disabled={submitting}
+        >
           Cancel
         </button>
         <button

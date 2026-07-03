@@ -501,6 +501,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     action: "fact" | "spend" | "publish" | "stale";
   } | null>(null);
   const [queueActionSubmitting, setQueueActionSubmitting] = useState(false);
+  useEffect(() => {
+    setPendingQueueAction(null);
+  }, [scope]);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewTabRefs = useRef<Record<View, HTMLButtonElement | null>>({
@@ -1129,6 +1132,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     action: "fact" | "spend" | "publish" | "stale",
     trigger: HTMLButtonElement,
   ) => {
+    if (queueActionSubmitting) return;
     queueActionRestoreFocusRef.current = trigger;
     setPendingQueueAction({ job, action });
   };
