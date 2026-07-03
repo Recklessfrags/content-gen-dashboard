@@ -971,6 +971,32 @@
   color: var(--warn); /* Cost requires attention in approval context */
 }
 
+.aurora-app .au-action-meta,
+.aurora-app .au-action-stack,
+.aurora-app .au-inline-confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.aurora-app .au-inline-confirm {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.aurora-app .au-inline-confirm-copy {
+  flex: 1;
+  min-width: 220px;
+}
+
 /* ==========================================================================
    ACTION CENTER / OVERVIEW SCREENS
    ========================================================================== */
