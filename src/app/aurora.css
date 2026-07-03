@@ -40,6 +40,7 @@
   --danger: #FF1744; /* Solid-fill/border token measured on pure #05050A; not for on-tint text. */
   --danger-bg: rgba(255, 23, 68, 0.15);
   --danger-fg: #FF6B81; /* on-tint danger TEXT; 6.10:1 over --surface-1 panel (AA pass). --danger #FF1744 stays for solid fills/borders/dots */
+  --danger-solid: #CC0033; /* solid danger hover-fill for white text; white-on = 5.81:1 (AA). Darker than --danger #FF1744 so white passes */
 
   --status-parked: #9CA3AF; /* Contrast vs #05050A: 7.7:1 (Pass AA) */
   --status-parked-bg: rgba(156, 163, 175, 0.15);
@@ -96,6 +97,7 @@
   --danger: #B91C1C; /* AA-corrected; mock value fails 4.5:1 */
   --danger-bg: rgba(220, 38, 38, 0.15);
   --danger-fg: #B91C1C; /* same as --danger in light; already AA on light tints */
+  --danger-solid: #B91C1C; /* = light --danger; white-on = 6.47:1 (AA), preserves current light hover */
 
   --status-parked: #4B5563; /* Contrast vs #F8F9FA: 7.4:1 (Pass AA) */
   --status-parked-bg: rgba(75, 85, 99, 0.15);
@@ -691,7 +693,7 @@
   border: 1px solid rgba(255, 23, 68, 0.3);
 }
 
-.aurora-app .btn-danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
+.aurora-app .btn-danger:hover:not(:disabled) { background: var(--danger-solid); color: #fff; }
 
 .aurora-app .btn-danger-outline {
   background: transparent;
