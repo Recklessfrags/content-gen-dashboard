@@ -246,6 +246,31 @@ with browser→`*.supabase.co` **bridged through Node fetch** (forwarding the br
 
 **IMMEDIATE #1 = RATIFIED.** The un-ratified `#64` merge is now closed out on the real artifact against the live DB.
 
+## Lane 4 — global inline Action Center (`?hub=actions`) — MONEY PATH, ratified live
+
+Replaces the `?hub=actions` placeholder. New presentational `ActionCenter.tsx` lists `actionableJobs`
+and approves **in-row**, reusing the existing money-path handlers **verbatim** (`requestQueueAction` →
+inline confirm → `confirmQueueAction`; `build{Fact,Spend,Publish}ApprovalReenqueue` + the sole
+`jobs` insert untouched). Publish double-gate preserved (`buildPublishApprovalReenqueue` resume-from-
+episode; button disabled when `publishSourceEpisodeId` null; no Buffer → nothing posts). Fable-5
+round-1 REQUEST-CHANGES (F1: nav left an invisible armed confirm freezing polling globally + stale-
+snapshot fire risk) → folded (clear `pendingQueueAction` on scope change; +a11y Esc/focus-restore;
++submitting-guard) → round-2 re-review. Ratified live against the DB with **all `jobs` writes
+intercepted-and-aborted (0 live writes)**.
+
+| Gate | Result | Evidence |
+| --- | --- | --- |
+| L4-1 Rows render for actionable jobs | **PASS** | 10 rows (8 `ready_for_review` + 2 `stale`) rendered in the Action Center. |
+| L4-2 Correct action per park | **PASS** | Publish rows show "Approve & publish"; stale rows "Re-run Job"; null/unknown parks fall to "Approve spend & continue" (matches legacy). |
+| L4-3 Double-gate step 1 (request, no write) | **PASS** | Clicking a row action opens the inline confirm and writes **0** rows. |
+| L4-4 Poll-survival | **PASS** | With a confirm open, it persists across a >5s poll interval with **0** writes (polling paused via `overlayOpen`). |
+| L4-5 Double-gate step 2 (confirm → exactly one write) | **PASS** | The distinct inline Confirm click produces **exactly 1** intercepted `jobs` POST. |
+| L4-6 Publish payload identity | **PASS** | Intercepted publish POST = `{publish_only:true, publish_approved:true, source_episode_id:set, idempotency_key:null}` (== `buildPublishApprovalReenqueue`). |
+| L4-7 Spend payload identity + double-gate | **PASS** | Intercepted spend POST = `{spend_approved:true, publish_only:false}`; step-1 no write, step-2 one write. |
+| L4-8 F1 fix — nav clears the armed confirm | **PASS** | Open confirm → "Back to Channels" → return to `?hub=actions` → **0** armed confirms (polling not frozen). |
+| L4-9 Zero live writes | **PASS** | Every `jobs` POST intercepted-and-fulfilled 201, never forwarded — **0** rows written to the live DB during ratify. |
+| L4-a11y Esc + focus (rule 29) | **PASS** | Inline confirm auto-focuses Cancel; Escape cancels; focus restores to the triggering row button on close. |
+
 **Lane 1 = reviewed + build-green + visually smoked (not yet browser-ratified against the live DB —
 that gate needs the built screens + QA creds, arrives in the interactive lanes).** Next: Lane 2
 (URL-routing extension + global Channels hub).

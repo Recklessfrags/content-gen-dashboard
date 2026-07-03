@@ -38,6 +38,7 @@ import {
   type Receipt,
 } from "@/lib/types";
 import { AuroraShell } from "./aurora/AuroraShell";
+import { ActionCenter } from "./aurora/ActionCenter";
 import { HubLanding } from "./aurora/HubLanding";
 import type { ChannelCardVM } from "./aurora/ChannelsHub";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
@@ -500,6 +501,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     action: "fact" | "spend" | "publish" | "stale";
   } | null>(null);
   const [queueActionSubmitting, setQueueActionSubmitting] = useState(false);
+  useEffect(() => {
+    setPendingQueueAction(null);
+  }, [scope]);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewTabRefs = useRef<Record<View, HTMLButtonElement | null>>({
@@ -1128,6 +1132,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     action: "fact" | "spend" | "publish" | "stale",
     trigger: HTMLButtonElement,
   ) => {
+    if (queueActionSubmitting) return;
     queueActionRestoreFocusRef.current = trigger;
     setPendingQueueAction({ job, action });
   };
@@ -1536,22 +1541,18 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       <>
         {globalOverlays}
         <AuroraShell operatorInitials={operatorInitials}>
-          <section className="glass-panel au-empty" aria-labelledby="action-center-title">
-            <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
-              {scopeToSearch({ kind: "hub", hub: "actions" })}
-            </p>
-            <h1 id="action-center-title" className="text-display" style={{ fontSize: "2rem" }}>
-              Action Center
-            </h1>
-            <p>Action Center — arrives in the next lane.</p>
-            <button
-              type="button"
-              className="action-button"
-              onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
-            >
-              Back to Channels
-            </button>
-          </section>
+          <ActionCenter
+            jobs={actionableJobs}
+            parkById={jobParkById}
+            pending={pendingQueueAction}
+            submitting={queueActionSubmitting}
+            onRequest={requestQueueAction}
+            onConfirm={confirmQueueAction}
+            onCancel={cancelQueueAction}
+            canPublish={(job) => publishSourceEpisodeId(job) !== null}
+            onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+            statusLabel={(job) => JOB_STATUS_LABELS[classifyJobStatus(job.status)]}
+          />
         </AuroraShell>
       </>
     );
