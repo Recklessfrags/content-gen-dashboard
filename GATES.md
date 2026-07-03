@@ -200,11 +200,25 @@ Review trail:
 | L1-9 | SSR/hydration safe | **PASS** | `suppressHydrationWarning` on `<html>`; pre-hydration script only upgrades to a stored pref; `theme.ts` window-guarded, SSR-defaults "dark" == SSR `data-theme`. |
 | L1-10 | Checkbox/radio target ≥24×24 (WCAG 2.5.8) | **PASS** | Bumped 1.25rem→1.5rem. |
 
-**OPEN (verify on the real artifact at the Lane-2+ browser-ratification gate, §10 gate 12):**
-dark-mode `--danger` badge text (`#FF1744`) is **borderline** (~4.3:1 by static estimate; true
-value depends on the composited surface stack + aurora bleed-through) → **pixel-sample it on the
-rendered dark screens**; if <4.5, darken/lighten the dark danger text or raise `--danger-bg`
-opacity. Not fixed by guess now (locked dark token; approximate math).
+**RESOLVED — dark `--danger` badge AA (PR #65, 2026-07-03).** The open item was a **real FAIL**,
+not borderline: `#FF1744` text on `--danger-bg` composited over the glass panel (`--surface-1`
+`rgba(25,25,35,0.6)` over `#05050A` → opaque `rgb(17,17,25)`; tint over that → `rgb(53,18,31)`) =
+**4.34:1**. The old token comment's 5.2:1 measured pure `#05050A`, not the panel the badge sits on.
+The suggested "raise `--danger-bg` opacity" remedy was proven *wrong* (redder tint → 4.01/3.65).
+Fix = dark-only on-tint text token **`--danger-fg #FF6B81`** (**6.10:1**), routed to the text uses of
+`--danger`; solid fills/borders/dots untouched. Verified by compositing calc **and** a Chromium
+pixel-sample (rendered `rgb(255,107,129)` on `rgb(53,18,31)` = 6.10:1). Fable-5 APPROVE-WITH-NITS.
+| L1-AA1 | Dark danger badge/on-tint text AA ≥4.5:1 | **PASS** | 4.34→**6.10:1**, calc + Chromium pixel-sample; PR #65. |
+
+**RESOLVED — `.btn-danger:hover` white-on-solid AA (PR #66, 2026-07-03).** Fable-surfaced during the
+#65 review: dark hover put white on solid `#FF1744` = **3.85:1** (14px/600 = normal text, fails AA).
+Distinct from the tint case. Fix = dark-only **`--danger-solid #CC0033`** (white-on = **5.81:1**);
+light keeps `#B91C1C` (6.47:1). Verified by forced-`:hover` Chromium render **after the 0.3s
+transition settled** (the un-settled tween misread 4.23 — a measurement artifact). Fable-5 APPROVE.
+| L1-AA2 | Dark `.btn-danger:hover` white-on-solid AA ≥4.5:1 | **PASS** | 3.85→**5.81:1**, settled-state Chromium sample; PR #66. |
+
+**Remaining OPEN AA note (ticketed):** none known in the danger family after #65/#66. Fable's residual
+sweep found no other white-on-solid-danger or on-tint-danger failures.
 
 **Lane 1 = reviewed + build-green + visually smoked (not yet browser-ratified against the live DB —
 that gate needs the built screens + QA creds, arrives in the interactive lanes).** Next: Lane 2
