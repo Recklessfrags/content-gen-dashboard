@@ -34,10 +34,21 @@ Field:
 - **R2-D — Autonomous fusion** (Gemini's call): design a new winner that captures the best of both
   N1 and N3 in its own way.
 
-_Status: **Round 2 field produced** (`directions-v4/`, all four rendered + verified, both modes;
-Supabase nit fixed). Architect seeded read: **C (Bento×Editorial hybrid)** and **B (Terminal Noir
-v2)** lead; A polished/safe; D solid-but-conventional. Convergence toward editorial-serif + bold
-signature + structured cards. **Winners TBD by operator.**_
+Architect seeded read: C and B led. **Operator winners: C (Bento×Editorial hybrid) + D (Autonomous
+fusion).** Operator noted the round looked too similar — because it CONVERGED (evolve/cross the
+winners). Correction: next round diverges.
+
+### Round 3 — DIVERGE, fresh distinct territory (`directions-v5/`)
+C and D held untouched. Four brand-new design languages, forbidden from resembling the five explored
+looks (dossier/bento/brutalist/terminal-noir/console); two free-roam (operator likes the autonomous
+option):
+- **R3-1 Spatial / Aurora** — dimensional depth + ambient light, cyan.
+- **R3-2 Risograph** — print-craft spot-ink/overprint, orange+blue duotone.
+- **R3-3 Avant-garde "TRANSMIT"** (free roam) — bento + colored status edge-bars + outlined numerals.
+- **R3-4 Timeless "CHROMA"** (free roam) — restrained Swiss-premium, blue.
+
+_Status: **Round 3 field produced** (all four rendered + verified, both modes). Contenders now: C, D,
++ these four (+ Transmission held). **Winners TBD by operator.**_
 
 ---
 

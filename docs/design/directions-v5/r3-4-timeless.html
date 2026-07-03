@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Room</title>
+<style>
+  :root {
+    --bg: #F3F2EE;
+    --surface: #FCFCFA;
+    --border: #E0DFDB;
+    --border-strong: #C4C3BE;
+    --text: #171717;
+    --text-dim: #6B6A65;
+    --signature: #0033E6;
+    --signature-hover: #002ACC;
+    --success: #0F7A41;
+    --warn: #B85C00;
+    --danger: #D12424;
+    --focus: rgba(0, 51, 230, 0.4);
+    
+    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --radius: 2px;
+    
+    color-scheme: light dark;
+  }
+
+  html[data-theme="dark"] {
+    --bg: #0B0B0D;
+    --surface: #141417;
+    --border: #2B2B30;
+    --border-strong: #45454D;
+    --text: #F2F2F5;
+    --text-dim: #94949E;
+    --signature: #3D6BFF;
+    --signature-hover: #668CFF;
+    --success: #34D399;
+    --warn: #FBBF24;
+    --danger: #F87171;
+    --focus: rgba(61, 107, 255, 0.4);
+  }
+
+  /* Reset & Base */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Texture & Graticule */
+  .texture-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.25;
+    mix-blend-mode: multiply;
+  }
+  html[data-theme="dark"] .texture-overlay {
+    opacity: 0.15;
+    mix-blend-mode: overlay;
+  }
+  .graticule {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: 
+      linear-gradient(to right, var(--border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    background-size: 8rem 8rem;
+    opacity: 0.4;
+    z-index: -1;
+  }
+
+  /* Focus & Motion */
+  :focus-visible {
+    outline: 2px solid var(--signature);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--focus);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    button, a, .card, .theme-toggle {
+      transition: all 0.1s linear;
+    }
+  }
+
+  /* Typography Utilities */
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .label-micro {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+
+  /* Layout */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-strong);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  
+  .wordmark {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .wordmark-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    background: var(--signature);
+    border-radius: 1px;
+    position: relative;
+  }
+  .wordmark-icon::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border: 1.5px solid var(--bg);
+    border-radius: 0.5px;
+  }
+
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  /* Hero / Bento Section */
+  .hero-bento {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 1.5rem;
+    position: relative;
+  }
+
+  .bento-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    position: relative;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  .action-center {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 2rem;
+    border-left: 4px solid var(--signature);
+  }
+  .ac-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--signature);
+    border-radius: 50%;
+    position: relative;
+  }
+  .pulse-dot::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border: 1px solid var(--signature);
+    border-radius: 50%;
+    animation: pulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+  }
+  @keyframes pulse {
+    0% { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+
+  .ac-content h1 {
+    font-size: 2.5rem;
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+  .ac-content p {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+  }
+  .btn-primary {
+    background: var(--signature);
+    color: #FFFFFF;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: var(--radius);
+    cursor: pointer;
+    align-self: flex-start;
+  }
+  .btn-primary:hover {
+    background: var(--signature-hover);
+  }
+  html[data-theme="dark"] .btn-primary {
+    color: #000000;
+  }
+
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .metric-value {
+    font-size: 1.5rem;
+    font-weight: 400;
+    color: var(--text);
+  }
+
+  .new-channel-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    text-align: center;
+    border: 1px dashed var(--border-strong);
+    background: transparent;
+    cursor: pointer;
+    min-height: 100%;
+  }
+  .new-channel-panel:hover {
+    background: var(--surface);
+    border-color: var(--signature);
+  }
+  .new-channel-panel .icon-plus {
+    width: 2rem;
+    height: 2rem;
+    color: var(--text-dim);
+  }
+  .new-channel-panel:hover .icon-plus {
+    color: var(--signature);
+  }
+
+  /* Section Header */
+  .section-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--text);
+    padding-bottom: 0.5rem;
+  }
+  .section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Channels Grid */
+  .channels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .channel-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    position: relative;
+  }
+  .channel-card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px -4px rgba(0,0,0,0.05);
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  /* Avatars */
+  .avatar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--surface);
+  }
+  .avatar-cast-1 { background: linear-gradient(135deg, #FF512F 0%, #F09819 100%); }
+  .avatar-cast-2 { background: linear-gradient(135deg, #1A2980 0%, #26D0CE 100%); }
+  .avatar-cast-3 { background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%); }
+  
+  .avatar-uncast {
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 3px,
+      var(--border-strong) 3px,
+      var(--border-strong) 4px
+    );
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+  }
+  .avatar-uncast-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    background: var(--surface);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius);
+  }
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .status-dot.active { background: var(--success); }
+  .status-dot.idle { background: var(--text-dim); }
+
+  .card-middle {
+    flex-grow: 1;
+  }
+  .card-title {
+    font-size: 1.5rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-top: 1px dotted var(--border-strong);
+    padding-top: 1rem;
+  }
+  .cost-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .cost-value {
+    font-size: 1.15rem;
+    color: var(--text);
+  }
+
+  /* Theme Toggle */
+  .theme-toggle {
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .theme-toggle:hover {
+    background: var(--border);
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .hero-bento {
+      grid-template-columns: 1fr;
+    }
+    .new-channel-panel {
+      min-height: 120px;
+    }
+  }
+  @media (max-width: 412px) {
+    .overview-grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+    .channels-grid {
+      grid-template-columns: 1fr;
+    }
+    .ac-content h1 {
+      font-size: 2rem;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Physical Texture Overlays -->
+  <svg class="texture-overlay" xmlns="http://www.w3.org/2000/svg">
+    <filter id="noiseFilter">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="1 0 0 0 0, 0 1 0 0 0, 0 0 1 0 0, 0 0 0 0.4 0" />
+    </filter>
+    <rect width="100%" height="100%" filter="url(#noiseFilter)"/>
+  </svg>
+  <div class="graticule"></div>
+
+  <header>
+    <div class="wordmark">
+      <div class="wordmark-icon"></div>
+      CHROMA // CONTROL
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+      <span id="theme-label">LIGHT</span>
+    </button>
+  </header>
+
+  <main>
+    <section class="hero-bento">
+      <div class="bento-panel action-center">
+        <div>
+          <div class="ac-header">
+            <span class="pulse-dot"></span>
+            <span class="label-micro">System Alert</span>
+          </div>
+          <div class="ac-content" style="margin-top: 1.5rem;">
+            <h1>3 Approvals Awaiting</h1>
+            <p>Video Review (2), Script Signoff (1)</p>
+          </div>
+        </div>
+        
+        <button class="btn-primary">Resolve Queue</button>
+
+        <div class="overview-grid">
+          <div class="metric">
+            <span class="label-micro">Channels</span>
+            <span class="metric-value mono">04</span>
+          </div>
+          <div class="metric">
+            <span class="label-micro">Active Runs</span>
+            <span class="metric-value mono">08</span>
+          </div>
+          <div class="metric">
+            <span class="label-micro">30D Spend</span>
+            <span class="metric-value mono">$4,215</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="bento-panel new-channel-panel">
+        <svg class="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span class="label-micro">Initialize Channel</span>
+      </button>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <h2 class="section-title">Network Roster</h2>
+        <span class="label-micro">Sort: Activity</span>
+      </div>
+
+      <div class="channels-grid">
+        
+        <!-- Card 1: Cast -->
+        <article class="channel-card">
+          <div class="card-top">
+            <div class="avatar-wrap">
+              <div class="avatar avatar-cast-1" aria-label="Cast: Cosmic Mysteries">CM</div>
+              <span class="label-micro">CAST</span>
+            </div>
+            <div class="status-badge">
+              <span class="status-dot active"></span>
+              <span class="label-micro">2 JOBS</span>
+            </div>
+          </div>
+          <div class="card-middle">
+            <h3 class="card-title">Cosmic Mysteries</h3>
+          </div>
+          <div class="card-bottom">
+            <div class="cost-block">
+              <span class="label-micro">30D Cost</span>
+              <span class="cost-value mono">$1,240</span>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </div>
+        </article>
+
+        <!-- Card 2: Uncast -->
+        <article class="channel-card">
+          <div class="card-top">
+            <div class="avatar-wrap">
+              <div class="avatar avatar-uncast" aria-label="Uncast placeholder">
+                <div class="avatar-uncast-icon">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </div>
+              </div>
+              <span class="label-micro" style="color: var(--warn)">UNCAST</span>
+            </div>
+            <div class="status-badge">
+              <span class="status-dot idle"></span>
+              <span class="label-micro">0 JOBS</span>
+            </div>
+          </div>
+          <div class="card-middle">
+            <h3 class="card-title">Declassified History</h3>
+          </div>
+          <div class="card-bottom">
+            <div class="cost-block">
+              <span class="label-micro">30D Cost</span>
+              <span class="cost-value mono">$45</span>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </div>
+        </article>
+
+        <!-- Card 3: Cast -->
+        <article class="channel-card">
+          <div class="card-top">
+            <div class="avatar-wrap">
+              <div class="avatar avatar-cast-2" aria-label="Cast: Weird Food">WF</div>
+              <span class="label-micro">CAST</span>
+            </div>
+            <div class="status-badge">
+              <span class="status-dot active"></span>
+              <span class="label-micro">1 JOB</span>
+            </div>
+          </div>
+          <div class="card-middle">
+            <h3 class="card-title">Weird Food</h3>
+          </div>
+          <div class="card-bottom">
+            <div class="cost-block">
+              <span class="label-micro">30D Cost</span>
+              <span class="cost-value mono">$830</span>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </div>
+        </article>
+
+        <!-- Card 4: Cast -->
+        <article class="channel-card">
+          <div class="card-top">
+            <div class="avatar-wrap">
+              <div class="avatar avatar-cast-3" aria-label="Cast: Unusual Animal Facts">UA</div>
+              <span class="label-micro">CAST</span>
+            </div>
+            <div class="status-badge">
+              <span class="status-dot active"></span>
+              <span class="label-micro">5 JOBS</span>
+            </div>
+          </div>
+          <div class="card-middle">
+            <h3 class="card-title">Unusual Animal Facts</h3>
+          </div>
+          <div class="card-bottom">
+            <div class="cost-block">
+              <span class="label-micro">30D Cost</span>
+              <span class="cost-value mono">$2,100</span>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </div>
+        </article>
+
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const currentTheme = html.getAttribute('data-theme');
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', newTheme);
+      document.getElementById('theme-label').textContent = newTheme.toUpperCase();
+    }
+  </script>
+</body>
+</html>
