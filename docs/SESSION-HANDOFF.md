@@ -11,7 +11,101 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-03) — PHASE-1 DESIGN LOCKED (Aurora); NEXT SESSION = BUILD. Read this first.
+## ⚡ LATEST (2026-07-03) — PHASE-1 BUILD: Lanes 1 / 2a / 2b landed + Fable-approved. Read this first.
+
+> **PROCESS CHANGE (operator, 2026-07-03): the pre-merge review gate is now FABLE-5 ONLY** ("only
+> use fable before merge") — Codex stays the builder; drop Gemini/suerta from the review SEAT. The
+> loop: Codex builds → Architect commits → **Fable-5 reviews before merge** → fold → re-review until
+> APPROVE → merge. **Operator also directed: proceed autonomously, keep looping, don't stop to ask;
+> route questions to Fable first, only defer to the operator if truly blocked, then move on. Small
+> spend is ungated. Update HQ frequently for the pipeline.** (Earlier lanes below used Gemini+suerta;
+> that's superseded.)
+>
+> **DESIGN-FIDELITY METHOD (operator, 2026-07-03): build from the MOCK's CSS, not the markdown
+> summary.** The HTML mocks are the source of truth; if spec and mock disagree, the mock wins. Make
+> fidelity a MEASURED gate: render built-vs-mock in Chromium and pixel-diff (mask the animated
+> translucent backdrop + the intentional data omissions). `aurora.css` was rebuilt to lift the mock
+> CSS verbatim on this basis (0.52%/0.65% content-diff proven).
+
+Build session on branch **`claude/channel-first-phase1-build-gji3vi`** (fresh from production
+`new-session-3l99vs`; harness-designated working-branch name; kickoff's `…-dx9gan` superseded). **Lanes
+1, 2a, 2b are built, Fable-gated, and pushed** (NOT yet merged to production, NOT yet browser-ratified
+against the live DB — that needs QA creds, see the blocker below):
+
+- **Lane 1 — Aurora design-system FOUNDATION** (commit `483de36`). New `src/app/aurora.css` (tokens
+  light+dark under `[data-theme]`, aurora backdrop + monochrome noise, glass panel, `.au-btn*` /
+  `.au-badge` primitives **renamed off the legacy globals `.btn`/`.status-badge` to avoid bleed**,
+  inputs, avatars, self-contained channel card, action-center hero + inline row, layout helpers,
+  focus-visible, reduced-motion) + `layout.tsx` (import, `data-theme="dark"` default, SSR-safe
+  pre-hydration theme script, theme-aware `themeColor`) + `src/lib/theme.ts` (theme seam + live
+  `<meta theme-color>` sync). **Additive, scoped under `.aurora-app`; the legacy `.cr` app is
+  untouched and still builds.** Full review loop: **Gemini + suerta(Opus)** both REQUEST-CHANGES →
+  all folded. suerta caught a real WCAG-AA blocker the other lenses missed — light-mode danger/warn
+  badge text failed 4.5:1 on their own 15% tints; corrected (`--danger:#B91C1C`, `--warn:#92400E`,
+  light only) and **proven by measurement** (5.10 / 6.05 / 5.82). Build clean; visual smoke Chromium
+  dark+light @1440 + 412. Gates `L1-1..L1-10` PASS in `GATES.md`.
+  - **OPEN AA item (carry forward):** dark-mode `--danger` badge text (`#FF1744`) is borderline
+    (~4.3:1 by static estimate; true value depends on the composited surface + aurora bleed-through)
+    → **pixel-sample it on the rendered dark screens at the first browser-ratification gate**; if
+    <4.5, darken/brighten the dark danger text or raise `--danger-bg` opacity.
+  - **AA fidelity note:** `aurora.css` was later REWRITTEN to lift the mock CSS verbatim (commit
+    `9825040`) — supersedes the hand-port; kept the AA light-token corrections + `isolation:isolate` +
+    focus-visible + reduced-motion; 3 legacy-collision renames (`status-badge`→`status-chip`,
+    `metric-value`→`au-metric-value`, `pulse-dot`→`au-pulse-dot`). One real bug fixed: the scoped
+    reset lacked `margin:0/padding:0` → default `<h1>/<p>` margins inflated text ~100px. Gates
+    `L1F-1..L1F-5` PASS. **OPEN AA item still stands:** dark `--danger` badge ~4.3:1 → pixel-sample at
+    the first live-ratify gate.
+- **Lane 2a — URL-routing MODEL** (commit `af5e8c5`). `src/lib/route.ts` + 12 tests — pure TS for
+  slice §3 (hub/channel/tab; legacy `?view=`→hub; bare→hub; unknown channel→hub; invalid
+  tab→production; idempotent). Gates `L2r-1..L2r-7` PASS.
+- **Lane 2b — hub + routing wiring — FABLE-APPROVED** (hub rebuild `<hub commit>`, wiring `8697979`,
+  fixes `1767bae`). `HubLanding`/`ChannelsHub`/`AuroraShell` built from the mock markup (1.71% diff);
+  `ControlRoom.tsx` wired to `route.ts` as the new shell. **Interim DUAL-SHELL:** hub is the landing;
+  the legacy `.cr` shell stays fully reachable (valid `?view=` opens it + a "Legacy console" button)
+  so nothing is dark while surfaces re-parent. Fable round-1 REQUEST-CHANGES (4 blockers) → folded →
+  round-2 **APPROVE-WITH-NITS**. Gates `L2b-1..L2b-6` PASS. Accepted nits + the **N11 "add a hub link
+  in the legacy rail"** carry to Lane 3.
+
+**FUTURE-WORK SPECS (drafted + consensus-reviewed this session):**
+`slice-channel-first-phase2.md` (FK + casting de-modal) and `slice-channel-first-phase3.md`
+(threading) are **v2** — a full 3-way review (Fable-5 + Gemini + Codex) returned REQUEST-CHANGES with
+converged, code-verified blockers (Phase-3's killer: approval re-enqueues force `idempotency_key:null`
+→ the map/correlation join would orphan every money-spending re-run; fixed in v2 by a jobs.ts
+non-null-key change + the missed `stale` path + owner-integrity RLS + owner-scoped residuals). Round-2
+(**Fable-only** now) pending before Phase-2/3 build — which is gated behind Phase 1 anyway.
+
+**HQ:** posted a comment on the 📮 Coordination Log (2026-07-03): Phase-1 has NO shared-seam impact;
+filed the Phase-2 dependency — **does the pipeline worker read `channel_profiles.character`?** (they
+need lead time); echoed the Phase-3 `episodes.correlation_key` gate.
+
+**NEXT LANES (Fable-only pre-merge gate; live-ratify when QA creds land):**
+1. **Lane 4 — global inline Action Center** (`?hub=actions`, replaces the placeholder) — reuse
+   `QueueActionDialog`'s handlers/validation, DISCARD its modal chrome, act **in-row**, KEEP the
+   publish double-gate. **Money path → Fable gate is mandatory; assert intercepted payloads + the
+   double-gate intact.** Poll-surviving.
+2. **Lane 3 — re-parent the 4 workspace tabs** (Production·Character·Guidelines·Cost) replacing the
+   placeholders, rebuilt against Aurora; Fork-A `channelId` prop toggles global vs channel-scoped
+   (build each once; no leak). Production scopes Ideas+Queue (real cols); Runs/Cost = honest DEFERRED
+   state (§4). Fold **N11** (hub link in the legacy rail).
+3. **Lane 5 — retire the legacy shell** once all surfaces re-parented; reinstate §3 Q3's one-time
+   legacy `?view=`→hub redirect (deferred during the dual-shell interim, commented in ControlRoom).
+Then Phase 2 / Phase 3 (specs v2 above; round-2 Fable review first).
+
+**BLOCKER for ratifying lanes 2b+:** **QA creds (`RATIFY_EMAIL`/`RATIFY_PASSWORD`) are NOT in the
+container** — request from the operator and put in gitignored `.env.local` before the ratify gates.
+Design-system + routing-model lanes did not need them; every data-driven screen does.
+
+**Toolchain confirmed live this session:** Codex (login via `printenv OPENAI_API_KEY | codex login
+--with-api-key`), `scripts/gemini.sh` REST (default `gemini-3.1-pro-preview`), suerta via Agent tool
+(the `claude`/`general-purpose` subagent). Visual smoke = inline the shipped CSS into a standalone
+HTML + Chromium at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome` (run the node script from the
+repo root so it resolves `playwright`). WCAG contrast proved with a small node compositing calculator
+(composite the 15% badge tint over the surface, then ratio vs text — pure-white is NOT the effective
+bg). **Codex did NOT touch `docs/HANDOFF.md` this session (guard held).**
+
+---
+
+## ⚡ (2026-07-03) — PHASE-1 DESIGN LOCKED (Aurora). Context for the build above.
 
 The Phase-1 **design is done and chosen**; the next session **builds** it. Full kickoff (branch +
 paste-in starting prompt + traps): **`docs/PHASE1-BUILD-KICKOFF.md`**.

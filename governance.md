@@ -209,7 +209,10 @@ project's memory names the concrete models per tier.
     nearly free; the expensive thing is a small task appended to a *large* context. Batch related
     small tasks while context is small, and **end the session once context has outgrown the work
     remaining** — hand off to a fresh one rather than paying top-of-context rates for a trailing
-    errand. The trigger to stop is context weight, not a task count.
+    errand. The trigger to stop is context weight, not a task count. **Measure an autonomous run by
+    what it *ships*, not by specs or reviews ratified** — reserve budget for the build→verify→land
+    tail, and treat refining a spec past mid-run as the signal to **ship what's sound** rather than
+    polish it further.
 31. **Match the tier to the stakes; move in both directions deliberately.** Default to the
     standard capable model. **Escalate to the top tier for genuinely high-stakes or hardest work**
     — the thorniest architecture and fork decisions — by judgment, not permission; it is still
@@ -229,7 +232,9 @@ project's memory names the concrete models per tier.
     seat is **sized to the stakes like any other work (rule 31)** — escalating to the top tier by
     judgment when the review itself is high-stakes (finding a subtle flaw is often harder than
     writing it), never down-tiered below the work's stakes. A typo or low-stakes doc touch keeps
-    rule 5's single pass.
+    rule 5's single pass. **Cap design/spec review at ~2 rounds for *soundness*, then build** — the
+    change's own adversarial review catches the acceptance-criteria/wording tail; don't let a
+    spec→review→consensus loop consume the run before anything is built.
 34. **Fetch shared coordination state by the specific page/row you need, not the whole log.** The
     shared store grows without bound; paging it all in to read one row is the same waste as rule
     32's un-summarized sweep. Fetch the child page/row/query you need. Keeping the log pruned —

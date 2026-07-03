@@ -37,6 +37,9 @@ import {
   type IdeaStatus,
   type Receipt,
 } from "@/lib/types";
+import { AuroraShell } from "./aurora/AuroraShell";
+import { HubLanding } from "./aurora/HubLanding";
+import type { ChannelCardVM } from "./aurora/ChannelsHub";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
@@ -47,6 +50,17 @@ import { HistoryDrawer } from "./controlroom/HistoryDrawer";
 import { OverviewDashboard } from "./controlroom/OverviewDashboard";
 import { QueueActionDialog } from "./controlroom/QueueActionDialog";
 import { VisualIdentityPanel } from "./controlroom/VisualIdentityPanel";
+import {
+  DEFAULT_HUB,
+  DEFAULT_TAB,
+  WORKSPACE_TABS,
+  parseScope,
+  scopeToSearch,
+  scopeToUrl,
+  scopesEqual,
+  type AppScope,
+  type WorkspaceTab,
+} from "@/lib/route";
 import {
   Icon,
   Field,
@@ -93,9 +107,7 @@ function readViewFromUrl(): View | null {
   return isView(value) ? value : null;
 }
 function viewUrl(view: View): string {
-  const params = new URLSearchParams(window.location.search);
-  params.set("view", view);
-  return `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+  return `${window.location.pathname}?view=${view}${window.location.hash}`;
 }
 
 function isApprovalParkKind(
@@ -129,6 +141,13 @@ const RUNS_FILTERS: ReadonlyArray<{ key: RunsFilter; label: string }> = [
   { key: "running", label: "Running" },
   { key: "failed", label: "Failed" },
 ];
+
+const WORKSPACE_TAB_LABELS: Record<WorkspaceTab, string> = {
+  production: "Production",
+  character: "Character",
+  guidelines: "Guidelines",
+  cost: "Cost",
+};
 
 
 
@@ -181,6 +200,22 @@ function runMatchesFilter(status: string, filter: RunsFilter) {
   if (filter === "success") return isClearedStatus(status);
   if (filter === "failed") return isFailedStatus(status);
   return !isClearedStatus(status) && !isFailedStatus(status);
+}
+
+function channelInitials(channel: string, character: string | null | undefined) {
+  const source = `${channel} ${character ?? ""}`;
+  const chars = source.match(/[a-z0-9]/gi) ?? [];
+  return chars.slice(0, 2).join("").toUpperCase() || "CH";
+}
+
+function comparableChannel(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function operatorInitialsFromEmail(email: string) {
+  const localPart = email.split("@")[0] ?? "";
+  const chars = localPart.match(/[a-z0-9]/gi) ?? [];
+  return chars.slice(0, 2).join("").toUpperCase() || "OP";
 }
 
 function splitQueueErrorText(error: string) {
@@ -449,6 +484,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [pendingDirtyAction, setPendingDirtyAction] = useState<PendingDirtyAction | null>(null);
   const [isRestoredDraft, setIsRestoredDraft] = useState(false);
   const [view, setView] = useState<View>("roster");
+  const [scope, setScope] = useState<AppScope>({ kind: "hub", hub: DEFAULT_HUB });
+  const [legacyShellOpen, setLegacyShellOpen] = useState(false);
   const [draftIdea, setDraftIdea] = useState("");
   const [draftIdeaNote, setDraftIdeaNote] = useState("");
   const [draftIdeaCharacterId, setDraftIdeaCharacterId] = useState<string | null>(null);
@@ -497,6 +534,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const queueActionRestoreFocusRef = useRef<HTMLElement | null>(null);
   const exitFormRef = useRef<HTMLFormElement>(null);
   const ideaTitleRef = useRef<HTMLTextAreaElement>(null);
+  const didInitScopeRef = useRef(false);
   const showFlash = useCallback((msg: string, err = false) => {
     setFlash({ msg, err });
     if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -629,6 +667,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     () => computeCostStats(episodes, costReceipts, chars),
     [chars, costReceipts, episodes],
   );
+  const knownChannels = useMemo(
+    () => channelProfiles.map((profile) => profile.channel),
+    [channelProfiles],
+  );
+  const operatorInitials = useMemo(() => operatorInitialsFromEmail(userEmail), [userEmail]);
   const currentEditableFields = useMemo(() => (active ? editableSnapshot(active) : null), [active]);
   const savedEditableFields = activeId
     ? (savedSnapshots[activeId] ?? currentEditableFields)
@@ -637,9 +680,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const overlayOpen = activeEpisodeId !== null || pendingQueueAction !== null;
   const POLL_MS = 5000;
 
-  usePolling(pollJobs, { enabled: view === "queue" && !overlayOpen, intervalMs: POLL_MS });
+  usePolling(pollJobs, {
+    enabled: ((!legacyShellOpen) || view === "queue") && !overlayOpen,
+    intervalMs: POLL_MS,
+  });
   usePolling(pollEpisodes, {
-    enabled: (view === "runs" || view === "queue") && !overlayOpen,
+    enabled: ((!legacyShellOpen) || view === "runs" || view === "queue") && !overlayOpen,
     intervalMs: POLL_MS,
   });
 
@@ -761,33 +807,137 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     [activateViewTab, focusViewTab],
   );
 
-  // Restore the active view from the URL on mount (client-only effect, not a
-  // lazy state initializer, to avoid an SSR/hydration mismatch). Normalize the
-  // URL so the first history entry carries the resolved ?view= param.
-  useEffect(() => {
-    const fromUrl = readViewFromUrl();
-    if (fromUrl && fromUrl !== view) setView(fromUrl);
-    window.history.replaceState(null, "", viewUrl(fromUrl ?? view));
-    // run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const navigate = useCallback((next: AppScope) => {
+    setLegacyShellOpen(false);
+    setScope(next);
+    if (typeof window !== "undefined") {
+      window.history.pushState(
+        null,
+        "",
+        scopeToUrl(next, window.location.pathname, window.location.hash),
+      );
+    }
   }, []);
 
-  // Browser back/forward: sync the view to the URL. Routed through the dirty
-  // guard (no pushState here — the browser already changed history). If the user
-  // chooses "keep editing", revert the URL to the still-current view so URL and
-  // view stay consistent.
+  const openLegacyConsole = useCallback(
+    (nextView: View = "roster") => {
+      guardDirtyAction(() => {
+        setLegacyShellOpen(true);
+        setView(nextView);
+        if (typeof window !== "undefined") {
+          window.history.pushState(null, "", viewUrl(nextView));
+        }
+      });
+    },
+    [guardDirtyAction],
+  );
+
+  useEffect(() => {
+    if (didInitScopeRef.current) return;
+
+    const fromUrl = readViewFromUrl();
+    if (fromUrl !== null) {
+      didInitScopeRef.current = true;
+      if (fromUrl !== view) setView(fromUrl);
+      setLegacyShellOpen(true);
+      // Interim dual-shell lane: valid legacy ?view= links stay on the legacy
+      // console until every legacy surface has been re-parented into Aurora.
+      window.history.replaceState(null, "", viewUrl(fromUrl));
+      return;
+    }
+
+    if (channelProfilesLoading) return;
+
+    didInitScopeRef.current = true;
+    const { scope: nextScope, canonicalize } = parseScope(window.location.search, {
+      knownChannels: channelProfilesError !== null ? undefined : knownChannels,
+    });
+
+    setScope((current) => (scopesEqual(current, nextScope) ? current : nextScope));
+    setLegacyShellOpen(false);
+
+    if (canonicalize) {
+      window.history.replaceState(
+        null,
+        "",
+        scopeToUrl(nextScope, window.location.pathname, window.location.hash),
+      );
+    }
+  }, [channelProfilesError, channelProfilesLoading, knownChannels, view]);
+
+  useEffect(() => {
+    if (
+      !didInitScopeRef.current ||
+      legacyShellOpen ||
+      channelProfilesLoading ||
+      channelProfilesError !== null ||
+      scope.kind !== "workspace" ||
+      knownChannels.includes(scope.channel)
+    ) {
+      return;
+    }
+
+    const nextScope: AppScope = { kind: "hub", hub: DEFAULT_HUB };
+    setScope(nextScope);
+    window.history.replaceState(
+      null,
+      "",
+      scopeToUrl(nextScope, window.location.pathname, window.location.hash),
+    );
+  }, [channelProfilesError, channelProfilesLoading, knownChannels, legacyShellOpen, scope]);
+
   useEffect(() => {
     const onPopState = () => {
-      const fromUrl = readViewFromUrl() ?? "roster";
-      if (fromUrl === view) return;
+      const fromUrl = readViewFromUrl();
+      const cancelUrl = legacyShellOpen
+        ? viewUrl(view)
+        : scopeToUrl(scope, window.location.pathname, window.location.hash);
+
+      if (fromUrl !== null) {
+        if (legacyShellOpen && fromUrl === view) return;
+        guardDirtyAction(
+          () => {
+            setView(fromUrl);
+            setLegacyShellOpen(true);
+          },
+          () => window.history.replaceState(null, "", cancelUrl),
+        );
+        return;
+      }
+
+      const { scope: nextScope, canonicalize } = parseScope(window.location.search, {
+        knownChannels:
+          channelProfilesLoading || channelProfilesError !== null ? undefined : knownChannels,
+      });
+
+      if (scopesEqual(nextScope, scope) && !canonicalize && !legacyShellOpen) return;
+
       guardDirtyAction(
-        () => setView(fromUrl),
-        () => window.history.replaceState(null, "", viewUrl(view)),
+        () => {
+          setLegacyShellOpen(false);
+          setScope(nextScope);
+          if (canonicalize) {
+            window.history.replaceState(
+              null,
+              "",
+              scopeToUrl(nextScope, window.location.pathname, window.location.hash),
+            );
+          }
+        },
+        () => window.history.replaceState(null, "", cancelUrl),
       );
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [guardDirtyAction, view]);
+  }, [
+    channelProfilesError,
+    channelProfilesLoading,
+    guardDirtyAction,
+    knownChannels,
+    legacyShellOpen,
+    scope,
+    view,
+  ]);
 
   useEffect(() => {
     setHistoryOpen(false);
@@ -1197,6 +1347,76 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     () => episodes.filter((episode) => runMatchesFilter(episode.status, runsFilter)),
     [episodes, runsFilter],
   );
+  const actionableJobs = useMemo(
+    () => jobs.filter((job) => isActionableStatus(classifyJobStatus(job.status))),
+    [jobs],
+  );
+  const hubChannelCards = useMemo<ChannelCardVM[]>(
+    () =>
+      channelProfiles.map((profile) => ({
+        channel: profile.channel,
+        displayName: profile.display_name?.trim() || profile.channel,
+        cast: Boolean(profile.character?.trim()),
+        avatarUrl: null,
+        initials: channelInitials(profile.channel, profile.character),
+        activeJobs: jobs.filter((job) => {
+          const jobChannel = comparableChannel(job.channel);
+          return (
+            jobChannel !== "" &&
+            jobChannel === comparableChannel(profile.channel) &&
+            !isTerminalStatus(classifyJobStatus(job.status))
+          );
+        }).length,
+      })),
+    [channelProfiles, jobs],
+  );
+  const activeRuns = useMemo(
+    () => episodes.filter((episode) => runMatchesFilter(episode.status, "running")).length,
+    [episodes],
+  );
+  const spend30d = useMemo(() => {
+    if (!costReceiptsLoaded || costReceiptsLoading || costReceiptsError) return null;
+
+    const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const total = costStats.episodeCosts.reduce((sum, episodeCost) => {
+      const createdMs = new Date(episodeCost.episode.created_at).getTime();
+      if (!Number.isFinite(createdMs) || createdMs < cutoffMs) return sum;
+      return sum + episodeCost.liveSpend;
+    }, 0);
+
+    return formatUsd(total);
+  }, [costReceiptsError, costReceiptsLoaded, costReceiptsLoading, costStats.episodeCosts]);
+  const hubActionItems = useMemo(
+    () =>
+      actionableJobs.slice(0, 2).map((job) => ({
+        id: job.id,
+        title: job.channel ?? job.food,
+        detail: `${JOB_STATUS_LABELS[classifyJobStatus(job.status)]} · ${job.food}`,
+      })),
+    [actionableJobs],
+  );
+  const hubLandingProps = {
+    channels: {
+      cards: hubChannelCards,
+      loading: channelProfilesLoading,
+      error: channelProfilesError,
+      onOpenChannel: (channel: string) =>
+        navigate({ kind: "workspace", channel, tab: DEFAULT_TAB }),
+      onNewChannel: () => openLegacyConsole("channels"),
+    },
+    glance: {
+      activeChannels: channelProfiles.length,
+      activeRuns,
+      spend30d,
+    },
+    actions: {
+      pendingCount: actionableJobs.length,
+      items: hubActionItems,
+      onReviewAll: () => navigate({ kind: "hub", hub: "actions" }),
+      onOpenLegacyConsole: () => openLegacyConsole("roster"),
+    },
+    operatorInitials,
+  };
   const ideaCaptureDisabled = Boolean(ideaSubmittingTitle);
   const canSubmitIdea = draftIdea.trim().length > 0 && !ideaCaptureDisabled;
   const selectedDraftIdeaCharacterId = draftIdeaCharacterId ?? activeId ?? "";
@@ -1228,6 +1448,30 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const closeVisualCasting = useCallback(() => {
     setVisualCastingOpen(false);
   }, []);
+
+  const globalOverlays = (
+    <>
+      <div className="toast-region" aria-atomic="true">
+        {flash && (
+          <div
+            className={"toast " + (flash.err ? "toast--error" : "toast--success")}
+            role={flash.err ? "alert" : "status"}
+            aria-live={flash.err ? "assertive" : "polite"}
+          >
+            {flash.msg}
+          </div>
+        )}
+      </div>
+      {pendingDirtyAction && active && (
+        <DiscardChangesDialog
+          codename={dirtyCodename}
+          onCancel={cancelDirtyAction}
+          onConfirm={confirmDirtyAction}
+          restoreFocusRef={discardDialogRestoreFocusRef}
+        />
+      )}
+    </>
+  );
 
   const mobileRoster = (
     <div className="mobile-roster">
@@ -1278,20 +1522,132 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   );
 
   // ── render ─────────────────────────────────────────────────────────────────
-  return (
-    <div className="cr">
-      <div className="toast-region" aria-atomic="true">
-        {flash && (
-          <div
-            className={"toast " + (flash.err ? "toast--error" : "toast--success")}
-            role={flash.err ? "alert" : "status"}
-            aria-live={flash.err ? "assertive" : "polite"}
-          >
-            {flash.msg}
-          </div>
-        )}
-      </div>
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === DEFAULT_HUB) {
+    return (
+      <>
+        {globalOverlays}
+        <HubLanding {...hubLandingProps} />
+      </>
+    );
+  }
 
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "actions") {
+    return (
+      <>
+        {globalOverlays}
+        <AuroraShell operatorInitials={operatorInitials}>
+          <section className="glass-panel au-empty" aria-labelledby="action-center-title">
+            <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
+              {scopeToSearch({ kind: "hub", hub: "actions" })}
+            </p>
+            <h1 id="action-center-title" className="text-display" style={{ fontSize: "2rem" }}>
+              Action Center
+            </h1>
+            <p>Action Center — arrives in the next lane.</p>
+            <button
+              type="button"
+              className="action-button"
+              onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+            >
+              Back to Channels
+            </button>
+          </section>
+        </AuroraShell>
+      </>
+    );
+  }
+
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "overview") {
+    return (
+      <>
+        {globalOverlays}
+        <AuroraShell operatorInitials={operatorInitials}>
+          <section className="glass-panel au-empty" aria-labelledby="system-overview-title">
+            <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
+              {scopeToSearch({ kind: "hub", hub: "overview" })}
+            </p>
+            <h1 id="system-overview-title" className="text-display" style={{ fontSize: "2rem" }}>
+              System Overview
+            </h1>
+            <p>System Overview — next lane.</p>
+            <button
+              type="button"
+              className="action-button"
+              onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+            >
+              Back to Channels
+            </button>
+          </section>
+        </AuroraShell>
+      </>
+    );
+  }
+
+  if (!legacyShellOpen && scope.kind === "workspace") {
+    const channelProfile =
+      channelProfiles.find((profile) => profile.channel === scope.channel) ?? null;
+    const channelName = channelProfile?.display_name?.trim() || scope.channel;
+
+    return (
+      <>
+        {globalOverlays}
+        <AuroraShell operatorInitials={operatorInitials}>
+          <section className="glass-panel" aria-labelledby="workspace-title">
+            <div className="section-header">
+              <div>
+                <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
+                  {scopeToSearch(scope)}
+                </p>
+                <h1 id="workspace-title" className="text-display" style={{ fontSize: "2rem" }}>
+                  {channelName}
+                </h1>
+              </div>
+              <button
+                type="button"
+                className="action-button"
+                onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+              >
+                Back to Channels
+              </button>
+            </div>
+
+            <div className="filter-chips" role="tablist" aria-label={`${channelName} workspace`}>
+              {WORKSPACE_TABS.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  className={"chip" + (scope.tab === tab ? " on" : "")}
+                  aria-selected={scope.tab === tab}
+                  aria-controls="workspace-tab-panel"
+                  tabIndex={scope.tab === tab ? 0 : -1}
+                  onClick={() => navigate({ kind: "workspace", channel: scope.channel, tab })}
+                >
+                  {WORKSPACE_TAB_LABELS[tab]}
+                </button>
+              ))}
+            </div>
+
+            <div
+              id="workspace-tab-panel"
+              role="tabpanel"
+              tabIndex={0}
+              className="au-empty"
+              aria-label={`${WORKSPACE_TAB_LABELS[scope.tab]} workspace`}
+            >
+              <p className="metric-label dim">{WORKSPACE_TAB_LABELS[scope.tab]}</p>
+              <p>{WORKSPACE_TAB_LABELS[scope.tab]} arrives in a later lane.</p>
+            </div>
+          </section>
+        </AuroraShell>
+      </>
+    );
+  }
+
+  return (
+    <>
+    {globalOverlays}
+    <div className="cr">
       <nav className="rail">
         <div className="brand" style={{ marginBottom: "8px" }}>
           CONTROL<b>·</b>ROOM
@@ -2446,14 +2802,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           restoreFocusRef={visualCastingTriggerRef}
         />
       )}
-      {pendingDirtyAction && active && (
-        <DiscardChangesDialog
-          codename={dirtyCodename}
-          onCancel={cancelDirtyAction}
-          onConfirm={confirmDirtyAction}
-          restoreFocusRef={discardDialogRestoreFocusRef}
-        />
-      )}
       {pendingQueueAction && (
         <QueueActionDialog
           job={pendingQueueAction.job}
@@ -2467,5 +2815,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         />
       )}
     </div>
+    </>
   );
 }

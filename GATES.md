@@ -154,3 +154,152 @@ Residual/deferred: **E1.b** (pre-selecting the persona chip in the Casting Studi
 channel-linked character) deferred to phase-2 (loose character↔channel link); **E2**
 (guideline auto-fill editor) blocked on the channel-researcher + cast-brief storage
 (spec §5). Mapping content (`suggestPersona.ts` table) is operator-redlinable data.
+
+---
+
+# Phase-1 Channel-first — Lane 1 gates (Aurora design-system FOUNDATION) — on branch
+
+Branch `claude/channel-first-phase1-build-gji3vi` (fresh from production, carries all Phase-1
+specs + the Aurora package). First lane of the one-slice build (`docs/slices/slice-channel-first-phase1.md`
+§9: primitives first). Delivers the Aurora token layer (light+dark) + primitive component classes +
+theme wiring — **additive, scoped under `.aurora-app`**; the legacy `.cr` dossier app is untouched
+and still builds/renders. NOT in this lane: hub, workspace, Action Center, any re-parenting.
+
+Files: `src/app/aurora.css` (new), `src/app/layout.tsx` (imports + `data-theme="dark"` default +
+pre-hydration theme script + theme-aware `themeColor`), `src/lib/theme.ts` (new; theme seam +
+live `<meta name=theme-color>` sync). No new deps, no migration, plain CSS.
+
+Full loop: Codex build → Architect commit → **Gemini + suerta (Opus)** review (per
+`docs/design/channel-first-review-plan.md` §4 — design-system/non-money = G + S(Opus)) →
+build + visual smoke (Chromium, dark+light @1440 + 412) + measured contrast proof.
+
+Review trail:
+- **Gemini** = REQUEST-CHANGES → **all folded**: (1) class-name collision (legacy globals
+  `.btn`/`.status-badge` → renamed `.au-btn*`/`.au-badge`); (2) stacking-context bug (fixed
+  `z:-2` backdrop hidden behind `.aurora-app` opaque bg → `isolation:isolate`); (3) `outline:none`
+  killed keyboard focus ring on inputs → removed; (4) light warn/success AA; (5) missing states
+  (button loading, input `aria-invalid`, toggle disabled, `.au-empty`); (6) `.channel-card`
+  self-contained glass (no text on raw aurora); (7) theme-aware `themeColor`; (8) SVG noise
+  desaturate.
+- **suerta (Opus)** = REQUEST-CHANGES → **folded**: caught a real AA BLOCKER both prior lenses
+  missed — light-mode **`--danger` badge text `#DC2626` ≈3.85:1** and **`--warn` `#B45309`
+  ≈4.28:1** on their own 15% tints (not pure white) FAIL 4.5:1. Corrected to `--danger:#B91C1C`,
+  `--warn:#92400E` (light only). Scope-isolation, collision-avoidance, hydration, reduced-motion,
+  noise-URI all verified clean by suerta greps.
+
+| # | Gate | Status | Evidence (measured) |
+| --- | --- | --- | --- |
+| L1-1 | Build clean; no new deps / migration | **PASS** | `next build` clean (Next 15.5.19); only `aurora.css`/`layout.tsx`/`theme.ts` touched; `package.json` unchanged. |
+| L1-2 | Tokens light+dark match spec §1.1 (exact) | **PASS** | Values diffed vs `phase1-design-system.md` §1.1; only AA-corrections deviate (danger/warn/success light), commented in-file. |
+| L1-3 | No collision / bleed into legacy `.cr` | **PASS** | Colliding names renamed to `.au-*`; suerta grep-verified legacy `globals.css` defines none of Aurora's classes/tokens; `data-theme` absent from legacy → no legacy re-render. |
+| L1-4 | Aurora backdrop actually renders (not hidden) | **PASS** | `isolation:isolate` on `.aurora-app`; Chromium computed `appIsolation:isolate`, backdrop opacity .4 dark/.7 light; visible in both-theme screenshots. |
+| L1-5 | Badge text AA ≥4.5:1 (light, on own tint) | **PASS** | Measured: danger **5.10**, warn **6.05**, success **5.82** (was 3.85/4.28/…). |
+| L1-6 | Focus-visible ring present, not suppressed | **PASS** | `.aurora-app :focus-visible{outline:2px accent}` retained; input `outline:none` removed. |
+| L1-7 | Reduced-motion disables backdrop drift + spinners + transitions | **PASS** | suerta-verified `@media (prefers-reduced-motion)` block covers `.aurora-backdrop`, running/loading spinners, and all `.aurora-app` transitions. |
+| L1-8 | Component states present (default/hover/focus/active/disabled/loading/empty/error) | **PASS** | `.au-btn.is-loading`/`[aria-busy]`, input `[aria-invalid]`, toggle disabled, `.au-empty`; rendered in smoke harness. |
+| L1-9 | SSR/hydration safe | **PASS** | `suppressHydrationWarning` on `<html>`; pre-hydration script only upgrades to a stored pref; `theme.ts` window-guarded, SSR-defaults "dark" == SSR `data-theme`. |
+| L1-10 | Checkbox/radio target ≥24×24 (WCAG 2.5.8) | **PASS** | Bumped 1.25rem→1.5rem. |
+
+**OPEN (verify on the real artifact at the Lane-2+ browser-ratification gate, §10 gate 12):**
+dark-mode `--danger` badge text (`#FF1744`) is **borderline** (~4.3:1 by static estimate; true
+value depends on the composited surface stack + aurora bleed-through) → **pixel-sample it on the
+rendered dark screens**; if <4.5, darken/lighten the dark danger text or raise `--danger-bg`
+opacity. Not fixed by guess now (locked dark token; approximate math).
+
+**Lane 1 = reviewed + build-green + visually smoked (not yet browser-ratified against the live DB —
+that gate needs the built screens + QA creds, arrives in the interactive lanes).** Next: Lane 2
+(URL-routing extension + global Channels hub).
+
+---
+
+# Phase-1 Channel-first — Lane 2 (part 1): URL-routing MODEL (pure, tested) — on branch
+
+`src/lib/route.ts` (+ `src/lib/__tests__/route.test.ts`). Pure TS implementation of slice §3's
+hub/channel/tab scope model — the single source of truth the ControlRoom wiring (next lane) will
+use. No React, no `window`, no deps. `parseScope` / `scopeToSearch` / `scopeToUrl` / `scopesEqual`
+/ `isSameScope`. Gate = spec-fidelity (§3) + unit tests; this is non-money/non-migration pure logic,
+so the full Gemini+suerta+browser-ratify gate applies to the *wiring* lane, not this module.
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| L2r-1 | Legacy `?view=*` → one-time redirect to hub channels (§3 Q3) | **PASS** | `parseScope("?view=queue") = {hub:channels, canonicalize:true}` (test). |
+| L2r-2 | Bare `/` and unknown params → hub channels | **PASS** | `""`, `"?"`, `"?foo=bar"` → hub channels, canonicalize:true (tests). |
+| L2r-3 | Unknown/missing `channel` → hub channels | **PASS** | `?channel=ghost` w/ knownChannels=['weird_food'] → hub, canonicalize:true. |
+| L2r-4 | Missing/invalid `tab` → production, canonicalized | **PASS** | `?channel=weird_food` and `&tab=bogus` → workspace production, canonicalize:true. |
+| L2r-5 | Valid scopes not re-canonicalized | **PASS** | `?hub=channels`, `?channel=weird_food&tab=cost` → canonicalize:false. |
+| L2r-6 | Round-trip idempotency parseScope∘scopeToSearch | **PASS** | asserted for hub + workspace scopes; codename w/ special char round-trips. |
+| L2r-7 | Build clean; no deps | **PASS** | `next build` clean; `vitest run` 12/12. |
+
+Next: Lane 2 (part 2) = wire this into ControlRoom.tsx (extend the existing local-state +
+`pushState`/`popstate` pattern — NOT `useSearchParams`-driven, per slice §3 App-Router note) +
+mount the global Channels hub in `.aurora-app`. That lane is the full review + ratify gate.
+
+---
+
+# Phase-1 Lane 1 — FIDELITY REBUILD (aurora.css lifted from the mock CSS) — on branch
+
+Operator feedback (2026-07-03): builds were drifting from the design renders because aurora.css was
+hand-ported from the markdown summary, not the mock's real CSS. Fix per operator's guidance: **lift
+the mock component CSS verbatim; the HTML mock is the source of truth; measure fidelity with an
+image-diff (rule 35), not vibes.**
+
+- `aurora.css` rewritten to lift the mock's tokens + component rules VERBATIM from
+  `finalist-3-aurora.html` + `aurora-system/*.html` (595→~1465 lines: hub, action-center, overview,
+  workspace, gallery components, overlays, skeletons), scoped under `.aurora-app`. Only 3 classes
+  renamed for legacy-global collisions (`.status-badge`→`.status-chip`, `.metric-value`→
+  `.au-metric-value`, `.pulse-dot`→`.au-pulse-dot`). Preserved a11y/correctness deltas: light-mode AA
+  badge tokens, `isolation:isolate`, focus-visible, reduced-motion, monochrome grain. One real bug
+  found + fixed: the scoped reset had `box-sizing` but not `margin:0;padding:0`, so default UA
+  `<h1>`/`<p>` margins inflated every text block (~100px accumulated).
+
+| # | Gate | Status | Evidence (MEASURED) |
+| --- | --- | --- | --- |
+| L1F-1 | Tokens identical to the mock | **PASS** | `:root`/`[data-theme]` diffed byte-for-byte vs mock (bg-base #05050A, aurora stops, surfaces, radii, system fonts). |
+| L1F-2 | Shared component rules lifted verbatim | **PASS** | `.glass-panel`/`.hero-grid`/`.action-center` byte-identical to mock; component set restored. |
+| L1F-3 | Rendered hub == mock (image-diff, rule 35) | **PASS** | Content-only pixel-diff mock vs built (Chromium 1440, backdrop frozen, real-app body reset): **dark 0.52% / light 0.65%** changed pixels (>60 threshold) — residual is text anti-aliasing. |
+| L1F-4 | Layout metrics match | **PASS** | action-center h=326 (mock 326), channels-grid h=201 (mock 201) after the reset fix (were 428/228). |
+| L1F-5 | Build clean; a11y deltas preserved | **PASS** | `next build` clean; light AA tokens, isolation, focus-visible, reduced-motion all present. |
+
+Note: raw (unmasked) pixel-diff is ~14–32% because the full-page **animated translucent aurora
+backdrop** covers every pixel and is non-deterministic frame-to-frame — that is expected and is NOT a
+fidelity miss; the content-only measured gate (L1F-3) is the meaningful one. **Intentional honest
+deviation from the mock:** the mock shows a per-channel "30D COST" figure; the build OMITS it
+(episodes have no channel key — §4 DATA REALITY). Method (build-from-mock-CSS + image-diff gate) is
+now the standard for every re-parented surface.
+
+---
+
+# Phase-1 Lane 2b — routing wiring + Channels hub — FABLE-APPROVED on branch
+
+`ControlRoom.tsx` wired to the `route.ts` AppScope model; `HubLanding`/`ChannelsHub`/`AuroraShell`
+mounted as the `?hub=channels` landing. Interim **dual-shell**: the new Aurora hub is the landing;
+the legacy `.cr` shell stays fully reachable (valid `?view=` deep links open it + a "Legacy console"
+button on the hub) so NO capability is dark while surfaces are re-parented.
+
+Review gate = **Fable-5** (operator: "only fable before merge"). Round-1 = REQUEST-CHANGES (4
+blockers: dueling popstate desync; scope effect not mount-only → ejected the operator on any profile
+refetch; "+ New channel" couldn't create a 2nd channel; "nothing lost" violated — legacy shell
+unreachable with ≥1 channel). All folded → **Round-2 = APPROVE-WITH-NITS** (Fable traced every fix in
+code: single legacy-aware popstate handler; `didInitScopeRef`-gated one-time restore; new-channel →
+legacy panel; dual-shell reachability of queue/wire/runs/roster/casting/cost/editor; global-only
+system-glance; tolerant `jobs.channel` match; hash preserved; hoisted dialog/toast; scope-based poll).
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| L2b-1 | App-Router rule: manual pushState/popstate + local state, no useSearchParams desync | **PASS** | Fable-traced; one popstate handler; deterministic first render (hub) → hydration-safe. |
+| L2b-2 | Bare / + legacy ?view= behave (hub landing; legacy opens, not dark) | **PASS** | dual-shell; valid ?view= opens legacy; Legacy-console button; Back returns to hub. |
+| L2b-3 | Nothing lost (§2, gate 5) — every legacy capability reachable | **PASS** | Fable reachability trace: queue/wire/runs/roster/casting/cost/channel-editor all reachable. |
+| L2b-4 | Data honesty (§4): no per-channel cost; glance is global | **PASS** | cards = Active Jobs only + "Runs & cost · Phase 3"; activeRuns/spend30d global. |
+| L2b-5 | No state leak (Fork-A §6) | **PASS** | per-card counts pure per-row from props; tolerant channel compare. |
+| L2b-6 | Build + route tests | **PASS** | `next build` clean; `vitest` 12/12. |
+
+**Accepted nits (non-blocking; Fable round-2):** dirty-cancel `replaceState` is mildly lossy on
+history (standard revert-without-`history.go()` tradeoff); `cancelUrl` uses post-pop hash (cosmetic);
+one-frame hub flash on deep links (SSR-safe design); **no in-rail hub link from the legacy console →
+add one in the next lane (N11).**
+
+**NOT yet done:** LIVE browser ratification (needs QA creds — production-merge gate; the interactive
+Back/dual-shell/dirty-guard behavior is code-verified by Fable but not yet exercised against the live
+DB). **Next lanes:** Lane 4 = global inline Action Center (money path → Fable gate, keep the publish
+double-gate); Lane 3 = re-parent workspace surfaces (Production/Character/Guidelines/Cost) replacing
+the placeholders + fold N11; then retire the legacy shell + reinstate §3 Q3's legacy→hub redirect.
