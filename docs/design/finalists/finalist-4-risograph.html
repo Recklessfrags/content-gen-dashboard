@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Room - Channels</title>
+<style>
+  :root {
+    /* Semantics - Light (Native) */
+    --bg: #F4F1EB;
+    --surface: #FFFFFF;
+    --border: #0A1931;
+    --text: #0A1931;
+    --text-dim: #4A5568;
+    --accent: #FF5E00;
+    --accent-hover: #E05200;
+    --spot-cyan: #00A3DB;
+    --halftone-dot: rgba(10, 25, 49, 0.25);
+    --grid-color: rgba(10, 25, 49, 0.06);
+    --success: #008A4E;
+    --warn: #D97700;
+    --danger: #D91627;
+    --blend-mode: multiply;
+
+    /* Typography */
+    --font-display: 'Arial Black', Impact, 'Helvetica Neue', sans-serif;
+    --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: 'Space Mono', 'Courier New', Courier, monospace;
+    
+    /* Layout */
+    --radius: 2px;
+    --border-w: 2px;
+    --halftone-size: 4px;
+  }
+
+  html[data-theme="dark"] {
+    --bg: #080C16;
+    --surface: #121A2F;
+    --border: #2A3F6B;
+    --text: #F4F1EB;
+    --text-dim: #9DA8C4;
+    --accent: #FF7B33;
+    --accent-hover: #FF965C;
+    --spot-cyan: #00C2FF;
+    --halftone-dot: rgba(244, 241, 235, 0.15);
+    --grid-color: rgba(244, 241, 235, 0.04);
+    --success: #00D076;
+    --warn: #FFC433;
+    --danger: #FF4D5E;
+    --blend-mode: screen;
+  }
+
+  /* Reset & Base */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-body);
+    background-color: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 2rem;
+    min-height: 100vh;
+    /* Exposed blueprint grid */
+    background-image: 
+      linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+    background-size: 2rem 2rem;
+    background-position: center top;
+    transition: background-color 0.3s, color 0.3s;
+  }
+
+  /* Accessibility & Focus */
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; transform: none !important; animation: none !important; }
+  }
+  :focus-visible {
+    outline: 3px solid var(--spot-cyan);
+    outline-offset: 4px;
+  }
+
+  /* Layout Frame */
+  .dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* Registration Marks (Print Vibe) */
+  .reg-mark {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    color: var(--border);
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .reg-top-left { top: -1.5rem; left: -1.5rem; }
+  .reg-top-right { top: -1.5rem; right: -1.5rem; }
+  .reg-bot-left { bottom: -1.5rem; left: -1.5rem; }
+  .reg-bot-right { bottom: -1.5rem; right: -1.5rem; }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3rem;
+    position: relative;
+    z-index: 10;
+  }
+  
+  /* Misregistration Wordmark */
+  .wordmark {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.04em;
+    position: relative;
+    display: inline-block;
+    color: var(--text);
+  }
+  .wordmark::before, .wordmark::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    mix-blend-mode: var(--blend-mode);
+    pointer-events: none;
+  }
+  .wordmark::before {
+    color: var(--spot-cyan);
+    transform: translate(-3px, -2px);
+    z-index: -1;
+  }
+  .wordmark::after {
+    color: var(--accent);
+    transform: translate(3px, 2px);
+    z-index: -2;
+  }
+
+  /* Theme Toggle */
+  .theme-toggle {
+    background: var(--surface);
+    border: var(--border-w) solid var(--border);
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text);
+    position: relative;
+    transition: transform 0.15s ease;
+  }
+  .theme-toggle::after {
+    content: '';
+    position: absolute;
+    top: 4px; left: 4px; right: -4px; bottom: -4px;
+    border-radius: 50%;
+    background-image: radial-gradient(circle, var(--halftone-dot) 35%, transparent 40%);
+    background-size: 4px 4px;
+    z-index: -1;
+    transition: all 0.15s;
+  }
+  .theme-toggle:hover { transform: translate(-2px, -2px); }
+  .theme-toggle:hover::after { top: 6px; left: 6px; right: -6px; bottom: -6px; }
+
+  /* Section Title */
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .section-title::before {
+    content: '';
+    display: block;
+    width: 12px;
+    height: 12px;
+    background: var(--accent);
+    border-radius: var(--radius);
+  }
+
+  /* Action Center Banner */
+  .action-banner {
+    background-color: var(--accent);
+    color: #0A1931; /* Force high contrast dark ink on orange */
+    border: var(--border-w) solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3rem;
+    position: relative;
+    box-shadow: 6px 6px 0 var(--border);
+  }
+  /* In dark mode, shadow color adjusts to border */
+  html[data-theme="dark"] .action-banner {
+    color: #080C16;
+  }
+  .action-content { display: flex; flex-direction: column; gap: 0.25rem; }
+  .action-badge {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: #0A1931;
+    color: var(--accent);
+    padding: 0.1rem 0.5rem;
+    align-self: flex-start;
+    border-radius: var(--radius);
+  }
+  html[data-theme="dark"] .action-badge {
+    background: #080C16;
+  }
+  .action-title {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .action-btn {
+    background: transparent;
+    border: 2px solid #0A1931;
+    color: #0A1931;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 0.75rem 1.5rem;
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: all 0.2s;
+  }
+  html[data-theme="dark"] .action-btn {
+    border-color: #080C16;
+    color: #080C16;
+  }
+  .action-btn:hover {
+    background: #0A1931;
+    color: var(--accent);
+  }
+  html[data-theme="dark"] .action-btn:hover {
+    background: #080C16;
+  }
+
+  /* Overview Bar (Ledger Style) */
+  .overview-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: var(--surface);
+    border: var(--border-w) solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 3rem;
+    position: relative;
+  }
+  /* Halftone shadow for ledger */
+  .overview-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    top: 6px; left: 6px; right: -6px; bottom: -6px;
+    background-image: radial-gradient(circle, var(--halftone-dot) 35%, transparent 40%);
+    background-size: var(--halftone-size) var(--halftone-size);
+    z-index: -1;
+  }
+  .stat-block {
+    padding: 1.5rem;
+    border-right: var(--border-w) solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .stat-block:last-child { border-right: none; }
+  .stat-label {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .stat-val {
+    font-family: var(--font-mono);
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  /* Channels Grid */
+  .channels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  /* Bento Cards */
+  .card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    position: relative;
+  }
+  .bento-card {
+    background: var(--surface);
+    border: var(--border-w) solid var(--border);
+    border-radius: var(--radius);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 2;
+    transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+  }
+  /* The signature halftone shadow */
+  .card-link::after {
+    content: '';
+    position: absolute;
+    top: 6px; left: 6px; right: -6px; bottom: -6px;
+    background-image: radial-gradient(circle, var(--halftone-dot) 35%, transparent 40%);
+    background-size: var(--halftone-size) var(--halftone-size);
+    z-index: 1;
+    border-radius: var(--radius);
+    transition: all 0.15s cubic-bezier(0.2, 0, 0, 1);
+  }
+  .card-link:hover .bento-card {
+    transform: translate(-4px, -4px);
+  }
+  .card-link:hover::after {
+    top: 10px; left: 10px; right: -10px; bottom: -10px;
+  }
+
+  .card-header {
+    padding: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    border-bottom: var(--border-w) solid var(--border);
+    flex: 1;
+  }
+  
+  /* Avatars */
+  .avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: var(--border-w) solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #0A1931;
+    position: relative;
+    overflow: hidden;
+  }
+  .avatar-wf { background-color: var(--success); }
+  .avatar-cm { background-color: var(--spot-cyan); }
+  .avatar-ua { background-color: var(--warn); }
+  html[data-theme="dark"] .avatar { color: #080C16; }
+
+  /* Uncast Hatched Pattern */
+  .avatar-uncast {
+    background-color: transparent;
+    color: var(--border);
+  }
+
+  .card-title-area {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  
+  /* Status indicators */
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+  }
+  .status-active .status-dot { background: var(--success); }
+  .status-idle .status-dot { background: var(--text-dim); }
+
+  /* Card Footer Stats */
+  .card-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--surface);
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+  .card-stat {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .card-stat:first-child {
+    border-right: var(--border-w) solid var(--border);
+  }
+  .card-stat-val {
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .card-stat-label {
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  /* Special New Channel Card */
+  .card-new {
+    border: var(--border-w) dashed var(--border);
+    background: transparent;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    min-height: 220px;
+  }
+  .card-link-new::after {
+    /* Different shadow for empty state */
+    background-image: radial-gradient(circle, var(--grid-color) 35%, transparent 40%);
+  }
+  .card-link-new:hover .card-new {
+    background: var(--surface);
+    border-style: solid;
+  }
+  .icon-plus {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--text);
+    color: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    transition: transform 0.2s;
+  }
+  .card-link-new:hover .icon-plus {
+    background: var(--accent);
+    transform: rotate(90deg);
+  }
+  .new-label {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    text-transform: uppercase;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .overview-bar { grid-template-columns: 1fr; }
+    .stat-block { border-right: none; border-bottom: var(--border-w) solid var(--border); }
+    .stat-block:last-child { border-bottom: none; }
+    .action-banner { flex-direction: column; align-items: flex-start; gap: 1.5rem; }
+  }
+  @media (max-width: 412px) {
+    body { padding: 1rem; }
+    .channels-grid { grid-template-columns: 1fr; }
+    .wordmark { font-size: 2rem; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Reusable SVG Assets -->
+  <svg width="0" height="0" style="position:absolute;">
+    <defs>
+      <!-- Uncast Hatched Pattern -->
+      <pattern id="hatch" width="6" height="6" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="2" />
+      </pattern>
+      <!-- Registration Mark -->
+      <g id="reg-mark">
+        <circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="8" y1="0" x2="8" y2="16" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="0" y1="8" x2="16" y2="8" stroke="currentColor" stroke-width="1.5"/>
+      </g>
+    </defs>
+  </svg>
+
+  <div class="dashboard">
+    <!-- Print Registration Marks -->
+    <svg class="reg-mark reg-top-left"><use href="#reg-mark"/></svg>
+    <svg class="reg-mark reg-top-right"><use href="#reg-mark"/></svg>
+    <svg class="reg-mark reg-bot-left"><use href="#reg-mark"/></svg>
+    <svg class="reg-mark reg-bot-right"><use href="#reg-mark"/></svg>
+
+    <header class="header">
+      <div class="wordmark" data-text="CONTROL ROOM">CONTROL ROOM</div>
+      <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square">
+          <circle cx="12" cy="12" r="5" />
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+        </svg>
+      </button>
+    </header>
+
+    <main>
+      <!-- Action Center -->
+      <section class="action-center">
+        <div class="action-banner">
+          <div class="action-content">
+            <span class="action-badge">ACTION REQUIRED</span>
+            <h2 class="action-title">3 APPROVALS AWAITING YOU</h2>
+          </div>
+          <button class="action-btn">REVIEW &rarr;</button>
+        </div>
+      </section>
+
+      <!-- System Overview Ledger -->
+      <section class="overview-bar">
+        <div class="stat-block">
+          <span class="stat-label">CHANNELS</span>
+          <span class="stat-val">04</span>
+        </div>
+        <div class="stat-block">
+          <span class="stat-label">ACTIVE RUNS</span>
+          <span class="stat-val">12</span>
+        </div>
+        <div class="stat-block">
+          <span class="stat-label">30D SPEND</span>
+          <span class="stat-val">$450.00</span>
+        </div>
+      </section>
+
+      <!-- Channels Hub -->
+      <section class="channels-hub">
+        <h2 class="section-title">PRODUCTION HUB</h2>
+        
+        <div class="channels-grid">
+          
+          <!-- Channel: Cast -->
+          <a href="#" class="card-link">
+            <div class="bento-card">
+              <div class="card-header">
+                <div class="avatar avatar-wf">WF</div>
+                <div class="card-title-area">
+                  <h3 class="card-title">WEIRD FOOD</h3>
+                  <div class="status status-active">
+                    <span class="status-dot"></span> Active
+                  </div>
+                </div>
+              </div>
+              <div class="card-stats">
+                <div class="card-stat">
+                  <span class="card-stat-val">03</span>
+                  <span class="card-stat-label">Active Jobs</span>
+                </div>
+                <div class="card-stat">
+                  <span class="card-stat-val">$120.50</span>
+                  <span class="card-stat-label">30D Cost</span>
+                </div>
+              </div>
+            </div>
+          </a>
+
+          <!-- Channel: Uncast -->
+          <a href="#" class="card-link">
+            <div class="bento-card">
+              <div class="card-header">
+                <div class="avatar avatar-uncast">
+                  <rect width="100%" height="100%" fill="url(#hatch)"/>
+                </div>
+                <div class="card-title-area">
+                  <h3 class="card-title">DECLASSIFIED HISTORY</h3>
+                  <div class="status status-idle">
+                    <span class="status-dot"></span> Uncast
+                  </div>
+                </div>
+              </div>
+              <div class="card-stats">
+                <div class="card-stat">
+                  <span class="card-stat-val">00</span>
+                  <span class="card-stat-label">Active Jobs</span>
+                </div>
+                <div class="card-stat">
+                  <span class="card-stat-val">$0.00</span>
+                  <span class="card-stat-label">30D Cost</span>
+                </div>
+              </div>
+            </div>
+          </a>
+
+          <!-- Channel: Cast -->
+          <a href="#" class="card-link">
+            <div class="bento-card">
+              <div class="card-header">
+                <div class="avatar avatar-cm">CM</div>
+                <div class="card-title-area">
+                  <h3 class="card-title">COSMIC MYSTERIES</h3>
+                  <div class="status status-active">
+                    <span class="status-dot"></span> Active
+                  </div>
+                </div>
+              </div>
+              <div class="card-stats">
+                <div class="card-stat">
+                  <span class="card-stat-val">08</span>
+                  <span class="card-stat-label">Active Jobs</span>
+                </div>
+                <div class="card-stat">
+                  <span class="card-stat-val">$310.00</span>
+                  <span class="card-stat-label">30D Cost</span>
+                </div>
+              </div>
+            </div>
+          </a>
+
+          <!-- Add New Channel -->
+          <a href="#" class="card-link card-link-new">
+            <div class="bento-card card-new">
+              <div class="icon-plus">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </div>
+              <h3 class="new-label">NEW CHANNEL</h3>
+            </div>
+          </a>
+
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const toggle = document.getElementById('theme-toggle');
+    toggle.addEventListener('click', () => {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      html.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    });
+  </script>
+</body>
+</html>

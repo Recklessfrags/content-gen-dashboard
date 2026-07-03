@@ -70,6 +70,8 @@ operator, must be AA + fast to scan + work at 412px + endure):
 you want maximum premium/novelty and accept a bit more build+legibility care. (Taste is the
 operator's — this is a starting point.)
 
+_Finalists renamed 1-4 (see `finalists/README.md`): 1 Editorial (C) · 2 Night Ops (D) · 3 Aurora (R3-1) · 4 Risograph (R3-2)._
+
 _Status: **FINAL BALLOT open** — awaiting operator's single pick → then the full Phase-1 design
 system + all screens are built against it, through the Gemini + suerta(Fable-5 on money path) gate._
 
