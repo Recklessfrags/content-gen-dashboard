@@ -37,6 +37,9 @@ import {
   type IdeaStatus,
   type Receipt,
 } from "@/lib/types";
+import { AuroraShell } from "./aurora/AuroraShell";
+import { HubLanding } from "./aurora/HubLanding";
+import type { ChannelCardVM } from "./aurora/ChannelsHub";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
@@ -47,6 +50,19 @@ import { HistoryDrawer } from "./controlroom/HistoryDrawer";
 import { OverviewDashboard } from "./controlroom/OverviewDashboard";
 import { QueueActionDialog } from "./controlroom/QueueActionDialog";
 import { VisualIdentityPanel } from "./controlroom/VisualIdentityPanel";
+import {
+  DEFAULT_HUB,
+  DEFAULT_TAB,
+  HUB_KEYS,
+  WORKSPACE_TABS,
+  isSameScope,
+  parseScope,
+  scopeToSearch,
+  scopeToUrl,
+  scopesEqual,
+  type AppScope,
+  type WorkspaceTab,
+} from "@/lib/route";
 import {
   Icon,
   Field,
@@ -130,6 +146,13 @@ const RUNS_FILTERS: ReadonlyArray<{ key: RunsFilter; label: string }> = [
   { key: "failed", label: "Failed" },
 ];
 
+const WORKSPACE_TAB_LABELS: Record<WorkspaceTab, string> = {
+  production: "Production",
+  character: "Character",
+  guidelines: "Guidelines",
+  cost: "Cost",
+};
+
 
 
 function formatQueueTimestamp(createdAt: string) {
@@ -181,6 +204,18 @@ function runMatchesFilter(status: string, filter: RunsFilter) {
   if (filter === "success") return isClearedStatus(status);
   if (filter === "failed") return isFailedStatus(status);
   return !isClearedStatus(status) && !isFailedStatus(status);
+}
+
+function channelInitials(channel: string, character: string | null | undefined) {
+  const source = `${channel} ${character ?? ""}`;
+  const chars = source.match(/[a-z0-9]/gi) ?? [];
+  return chars.slice(0, 2).join("").toUpperCase() || "CH";
+}
+
+function operatorInitialsFromEmail(email: string) {
+  const localPart = email.split("@")[0] ?? "";
+  const chars = localPart.match(/[a-z0-9]/gi) ?? [];
+  return chars.slice(0, 2).join("").toUpperCase() || "OP";
 }
 
 function splitQueueErrorText(error: string) {
@@ -449,6 +484,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [pendingDirtyAction, setPendingDirtyAction] = useState<PendingDirtyAction | null>(null);
   const [isRestoredDraft, setIsRestoredDraft] = useState(false);
   const [view, setView] = useState<View>("roster");
+  const [scope, setScope] = useState<AppScope>({ kind: "hub", hub: DEFAULT_HUB });
+  const [legacyShellOpen, setLegacyShellOpen] = useState(false);
   const [draftIdea, setDraftIdea] = useState("");
   const [draftIdeaNote, setDraftIdeaNote] = useState("");
   const [draftIdeaCharacterId, setDraftIdeaCharacterId] = useState<string | null>(null);
@@ -629,6 +666,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     () => computeCostStats(episodes, costReceipts, chars),
     [chars, costReceipts, episodes],
   );
+  const knownChannels = useMemo(
+    () => channelProfiles.map((profile) => profile.channel),
+    [channelProfiles],
+  );
+  const activeHubKeys = HUB_KEYS;
+  const operatorInitials = useMemo(() => operatorInitialsFromEmail(userEmail), [userEmail]);
   const currentEditableFields = useMemo(() => (active ? editableSnapshot(active) : null), [active]);
   const savedEditableFields = activeId
     ? (savedSnapshots[activeId] ?? currentEditableFields)
@@ -761,13 +804,69 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     [activateViewTab, focusViewTab],
   );
 
+  const navigate = useCallback((next: AppScope) => {
+    setLegacyShellOpen(false);
+    setScope(next);
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", scopeToUrl(next, window.location.pathname));
+    }
+  }, []);
+
+  useEffect(() => {
+    const { scope: nextScope, canonicalize } = parseScope(window.location.search, {
+      knownChannels: channelProfilesLoading ? undefined : knownChannels,
+    });
+
+    setScope((current) => (scopesEqual(current, nextScope) ? current : nextScope));
+    setLegacyShellOpen(false);
+
+    if (canonicalize) {
+      window.history.replaceState(
+        null,
+        "",
+        scopeToUrl(nextScope, window.location.pathname, window.location.hash),
+      );
+    }
+  }, [channelProfilesLoading, knownChannels]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      if (isSameScope(window.location.search, scope)) return;
+
+      const { scope: nextScope, canonicalize } = parseScope(window.location.search, {
+        knownChannels: channelProfilesLoading ? undefined : knownChannels,
+      });
+
+      if (scopesEqual(nextScope, scope) && !canonicalize) return;
+
+      guardDirtyAction(
+        () => {
+          setLegacyShellOpen(false);
+          setScope(nextScope);
+          if (canonicalize) {
+            window.history.replaceState(
+              null,
+              "",
+              scopeToUrl(nextScope, window.location.pathname, window.location.hash),
+            );
+          }
+        },
+        () => window.history.replaceState(null, "", scopeToUrl(scope, window.location.pathname)),
+      );
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [channelProfilesLoading, guardDirtyAction, knownChannels, scope]);
+
   // Restore the active view from the URL on mount (client-only effect, not a
   // lazy state initializer, to avoid an SSR/hydration mismatch). Normalize the
   // URL so the first history entry carries the resolved ?view= param.
   useEffect(() => {
     const fromUrl = readViewFromUrl();
     if (fromUrl && fromUrl !== view) setView(fromUrl);
-    window.history.replaceState(null, "", viewUrl(fromUrl ?? view));
+    if (fromUrl) {
+      window.history.replaceState(null, "", viewUrl(fromUrl));
+    }
     // run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -778,7 +877,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   // view stay consistent.
   useEffect(() => {
     const onPopState = () => {
-      const fromUrl = readViewFromUrl() ?? "roster";
+      const fromUrl = readViewFromUrl();
+      if (fromUrl === null) return;
       if (fromUrl === view) return;
       guardDirtyAction(
         () => setView(fromUrl),
@@ -1197,6 +1297,84 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     () => episodes.filter((episode) => runMatchesFilter(episode.status, runsFilter)),
     [episodes, runsFilter],
   );
+  const actionableJobs = useMemo(
+    () => jobs.filter((job) => isActionableStatus(classifyJobStatus(job.status))),
+    [jobs],
+  );
+  const hubChannelCards = useMemo<ChannelCardVM[]>(
+    () =>
+      channelProfiles.map((profile) => ({
+        channel: profile.channel,
+        displayName: profile.display_name?.trim() || profile.channel,
+        cast: Boolean(profile.character?.trim()),
+        avatarUrl: null,
+        initials: channelInitials(profile.channel, profile.character),
+        activeJobs: jobs.filter(
+          (job) =>
+            job.channel === profile.channel &&
+            !isTerminalStatus(classifyJobStatus(job.status)),
+        ).length,
+      })),
+    [channelProfiles, jobs],
+  );
+  const activeRuns = useMemo(
+    () => episodes.filter((episode) => runMatchesFilter(episode.status, "running")).length,
+    [episodes],
+  );
+  const spend30d = useMemo(() => {
+    if (!costReceiptsLoaded || costReceiptsLoading || costReceiptsError) return null;
+
+    const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const total = costStats.episodeCosts.reduce((sum, episodeCost) => {
+      const createdMs = new Date(episodeCost.episode.created_at).getTime();
+      if (!Number.isFinite(createdMs) || createdMs < cutoffMs) return sum;
+      return sum + episodeCost.liveSpend;
+    }, 0);
+
+    return formatUsd(total);
+  }, [costReceiptsError, costReceiptsLoaded, costReceiptsLoading, costStats.episodeCosts]);
+  const hubActionItems = useMemo(
+    () =>
+      actionableJobs.slice(0, 2).map((job) => ({
+        title: job.channel ?? job.food,
+        detail: `${JOB_STATUS_LABELS[classifyJobStatus(job.status)]} · ${job.food}`,
+      })),
+    [actionableJobs],
+  );
+  const hubLandingProps = {
+    channels: {
+      cards: hubChannelCards,
+      loading: channelProfilesLoading,
+      error: channelProfilesError,
+      onOpenChannel: (channel: string) =>
+        navigate({ kind: "workspace", channel, tab: DEFAULT_TAB }),
+      onNewChannel: () => {
+        const firstChannel = channelProfiles[0]?.channel;
+        if (firstChannel) {
+          navigate({ kind: "workspace", channel: firstChannel, tab: "guidelines" });
+          return;
+        }
+        guardDirtyAction(() => {
+          setLegacyShellOpen(true);
+          setView("channels");
+          if (typeof window !== "undefined") {
+            window.history.pushState(null, "", viewUrl("channels"));
+          }
+        });
+      },
+    },
+    glance: {
+      activeChannels: channelProfiles.length,
+      activeRuns,
+      spend30d,
+    },
+    actions: {
+      pendingCount: actionableJobs.length,
+      items: hubActionItems,
+      onReviewAll: () => navigate({ kind: "hub", hub: "actions" }),
+    },
+    operatorInitials,
+  };
   const ideaCaptureDisabled = Boolean(ideaSubmittingTitle);
   const canSubmitIdea = draftIdea.trim().length > 0 && !ideaCaptureDisabled;
   const selectedDraftIdeaCharacterId = draftIdeaCharacterId ?? activeId ?? "";
@@ -1278,6 +1456,118 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   );
 
   // ── render ─────────────────────────────────────────────────────────────────
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === DEFAULT_HUB) {
+    return <HubLanding {...hubLandingProps} />;
+  }
+
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "actions") {
+    return (
+      <AuroraShell operatorInitials={operatorInitials}>
+        <section className="glass-panel au-empty" aria-labelledby="action-center-title">
+          <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
+            {scopeToSearch({ kind: "hub", hub: "actions" })}
+          </p>
+          <h1 id="action-center-title" className="text-display" style={{ fontSize: "2rem" }}>
+            Action Center
+          </h1>
+          <p>Action Center — arrives in the next lane.</p>
+          <button
+            type="button"
+            className="action-button"
+            onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+          >
+            Back to Channels
+          </button>
+        </section>
+      </AuroraShell>
+    );
+  }
+
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "overview") {
+    return (
+      <AuroraShell operatorInitials={operatorInitials}>
+        <section className="glass-panel au-empty" aria-labelledby="system-overview-title">
+          <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
+            {scopeToSearch({ kind: "hub", hub: "overview" })}
+          </p>
+          <h1 id="system-overview-title" className="text-display" style={{ fontSize: "2rem" }}>
+            System Overview
+          </h1>
+          <p>System Overview — next lane.</p>
+          <button
+            type="button"
+            className="action-button"
+            onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+          >
+            Back to Channels
+          </button>
+        </section>
+      </AuroraShell>
+    );
+  }
+
+  if (!legacyShellOpen && scope.kind === "hub" && !activeHubKeys.includes(scope.hub)) {
+    return null;
+  }
+
+  if (!legacyShellOpen && scope.kind === "workspace") {
+    const channelProfile =
+      channelProfiles.find((profile) => profile.channel === scope.channel) ?? null;
+    const channelName = channelProfile?.display_name?.trim() || scope.channel;
+
+    return (
+      <AuroraShell operatorInitials={operatorInitials}>
+        <section className="glass-panel" aria-labelledby="workspace-title">
+          <div className="section-header">
+            <div>
+              <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
+                {scopeToSearch(scope)}
+              </p>
+              <h1 id="workspace-title" className="text-display" style={{ fontSize: "2rem" }}>
+                {channelName}
+              </h1>
+            </div>
+            <button
+              type="button"
+              className="action-button"
+              onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+            >
+              Back to Channels
+            </button>
+          </div>
+
+          <div className="filter-chips" role="tablist" aria-label={`${channelName} workspace`}>
+            {WORKSPACE_TABS.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                className={"chip" + (scope.tab === tab ? " on" : "")}
+                aria-selected={scope.tab === tab}
+                aria-controls="workspace-tab-panel"
+                tabIndex={scope.tab === tab ? 0 : -1}
+                onClick={() => navigate({ kind: "workspace", channel: scope.channel, tab })}
+              >
+                {WORKSPACE_TAB_LABELS[tab]}
+              </button>
+            ))}
+          </div>
+
+          <div
+            id="workspace-tab-panel"
+            role="tabpanel"
+            tabIndex={0}
+            className="au-empty"
+            aria-label={`${WORKSPACE_TAB_LABELS[scope.tab]} workspace`}
+          >
+            <p className="metric-label dim">{WORKSPACE_TAB_LABELS[scope.tab]}</p>
+            <p>{WORKSPACE_TAB_LABELS[scope.tab]} arrives in a later lane.</p>
+          </div>
+        </section>
+      </AuroraShell>
+    );
+  }
+
   return (
     <div className="cr">
       <div className="toast-region" aria-atomic="true">
