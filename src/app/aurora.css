@@ -37,8 +37,9 @@
   --warn: #FFD54F; /* Contrast vs #05050A: 13.7:1 (Pass AA) */
   --warn-bg: rgba(255, 213, 79, 0.15);
 
-  --danger: #FF1744; /* Contrast vs #05050A: 5.2:1 (Pass AA) */
+  --danger: #FF1744; /* Solid-fill/border token measured on pure #05050A; not for on-tint text. */
   --danger-bg: rgba(255, 23, 68, 0.15);
+  --danger-fg: #FF6B81; /* on-tint danger TEXT; 6.10:1 over --surface-1 panel (AA pass). --danger #FF1744 stays for solid fills/borders/dots */
 
   --status-parked: #9CA3AF; /* Contrast vs #05050A: 7.7:1 (Pass AA) */
   --status-parked-bg: rgba(156, 163, 175, 0.15);
@@ -94,6 +95,7 @@
 
   --danger: #B91C1C; /* AA-corrected; mock value fails 4.5:1 */
   --danger-bg: rgba(220, 38, 38, 0.15);
+  --danger-fg: #B91C1C; /* same as --danger in light; already AA on light tints */
 
   --status-parked: #4B5563; /* Contrast vs #F8F9FA: 7.4:1 (Pass AA) */
   --status-parked-bg: rgba(75, 85, 99, 0.15);
@@ -200,7 +202,7 @@
 
 .aurora-app .dim { color: var(--text-dim); }
 .aurora-app .accent { color: var(--accent); }
-.aurora-app .danger { color: var(--danger); }
+.aurora-app .danger { color: var(--danger-fg); }
 
 /* FOCUS ACCESSIBILITY */
 .aurora-app :focus-visible {
@@ -685,7 +687,7 @@
 /* Danger - Action */
 .aurora-app .btn-danger {
   background: var(--danger-bg);
-  color: var(--danger);
+  color: var(--danger-fg);
   border: 1px solid rgba(255, 23, 68, 0.3);
 }
 
@@ -693,7 +695,7 @@
 
 .aurora-app .btn-danger-outline {
   background: transparent;
-  color: var(--danger);
+  color: var(--danger-fg);
   border: 1px solid var(--danger);
 }
 
@@ -849,12 +851,12 @@
 .aurora-app .badge-success,
 .aurora-app .au-badge.is-success { background: var(--success-bg); color: var(--success); border-color: rgba(0, 230, 118, 0.2); }
 .aurora-app .badge-error,
-.aurora-app .au-badge.is-danger { background: var(--danger-bg); color: var(--danger); border-color: rgba(255, 23, 68, 0.2); }
+.aurora-app .au-badge.is-danger { background: var(--danger-bg); color: var(--danger-fg); border-color: rgba(255, 23, 68, 0.2); }
 .aurora-app .badge-wait,
 .aurora-app .badge-warn,
 .aurora-app .au-badge.is-warn { background: var(--warn-bg); color: var(--warn); border-color: rgba(255,213,79,0.2); }
 .aurora-app .badge-channel { border: 1px solid var(--border-soft); background: var(--surface-2); color: var(--text-main); }
-.aurora-app .badge-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(255,23,68,0.2); }
+.aurora-app .badge-danger { background: var(--danger-bg); color: var(--danger-fg); border: 1px solid rgba(255,23,68,0.2); }
 .aurora-app .badge-neutral,
 .aurora-app .au-badge.is-parked { background: var(--neutral-bg); color: var(--text-main); border: 1px solid var(--border-soft); }
 
@@ -1240,7 +1242,7 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  color: var(--danger);
+  color: var(--danger-fg);
   font-size: 0.875rem;
   background: var(--danger-bg);
   padding: 0.75rem 1rem;
