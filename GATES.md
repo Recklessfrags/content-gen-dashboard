@@ -368,3 +368,36 @@ Back/dual-shell/dirty-guard behavior is code-verified by Fable but not yet exerc
 DB). **Next lanes:** Lane 4 = global inline Action Center (money path → Fable gate, keep the publish
 double-gate); Lane 3 = re-parent workspace surfaces (Production/Character/Guidelines/Cost) replacing
 the placeholders + fold N11; then retire the legacy shell + reinstate §3 Q3's legacy→hub redirect.
+
+---
+
+## Lane 3a — channel WORKSPACE shell + Guidelines + Cost tabs + N11 (channel-first Phase 1)
+
+Codex built → Architect committed → **Fable-5 = APPROVE-WITH-NITS** (no blockers; correctness,
+routing §3, Fork-A no-leak §6, the `.tab-panel` display:none trap, and savebar-specificity all
+code-verified) → all nits folded → **measured live-artifact ratify = 24/24 substantive gates** on a
+prod build (`next start :4312`) + Chromium + Supabase bridged (QA creds; live DB truth =
+`channel_profiles` 1 row `default`, uncast). Fable's flagged gate-10 theme-bleed was folded (scoped
+Aurora re-skin of the legacy editor) then **measured clean** (G10a–e). Script:
+`scripts/ratify-lane3a.mjs`.
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| L3a-1..12 | Workspace shell + scoped Guidelines editor (hub 1 card; header + uncast badge; 4 role=tab nav; roving tabindex; guidelines aria-selected; active tab-panel visible; editor bound to `default` read-only; no roster/Delete/+New in scoped mode; Save retained) | **PASS** | 12/12 in Chromium vs the live DB. |
+| L3a-G10a..e | **Gate 10 measured** — no legacy paper/stamp bleed: Save button not stamp-red (`rgb(255,255,255)` bg, AA 20.34:1 dark / 18.17:1 light), savebar transparent (not `--ink`) in dark AND light, inputs Aurora-surface (not paper), no h-scroll @1440 | **PASS** | computed-style samples both themes. |
+| L3a-13 | Keyboard: ArrowRight moves roving focus across the workspace tablist | **PASS** | focus → "Cost". |
+| L3a-14/15 | Cost tab = honest DEFERRED panel (§4) — no fabricated per-channel $, "View Global Cost Center →" to real global cost | **PASS** | deferred panel present, 0 `$` blocks. |
+| L3a-16 | Production/Character honest placeholders under the new shell (Lane 3b/3c) | **PASS** | active panel renders. |
+| L3a-17 | Breadcrumb "Channels" returns to hub (URL is source of truth) | **PASS** | → `?hub=channels`. |
+| L3a-18/19 | **N11** — legacy rail "Hub" button exits the legacy shell to the Aurora hub | **PASS** | rail gone; `?hub=channels`. |
+| L3a-20 | Console errors | **ENV-ONLY** | 3× `ERR_CONNECTION_RESET` = sandbox-blocked Google Fonts CDN (`globals.css:1` `@import fonts.googleapis`); all data gates passed → not an app defect (same class as #68). |
+
+**Accepted nits (non-blocking, Fable round-1, deferred to the re-skin/Phase-2 polish):** a one-frame
+"Channel profile unavailable" flash on scoped mount before hydration (cosmetic); Guideline edits are
+not dirty-guarded on tab-switch/breadcrumb (pre-existing legacy behavior, not a regression); minor
+mock-fidelity deltas (breadcrumb in `main` not top-bar; cast badge lacks the mock dot glyph).
+
+**Scope note:** the Guidelines editor is a functional re-parent — legacy markup, now Aurora-skinned via
+a `.channel-profiles.scoped` override block (theme-aware, AA-proven). A full field-by-field Aurora
+rebuild (`form-input`/`form-label`) is a later polish. **Next: Lane 3b (Production — money path, Fable
+money gate) + Lane 3c (Character).**

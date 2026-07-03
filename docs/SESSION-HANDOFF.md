@@ -11,6 +11,46 @@ is the fast path._
 
 ---
 
+## ⚡ LATEST (2026-07-03, continuation `…-cont-40jine`) — Lane 3a SHIPPED: channel WORKSPACE shell + Guidelines + Cost tabs + N11, live-ratified 24/24. Read this first.
+
+Branch **`claude/channel-first-phase1-cont-40jine`**, fresh off production (tip `4e6ea38`, post-Lane-4).
+This session started **Lane 3** (re-parent the 4 workspace tabs into the channel workspace) and shipped
+the first, cleanest sub-lane:
+
+- **Lane 3a — channel-workspace shell + Guidelines + Cost tabs + N11 — ✅ SHIPPED (PR #<lane3a>, squash `<sha>`).**
+  Codex built → Architect committed → **Fable-5 APPROVE-WITH-NITS** (no blockers; correctness/routing §3/
+  Fork-A no-leak §6/`.tab-panel` display:none trap/savebar-specificity all code-verified) → all nits folded
+  → **live-artifact ratify 24/24 substantive gates** (GATES `L3a-1..20 + G10a..e`). What landed:
+  - **Workspace shell** rebuilt to the mock (`docs/design/aurora-system/aurora-screens-channel-workspace.html`):
+    breadcrumb + `workspace-header` (avatar/name/**cast badge**) + `workspace-nav` `nav-tab` **tablist with
+    roving-tabindex + Arrow/Home/End/Enter keyboard nav** + one active `tab-panel` (carries `.active` — the
+    display:none trap). All classes already existed in `aurora.css`.
+  - **Guidelines tab** = the existing `ChannelProfilesPanel` re-parented via a new `scopedChannel` prop
+    (hides master list / mobile picker / Delete / +New; edits only this channel's row; no capability lost).
+    Legacy paper/stamp field theme was **Aurora-re-skinned** via a scoped `.channel-profiles.scoped` CSS
+    override block (theme-aware; **Save button AA 20.34:1 dark / 18.17:1 light** — measured, gate 10 clean).
+  - **Cost tab** = honest **DEFERRED** panel (§4 — episodes/receipts carry no channel key; NO fabricated
+    per-channel $); "View Global Cost Center →" opens the real global Cost Box (`openLegacyConsole("cost")`).
+  - **N11 folded** — a guarded "Hub" button in the legacy `.cr` rail returns to the Aurora hub.
+  - **Production + Character tabs** = honest placeholders under the new shell (**Lane 3b/3c**, NOT built yet).
+- **RATIFY HARNESS re-warmed this container:** operator provided QA creds mid-session →
+  gitignored `.env.local` written (`RATIFY_EMAIL/PASSWORD` + Supabase URL + anon key from Supabase MCP).
+  **TRAP learned/logged:** `NEXT_PUBLIC_*` inline at **BUILD** time — a prod build made *before* `.env.local`
+  existed ships a client with no Supabase URL/key → every browser read is empty → hub 0 cards + workspace
+  redirects to hub (looks like an app bug; it's a stale build). **Rebuild AFTER writing `.env.local`.** Live
+  DB truth: `channel_profiles` = **1** row `default` (uncast, `character` null). Bespoke walk =
+  `scripts/ratify-lane3a.mjs`. Env-only console noise = 3× `ERR_CONNECTION_RESET` from the sandbox-blocked
+  Google Fonts CDN (`globals.css:1` `@import`), not an app defect (#68 class).
+- **NEXT: Lane 3b — Production tab** (channel-scoped Ideas via `ideas.channel` + Queue via `jobs.channel`
+  Fork-A + honest DEFERRED Runs §4; reuse `openEnqueuePanel` + the `requestQueueAction`/`confirmQueueAction`
+  money path **verbatim** → **mandatory Fable money gate**, intercept-and-abort the `jobs` POSTs, zero live
+  writes). **Then Lane 3c — Character tab** (resolve the channel's cast char by best-effort name match; cast
+  read-only summary + inline Casting/Visual modals + "Manage all characters →" to the legacy roster for full
+  CRUD/history/restore = Q1 global reachability, no capability lost; uncast empty state). Then Lane 5 (retire
+  legacy shell + reinstate the `?view=`→hub redirect). Carried Lane-4 popstate nits still open (fold into 3b/5).
+
+---
+
 ## ⚡ LATEST (2026-07-03, continuation `…-cont-la0yh9`) — foundation MERGED (#64); 2 AA fixes shipped; live UI ratify still creds-blocked. Read this first.
 
 Branch **`claude/channel-first-phase1-cont-la0yh9`**, fresh off production. The Phase-1 FOUNDATION

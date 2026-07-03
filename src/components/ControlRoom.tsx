@@ -98,6 +98,14 @@ function viewTabId(view: View) {
   return `control-room-tab-${view}`;
 }
 
+function workspaceTabId(tab: WorkspaceTab) {
+  return `workspace-tab-${tab}`;
+}
+
+function workspacePanelId(tab: WorkspaceTab) {
+  return `workspace-panel-${tab}`;
+}
+
 function isView(value: string | null): value is View {
   return value !== null && (VIEW_KEYS as string[]).includes(value);
 }
@@ -515,6 +523,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     overview: null,
     cost: null,
   });
+  const workspaceTabRefs = useRef<Record<WorkspaceTab, HTMLButtonElement | null>>({
+    production: null,
+    character: null,
+    guidelines: null,
+    cost: null,
+  });
   const runButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const enqueueButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const lastRunTriggerRef = useRef<string | null>(null);
@@ -811,6 +825,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     [activateViewTab, focusViewTab],
   );
 
+  const focusWorkspaceTab = useCallback((nextTab: WorkspaceTab) => {
+    workspaceTabRefs.current[nextTab]?.focus();
+  }, []);
+
   const navigate = useCallback((next: AppScope) => {
     setLegacyShellOpen(false);
     setScope(next);
@@ -834,6 +852,54 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       });
     },
     [guardDirtyAction],
+  );
+
+  const activateWorkspaceTab = useCallback(
+    (channel: string, nextTab: WorkspaceTab) => {
+      if (scope.kind === "workspace" && scope.channel === channel && scope.tab === nextTab) {
+        return;
+      }
+      navigate({ kind: "workspace", channel, tab: nextTab });
+    },
+    [navigate, scope],
+  );
+
+  const handleWorkspaceTabKeyDown = useCallback(
+    (
+      event: React.KeyboardEvent<HTMLButtonElement>,
+      channel: string,
+      currentTab: WorkspaceTab,
+    ) => {
+      const currentIndex = WORKSPACE_TABS.indexOf(currentTab);
+      if (currentIndex === -1) return;
+
+      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+        event.preventDefault();
+        const direction = event.key === "ArrowRight" ? 1 : -1;
+        const nextIndex =
+          (currentIndex + direction + WORKSPACE_TABS.length) % WORKSPACE_TABS.length;
+        focusWorkspaceTab(WORKSPACE_TABS[nextIndex]);
+        return;
+      }
+
+      if (event.key === "Home") {
+        event.preventDefault();
+        focusWorkspaceTab(WORKSPACE_TABS[0]);
+        return;
+      }
+
+      if (event.key === "End") {
+        event.preventDefault();
+        focusWorkspaceTab(WORKSPACE_TABS[WORKSPACE_TABS.length - 1]);
+        return;
+      }
+
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        activateWorkspaceTab(channel, currentTab);
+      }
+    },
+    [activateWorkspaceTab, focusWorkspaceTab],
   );
 
   useEffect(() => {
@@ -1588,58 +1654,186 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     const channelProfile =
       channelProfiles.find((profile) => profile.channel === scope.channel) ?? null;
     const channelName = channelProfile?.display_name?.trim() || scope.channel;
+    const characterName = channelProfile?.character?.trim() ?? "";
+    const activeTabId = workspaceTabId(scope.tab);
+    const activePanelId = workspacePanelId(scope.tab);
+    const renderDeferredWorkspacePanel = (title: string) => (
+      <div className="deferred-panel">
+        <div>
+          <h3 className="text-title" style={{ marginBottom: "0.5rem" }}>
+            {title}
+          </h3>
+          <p className="dim text-body" style={{ maxWidth: "500px", margin: "0 auto" }}>
+            This channel workspace will be wired in the next lane.
+          </p>
+        </div>
+      </div>
+    );
 
     return (
       <>
         {globalOverlays}
         <AuroraShell operatorInitials={operatorInitials}>
-          <section className="glass-panel" aria-labelledby="workspace-title">
-            <div className="section-header">
-              <div>
-                <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
-                  {scopeToSearch(scope)}
-                </p>
-                <h1 id="workspace-title" className="text-display" style={{ fontSize: "2rem" }}>
-                  {channelName}
-                </h1>
-              </div>
-              <button
-                type="button"
-                className="action-button"
-                onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
-              >
-                Back to Channels
-              </button>
-            </div>
-
-            <div className="filter-chips" role="tablist" aria-label={`${channelName} workspace`}>
-              {WORKSPACE_TABS.map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  className={"chip" + (scope.tab === tab ? " on" : "")}
-                  aria-selected={scope.tab === tab}
-                  aria-controls="workspace-tab-panel"
-                  tabIndex={scope.tab === tab ? 0 : -1}
-                  onClick={() => navigate({ kind: "workspace", channel: scope.channel, tab })}
-                >
-                  {WORKSPACE_TAB_LABELS[tab]}
-                </button>
-              ))}
-            </div>
-
-            <div
-              id="workspace-tab-panel"
-              role="tabpanel"
-              tabIndex={0}
-              className="au-empty"
-              aria-label={`${WORKSPACE_TAB_LABELS[scope.tab]} workspace`}
+          <nav className="breadcrumb" aria-label="Breadcrumb">
+            <button
+              type="button"
+              className="breadcrumb-button"
+              onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
             >
-              <p className="metric-label dim">{WORKSPACE_TAB_LABELS[scope.tab]}</p>
-              <p>{WORKSPACE_TAB_LABELS[scope.tab]} arrives in a later lane.</p>
+              Channels
+            </button>
+            <span className="breadcrumb-sep">/</span>
+            <span className="text-main" aria-current="page">
+              {channelName}
+            </span>
+          </nav>
+
+          <section className="workspace-header" aria-label="Channel Identity">
+            <div className="avatar-large" aria-hidden="true">
+              {channelInitials(scope.channel, channelProfile?.character)}
+            </div>
+            <div className="channel-meta">
+              <h1 className="text-display" style={{ fontSize: "2rem" }}>
+                {channelName}
+              </h1>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "0.75rem",
+                  alignItems: "center",
+                  marginTop: "0.25rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                {characterName ? (
+                  <span className="badge badge-success">Cast: {characterName}</span>
+                ) : (
+                  <span className="badge badge-neutral">Uncast</span>
+                )}
+                <span className="text-mono dim">{scope.channel}</span>
+              </div>
             </div>
           </section>
+
+          <nav className="workspace-nav" role="tablist" aria-label="Channel workspaces">
+            {WORKSPACE_TABS.map((tab) => (
+              <button
+                key={tab}
+                ref={(node) => {
+                  workspaceTabRefs.current[tab] = node;
+                }}
+                type="button"
+                className="nav-tab"
+                role="tab"
+                id={workspaceTabId(tab)}
+                aria-selected={scope.tab === tab}
+                aria-controls={scope.tab === tab ? workspacePanelId(tab) : undefined}
+                tabIndex={scope.tab === tab ? 0 : -1}
+                onClick={() => activateWorkspaceTab(scope.channel, tab)}
+                onKeyDown={(event) => handleWorkspaceTabKeyDown(event, scope.channel, tab)}
+              >
+                {WORKSPACE_TAB_LABELS[tab]}
+              </button>
+            ))}
+          </nav>
+
+          <div
+            id={activePanelId}
+            role="tabpanel"
+            tabIndex={0}
+            className="tab-panel active"
+            aria-labelledby={activeTabId}
+            style={{ marginTop: "1.5rem" }}
+          >
+            {scope.tab === "production" &&
+              renderDeferredWorkspacePanel("Production arrives in the next lane.")}
+
+            {scope.tab === "character" &&
+              renderDeferredWorkspacePanel("Character arrives in the next lane.")}
+
+            {scope.tab === "guidelines" && (
+              <article className="glass-panel">
+                <div className="panel-header">
+                  <h2 className="text-title" style={{ fontSize: "1.25rem" }}>
+                    Channel Guidelines
+                  </h2>
+                </div>
+
+                <div className="advisory-box">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--accent)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ flexShrink: 0, marginTop: "2px" }}
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  <div>
+                    <h3
+                      className="text-title"
+                      style={{ color: "var(--accent)", fontSize: "0.875rem", marginBottom: "0.25rem" }}
+                    >
+                      E1 Persona Advisory
+                    </h3>
+                    <p className="text-body dim" style={{ fontSize: "0.875rem" }}>
+                      These guidelines act as soft prompt boundaries for the underlying Persona engine.
+                    </p>
+                  </div>
+                </div>
+
+                <ChannelProfilesPanel
+                  supabase={supabase}
+                  profiles={channelProfiles}
+                  loading={channelProfilesLoading}
+                  error={channelProfilesError}
+                  onRefetch={refetchChannelProfiles}
+                  scopedChannel={scope.channel}
+                />
+              </article>
+            )}
+
+            {scope.tab === "cost" && (
+              <div className="deferred-panel">
+                <svg
+                  className="deferred-icon"
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="12" y1="1" x2="12" y2="23" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+                <div>
+                  <h3 className="text-title" style={{ marginBottom: "0.5rem" }}>
+                    Per-Channel Costing is Deferred
+                  </h3>
+                  <p
+                    className="dim text-body"
+                    style={{ maxWidth: "500px", margin: "0 auto 1.5rem" }}
+                  >
+                    Job costs arrive globally via character pipelines without a distinct channel scope column. Honest per-channel spend rollups will be available in Phase 3.
+                  </p>
+                  <button className="btn" type="button" onClick={() => openLegacyConsole("cost")}>
+                    View Global Cost Center →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </AuroraShell>
       </>
     );
@@ -1653,6 +1847,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         <div className="brand" style={{ marginBottom: "8px" }}>
           CONTROL<b>·</b>ROOM
         </div>
+        <button
+          className="navbtn"
+          type="button"
+          onClick={() => guardDirtyAction(() => navigate({ kind: "hub", hub: DEFAULT_HUB }))}
+        >
+          <Icon name="channels" />
+          <span>Hub</span>
+          <div className="dot" />
+        </button>
         <button
           className={"chip " + (active?.status === "draft" ? "draft" : active ? "active" : "")}
           type="button"
