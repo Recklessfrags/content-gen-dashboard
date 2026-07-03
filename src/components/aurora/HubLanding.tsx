@@ -13,8 +13,9 @@ export type HubLandingProps = {
   };
   actions: {
     pendingCount: number;
-    items: { title: string; detail: string }[];
+    items: { id: number; title: string; detail: string }[];
     onReviewAll: () => void;
+    onOpenLegacyConsole: () => void;
   };
   operatorInitials?: string;
 };
@@ -50,16 +51,21 @@ export function HubLanding({
                   : "No scripts or budgets are waiting for review."}
               </p>
             </div>
-            <button type="button" className="action-button" onClick={actions.onReviewAll}>
-              Review All
-            </button>
+            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+              <button type="button" className="action-button" onClick={actions.onReviewAll}>
+                Review All
+              </button>
+              <button type="button" className="action-button" onClick={actions.onOpenLegacyConsole}>
+                Legacy console
+              </button>
+            </div>
           </div>
 
           {actions.pendingCount > 0 ? (
             <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginTop: "2rem" }}>
               {actions.items.slice(0, 2).map((item) => (
                 <div
-                  key={`${item.title}:${item.detail}`}
+                  key={item.id}
                   style={{
                     background: "var(--surface-2)",
                     padding: "0.5rem 1rem",
