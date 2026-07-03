@@ -1075,13 +1075,24 @@
   font-weight: 500;
 }
 
-.aurora-app .breadcrumb a {
+.aurora-app .breadcrumb a,
+.aurora-app .breadcrumb-button {
   color: var(--text-dim);
   text-decoration: none;
   transition: color 0.2s;
 }
 
-.aurora-app .breadcrumb a:hover { color: var(--text-main); }
+.aurora-app .breadcrumb-button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.aurora-app .breadcrumb a:hover,
+.aurora-app .breadcrumb-button:hover { color: var(--text-main); }
 .aurora-app .breadcrumb-sep { color: var(--text-muted); }
 
 .aurora-app .top-bar {
@@ -1239,6 +1250,138 @@
   gap: 1rem;
   align-items: flex-start;
   margin-bottom: 1.5rem;
+}
+
+.aurora-app .channel-profiles.scoped {
+  display: block;
+}
+
+.aurora-app .channel-profiles.scoped .dossier {
+  overflow: visible;
+  padding-bottom: 0;
+}
+
+.aurora-app .channel-profiles.scoped .sheet,
+.aurora-app .channel-profiles.scoped .dossier-head,
+.aurora-app .channel-profiles.scoped .savebar,
+.aurora-app .channel-profiles.scoped .channel-profile-sheet,
+.aurora-app .channel-profiles.scoped .channel-profile-actions {
+  background: transparent;
+  border-color: var(--border-soft);
+}
+
+.aurora-app .channel-profiles.scoped .dossier-head {
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.aurora-app .channel-profiles.scoped .dossier-head h2 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 2.5rem;
+  letter-spacing: 0;
+  text-transform: none;
+  margin: 0;
+  line-height: 1.1;
+  color: var(--text-main);
+}
+
+.aurora-app .channel-profiles.scoped .dossier-head .sub,
+.aurora-app .channel-profiles.scoped .filecode,
+.aurora-app .channel-profiles.scoped .eyebrow,
+.aurora-app .channel-profiles.scoped .hint,
+.aurora-app .channel-profiles.scoped legend,
+.aurora-app .channel-profiles.scoped .field-label-side {
+  color: var(--text-dim);
+}
+
+.aurora-app .channel-profiles.scoped .filecode .live,
+.aurora-app .channel-profiles.scoped .field label {
+  color: var(--text-muted);
+}
+
+.aurora-app .channel-profiles.scoped .field input,
+.aurora-app .channel-profiles.scoped .field textarea,
+.aurora-app .channel-profiles.scoped .field select,
+.aurora-app .channel-profiles.scoped input[type="number"],
+.aurora-app .channel-profiles.scoped .channel-profile-sheet input,
+.aurora-app .channel-profiles.scoped .channel-profile-sheet textarea,
+.aurora-app .channel-profiles.scoped .channel-profile-sheet select {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+  border-radius: var(--radius-sm);
+}
+
+.aurora-app .channel-profiles.scoped .field input:focus,
+.aurora-app .channel-profiles.scoped .field textarea:focus,
+.aurora-app .channel-profiles.scoped .field select:focus,
+.aurora-app .channel-profiles.scoped input[type="number"]:focus,
+.aurora-app .channel-profiles.scoped .channel-profile-sheet input:focus,
+.aurora-app .channel-profiles.scoped .channel-profile-sheet textarea:focus,
+.aurora-app .channel-profiles.scoped .channel-profile-sheet select:focus {
+  border-color: var(--border-glow);
+  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.15);
+  background: var(--surface-2);
+}
+
+.aurora-app .channel-profiles.scoped .field input::placeholder,
+.aurora-app .channel-profiles.scoped .field textarea::placeholder {
+  color: var(--text-dim);
+}
+
+.aurora-app .channel-profiles.scoped .dials-inert {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  color: var(--text-main);
+}
+
+.aurora-app .channel-profiles.scoped .dials-inert > .hint {
+  color: var(--text-dim);
+}
+
+.aurora-app .channel-profiles.scoped .dials-inert .badge {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+  border-radius: 12px;
+}
+
+.aurora-app .channel-profiles.scoped .savebar {
+  position: static;
+  color: var(--text-dim);
+}
+
+.aurora-app .channel-profiles.scoped .flash {
+  color: var(--text-dim);
+}
+
+.aurora-app .channel-profiles.scoped .flash.err {
+  color: var(--danger-fg);
+}
+
+.aurora-app .channel-profiles.scoped .btn {
+  background: var(--text-main);
+  color: var(--bg-base);
+  border: 1px solid transparent;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.aurora-app .channel-profiles.scoped .btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.aurora-app .channel-profiles.scoped .btn.ghost {
+  background: transparent;
+  color: var(--text-main);
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+.aurora-app .channel-profiles.scoped .btn.ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  opacity: 1;
 }
 
 /* ==========================================================================

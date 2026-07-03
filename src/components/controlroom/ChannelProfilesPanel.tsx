@@ -29,6 +29,7 @@ type ChannelProfilesPanelProps = {
   loading: boolean;
   error: string | null;
   onRefetch: () => Promise<void> | void;
+  scopedChannel?: string;
 };
 
 type FormState = {
@@ -84,6 +85,7 @@ export function ChannelProfilesPanel({
   loading,
   error,
   onRefetch,
+  scopedChannel,
 }: ChannelProfilesPanelProps) {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
@@ -132,14 +134,23 @@ export function ChannelProfilesPanel({
       return;
     }
 
-    const nextProfile = selectedProfile ?? profiles[0];
+    const scopedProfile = scopedChannel
+      ? (profiles.find((profile) => profile.channel === scopedChannel) ?? null)
+      : null;
+    if (scopedChannel && !scopedProfile) {
+      setSelectedChannel(null);
+      hydratedChannelRef.current = null;
+      setForm(null);
+      return;
+    }
+    const nextProfile = scopedProfile ?? selectedProfile ?? profiles[0];
     if (!nextProfile) return;
     setSelectedChannel(nextProfile.channel);
     if (nextProfile.channel !== hydratedChannelRef.current) {
       hydratedChannelRef.current = nextProfile.channel;
       setForm(profileToForm(nextProfile));
     }
-  }, [creating, loading, profiles, selectedProfile]);
+  }, [creating, loading, profiles, scopedChannel, selectedProfile]);
 
   const updateForm = useCallback((key: keyof FormState, value: string) => {
     setForm((current) => (current ? { ...current, [key]: value } : current));
@@ -276,6 +287,15 @@ export function ChannelProfilesPanel({
     );
   }
 
+  if (scopedChannel && !form) {
+    return (
+      <div className="empty">
+        <h3>Channel profile unavailable</h3>
+        <p>Couldn&apos;t find the fixed channel profile for this workspace.</p>
+      </div>
+    );
+  }
+
   if (!form && profiles.length === 0) {
     return (
       <div className="empty">
@@ -289,80 +309,90 @@ export function ChannelProfilesPanel({
   }
 
   return (
-    <div className="main channel-profiles">
-      <aside className="roster">
-        <div className="col-head">
-          <h2>Channels</h2>
-          <span className="count">{profiles.length} on file</span>
-        </div>
-        <div className="roster-list">
-          {profiles.map((profile) => (
-            <button
-              key={profile.channel}
-              className={"pcard" + (!creating && profile.channel === form?.channel ? " on" : "")}
-              type="button"
-              onClick={() => selectProfile(profile)}
-            >
-              <div className="codename">{profile.display_name || profile.channel}</div>
-              <div className="concept">{profile.channel}</div>
-              <div className="meta">
-                <span className="chip draft">{labelize(profile.treatment)}</span>
-              </div>
+    <div className={"main channel-profiles" + (scopedChannel ? " scoped" : "")}>
+      {!scopedChannel && (
+        <aside className="roster">
+          <div className="col-head">
+            <h2>Channels</h2>
+            <span className="count">{profiles.length} on file</span>
+          </div>
+          <div className="roster-list">
+            {profiles.map((profile) => (
+              <button
+                key={profile.channel}
+                className={"pcard" + (!creating && profile.channel === form?.channel ? " on" : "")}
+                type="button"
+                onClick={() => selectProfile(profile)}
+              >
+                <div className="codename">{profile.display_name || profile.channel}</div>
+                <div className="concept">{profile.channel}</div>
+                <div className="meta">
+                  <span className="chip draft">{labelize(profile.treatment)}</span>
+                </div>
+              </button>
+            ))}
+            <button className="addbtn" type="button" onClick={startNew}>
+              + New channel
             </button>
-          ))}
-          <button className="addbtn" type="button" onClick={startNew}>
-            + New channel
-          </button>
-        </div>
-      </aside>
+          </div>
+        </aside>
+      )}
 
       <section className="dossier" aria-labelledby="channel-profile-title">
-        <div className="mobile-roster">
-          <label className="eyebrow" htmlFor="mobile-channel-roster-select">
-            SELECT CHANNEL
-          </label>
-          <select
-            id="mobile-channel-roster-select"
-            className="mobile-roster-select"
-            value={creating ? "" : form?.channel ?? ""}
-            onChange={(event) => {
-              const nextProfile = profiles.find(
-                (profile) => profile.channel === event.target.value,
-              );
-              if (nextProfile) selectProfile(nextProfile);
-            }}
-            disabled={creating}
-            aria-label="Select channel"
-          >
-            {creating ? (
-              <option value="">(new channel)</option>
-            ) : (
-              profiles.map((profile) => (
-                <option key={profile.channel} value={profile.channel}>
-                  {profile.display_name || profile.channel}
-                </option>
-              ))
-            )}
-          </select>
-          <button
-            className="mobile-roster-new"
-            type="button"
-            onClick={startNew}
-            disabled={creating}
-            aria-label="Create new channel"
-          >
-            + NEW
-          </button>
-        </div>
+        {!scopedChannel && (
+          <div className="mobile-roster">
+            <label className="eyebrow" htmlFor="mobile-channel-roster-select">
+              SELECT CHANNEL
+            </label>
+            <select
+              id="mobile-channel-roster-select"
+              className="mobile-roster-select"
+              value={creating ? "" : form?.channel ?? ""}
+              onChange={(event) => {
+                const nextProfile = profiles.find(
+                  (profile) => profile.channel === event.target.value,
+                );
+                if (nextProfile) selectProfile(nextProfile);
+              }}
+              disabled={creating}
+              aria-label="Select channel"
+            >
+              {creating ? (
+                <option value="">(new channel)</option>
+              ) : (
+                profiles.map((profile) => (
+                  <option key={profile.channel} value={profile.channel}>
+                    {profile.display_name || profile.channel}
+                  </option>
+                ))
+              )}
+            </select>
+            <button
+              className="mobile-roster-new"
+              type="button"
+              onClick={startNew}
+              disabled={creating}
+              aria-label="Create new channel"
+            >
+              + NEW
+            </button>
+          </div>
+        )}
 
         <header className="dossier-head">
           <div className="filecode">
             <span>CHANNEL PROFILE</span>
             <span className="live">{creating ? "NEW ROW" : "EDITING ROW"}</span>
           </div>
-          <h1 id="channel-profile-title">
-            {form?.displayName || form?.channel || "New channel"}
-          </h1>
+          {scopedChannel ? (
+            <h2 id="channel-profile-title">
+              {form?.displayName || form?.channel || "New channel"}
+            </h2>
+          ) : (
+            <h1 id="channel-profile-title">
+              {form?.displayName || form?.channel || "New channel"}
+            </h1>
+          )}
           <p className="sub">
             Store channel-level treatment, source, packaging, and ADR-005 intent.
           </p>
@@ -574,15 +604,17 @@ export function ChannelProfilesPanel({
               <button className="btn" type="button" onClick={() => void saveProfile()} disabled={saving}>
                 {saving ? "Saving..." : "Save channel"}
               </button>
-              <button
-                className="btn ghost"
-                type="button"
-                onClick={() => void deleteProfile()}
-                disabled={creating || deleting || isDefaultProfile}
-              >
-                {deleting ? "Deleting..." : "Delete"}
-              </button>
-              {isDefaultProfile && (
+              {!scopedChannel && (
+                <button
+                  className="btn ghost"
+                  type="button"
+                  onClick={() => void deleteProfile()}
+                  disabled={creating || deleting || isDefaultProfile}
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </button>
+              )}
+              {!scopedChannel && isDefaultProfile && (
                 <span className="hint">fallback profile, can&apos;t delete</span>
               )}
               {notice && (
