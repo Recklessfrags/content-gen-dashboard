@@ -11,7 +11,37 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-02) — CHANNEL-FIRST REDEFINITION RATIFIED (D-6). Read this first.
+## ⚡ LATEST (2026-07-03) — PHASE-1 DESIGN LOCKED (Aurora); NEXT SESSION = BUILD. Read this first.
+
+The Phase-1 **design is done and chosen**; the next session **builds** it. Full kickoff (branch +
+paste-in starting prompt + traps): **`docs/PHASE1-BUILD-KICKOFF.md`**.
+
+- **Branch:** work from **`claude/channel-first-phase1-dx9gan`** (`git fetch` first) — it carries all
+  Phase-1 specs + the Aurora design package; **none of it is on production yet** (production =
+  `claude/new-session-3l99vs`). Continue on this branch (or cut a fresh lane from its tip, rule 27).
+- **Design language = "Aurora"** (operator pick, 2026-07-03, via a multi-round tournament; both
+  light+dark first-class). Runners-up retained as fallbacks. Chosen mock =
+  `docs/design/finalists/finalist-3-aurora.html`; **full build package =
+  `docs/design/aurora-system/`** (design-system spec + component gallery + Action Center/Overview +
+  channel-workspace screens).
+- **Build spec:** `docs/slices/slice-channel-first-phase1.md` (L-4 reviewed) — IA, URL-state routing
+  (extend `?view=`, **no router lib**), re-parenting map, **channel-scoping DATA REALITY §4**
+  (episodes have no channel → per-channel Runs/Cost DEFERRED; Ideas/Queue are scopable), inline
+  Action Center §5, Fork-A `channelId` §6, gates §10. Review tiers: `docs/design/channel-first-review-plan.md`
+  (**Gemini + suerta; Fable-5 on the Action Center money path**).
+- **Cross-team:** correlation-key ask **ANSWERED + QUEUED** (pipeline will add `episodes.correlation_key`
+  echoing the job's `idempotency_key`; gates **Phase 3 only**, not needed for 1/2). **Tier-2
+  per-character cost UNBLOCKED** (22/41 episodes now linked; data-verified, UI ratify pending creds).
+- **PARKED/deferred:** bible auto-draft (`slice-bible-autogen.md`, operator-parked); casting
+  empty-bible guard (`slice-casting-bible-guard.md`) = interim stopgap (fold into Phase-2 casting or
+  standalone if asked); E2 auto-fill + 2b visual gen deferred; Phase 2 (character_id FK + casting
+  elevation) and Phase 3 (threading) later. **governance.md** refreshed to operator's latest (1–41).
+- Design exploration trail: `docs/design/design-tournament.md`, `docs/design/design-research-2026.md`,
+  `docs/design/directions*/`.
+
+---
+
+## ⚡ (2026-07-02) — CHANNEL-FIRST REDEFINITION RATIFIED (D-6). Context for the above.
 
 The operator stepped back from incremental slices and questioned the whole dashboard
 workflow. Outcome: **the dashboard is being reorganized channel-first** (the channel/show
