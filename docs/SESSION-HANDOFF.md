@@ -17,7 +17,7 @@ Branch **`claude/channel-first-phase1-cont-40jine`**, fresh off production (tip 
 This session started **Lane 3** (re-parent the 4 workspace tabs into the channel workspace) and shipped
 the first, cleanest sub-lane:
 
-- **Lane 3a — channel-workspace shell + Guidelines + Cost tabs + N11 — ✅ SHIPPED (PR #<lane3a>, squash `<sha>`).**
+- **Lane 3a — channel-workspace shell + Guidelines + Cost tabs + N11 — ✅ SHIPPED (PR #71, squash `dcfe6c7`).**
   Codex built → Architect committed → **Fable-5 APPROVE-WITH-NITS** (no blockers; correctness/routing §3/
   Fork-A no-leak §6/`.tab-panel` display:none trap/savebar-specificity all code-verified) → all nits folded
   → **live-artifact ratify 24/24 substantive gates** (GATES `L3a-1..20 + G10a..e`). What landed:
@@ -32,7 +32,36 @@ the first, cleanest sub-lane:
   - **Cost tab** = honest **DEFERRED** panel (§4 — episodes/receipts carry no channel key; NO fabricated
     per-channel $); "View Global Cost Center →" opens the real global Cost Box (`openLegacyConsole("cost")`).
   - **N11 folded** — a guarded "Hub" button in the legacy `.cr` rail returns to the Aurora hub.
-  - **Production + Character tabs** = honest placeholders under the new shell (**Lane 3b/3c**, NOT built yet).
+  - **Production tab** = honest placeholder under the new shell (**Lane 3b — DEFERRED, see below**).
+- **Lane 3c — channel workspace CHARACTER tab — ✅ SHIPPED (PR #72).** Codex built (ControlRoom.tsx only)
+  → **Fable-5** review → **live-artifact ratify 9/9 gates** (GATES `L3c-1..9`). Resolves the channel's cast
+  character by best-effort name match of the loose free-text `channel_profiles.character` → `chars[].codename`
+  (NO FK — that's Phase 2). Two states from the mock: **CAST** (avatar + name + concept + read-only bible
+  summary + a Casting Configuration box) and **UNCAST** ("No Character Assigned" + Assign Character / Create
+  New) — `default` is uncast, so the uncast state is the live-ratified truth. **Q1 "no capability lost"**: full
+  character CRUD/bible/history/restore/casting stays reachable — "Manage all characters →" / "Create New" →
+  `openLegacyConsole("roster")`; "Assign Character" → the Guidelines tab (the free-text `character` field).
+  **NO inline Casting/Visual modals** (Phase 2 de-modaling; Configure Voice/Visuals → legacy roster) — pure
+  re-parent, no new write path.
+- **Lane 3b — Production tab — DEFERRED (data reality, not a code blocker).** The channel-scoped Ideas/Queue
+  and its **mandatory money-path live-ratify cannot be exercised** against the current live DB: verified
+  2026-07-03 — `ideas.channel` values are **"Food"/"Dark history"** (free-text display names, NOT the only
+  `channel_profiles` codename **"default"**), and **all 47 `jobs.channel` are NULL**. So for `default` the
+  Production Ideas + Queue are empty-in-practice, and there is **no channel-tagged parked job** to drive the
+  inline approve/publish double-gate through a live intercept-and-abort walk. This is the same class as the
+  already-filed "jobs.channel populated on 0 rows" finding, now extended to ideas (a codename-vs-free-text
+  mismatch). **Build Lane 3b when** real channel-tagged ideas/jobs exist (or the pipeline starts writing
+  `jobs.channel` + the operator tags ideas with the channel codename) — then its money path is demonstrable.
+  Plan when unblocked: channel-scope Ideas via `ideas.channel` (quick-capture writes `channel=scope.channel`)
+  + Queue via `jobs.channel` (Fork-A), reuse `openEnqueuePanel` + the `requestQueueAction`/`confirmQueueAction`
+  money path **verbatim** (reuse the existing `QueueActionDialog` modal — poll-safe, double-gate intact) →
+  Fable money gate + intercept-and-abort ratify (zero live writes) + honest DEFERRED Runs (§4).
+- **NEXT: Lane 5 — retire the legacy shell** once Production (3b) lands (or is confirmed deferred): reinstate
+  slice §3 Q3's one-time legacy `?view=`→hub `replaceState` redirect (commented in ControlRoom during the
+  dual-shell interim), remove the dual-shell reachability once every surface is re-parented. Carried Lane-4
+  popstate nits (cross-shell flash; openLegacyConsole armed-pending) still open — fold into Lane 5. Then
+  Phase 2 (`channel_profiles.character_id` FK — gated on the still-pending HQ answer "does the worker read
+  `channel_profiles.character`?") / Phase 3 (idea→job→episode threading + the correlation key).
 - **RATIFY HARNESS re-warmed this container:** operator provided QA creds mid-session →
   gitignored `.env.local` written (`RATIFY_EMAIL/PASSWORD` + Supabase URL + anon key from Supabase MCP).
   **TRAP learned/logged:** `NEXT_PUBLIC_*` inline at **BUILD** time — a prod build made *before* `.env.local`
