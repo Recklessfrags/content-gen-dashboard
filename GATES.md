@@ -154,3 +154,58 @@ Residual/deferred: **E1.b** (pre-selecting the persona chip in the Casting Studi
 channel-linked character) deferred to phase-2 (loose character↔channel link); **E2**
 (guideline auto-fill editor) blocked on the channel-researcher + cast-brief storage
 (spec §5). Mapping content (`suggestPersona.ts` table) is operator-redlinable data.
+
+---
+
+# Phase-1 Channel-first — Lane 1 gates (Aurora design-system FOUNDATION) — on branch
+
+Branch `claude/channel-first-phase1-build-gji3vi` (fresh from production, carries all Phase-1
+specs + the Aurora package). First lane of the one-slice build (`docs/slices/slice-channel-first-phase1.md`
+§9: primitives first). Delivers the Aurora token layer (light+dark) + primitive component classes +
+theme wiring — **additive, scoped under `.aurora-app`**; the legacy `.cr` dossier app is untouched
+and still builds/renders. NOT in this lane: hub, workspace, Action Center, any re-parenting.
+
+Files: `src/app/aurora.css` (new), `src/app/layout.tsx` (imports + `data-theme="dark"` default +
+pre-hydration theme script + theme-aware `themeColor`), `src/lib/theme.ts` (new; theme seam +
+live `<meta name=theme-color>` sync). No new deps, no migration, plain CSS.
+
+Full loop: Codex build → Architect commit → **Gemini + suerta (Opus)** review (per
+`docs/design/channel-first-review-plan.md` §4 — design-system/non-money = G + S(Opus)) →
+build + visual smoke (Chromium, dark+light @1440 + 412) + measured contrast proof.
+
+Review trail:
+- **Gemini** = REQUEST-CHANGES → **all folded**: (1) class-name collision (legacy globals
+  `.btn`/`.status-badge` → renamed `.au-btn*`/`.au-badge`); (2) stacking-context bug (fixed
+  `z:-2` backdrop hidden behind `.aurora-app` opaque bg → `isolation:isolate`); (3) `outline:none`
+  killed keyboard focus ring on inputs → removed; (4) light warn/success AA; (5) missing states
+  (button loading, input `aria-invalid`, toggle disabled, `.au-empty`); (6) `.channel-card`
+  self-contained glass (no text on raw aurora); (7) theme-aware `themeColor`; (8) SVG noise
+  desaturate.
+- **suerta (Opus)** = REQUEST-CHANGES → **folded**: caught a real AA BLOCKER both prior lenses
+  missed — light-mode **`--danger` badge text `#DC2626` ≈3.85:1** and **`--warn` `#B45309`
+  ≈4.28:1** on their own 15% tints (not pure white) FAIL 4.5:1. Corrected to `--danger:#B91C1C`,
+  `--warn:#92400E` (light only). Scope-isolation, collision-avoidance, hydration, reduced-motion,
+  noise-URI all verified clean by suerta greps.
+
+| # | Gate | Status | Evidence (measured) |
+| --- | --- | --- | --- |
+| L1-1 | Build clean; no new deps / migration | **PASS** | `next build` clean (Next 15.5.19); only `aurora.css`/`layout.tsx`/`theme.ts` touched; `package.json` unchanged. |
+| L1-2 | Tokens light+dark match spec §1.1 (exact) | **PASS** | Values diffed vs `phase1-design-system.md` §1.1; only AA-corrections deviate (danger/warn/success light), commented in-file. |
+| L1-3 | No collision / bleed into legacy `.cr` | **PASS** | Colliding names renamed to `.au-*`; suerta grep-verified legacy `globals.css` defines none of Aurora's classes/tokens; `data-theme` absent from legacy → no legacy re-render. |
+| L1-4 | Aurora backdrop actually renders (not hidden) | **PASS** | `isolation:isolate` on `.aurora-app`; Chromium computed `appIsolation:isolate`, backdrop opacity .4 dark/.7 light; visible in both-theme screenshots. |
+| L1-5 | Badge text AA ≥4.5:1 (light, on own tint) | **PASS** | Measured: danger **5.10**, warn **6.05**, success **5.82** (was 3.85/4.28/…). |
+| L1-6 | Focus-visible ring present, not suppressed | **PASS** | `.aurora-app :focus-visible{outline:2px accent}` retained; input `outline:none` removed. |
+| L1-7 | Reduced-motion disables backdrop drift + spinners + transitions | **PASS** | suerta-verified `@media (prefers-reduced-motion)` block covers `.aurora-backdrop`, running/loading spinners, and all `.aurora-app` transitions. |
+| L1-8 | Component states present (default/hover/focus/active/disabled/loading/empty/error) | **PASS** | `.au-btn.is-loading`/`[aria-busy]`, input `[aria-invalid]`, toggle disabled, `.au-empty`; rendered in smoke harness. |
+| L1-9 | SSR/hydration safe | **PASS** | `suppressHydrationWarning` on `<html>`; pre-hydration script only upgrades to a stored pref; `theme.ts` window-guarded, SSR-defaults "dark" == SSR `data-theme`. |
+| L1-10 | Checkbox/radio target ≥24×24 (WCAG 2.5.8) | **PASS** | Bumped 1.25rem→1.5rem. |
+
+**OPEN (verify on the real artifact at the Lane-2+ browser-ratification gate, §10 gate 12):**
+dark-mode `--danger` badge text (`#FF1744`) is **borderline** (~4.3:1 by static estimate; true
+value depends on the composited surface stack + aurora bleed-through) → **pixel-sample it on the
+rendered dark screens**; if <4.5, darken/lighten the dark danger text or raise `--danger-bg`
+opacity. Not fixed by guess now (locked dark token; approximate math).
+
+**Lane 1 = reviewed + build-green + visually smoked (not yet browser-ratified against the live DB —
+that gate needs the built screens + QA creds, arrives in the interactive lanes).** Next: Lane 2
+(URL-routing extension + global Channels hub).
