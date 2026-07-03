@@ -72,8 +72,12 @@ operator's — this is a starting point.)
 
 _Finalists renamed 1-4 (see `finalists/README.md`): 1 Editorial (C) · 2 Night Ops (D) · 3 Aurora (R3-1) · 4 Risograph (R3-2)._
 
-_Status: **FINAL BALLOT open** — awaiting operator's single pick → then the full Phase-1 design
-system + all screens are built against it, through the Gemini + suerta(Fable-5 on money path) gate._
+_Status: **DECIDED (2026-07-03) — WINNER = Finalist 3 "Aurora"** (spatial/aurora depth; cyan/blue
+signature; both light + dark first-class; inline approval chips; `finalists/finalist-3-aurora.html`).
+Operator pick, "for now." **Runners-up RETAINED in-repo as fallbacks** (1 Editorial, 2 Night Ops,
+4 Risograph + Transmission + all rounds under `directions-v*`) — nothing deleted. **Next:** the full
+Phase-1 design system + all screens built against Aurora, through the Gemini + suerta(Fable-5 on the
+money path) gate._
 
 ---
 

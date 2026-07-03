@@ -4,6 +4,9 @@ _Renamed 1–4 for clarity (was C/D/R3-1/R3-2). Pick ONE → it becomes the Phas
 every screen is built against it. Each is self-contained, ships light + dark (header toggle), and is
 honest to the data model. Open the `.html` and flip modes / resize to a phone._
 
+> **✅ SELECTED (2026-07-03): #3 "Aurora"** — operator pick, "for now." Both light + dark confirmed
+> first-class. The other three are **retained as fallbacks** (kept in-repo, nothing deleted).
+
 | # | Name | File | Native mode | Signature | In one line |
 | --- | --- | --- | --- | --- | --- |
 | **1** | **Editorial** | `finalist-1-editorial.html` | light | pink | soft bento tiles + big italic serif channel names + mono data — premium & scannable (was "C") |

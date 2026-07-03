@@ -1,7 +1,15 @@
 # Visual-design brief — Channel-first Phase 1 (design system + screens)
 
+> **✅ DIRECTION CHOSEN (2026-07-03): Finalist 3 "Aurora"** — `docs/design/finalists/finalist-3-aurora.html`.
+> Spatial/aurora depth: luminous layered surfaces, ambient aurora backdrop, **cyan/blue signature**,
+> mono numerics, inline approval chips in the Action Center; both light + dark first-class. **Step 2
+> (§4) below now builds the full design system + all Phase-1 screens against Aurora** — extract its
+> tokens (semantic color + `[data-theme]`, type, spacing, radius, elevation, the aurora treatment,
+> motion) into the design system, and hold **WCAG AA on the aurora/gradient backgrounds** (the one
+> real risk). Runners-up (Editorial, Night Ops, Risograph, Transmission) retained as fallbacks.
+
 _Status: **BRIEF for the Designer (Gemini)** — L-4 cross-vendor reviewed 2026-07-02 (blockers +
-improvements folded). Author: Architect (Claude), 2026-07-02.
+improvements folded); **direction chosen 2026-07-03 = Aurora.** Author: Architect (Claude), 2026-07-02.
 Direction: `DIRECTION.md` D-6 + `docs/design/channel-first-redefinition.md`. Structural spec
 this pairs with: `docs/slices/slice-channel-first-phase1.md` (read it — the IA, re-parenting
 map, routing, Action Center, and the channel-scoping DATA REALITY §4 are binding on the
