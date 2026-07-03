@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Room - Channels Hub</title>
+<style>
+    /* TOKENS & NATIVE DEFAULT (DARK) */
+    :root {
+        --bg-canvas: #1C1C1F;
+        --bg-surface: #0A0A0B;
+        --bg-surface-alt: #141416;
+        --bg-inverse: #F4F4F5;
+        --text-inverse: #0A0A0B;
+        
+        --border: #333336;
+        
+        --text-primary: #F4F4F5;
+        --text-dim: #A1A1AA;
+        
+        --signature: #FF2A85;
+        --signature-dim: rgba(255, 42, 133, 0.15);
+        
+        --status-success: #6EE7B7;
+        --success-dim: rgba(110, 231, 183, 0.1);
+        
+        --status-warn: #FCD34D;
+        --warn-dim: rgba(252, 211, 77, 0.1);
+        
+        --status-danger: #FCA5A5;
+        --danger-dim: rgba(252, 165, 165, 0.1);
+
+        --btn-shadow: #000000;
+
+        --font-display: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+        --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+    }
+
+    /* LIGHT MODE OVERRIDES */
+    html[data-theme="light"] {
+        --bg-canvas: #D4D4D8;
+        --bg-surface: #FAFAFA;
+        --bg-surface-alt: #F4F4F5;
+        --bg-inverse: #0A0A0B;
+        --text-inverse: #FAFAFA;
+        
+        --border: #A1A1AA;
+        
+        --text-primary: #0A0A0B;
+        --text-dim: #52525B;
+        
+        --signature: #E6005C;
+        --signature-dim: rgba(230, 0, 92, 0.1);
+        
+        --status-success: #059669;
+        --success-dim: rgba(5, 150, 105, 0.1);
+        
+        --status-warn: #C26A00;
+        --warn-dim: rgba(194, 106, 0, 0.1);
+        
+        --status-danger: #DC2626;
+        --danger-dim: rgba(220, 38, 38, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: var(--font-mono); /* Default to mono for data */
+        background-color: var(--bg-canvas);
+        color: var(--text-primary);
+        line-height: 1.4;
+        -webkit-font-smoothing: antialiased;
+        padding: clamp(1rem, 3vw, 2.5rem);
+        min-height: 100vh;
+        position: relative;
+    }
+
+    /* NOISE TEXTURE */
+    .noise-overlay {
+        position: fixed;
+        inset: 0;
+        width: 100vw; height: 100vh;
+        pointer-events: none;
+        z-index: 9999;
+        opacity: 0.18;
+        mix-blend-mode: overlay;
+    }
+    html[data-theme="light"] .noise-overlay {
+        opacity: 0.4;
+        mix-blend-mode: color-burn;
+    }
+
+    /* TYPOGRAPHY UTILS */
+    .font-display { font-family: var(--font-display); }
+    .font-mono { font-family: var(--font-mono); }
+    .text-sig { color: var(--signature); }
+    .text-dim { color: var(--text-dim); }
+    .text-success { color: var(--status-success); }
+    .text-warn { color: var(--status-warn); }
+    .text-danger { color: var(--status-danger); }
+
+    /* STRUCTURAL GRID */
+    .app-frame {
+        max-width: 1440px;
+        margin: 0 auto;
+        background-color: var(--border); /* Grid lines */
+        border: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .panel {
+        background-color: var(--bg-surface);
+    }
+
+    .grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        background-color: var(--border);
+    }
+    
+    .span-2 { grid-column: span 2; }
+    .span-1 { grid-column: span 1; }
+
+    @media (max-width: 1024px) {
+        .grid-4 { grid-template-columns: repeat(2, 1fr); }
+        .span-2 { grid-column: span 2; }
+        .span-1 { grid-column: span 1; }
+    }
+    @media (max-width: 600px) {
+        .grid-4 { grid-template-columns: 1fr; }
+        .span-2, .span-1 { grid-column: span 1; }
+    }
+
+    /* HEADER */
+    .header-layout {
+        padding: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .brand-lockup {
+        display: flex;
+        align-items: stretch;
+        gap: 1.5rem;
+    }
+    .brand-id {
+        font-size: 0.75rem;
+        padding-right: 1.5rem;
+        border-right: 2px solid var(--border);
+        display: flex;
+        align-items: center;
+        color: var(--text-dim);
+        letter-spacing: 0.05em;
+    }
+    .brand-name { display: flex; flex-direction: column; line-height: 1; }
+    .brand-sys { 
+        font-size: 0.65rem; 
+        letter-spacing: 0.15em; 
+        font-weight: bold; 
+        color: var(--signature); 
+        margin-bottom: 0.25rem;
+    }
+    .brand-title { 
+        font-size: 1.75rem; 
+        font-style: italic; 
+        letter-spacing: -0.02em; 
+    }
+
+    .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+    }
+    .theme-toggle {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: inherit;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        transition: all 0s;
+    }
+    .theme-toggle:hover { background: var(--text-primary); color: var(--bg-surface); }
+    .theme-toggle:focus-visible { outline: 2px solid var(--signature); outline-offset: 2px; }
+
+    /* TELEMETRY */
+    .tel-cell {
+        padding: 1rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+    .tel-label {
+        font-size: 0.65rem;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .tel-value {
+        font-size: 1.25rem;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+    }
+    @media (max-width: 600px) {
+        .telemetry-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* ACTION CENTER (INVERTED HERO) */
+    .panel-inverse {
+        background-color: var(--bg-inverse);
+        color: var(--text-inverse);
+        padding: clamp(2rem, 5vw, 4rem) 2.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        position: relative;
+        overflow: hidden;
+        flex-wrap: wrap;
+        gap: 2rem;
+    }
+    .ac-bg-text {
+        position: absolute;
+        right: -5%;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 14rem;
+        color: var(--bg-surface);
+        opacity: 0.05;
+        white-space: nowrap;
+        pointer-events: none;
+        font-weight: bold;
+    }
+    .ac-content { position: relative; z-index: 2; }
+    
+    .ac-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: var(--signature);
+        border: 1px solid var(--signature);
+        padding: 0.35rem 0.75rem;
+        margin-bottom: 1.5rem;
+        letter-spacing: 0.05em;
+        background: var(--bg-surface);
+    }
+    .pulse-dot {
+        width: 8px; height: 8px;
+        background-color: var(--signature);
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
+    
+    .ac-title {
+        font-size: clamp(2.5rem, 5vw, 4rem);
+        line-height: 0.95;
+        font-style: italic;
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: baseline;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .ac-title .num {
+        font-family: var(--font-mono);
+        font-style: normal;
+        color: var(--signature);
+        font-size: 1.1em;
+    }
+
+    .btn-primary {
+        background-color: var(--signature);
+        color: #FFFFFF;
+        border: 1px solid var(--signature);
+        padding: 1.25rem 2rem;
+        font-family: inherit;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        position: relative;
+        z-index: 2;
+        box-shadow: 4px 4px 0px var(--btn-shadow);
+        transform: translate(-2px, -2px);
+        transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .btn-primary:active {
+        box-shadow: 0px 0px 0px var(--btn-shadow);
+        transform: translate(0, 0);
+    }
+    .btn-primary:focus-visible { outline: 2px solid var(--text-inverse); outline-offset: 4px; }
+
+    /* CARD COMPONENTS */
+    .card {
+        display: flex;
+        flex-direction: column;
+        text-decoration: none;
+        color: inherit;
+        transition: background-color 0.2s;
+    }
+    .card:hover { background-color: var(--bg-surface-alt); }
+    .card:focus-visible { outline: 2px solid var(--signature); outline-offset: -2px; }
+
+    .card-header {
+        padding: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    /* Status Tags */
+    .status-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.25rem 0.5rem;
+        border: 1px solid currentColor;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background-color: var(--bg-canvas);
+    }
+    .status-tag::before {
+        content: '';
+        display: block;
+        width: 6px; height: 6px;
+        background-color: currentColor;
+    }
+    .tag-success { color: var(--status-success); background-color: var(--success-dim); }
+    .tag-warn { color: var(--status-warn); background-color: var(--warn-dim); }
+    .tag-danger { color: var(--status-danger); background-color: var(--danger-dim); }
+
+    /* Avatars */
+    .card-avatar {
+        width: 48px; height: 48px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background-color: var(--bg-surface-alt);
+        color: var(--text-primary);
+        display: flex; align-items: center; justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    .card-avatar svg { width: 100%; height: 100%; }
+    .card-avatar.large { width: 64px; height: 64px; }
+    
+    .card-avatar.uncast {
+        border-radius: 0;
+        border: 1px dashed var(--status-danger);
+        color: var(--status-danger);
+        background-color: transparent;
+    }
+    .card-avatar.uncast svg { width: 50%; height: 50%; }
+
+    /* Card Body & Title */
+    .card-body {
+        padding: 0 1.5rem 2.5rem 1.5rem;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+    }
+    .card-kicker {
+        font-size: 0.65rem;
+        margin-bottom: 0.75rem;
+        letter-spacing: 0.1em;
+    }
+    .card-title {
+        font-family: var(--font-display);
+        font-size: clamp(2rem, 3.5vw, 2.5rem);
+        line-height: 0.95;
+        font-style: italic;
+        font-weight: 400;
+        letter-spacing: -0.02em;
+    }
+    .hero-title {
+        font-size: clamp(3rem, 5vw, 4.5rem);
+    }
+
+    /* Card Data Table */
+    .card-footer {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        border-top: 1px solid var(--border);
+    }
+    .data-cell {
+        padding: 1rem 1.5rem;
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+    .data-cell:last-child { border-right: none; }
+    
+    .data-label {
+        font-size: 0.65rem;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+    }
+    .data-value {
+        font-size: 0.9rem;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    /* NEW CHANNEL ACTION */
+    .new-channel-card {
+        padding: 1.5rem;
+        display: flex;
+        align-items: stretch;
+        cursor: pointer;
+        border: none;
+        background: var(--bg-surface);
+        text-align: center;
+    }
+    .nc-border {
+        border: 1px dashed var(--border);
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+        color: var(--text-dim);
+        transition: all 0.2s;
+        min-height: 200px;
+    }
+    .new-channel-card:hover .nc-border {
+        border-color: var(--signature);
+        color: var(--signature);
+        background-color: var(--signature-dim);
+    }
+    .nc-icon {
+        width: 32px; height: 32px;
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid currentColor;
+        font-size: 1.5rem;
+    }
+    .nc-text {
+        font-size: 0.85rem;
+        letter-spacing: 0.1em;
+    }
+</style>
+</head>
+<body>
+
+    <!-- SVG NOISE FILTER -->
+    <svg class="noise-overlay" xmlns="http://www.w3.org/2000/svg">
+        <filter id="noise">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" result="noise"/>
+            <feColorMatrix type="matrix" values="1 0 0 0 0, 0 1 0 0 0, 0 0 1 0 0, 0 0 0 0.3 0" in="noise"/>
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noise)" />
+    </svg>
+
+    <div class="app-frame">
+        
+        <!-- HEADER -->
+        <header class="panel header-layout">
+            <div class="brand-lockup">
+                <div class="brand-id">OP.SYS // 01</div>
+                <div class="brand-name">
+                    <span class="brand-sys">AUTOCAST NETWORK</span>
+                    <span class="brand-title font-display">Control Room</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <span class="text-dim">OPERATOR_ID: 9481-A</span>
+                <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme mode">
+                    [ INVERT ]
+                </button>
+            </div>
+        </header>
+
+        <!-- TELEMETRY BAR -->
+        <div class="grid-4 telemetry-grid">
+            <div class="panel tel-cell">
+                <div class="tel-label">SYSTEM_STATUS</div>
+                <div class="tel-value text-success">ONLINE</div>
+            </div>
+            <div class="panel tel-cell">
+                <div class="tel-label">ACTIVE_JOBS</div>
+                <div class="tel-value">12<span class="text-dim">/15</span></div>
+            </div>
+            <div class="panel tel-cell">
+                <div class="tel-label">SPEND_TODAY</div>
+                <div class="tel-value">$142.50</div>
+            </div>
+            <div class="panel tel-cell">
+                <div class="tel-label">SPEND_30D</div>
+                <div class="tel-value">$4,280.00</div>
+            </div>
+        </div>
+
+        <!-- ACTION CENTER HERO -->
+        <div class="panel-inverse">
+            <div class="ac-bg-text" aria-hidden="true">OVERRIDE OVERRIDE OVERRIDE</div>
+            <div class="ac-content">
+                <div class="ac-tag">
+                    <span class="pulse-dot"></span> EXECUTIVE ACTION REQUIRED
+                </div>
+                <h1 class="ac-title font-display">
+                    <span class="num">03</span>
+                    Approvals Pending
+                </h1>
+            </div>
+            <button class="btn-primary">
+                <span>REVIEW QUEUE</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- BENTO CHANNELS GRID -->
+        <main class="grid-4">
+            
+            <!-- CARD 1: LARGE HERO -->
+            <a href="#" class="panel card span-2">
+                <div class="card-header">
+                    <div class="status-tag tag-warn">HIGH VOLUME</div>
+                    <div class="card-avatar large" aria-label="Cast: Agent X">
+                        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M32 32C38 32 43 27 43 21C43 15 38 10 32 10C26 10 21 15 21 21C21 27 26 32 32 32Z" fill="currentColor" opacity="0.4"/>
+                            <path d="M14 54C14 45 22 38 32 38C42 38 50 45 50 54" stroke="currentColor" stroke-width="3" stroke-linecap="square"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="card-kicker text-dim">CH // 01</div>
+                    <h2 class="card-title hero-title">Declassified<br>History</h2>
+                </div>
+                <div class="card-footer">
+                    <div class="data-cell">
+                        <div class="data-label">ACTV.JOBS</div>
+                        <div class="data-value">08 RUNNING</div>
+                    </div>
+                    <div class="data-cell">
+                        <div class="data-label">30D.SPEND</div>
+                        <div class="data-value">$2,150.00</div>
+                    </div>
+                    <div class="data-cell">
+                        <div class="data-label text-success">CASTING</div>
+                        <div class="data-value text-success">AGENT X</div>
+                    </div>
+                </div>
+            </a>
+
+            <!-- CARD 2: UNCAST BLOCKER -->
+            <a href="#" class="panel card span-1">
+                <div class="card-header">
+                    <div class="status-tag tag-danger">BLOCKED</div>
+                    <div class="card-avatar uncast" aria-label="Uncast Channel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="card-kicker text-dim">CH // 02</div>
+                    <h2 class="card-title">Weird<br>Food</h2>
+                </div>
+                <div class="card-footer">
+                    <div class="data-cell" style="background: var(--danger-dim);">
+                        <div class="data-label text-danger">MISSING</div>
+                        <div class="data-value text-danger">CHARACTER</div>
+                    </div>
+                    <div class="data-cell">
+                        <div class="data-label">30D.SPEND</div>
+                        <div class="data-value">$0.00</div>
+                    </div>
+                </div>
+            </a>
+
+            <!-- CARD 3: STANDARD -->
+            <a href="#" class="panel card span-1">
+                <div class="card-header">
+                    <div class="status-tag tag-success">NOMINAL</div>
+                    <div class="card-avatar" aria-label="Cast: Orion">
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="24" cy="24" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4"/>
+                            <circle cx="24" cy="24" r="4" fill="currentColor"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="card-kicker text-dim">CH // 03</div>
+                    <h2 class="card-title">Cosmic<br>Mysteries</h2>
+                </div>
+                <div class="card-footer">
+                    <div class="data-cell">
+                        <div class="data-label">ACTV.JOBS</div>
+                        <div class="data-value">02</div>
+                    </div>
+                    <div class="data-cell">
+                        <div class="data-label">30D.SPEND</div>
+                        <div class="data-value">$840.00</div>
+                    </div>
+                </div>
+            </a>
+            
+            <!-- CARD 4: STANDARD -->
+            <a href="#" class="panel card span-1">
+                <div class="card-header">
+                    <div class="status-tag tag-success">NOMINAL</div>
+                    <div class="card-avatar" aria-label="Cast: Marina">
+                         <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 28C12 28 18 34 24 34C30 34 36 28 36 28" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
+                            <path d="M18 20V22M30 20V22" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="card-kicker text-dim">CH // 04</div>
+                    <h2 class="card-title">Deep Sea<br>Oddities</h2>
+                </div>
+                <div class="card-footer">
+                    <div class="data-cell">
+                        <div class="data-label">ACTV.JOBS</div>
+                        <div class="data-value">01</div>
+                    </div>
+                    <div class="data-cell">
+                        <div class="data-label">30D.SPEND</div>
+                        <div class="data-value">$420.00</div>
+                    </div>
+                </div>
+            </a>
+            
+            <!-- CARD 5: STANDARD -->
+            <a href="#" class="panel card span-1">
+                <div class="card-header">
+                    <div class="status-tag tag-success">NOMINAL</div>
+                    <div class="card-avatar" aria-label="Cast: Dr. Fauna">
+                         <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="16" y="16" width="16" height="16" fill="currentColor" opacity="0.4"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="card-kicker text-dim">CH // 05</div>
+                    <h2 class="card-title">Unusual<br>Animals</h2>
+                </div>
+                <div class="card-footer">
+                    <div class="data-cell">
+                        <div class="data-label">ACTV.JOBS</div>
+                        <div class="data-value">01</div>
+                    </div>
+                    <div class="data-cell">
+                        <div class="data-label">30D.SPEND</div>
+                        <div class="data-value">$870.00</div>
+                    </div>
+                </div>
+            </a>
+
+            <!-- NEW CHANNEL AFFORDANCE -->
+            <button class="panel new-channel-card span-2">
+                <div class="nc-border">
+                    <div class="nc-icon">+</div>
+                    <span class="nc-text">INITIATE NEW CHANNEL</span>
+                </div>
+            </button>
+
+        </main>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            html.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+        }
+    </script>
+</body>
+</html>

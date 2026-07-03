@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Room - Channels Hub</title>
+<style>
+    /* TOKENS & BASE SETUP */
+    :root {
+        --bg-canvas: #0A0A0B;
+        --bg-surface: #141416;
+        --bg-surface-alt: #1C1C1F;
+        --bg-inverse: #F4F4F5;
+        --text-inverse: #09090B;
+        --border: #333336;
+        --text-primary: #F4F4F5;
+        --text-dim: #A1A1AA;
+        
+        --signature: #FF2A85;
+        --signature-dim: rgba(255, 42, 133, 0.15);
+        
+        --status-success: #7EE0A8;
+        --status-warn: #E0B87E;
+        --status-danger: #E07E7E;
+
+        --font-display: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+        --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        
+        --grid-gap: 1px;
+    }
+
+    html[data-theme="light"] {
+        --bg-canvas: #E4E4E7;
+        --bg-surface: #FFFFFF;
+        --bg-surface-alt: #F4F4F5;
+        --bg-inverse: #09090B;
+        --text-inverse: #F4F4F5;
+        --border: #D4D4D8;
+        --text-primary: #09090B;
+        --text-dim: #52525B;
+        
+        --signature: #D1005A;
+        --signature-dim: rgba(209, 0, 90, 0.1);
+        
+        --status-success: #1F6B42;
+        --status-warn: #7A5214;
+        --status-danger: #A32929;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: var(--font-sans);
+        background-color: var(--border); /* The background IS the grid line color */
+        color: var(--text-primary);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        padding: 1rem;
+        min-height: 100vh;
+        /* Noise overlay wrapper */
+        position: relative;
+    }
+
+    /* TEXTURE */
+    #texture-overlay {
+        position: fixed;
+        top: 0; left: 0; width: 100vw; height: 100vh;
+        pointer-events: none;
+        z-index: 9999;
+        opacity: 0.15;
+        mix-blend-mode: overlay;
+    }
+    html[data-theme="light"] #texture-overlay {
+        opacity: 0.4; /* Slightly more visible on light mode */
+        mix-blend-mode: color-burn;
+    }
+
+    /* STRUCTURAL GRID (The "Hairline" aesthetic) */
+    .app-frame {
+        display: flex;
+        flex-direction: column;
+        gap: var(--grid-gap);
+        max-width: 1400px;
+        margin: 0 auto;
+        /* Outline the whole frame */
+        border: var(--grid-gap) solid var(--border);
+    }
+
+    .panel {
+        background-color: var(--bg-surface);
+        padding: 1.5rem;
+    }
+
+    /* TYPOGRAPHY */
+    .font-display { font-family: var(--font-display); }
+    .font-mono { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; }
+    
+    .text-dim { color: var(--text-dim); }
+    .text-sig { color: var(--signature); }
+
+    /* HEADER */
+    header.panel {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+    }
+
+    .wordmark {
+        display: flex;
+        flex-direction: column;
+        line-height: 0.9;
+    }
+    .wordmark .top { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); }
+    .wordmark .bottom { font-size: 1.5rem; font-weight: 400; font-style: italic; }
+    .wordmark .bottom span { color: var(--signature); font-family: var(--font-mono); font-style: normal; font-size: 1.2rem; }
+
+    .controls { display: flex; gap: 1rem; align-items: center; }
+    
+    .theme-toggle {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+    }
+    .theme-toggle:hover { background: var(--bg-surface-alt); }
+    .theme-toggle:focus-visible { outline: 2px solid var(--signature); outline-offset: 2px; }
+
+    /* SYSTEM OVERVIEW TELEMETRY */
+    .telemetry-strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: var(--grid-gap);
+        background-color: var(--border); /* Grid lines */
+    }
+    .telemetry-item {
+        background-color: var(--bg-surface);
+        padding: 1rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .tel-label { font-size: 0.7rem; color: var(--text-dim); margin-bottom: 0.25rem; }
+    .tel-value { font-size: 1.25rem; font-weight: 400; color: var(--text-primary); }
+
+    /* ACTION CENTER */
+    .action-center {
+        background-color: var(--bg-inverse);
+        color: var(--text-inverse);
+        padding: 3rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        position: relative;
+        overflow: hidden;
+    }
+    .action-content { position: relative; z-index: 2; }
+    .action-label { 
+        font-family: var(--font-mono); 
+        font-size: 0.75rem; 
+        color: var(--signature); 
+        margin-bottom: 1rem; 
+        display: flex; 
+        align-items: center; 
+        gap: 0.5rem; 
+    }
+    .action-label::before {
+        content: '';
+        display: block;
+        width: 8px; height: 8px;
+        background-color: var(--signature);
+    }
+    .action-title {
+        font-size: clamp(2rem, 4vw, 3.5rem);
+        line-height: 1;
+        font-style: italic;
+    }
+    .btn-primary {
+        background-color: var(--signature);
+        color: #FFF; /* Always white text on signature button for contrast */
+        border: none;
+        padding: 1rem 2rem;
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: background-color 0s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        position: relative;
+        z-index: 2;
+    }
+    .btn-primary:hover { filter: brightness(1.2); }
+    .btn-primary:focus-visible { outline: 2px solid var(--text-inverse); outline-offset: 2px; }
+
+    /* CHANNELS GRID (BENTO) */
+    .bento-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--grid-gap);
+        background-color: var(--border); /* Grid lines */
+    }
+
+    .channel-card {
+        background-color: var(--bg-surface);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        text-decoration: none;
+        color: inherit;
+        min-height: 280px;
+    }
+    .channel-card:hover { background-color: var(--bg-surface-alt); }
+    .channel-card:focus-visible { outline: 2px solid var(--signature); outline-offset: -2px; }
+
+    /* Grid Spans for Desktop */
+    .card-span-2 { grid-column: span 2; }
+    .card-span-1 { grid-column: span 1; }
+    
+    @media (max-width: 1024px) {
+        .bento-grid { grid-template-columns: repeat(2, 1fr); }
+        .card-span-2 { grid-column: span 2; }
+        .card-span-1 { grid-column: span 1; }
+    }
+    @media (max-width: 600px) {
+        .bento-grid { grid-template-columns: 1fr; }
+        .card-span-2, .card-span-1 { grid-column: span 1; }
+        .action-center { flex-direction: column; align-items: flex-start; gap: 2rem; }
+    }
+
+    /* CARD INTERNALS */
+    .card-header {
+        padding: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-grow: 1;
+    }
+    .card-title-area {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-width: 70%;
+    }
+    .card-title {
+        font-size: 1.75rem;
+        line-height: 1.1;
+        font-style: italic;
+        font-weight: 400;
+    }
+    
+    /* Avatars */
+    .avatar-container {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--bg-surface-alt), var(--border));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+    .avatar-container svg { width: 100%; height: 100%; }
+    
+    .avatar-uncast {
+        border-radius: 0; /* Square for uncast to stand out */
+        background: transparent;
+        border: 1px dashed var(--status-danger);
+        color: var(--status-danger);
+    }
+
+    /* Card Data Footer */
+    .card-data {
+        border-top: 1px solid var(--border);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        font-size: 0.75rem;
+    }
+    .data-cell {
+        padding: 1rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    .data-cell:first-child { border-right: 1px solid var(--border); }
+    .data-value { font-size: 1rem; color: var(--text-primary); }
+
+    /* Status Indicators */
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.65rem;
+        padding: 0.25rem 0.5rem;
+        background-color: var(--bg-canvas);
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        width: fit-content;
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+    
+    .status-success .status-dot { background-color: var(--status-success); }
+    .status-success { color: var(--status-success); border-color: currentColor; }
+    
+    .status-warn .status-dot { background-color: var(--status-warn); }
+    .status-warn { color: var(--status-warn); border-color: currentColor; }
+    
+    .status-danger .status-dot { background-color: var(--status-danger); }
+    .status-danger { color: var(--status-danger); border-color: currentColor; background-color: rgba(224, 126, 126, 0.05); }
+
+    /* NEW CHANNEL BUTTON (Card format) */
+    .new-channel-card {
+        background-color: var(--bg-canvas);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 2rem;
+        gap: 1rem;
+        cursor: pointer;
+        text-decoration: none;
+        color: var(--text-dim);
+        border: none;
+        font-family: inherit;
+    }
+    .new-channel-card:hover {
+        background-color: var(--bg-surface);
+        color: var(--signature);
+    }
+    .new-channel-card:focus-visible { outline: 2px solid var(--signature); outline-offset: -2px; }
+    .plus-icon {
+        width: 32px; height: 32px;
+        border: 1px solid currentColor;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem;
+        font-family: var(--font-mono);
+    }
+    .new-label { font-size: 0.85rem; letter-spacing: 0.1em; }
+
+</style>
+</head>
+<body>
+
+    <!-- SVG Texture Filter (Applied globally via CSS) -->
+    <svg id="texture-overlay" xmlns="http://www.w3.org/2000/svg">
+        <filter id="noise">
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" stitchTiles="stitch"/>
+            <feColorMatrix type="matrix" values="1 0 0 0 0, 0 1 0 0 0, 0 0 1 0 0, 0 0 0 0.4 0" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noise)" />
+    </svg>
+
+    <div class="app-frame">
+        
+        <!-- HEADER -->
+        <header class="panel">
+            <div class="wordmark font-mono">
+                <span class="top">SUPABASE STUDIO</span>
+                <span class="bottom font-display">CONTROL<span>/</span>ROOM</span>
+            </div>
+            <div class="controls">
+                <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme">
+                    [ INVERT ]
+                </button>
+            </div>
+        </header>
+
+        <!-- TELEMETRY STRIP -->
+        <div class="telemetry-strip font-mono">
+            <div class="telemetry-item">
+                <span class="tel-label">CHANNELS ONLINE</span>
+                <span class="tel-value">05</span>
+            </div>
+            <div class="telemetry-item">
+                <span class="tel-label">ACTIVE JOBS</span>
+                <span class="tel-value">12 / 15</span>
+            </div>
+            <div class="telemetry-item">
+                <span class="tel-label">SPEND (TODAY)</span>
+                <span class="tel-value">$142.50</span>
+            </div>
+            <div class="telemetry-item">
+                <span class="tel-label">SPEND (30D)</span>
+                <span class="tel-value">$4,280.00</span>
+            </div>
+        </div>
+
+        <!-- ACTION CENTER -->
+        <div class="action-center">
+            <div class="action-content">
+                <div class="action-label">EXECUTIVE OVERRIDE REQUIRED</div>
+                <h1 class="action-title font-display">3 Approvals Pending</h1>
+            </div>
+            <button class="btn-primary">
+                REVIEW QUEUE
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- BENTO GRID -->
+        <main class="bento-grid">
+            
+            <!-- CARD 1 (Large / Cast) -->
+            <a href="#" class="channel-card card-span-2">
+                <div class="card-header">
+                    <div class="card-title-area">
+                        <div class="status-pill status-warn font-mono">
+                            <span class="status-dot"></span> HIGH VOLUME
+                        </div>
+                        <h2 class="card-title font-display">Declassified History</h2>
+                    </div>
+                    <div class="avatar-container" aria-label="Cast: Agent X">
+                        <!-- Best-effort Avatar Match -->
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M24 24C28.4183 24 32 20.4183 32 16C32 11.5817 28.4183 8 24 8C19.5817 8 16 11.5817 16 16C16 20.4183 19.5817 24 24 24Z" fill="currentColor" opacity="0.5"/>
+                            <path d="M12 40C12 33.3726 17.3726 28 24 28C30.6274 28 36 33.3726 36 40" stroke="currentColor" stroke-width="3" stroke-linecap="square"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="card-data font-mono">
+                    <div class="data-cell">
+                        <span class="tel-label">ACTIVE JOBS</span>
+                        <span class="data-value">08 RUNNING</span>
+                    </div>
+                    <div class="data-cell">
+                        <span class="tel-label">30D SPEND</span>
+                        <span class="data-value">$2,150</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- CARD 2 (Standard / Uncast) -->
+            <a href="#" class="channel-card card-span-1">
+                <div class="card-header">
+                    <div class="card-title-area">
+                        <div class="status-pill status-danger font-mono">
+                            <span class="status-dot"></span> BLOCKED
+                        </div>
+                        <h2 class="card-title font-display">Weird Food</h2>
+                    </div>
+                    <!-- Intentional Uncast Placeholder -->
+                    <div class="avatar-container avatar-uncast" aria-label="Uncast Channel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </div>
+                </div>
+                <div class="card-data font-mono">
+                    <div class="data-cell">
+                        <span class="tel-label text-sig">MISSING</span>
+                        <span class="data-value text-sig">CHARACTER</span>
+                    </div>
+                    <div class="data-cell">
+                        <span class="tel-label">30D SPEND</span>
+                        <span class="data-value">$00</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- CARD 3 (Standard / Cast) -->
+            <a href="#" class="channel-card card-span-1">
+                <div class="card-header">
+                    <div class="card-title-area">
+                        <div class="status-pill status-success font-mono">
+                            <span class="status-dot"></span> NOMINAL
+                        </div>
+                        <h2 class="card-title font-display">Cosmic Mysteries</h2>
+                    </div>
+                    <div class="avatar-container" aria-label="Cast: Orion">
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="24" cy="24" r="12" fill="currentColor" opacity="0.3"/>
+                            <circle cx="24" cy="24" r="6" fill="currentColor"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="card-data font-mono">
+                    <div class="data-cell">
+                        <span class="tel-label">ACTIVE JOBS</span>
+                        <span class="data-value">02 RUNNING</span>
+                    </div>
+                    <div class="data-cell">
+                        <span class="tel-label">30D SPEND</span>
+                        <span class="data-value">$840</span>
+                    </div>
+                </div>
+            </a>
+            
+            <!-- CARD 4 (Standard / Cast) -->
+            <a href="#" class="channel-card card-span-1">
+                <div class="card-header">
+                    <div class="card-title-area">
+                        <div class="status-pill status-success font-mono">
+                            <span class="status-dot"></span> NOMINAL
+                        </div>
+                        <h2 class="card-title font-display">Deep Sea Oddities</h2>
+                    </div>
+                    <div class="avatar-container" aria-label="Cast: Marina">
+                         <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 28C10 28 16 34 24 34C32 34 38 28 38 28" stroke="currentColor" stroke-width="3" stroke-linecap="square"/>
+                            <path d="M18 20V22M30 20V22" stroke="currentColor" stroke-width="3" stroke-linecap="square"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="card-data font-mono">
+                    <div class="data-cell">
+                        <span class="tel-label">ACTIVE JOBS</span>
+                        <span class="data-value">01 RUNNING</span>
+                    </div>
+                    <div class="data-cell">
+                        <span class="tel-label">30D SPEND</span>
+                        <span class="data-value">$420</span>
+                    </div>
+                </div>
+            </a>
+            
+            <!-- CARD 5 (Standard / Cast) -->
+            <a href="#" class="channel-card card-span-1">
+                <div class="card-header">
+                    <div class="card-title-area">
+                        <div class="status-pill status-success font-mono">
+                            <span class="status-dot"></span> NOMINAL
+                        </div>
+                        <h2 class="card-title font-display">Unusual Animals</h2>
+                    </div>
+                    <div class="avatar-container" aria-label="Cast: Dr. Fauna">
+                         <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="14" y="14" width="20" height="20" fill="currentColor" opacity="0.4"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="card-data font-mono">
+                    <div class="data-cell">
+                        <span class="tel-label">ACTIVE JOBS</span>
+                        <span class="data-value">01 RUNNING</span>
+                    </div>
+                    <div class="data-cell">
+                        <span class="tel-label">30D SPEND</span>
+                        <span class="data-value">$870</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- NEW CHANNEL AFFORDANCE -->
+            <button class="new-channel-card card-span-2 font-mono">
+                <div class="plus-icon">+</div>
+                <span class="new-label">INITIATE NEW CHANNEL</span>
+            </button>
+
+        </main>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            html.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+        }
+    </script>
+</body>
+</html>

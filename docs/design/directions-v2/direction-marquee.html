@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Room - Marquee</title>
+    <style>
+        :root {
+            /* DARK MODE (DEFAULT) */
+            --bg: #090909;
+            --surface: #141414;
+            --surface-hover: #1F1F1F;
+            --border: #333333;
+            --text: #F5F5F0;
+            --text-dim: #888888;
+            --accent: #FF2A00;
+            --accent-hover: #D92400;
+            --accent-fg: #FFFFFF;
+            --success: #00E65C;
+            
+            /* TYPOGRAPHY */
+            --font-display: ui-serif, "Georgia", "Times New Roman", serif;
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
+            
+            --grid-gap: 2px;
+        }
+
+        html[data-theme="light"] {
+            --bg: #F4F4F0;
+            --surface: #FFFFFF;
+            --surface-hover: #EBEBE6;
+            --border: #C8C8C0;
+            --text: #111111;
+            --text-dim: #666666;
+            --accent: #E61900;
+            --accent-hover: #CC1600;
+            --accent-fg: #FFFFFF;
+            --success: #00A33F;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--font-sans);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            padding: 1rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* RAW STRUCTURAL BENTO WRAPPER */
+        .layout-wrapper {
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--grid-gap);
+            background-color: var(--border); /* Grid lines color */
+            border: var(--grid-gap) solid var(--border);
+        }
+
+        .bento-panel {
+            background-color: var(--bg);
+            padding: 1.5rem;
+        }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+        }
+
+        .wordmark {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .wordmark-badge {
+            background-color: var(--text);
+            color: var(--bg);
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: bold;
+            padding: 0.2rem 0.4rem;
+            letter-spacing: 0.05em;
+        }
+
+        .glance-stats {
+            display: flex;
+            gap: 1.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--text-dim);
+        }
+
+        .glance-stat strong {
+            color: var(--text);
+            font-size: 1rem;
+            margin-left: 0.5rem;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: background-color 0s;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--surface-hover);
+        }
+
+        .theme-toggle:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* ACTION CENTER (EDITORIAL HERO) */
+        .action-center {
+            background-color: var(--accent);
+            color: var(--accent-fg);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 2rem;
+            padding: 2rem 3rem;
+            cursor: pointer;
+            transition: background-color 0s;
+        }
+
+        .action-center:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .action-center:focus-visible {
+            outline: 2px solid var(--text);
+            outline-offset: -4px;
+        }
+
+        .action-title {
+            font-family: var(--font-display);
+            font-size: clamp(3rem, 6vw, 6rem);
+            font-weight: 400;
+            line-height: 0.9;
+            letter-spacing: -0.04em;
+            text-transform: uppercase;
+            margin: 0;
+        }
+
+        .action-meta {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            text-align: right;
+            text-transform: uppercase;
+            font-weight: bold;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .action-button {
+            display: inline-block;
+            background-color: var(--accent-fg);
+            color: var(--accent);
+            padding: 0.75rem 1.5rem;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        /* CHANNELS SECTION */
+        .channels-header {
+            padding: 3rem 1.5rem 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: var(--grid-gap) solid var(--border);
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: clamp(4rem, 8vw, 8rem);
+            font-weight: 400;
+            line-height: 0.8;
+            letter-spacing: -0.05em;
+            text-transform: uppercase;
+            color: var(--text);
+            margin: 0;
+        }
+
+        .channels-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: var(--grid-gap);
+            background-color: var(--border);
+        }
+
+        /* CARD */
+        .card {
+            background-color: var(--surface);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            text-decoration: none;
+            color: inherit;
+            transition: background-color 0s;
+            min-height: 320px;
+        }
+
+        .card:hover {
+            background-color: var(--surface-hover);
+        }
+        
+        .card:focus-visible {
+            outline: 3px solid var(--accent);
+            outline-offset: -3px;
+        }
+
+        .card-header {
+            padding: 1.5rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .card-title {
+            font-family: var(--font-sans);
+            font-weight: 800;
+            font-size: 1.75rem;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            text-transform: uppercase;
+            margin: 0;
+            word-break: break-word;
+        }
+
+        /* AVATARS */
+        .avatar-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: auto;
+        }
+
+        .avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 0; /* Raw */
+            border: 2px solid var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .avatar-cast {
+            background: linear-gradient(135deg, var(--text) 0%, var(--surface) 100%);
+        }
+        
+        .avatar-cast svg {
+            width: 100%;
+            height: 100%;
+            fill: var(--bg);
+            mix-blend-mode: overlay;
+        }
+
+        .avatar-uncast {
+            border-style: dashed;
+            background-color: transparent;
+        }
+
+        .avatar-uncast::after {
+            content: '?';
+            font-family: var(--font-mono);
+            font-size: 2rem;
+            color: var(--text-dim);
+        }
+
+        .cast-status {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            font-weight: bold;
+        }
+
+        .cast-status.is-uncast {
+            color: var(--warn);
+        }
+
+        /* DENSE DATA TABLE */
+        .card-data {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border-top: 2px solid var(--border);
+        }
+
+        .data-cell {
+            padding: 1rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .data-cell:first-child {
+            border-right: 2px solid var(--border);
+        }
+
+        .data-label {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .data-value {
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: var(--text);
+        }
+
+        .data-value.active-jobs {
+            color: var(--success);
+        }
+
+        /* NEW CHANNEL CARD */
+        .card-new {
+            background-color: var(--bg);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            padding: 2rem;
+        }
+        
+        .card-new:hover {
+            background-color: var(--surface);
+        }
+
+        .card-new .card-title {
+            color: var(--text-dim);
+            font-size: 2rem;
+        }
+
+        .card-new:hover .card-title {
+            color: var(--text);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 900px) {
+            .glance-stats { display: none; }
+            .action-center {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+                padding: 1.5rem;
+            }
+            .action-meta { text-align: left; align-items: flex-start; }
+            .channels-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+        }
+
+        @media (max-width: 412px) {
+            .channels-grid { grid-template-columns: 1fr; }
+            .section-title { font-size: 3rem; }
+            .action-title { font-size: 2.5rem; }
+            .wordmark { font-size: 1.5rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="layout-wrapper">
+        
+        <!-- HEADER -->
+        <header class="bento-panel header">
+            <div class="wordmark">
+                Ctrl_Room <span class="wordmark-badge">D2</span>
+            </div>
+            <div class="glance-stats">
+                <div class="glance-stat">Channels <strong>04</strong></div>
+                <div class="glance-stat">Active Runs <strong>07</strong></div>
+                <div class="glance-stat">30D Spend <strong>$2,660.00</strong></div>
+            </div>
+            <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+                [ TGL THEME ]
+            </button>
+        </header>
+
+        <!-- ACTION CENTER -->
+        <div class="action-center" tabindex="0" role="button" aria-label="Action Center: 3 approvals awaiting you">
+            <h2 class="action-title">Awaiting<br>Action</h2>
+            <div class="action-meta">
+                <span>03 Urgent Approvals</span>
+                <span class="action-button">Execute [Enter]</span>
+            </div>
+        </div>
+
+        <!-- CHANNELS OVERVIEW -->
+        <div class="bento-panel channels-header">
+            <h1 class="section-title">Channels</h1>
+        </div>
+
+        <!-- GRID -->
+        <main class="channels-grid">
+            
+            <!-- CARD 1: CAST -->
+            <a href="#" class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Weird Food</h3>
+                    <div class="avatar-container">
+                        <div class="avatar avatar-cast">
+                            <!-- Abstract texture representing face -->
+                            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="50" cy="50" r="40" stroke="currentColor" stroke-width="8" fill="none"/>
+                                <path d="M 30 70 Q 50 90 70 70" stroke="currentColor" stroke-width="8" fill="none"/>
+                            </svg>
+                        </div>
+                        <div class="cast-status">Cast Assigned<br>ID: CHR-8A2F</div>
+                    </div>
+                </div>
+                <div class="card-data">
+                    <div class="data-cell">
+                        <span class="data-label">Active Jobs</span>
+                        <span class="data-value active-jobs">04</span>
+                    </div>
+                    <div class="data-cell">
+                        <span class="data-label">30D Spend</span>
+                        <span class="data-value">$1,200</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- CARD 2: UNCAST -->
+            <a href="#" class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Unusual Animal Facts</h3>
+                    <div class="avatar-container">
+                        <div class="avatar avatar-uncast" aria-label="Uncast placeholder"></div>
+                        <div class="cast-status is-uncast">Uncast<br>Action Required</div>
+                    </div>
+                </div>
+                <div class="card-data">
+                    <div class="data-cell">
+                        <span class="data-label">Active Jobs</span>
+                        <span class="data-value">02</span>
+                    </div>
+                    <div class="data-cell">
+                        <span class="data-label">30D Spend</span>
+                        <span class="data-value">$450</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- CARD 3: CAST -->
+            <a href="#" class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Declassified History</h3>
+                    <div class="avatar-container">
+                        <div class="avatar avatar-cast">
+                            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="25" y="25" width="50" height="50" stroke="currentColor" stroke-width="8" fill="none"/>
+                                <line x1="25" y1="25" x2="75" y2="75" stroke="currentColor" stroke-width="8"/>
+                            </svg>
+                        </div>
+                        <div class="cast-status">Cast Assigned<br>ID: CHR-99B1</div>
+                    </div>
+                </div>
+                <div class="card-data">
+                    <div class="data-cell">
+                        <span class="data-label">Active Jobs</span>
+                        <span class="data-value active-jobs">01</span>
+                    </div>
+                    <div class="data-cell">
+                        <span class="data-label">30D Spend</span>
+                        <span class="data-value">$890</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- CARD 4: CAST (IDLE) -->
+            <a href="#" class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Cosmic Mysteries</h3>
+                    <div class="avatar-container">
+                        <div class="avatar avatar-cast">
+                            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <polygon points="50,20 80,80 20,80" stroke="currentColor" stroke-width="8" fill="none"/>
+                            </svg>
+                        </div>
+                        <div class="cast-status">Cast Assigned<br>ID: CHR-00X3</div>
+                    </div>
+                </div>
+                <div class="card-data">
+                    <div class="data-cell">
+                        <span class="data-label">Active Jobs</span>
+                        <span class="data-value">00</span>
+                    </div>
+                    <div class="data-cell">
+                        <span class="data-label">30D Spend</span>
+                        <span class="data-value">$120</span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- NEW CHANNEL -->
+            <button class="card card-new" aria-label="Create new channel">
+                <div class="card-title">+<br>New<br>Channel</div>
+            </button>
+
+        </main>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+        }
+    </script>
+</body>
+</html>

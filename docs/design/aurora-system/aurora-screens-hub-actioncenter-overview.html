@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Room - Global Hub</title>
+  <style>
+    /* TOKENS & SYSTEM */
+    :root {
+      /* Dark Theme (Native) */
+      --bg-base: #05050A;
+      --aurora-1: #4A00E0;
+      --aurora-2: #00E5FF;
+      --aurora-3: #FF007F;
+      
+      --surface-0: rgba(15, 15, 20, 0.4);
+      --surface-1: rgba(25, 25, 35, 0.6);
+      --surface-2: rgba(255, 255, 255, 0.08);
+      --surface-3: rgba(255, 255, 255, 0.12);
+      --surface-highlight: rgba(255, 255, 255, 0.15);
+      
+      --border-soft: rgba(255, 255, 255, 0.1);
+      --border-glow: rgba(0, 229, 255, 0.4);
+      --shadow-ambient: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+      
+      --text-main: #FFFFFF;
+      --text-dim: rgba(255, 255, 255, 0.65);
+      
+      --accent: #00E5FF;
+      --success: #00E676;
+      --success-bg: rgba(0, 230, 118, 0.15);
+      --warn: #FFD54F;
+      --warn-bg: rgba(255, 213, 79, 0.15);
+      --danger: #FF1744;
+      --danger-bg: rgba(255, 23, 68, 0.15);
+      
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --radius-xl: 32px;
+      
+      --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    html[data-theme="light"] {
+      --bg-base: #F8F9FA;
+      --aurora-1: #A6C0FE;
+      --aurora-2: #F68084;
+      --aurora-3: #E0C3FC;
+      
+      --surface-0: rgba(255, 255, 255, 0.6);
+      --surface-1: rgba(255, 255, 255, 0.8);
+      --surface-2: rgba(255, 255, 255, 1);
+      --surface-3: rgba(240, 240, 245, 1);
+      --surface-highlight: rgba(255, 255, 255, 1);
+      
+      --border-soft: rgba(0, 0, 0, 0.08);
+      --border-glow: rgba(0, 102, 255, 0.3);
+      --shadow-ambient: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+      
+      --text-main: #0B0F19;
+      --text-dim: rgba(0, 0, 0, 0.6);
+      
+      --accent: #0066FF;
+      --success: #008A27;
+      --success-bg: rgba(0, 138, 39, 0.15);
+      --warn: #D97706;
+      --warn-bg: rgba(217, 119, 6, 0.15);
+      --danger: #DC2626;
+      --danger-bg: rgba(220, 38, 38, 0.15);
+    }
+
+    /* RESET & BASE */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+    
+    /* AURORA BACKGROUND & GRAIN TEXTURE */
+    .aurora-container {
+      position: fixed;
+      inset: -50%;
+      z-index: -2;
+      background: 
+        radial-gradient(circle at 30% 20%, var(--aurora-1) 0%, transparent 40%),
+        radial-gradient(circle at 70% 60%, var(--aurora-2) 0%, transparent 40%),
+        radial-gradient(circle at 40% 80%, var(--aurora-3) 0%, transparent 40%);
+      filter: blur(120px);
+      opacity: 0.4;
+      animation: drift 20s infinite alternate ease-in-out;
+      pointer-events: none;
+    }
+    
+    html[data-theme="light"] .aurora-container {
+      opacity: 0.7;
+    }
+
+    .noise-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      opacity: 0.4;
+      pointer-events: none;
+      mix-blend-mode: overlay;
+    }
+
+    @keyframes drift {
+      0% { transform: translate(0%, 0%) scale(1); }
+      100% { transform: translate(5%, 5%) scale(1.05); }
+    }
+
+    /* TYPOGRAPHY */
+    .text-display { font-weight: 800; letter-spacing: -0.04em; line-height: 1.1; }
+    .text-title { font-weight: 700; letter-spacing: -0.02em; }
+    .text-body { font-weight: 400; }
+    .text-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    
+    .dim { color: var(--text-dim); }
+    .accent { color: var(--accent); }
+    .danger { color: var(--danger); }
+    
+    /* LAYOUT & COMPOSITION */
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4rem;
+    }
+
+    /* HEADER */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-radius: var(--radius-xl);
+      background: var(--surface-0);
+      backdrop-filter: blur(24px) saturate(150%);
+      -webkit-backdrop-filter: blur(24px) saturate(150%);
+      border: 1px solid var(--border-soft);
+      box-shadow: inset 0 1px 1px var(--surface-highlight), var(--shadow-ambient);
+      position: sticky;
+      top: 1rem;
+      z-index: 100;
+    }
+
+    .wordmark { display: flex; align-items: center; gap: 0.75rem; }
+    .wordmark-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--aurora-1), var(--aurora-2));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; color: #fff; font-size: 1.2rem;
+      box-shadow: 0 0 15px var(--border-glow);
+    }
+    .wordmark-text {
+      font-size: 1.25rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600;
+    }
+
+    .header-actions { display: flex; align-items: center; gap: 1rem; }
+    .theme-toggle {
+      background: var(--surface-1); border: 1px solid var(--border-soft);
+      color: var(--text-main); padding: 0.5rem; border-radius: 50%;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .theme-toggle:hover { background: var(--surface-2); transform: scale(1.05); }
+    .theme-toggle:focus-visible, .btn:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 2px;
+    }
+
+    .avatar {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 0.9rem; flex-shrink: 0; color: #fff;
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.3);
+    }
+    .avatar-sm { width: 28px; height: 28px; font-size: 0.75rem; border-radius: 6px; }
+    .avatar-cm { background: linear-gradient(135deg, #8e2de2, #4a00e0); }
+    .avatar-wf { background: linear-gradient(135deg, #ff9966, #ff5e62); }
+    .avatar-op { background: linear-gradient(135deg, #11998e, #38ef7d); }
+
+    /* GLASS PANELS */
+    .glass-panel {
+      background: var(--surface-1);
+      backdrop-filter: blur(24px) saturate(150%);
+      -webkit-backdrop-filter: blur(24px) saturate(150%);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg);
+      box-shadow: inset 0 1px 1px var(--surface-highlight), var(--shadow-ambient);
+      overflow: hidden;
+    }
+
+    .section-header {
+      margin-bottom: 1.5rem; padding: 0 0.5rem;
+    }
+
+    /* =========================================
+       SCREEN 1: ACTION CENTER (GLOBAL QUEUE)
+       ========================================= */
+    .pulse-dot {
+      display: inline-block; width: 10px; height: 10px;
+      background-color: var(--warn); border-radius: 50%;
+      box-shadow: 0 0 10px var(--warn); margin-right: 12px;
+      animation: pulse 2s infinite;
+    }
+
+    .queue-list { display: flex; flex-direction: column; }
+    
+    .queue-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+      padding: 1.5rem 2rem; border-bottom: 1px solid var(--border-soft);
+      transition: background 0.2s ease;
+    }
+    .queue-item:hover { background: var(--surface-2); }
+    .queue-item:last-child { border-bottom: none; }
+
+    .queue-meta { display: flex; align-items: center; gap: 1rem; flex: 2; min-width: 0; }
+    .queue-info { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+    .queue-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .badge {
+      display: inline-flex; align-items: center; font-size: 0.75rem; font-weight: 700;
+      padding: 2px 8px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .badge-channel { border: 1px solid var(--border-soft); background: var(--surface-2); color: var(--text-main); }
+    .badge-wait { background: var(--warn-bg); color: var(--warn); }
+    
+    .queue-metrics { display: flex; align-items: center; gap: 2rem; flex: 1; }
+    .metric-col { display: flex; flex-direction: column; }
+    .metric-val { font-size: 1.125rem; }
+
+    .queue-actions { display: flex; align-items: center; gap: 0.75rem; justify-content: flex-end; }
+    
+    .btn {
+      padding: 0.5rem 1rem; border-radius: var(--radius-sm); font-weight: 600; font-size: 0.875rem;
+      cursor: pointer; transition: all 0.2s ease; border: none; font-family: var(--font-sans);
+    }
+    .btn-primary {
+      background: var(--text-main); color: var(--bg-base);
+    }
+    .btn-primary:hover { transform: translateY(-2px); opacity: 0.9; box-shadow: 0 4px 12px rgba(255,255,255,0.2); }
+    
+    .btn-ghost {
+      background: transparent; color: var(--text-main); border: 1px solid var(--border-soft);
+    }
+    .btn-ghost:hover { background: var(--surface-2); border-color: var(--text-dim); }
+
+    .btn-danger-outline {
+      background: transparent; color: var(--danger); border: 1px solid var(--danger);
+    }
+    .btn-danger-outline:hover { background: var(--danger-bg); }
+
+    .action-confirm-inline {
+      display: flex; align-items: center; gap: 0.75rem;
+      background: var(--surface-3); padding: 0.5rem; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-glow);
+    }
+
+    /* Skeleton Loading State */
+    .skeleton { background: var(--surface-2); border-radius: var(--radius-sm); animation: pulse-opacity 1.5s infinite ease-in-out; }
+    .sk-avatar { width: 36px; height: 36px; border-radius: 8px; }
+    .sk-text { height: 16px; width: 120px; }
+    .sk-text-lg { height: 20px; width: 200px; }
+
+    /* Empty State */
+    .empty-state {
+      padding: 4rem 2rem; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center; gap: 1rem;
+    }
+    .empty-icon {
+      width: 64px; height: 64px; border-radius: 50%; background: var(--success-bg);
+      color: var(--success); display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1rem; border: 1px solid rgba(0, 230, 118, 0.3);
+    }
+
+    /* =========================================
+       SCREEN 2: SYSTEM OVERVIEW (ROLL-UP)
+       ========================================= */
+    .overview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 1.5rem; }
+    .stat-card {
+      padding: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;
+      border-radius: var(--radius-md); background: var(--surface-1); border: 1px solid var(--border-soft);
+    }
+    .stat-card:hover { border-color: var(--border-glow); }
+    
+    .data-table-wrapper { overflow-x: auto; }
+    .data-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .data-table th {
+      padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-soft);
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);
+    }
+    .data-table td {
+      padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-soft);
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tbody tr:hover { background: var(--surface-2); }
+    
+    .status-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px;
+    }
+    .dot-success { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .dot-error { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+    .dot-running { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 2s infinite; }
+
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+    @keyframes pulse-opacity { 0% { opacity: 0.3; } 50% { opacity: 0.7; } 100% { opacity: 0.3; } }
+
+    @media (prefers-reduced-motion) {
+      .aurora-container, .pulse-dot, .skeleton, .dot-running { animation: none !important; }
+      * { transition: none !important; }
+    }
+
+    @media (max-width: 1024px) {
+      .overview-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .queue-item { flex-direction: column; align-items: flex-start; gap: 1rem; }
+      .queue-meta, .queue-metrics, .queue-actions { width: 100%; justify-content: flex-start; }
+      .queue-actions { justify-content: space-between; border-top: 1px solid var(--border-soft); padding-top: 1rem; }
+      .overview-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 412px) {
+      .app-container { padding: 1rem; gap: 3rem; }
+      .app-header { padding: 1rem; flex-direction: column; gap: 1rem; align-items: flex-start; }
+      .queue-item { padding: 1.25rem 1rem; }
+      .data-table th, .data-table td { padding: 1rem 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient Aurora & Texture -->
+  <div class="aurora-container"></div>
+  <svg class="noise-overlay" xmlns="http://www.w3.org/2000/svg">
+    <filter id="noiseFilter">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#noiseFilter)"/>
+  </svg>
+
+  <div class="app-container">
+    
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="wordmark">
+        <div class="wordmark-icon">C</div>
+        <div class="wordmark-text text-display">Control Room</div>
+      </div>
+      <div class="header-actions">
+        <button class="theme-toggle" id="themeBtn" aria-label="Toggle Theme">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="4.22" x2="19.78" y2="5.64"></line>
+          </svg>
+        </button>
+        <div class="avatar avatar-op" aria-label="Operator Profile">OP</div>
+      </div>
+    </header>
+
+    <main>
+      
+      <!-- SCREEN 1: GLOBAL ACTION CENTER -->
+      <section aria-label="Global Action Center" style="margin-bottom: 4rem;">
+        <div class="section-header">
+          <h1 class="text-display" style="font-size: 2.5rem;">
+            <span class="pulse-dot"></span>Action Center
+          </h1>
+          <p class="dim text-mono" style="font-size: 0.875rem; margin-top: 0.5rem;">// CROSS-CHANNEL QUEUE: 3 PENDING</p>
+        </div>
+
+        <div class="glass-panel queue-list">
+          
+          <!-- Item 1: Standard Actionable -->
+          <article class="queue-item">
+            <div class="queue-meta">
+              <div class="avatar avatar-sm avatar-wf" aria-hidden="true">WF</div>
+              <div class="queue-info">
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <h3 class="text-title queue-title">Generate Script</h3>
+                  <span class="badge badge-channel">Weird Food</span>
+                </div>
+                <span class="dim text-mono" style="font-size: 0.75rem;">Job ID: j_9a2f1 • Review required</span>
+              </div>
+            </div>
+            <div class="queue-metrics">
+              <div class="metric-col">
+                <span class="dim text-mono" style="font-size: 0.65rem; text-transform: uppercase;">Wait Time</span>
+                <span class="metric-val text-mono badge badge-wait" style="margin-top: 0.25rem;">45m parked</span>
+              </div>
+              <div class="metric-col">
+                <span class="dim text-mono" style="font-size: 0.65rem; text-transform: uppercase;">Est. Cost</span>
+                <span class="metric-val text-mono">$0.85</span>
+              </div>
+            </div>
+            <div class="queue-actions">
+              <button class="btn btn-ghost" aria-label="Reject generation">Reject</button>
+              <button class="btn btn-primary" aria-label="Approve generation">Approve Script</button>
+            </div>
+          </article>
+
+          <!-- Item 2: Inline Confirmation State -->
+          <article class="queue-item" style="background: var(--surface-2);">
+            <div class="queue-meta">
+              <div class="avatar avatar-sm avatar-cm" aria-hidden="true">CM</div>
+              <div class="queue-info">
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <h3 class="text-title queue-title">Voice Synthesis</h3>
+                  <span class="badge badge-channel">Cosmic Mysteries</span>
+                </div>
+                <span class="dim text-mono" style="font-size: 0.75rem;">Job ID: j_3b8x2 • High compute budget requested</span>
+              </div>
+            </div>
+            <div class="queue-metrics">
+              <div class="metric-col">
+                <span class="dim text-mono" style="font-size: 0.65rem; text-transform: uppercase;">Wait Time</span>
+                <span class="metric-val text-mono badge badge-wait" style="margin-top: 0.25rem;">2h parked</span>
+              </div>
+              <div class="metric-col">
+                <span class="dim text-mono" style="font-size: 0.65rem; text-transform: uppercase;">Est. Cost</span>
+                <span class="metric-val text-mono accent">$12.50</span>
+              </div>
+            </div>
+            <div class="queue-actions action-confirm-inline">
+              <span class="text-mono" style="font-size: 0.75rem; margin-right: 0.25rem;">Confirm Spend?</span>
+              <button class="btn btn-ghost" style="padding: 0.25rem 0.75rem;" aria-label="Cancel approval">Cancel</button>
+              <button class="btn btn-primary" style="padding: 0.25rem 0.75rem;" aria-label="Confirm budget $12.50">Confirm $12.50</button>
+            </div>
+          </article>
+
+          <!-- Item 3: Publish Gate -->
+          <article class="queue-item">
+            <div class="queue-meta">
+              <div class="avatar avatar-sm" style="border: 1px solid var(--border-soft); background: transparent;" aria-hidden="true">DH</div>
+              <div class="queue-info">
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <h3 class="text-title queue-title">Final Assembly & Publish</h3>
+                  <span class="badge badge-channel">Declassified Hist.</span>
+                </div>
+                <span class="dim text-mono" style="font-size: 0.75rem;">Job ID: j_7c1p9 • Asset staging complete</span>
+              </div>
+            </div>
+            <div class="queue-metrics">
+              <div class="metric-col">
+                <span class="dim text-mono" style="font-size: 0.65rem; text-transform: uppercase;">Wait Time</span>
+                <span class="metric-val text-mono badge badge-wait" style="margin-top: 0.25rem;">15m parked</span>
+              </div>
+              <div class="metric-col">
+                <span class="dim text-mono" style="font-size: 0.65rem; text-transform: uppercase;">Est. Cost</span>
+                <span class="metric-val text-mono">$0.00</span>
+              </div>
+            </div>
+            <div class="queue-actions">
+              <button class="btn btn-danger-outline" aria-label="Hold publication">Hold</button>
+              <button class="btn btn-primary" aria-label="Publish to channel">Publish to YouTube</button>
+            </div>
+          </article>
+
+          <!-- Loading State (Hidden by default, shown here for package completeness) -->
+          <article class="queue-item" style="border-top: 1px dashed var(--border-soft); display: none;">
+            <div class="queue-meta">
+              <div class="skeleton sk-avatar"></div>
+              <div class="queue-info">
+                <div class="skeleton sk-text-lg" style="margin-bottom: 0.25rem;"></div>
+                <div class="skeleton sk-text"></div>
+              </div>
+            </div>
+            <div class="queue-metrics">
+              <div class="skeleton sk-text-lg"></div>
+              <div class="skeleton sk-text-lg"></div>
+            </div>
+            <div class="queue-actions">
+              <div class="skeleton sk-text-lg" style="width: 80px; height: 32px; border-radius: var(--radius-sm);"></div>
+              <div class="skeleton sk-text-lg" style="width: 120px; height: 32px; border-radius: var(--radius-sm);"></div>
+            </div>
+          </article>
+          
+          <!-- Empty State (Hidden by default, shown here for package completeness) -->
+          <article class="empty-state" style="display: none;">
+            <div class="empty-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <h3 class="text-title" style="font-size: 1.5rem;">Queue Clear</h3>
+            <p class="dim">All parked jobs have been addressed. Production is unblocked.</p>
+          </article>
+
+        </div>
+      </section>
+
+      <!-- SCREEN 2: SYSTEM OVERVIEW -->
+      <section aria-label="System Overview">
+        <div class="section-header">
+          <h2 class="text-display" style="font-size: 2rem;">System Overview</h2>
+          <p class="dim text-mono" style="font-size: 0.875rem; margin-top: 0.5rem;">// GLOBAL ROLL-UP & EPISODE RUNS</p>
+        </div>
+
+        <!-- Global Stats Bento -->
+        <div class="overview-grid">
+          <div class="stat-card">
+            <span class="dim text-mono" style="font-size: 0.75rem; text-transform: uppercase;">Active Channels</span>
+            <span class="text-display text-mono" style="font-size: 2.5rem;">4</span>
+          </div>
+          <div class="stat-card">
+            <span class="dim text-mono" style="font-size: 0.75rem; text-transform: uppercase;">Active Pipeline Runs</span>
+            <span class="text-display text-mono" style="font-size: 2.5rem;">12</span>
+          </div>
+          <div class="stat-card" style="background: var(--surface-2); border-color: var(--border-glow);">
+            <span class="dim text-mono" style="font-size: 0.75rem; text-transform: uppercase;">30-Day Spend</span>
+            <span class="text-display text-mono accent" style="font-size: 2.5rem;">$8,420</span>
+          </div>
+        </div>
+
+        <!-- Global Runs (Episodes) Table - NO Channel Mapping per Constraints -->
+        <div class="glass-panel">
+          <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-soft);">
+            <h3 class="text-title">Global Pipeline Runs</h3>
+            <p class="dim text-mono" style="font-size: 0.75rem; margin-top: 0.25rem;">Episodes • Sorted by Activity</p>
+          </div>
+          <div class="data-table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Episode ID</th>
+                  <th>Current Step</th>
+                  <th>Status</th>
+                  <th>Duration</th>
+                  <th>Est. Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <span class="text-mono">ep_09f2a</span>
+                  </td>
+                  <td>Image Generation</td>
+                  <td>
+                    <span class="status-dot dot-running"></span>
+                    <span>Running</span>
+                  </td>
+                  <td class="text-mono dim">12m 40s</td>
+                  <td class="text-mono">$2.40</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="text-mono">ep_b441c</span>
+                  </td>
+                  <td>Final Assembly</td>
+                  <td>
+                    <span class="status-dot dot-success"></span>
+                    <span>Completed</span>
+                  </td>
+                  <td class="text-mono dim">45m 12s</td>
+                  <td class="text-mono">$5.10</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="text-mono">ep_77x9p</span>
+                  </td>
+                  <td>Voice Synthesis</td>
+                  <td>
+                    <span class="status-dot dot-error"></span>
+                    <span class="danger">Failed</span>
+                  </td>
+                  <td class="text-mono dim">03m 15s</td>
+                  <td class="text-mono">$0.80</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="text-mono">ep_a190z</span>
+                  </td>
+                  <td>Script Generation</td>
+                  <td>
+                    <span class="status-dot dot-success"></span>
+                    <span>Completed</span>
+                  </td>
+                  <td class="text-mono dim">08m 05s</td>
+                  <td class="text-mono">$1.15</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    // Theme toggle mapping directly to semantic CSS tokens
+    const btn = document.getElementById('themeBtn');
+    const html = document.documentElement;
+    
+    btn.addEventListener('click', () => {
+      const current = html.getAttribute('data-theme');
+      html.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    });
+  </script>
+</body>
+</html>

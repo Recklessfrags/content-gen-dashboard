@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Room - Channels Hub</title>
+  <style>
+    /* TOKENS & SYSTEM */
+    :root {
+      /* Dark Theme (Native) */
+      --bg-base: #05050A;
+      --aurora-1: #4A00E0;
+      --aurora-2: #00E5FF;
+      --aurora-3: #FF007F;
+      
+      --surface-0: rgba(15, 15, 20, 0.4);
+      --surface-1: rgba(25, 25, 35, 0.6);
+      --surface-2: rgba(255, 255, 255, 0.08);
+      --surface-highlight: rgba(255, 255, 255, 0.15);
+      
+      --border-soft: rgba(255, 255, 255, 0.1);
+      --border-glow: rgba(0, 229, 255, 0.4);
+      --shadow-ambient: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+      
+      --text-main: #FFFFFF;
+      --text-dim: rgba(255, 255, 255, 0.65);
+      
+      --accent: #00E5FF;
+      --success: #00E676;
+      --success-bg: rgba(0, 230, 118, 0.15);
+      --warn: #FFD54F;
+      --warn-bg: rgba(255, 213, 79, 0.15);
+      --danger: #FF1744;
+      
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --radius-xl: 32px;
+      
+      --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    html[data-theme="light"] {
+      --bg-base: #F8F9FA;
+      --aurora-1: #A6C0FE;
+      --aurora-2: #F68084;
+      --aurora-3: #E0C3FC;
+      
+      --surface-0: rgba(255, 255, 255, 0.6);
+      --surface-1: rgba(255, 255, 255, 0.8);
+      --surface-2: rgba(255, 255, 255, 1);
+      --surface-highlight: rgba(255, 255, 255, 1);
+      
+      --border-soft: rgba(0, 0, 0, 0.08);
+      --border-glow: rgba(0, 102, 255, 0.3);
+      --shadow-ambient: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+      
+      --text-main: #0B0F19;
+      --text-dim: rgba(0, 0, 0, 0.6);
+      
+      --accent: #0066FF;
+      --success: #008A27;
+      --success-bg: rgba(0, 138, 39, 0.15);
+      --warn: #D97706;
+      --warn-bg: rgba(217, 119, 6, 0.15);
+      --danger: #DC2626;
+    }
+
+    /* RESET & BASE */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+    
+    /* AURORA BACKGROUND & GRAIN TEXTURE */
+    .aurora-container {
+      position: fixed;
+      inset: -50%;
+      z-index: -2;
+      background: 
+        radial-gradient(circle at 30% 20%, var(--aurora-1) 0%, transparent 40%),
+        radial-gradient(circle at 70% 60%, var(--aurora-2) 0%, transparent 40%),
+        radial-gradient(circle at 40% 80%, var(--aurora-3) 0%, transparent 40%);
+      filter: blur(120px);
+      opacity: 0.4;
+      animation: drift 20s infinite alternate ease-in-out;
+      pointer-events: none;
+    }
+    
+    html[data-theme="light"] .aurora-container {
+      opacity: 0.7;
+    }
+
+    .noise-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      opacity: 0.4;
+      pointer-events: none;
+      mix-blend-mode: overlay;
+    }
+
+    @keyframes drift {
+      0% { transform: translate(0%, 0%) scale(1); }
+      100% { transform: translate(5%, 5%) scale(1.05); }
+    }
+
+    @media (prefers-reduced-motion) {
+      .aurora-container { animation: none; }
+      * { transition: none !important; }
+    }
+
+    /* TYPOGRAPHY */
+    .text-display { font-weight: 800; letter-spacing: -0.04em; line-height: 1.1; }
+    .text-title { font-weight: 700; letter-spacing: -0.02em; }
+    .text-body { font-weight: 400; }
+    .text-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    
+    .dim { color: var(--text-dim); }
+    .accent { color: var(--accent); }
+    
+    /* LAYOUT & COMPOSITION */
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 3rem;
+    }
+
+    /* HEADER */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-radius: var(--radius-xl);
+      background: var(--surface-0);
+      backdrop-filter: blur(24px) saturate(150%);
+      -webkit-backdrop-filter: blur(24px) saturate(150%);
+      border: 1px solid var(--border-soft);
+      box-shadow: inset 0 1px 1px var(--surface-highlight), var(--shadow-ambient);
+    }
+
+    .wordmark {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .wordmark-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--aurora-1), var(--aurora-2));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      color: #fff;
+      font-size: 1.2rem;
+      box-shadow: 0 0 15px var(--border-glow);
+    }
+    .wordmark-text {
+      font-size: 1.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .theme-toggle {
+      background: var(--surface-1);
+      border: 1px solid var(--border-soft);
+      color: var(--text-main);
+      padding: 0.5rem;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .theme-toggle:hover {
+      background: var(--surface-2);
+      transform: scale(1.05);
+    }
+    .theme-toggle:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* GLASS PANELS / BENTO */
+    .glass-panel {
+      background: var(--surface-1);
+      backdrop-filter: blur(24px) saturate(150%);
+      -webkit-backdrop-filter: blur(24px) saturate(150%);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg);
+      box-shadow: inset 0 1px 1px var(--surface-highlight), var(--shadow-ambient);
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* HERO GRID (Action Center + Overview) */
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .action-center {
+      border: 1px solid var(--border-glow);
+      position: relative;
+    }
+    .action-center::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--aurora-1), var(--aurora-2), var(--aurora-3));
+    }
+    
+    .action-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+    }
+
+    .pulse-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      background-color: var(--warn);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--warn);
+      margin-right: 8px;
+    }
+
+    .action-button {
+      background: var(--text-main);
+      color: var(--bg-base);
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .action-button:hover {
+      transform: translateY(-2px);
+      opacity: 0.9;
+    }
+    .action-button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+    }
+
+    .system-glance {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid var(--border-soft);
+      padding-bottom: 0.75rem;
+    }
+    .stat-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    /* CHANNELS GRID */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 1.5rem;
+      padding: 0 0.5rem;
+    }
+    .btn-new-channel {
+      background: transparent;
+      border: 1px solid var(--border-glow);
+      color: var(--accent);
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(10px);
+    }
+    .btn-new-channel:hover {
+      background: rgba(0, 229, 255, 0.1);
+      transform: translateY(-1px);
+    }
+    .btn-new-channel:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .channels-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .channel-card {
+      padding: 1.5rem;
+      border-radius: var(--radius-md);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .channel-card:hover {
+      transform: translateY(-4px);
+      background: var(--surface-2);
+      border-color: var(--border-glow);
+      box-shadow: inset 0 1px 1px var(--surface-highlight), 0 12px 40px rgba(0, 0, 0, 0.5);
+    }
+    html[data-theme="light"] .channel-card:hover {
+      box-shadow: inset 0 1px 1px var(--surface-highlight), 0 12px 40px rgba(0, 0, 0, 0.1);
+    }
+    .channel-card:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    /* Avatars / Identity */
+    .avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+      color: #fff;
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.3);
+    }
+    .avatar-cm { background: linear-gradient(135deg, #8e2de2, #4a00e0); }
+    .avatar-wf { background: linear-gradient(135deg, #ff9966, #ff5e62); }
+    
+    .avatar-uncast {
+      background: transparent;
+      border: 2px dashed var(--text-dim);
+      color: var(--text-dim);
+      box-shadow: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .avatar-uncast::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(45deg, transparent, transparent 4px, var(--surface-2) 4px, var(--surface-2) 8px);
+      opacity: 0.5;
+    }
+
+    .channel-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .channel-title {
+      font-size: 1.25rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 0.25rem;
+    }
+    
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .status-cast { background: var(--success-bg); color: var(--success); }
+    .status-uncast { background: var(--warn-bg); color: var(--warn); }
+
+    .card-metrics {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: auto;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-soft);
+    }
+
+    .metric-group {
+      display: flex;
+      flex-direction: column;
+    }
+    .metric-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+    .metric-value {
+      font-size: 1.25rem;
+    }
+    .metric-value.zero {
+      color: var(--text-dim);
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+      .hero-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .app-container { padding: 1rem; gap: 2rem; }
+      .app-header { padding: 1rem; flex-direction: column; gap: 1rem; align-items: flex-start; }
+      .channels-grid { grid-template-columns: 1fr; }
+      .action-header { flex-direction: column; gap: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient Aurora & Texture -->
+  <div class="aurora-container"></div>
+  <svg class="noise-overlay" xmlns="http://www.w3.org/2000/svg">
+    <filter id="noiseFilter">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#noiseFilter)"/>
+  </svg>
+
+  <div class="app-container">
+    
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="wordmark">
+        <div class="wordmark-icon">C</div>
+        <div class="wordmark-text text-display">Control Room</div>
+      </div>
+      <div class="header-actions">
+        <button class="theme-toggle" id="themeBtn" aria-label="Toggle Theme">
+          <!-- Sun/Moon Icon -->
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="4.22" x2="19.78" y2="5.64"></line>
+          </svg>
+        </button>
+        <div class="avatar avatar-cm" style="width: 36px; height: 36px; font-size: 0.9rem;">OP</div>
+      </div>
+    </header>
+
+    <main>
+      <!-- HERO BENTO -->
+      <section class="hero-grid" aria-label="System Overview">
+        
+        <!-- Action Center -->
+        <article class="glass-panel action-center">
+          <div class="action-header">
+            <div>
+              <p class="text-mono dim" style="font-size: 0.875rem; margin-bottom: 0.5rem;">// ACTION CENTER</p>
+              <h2 class="text-display" style="font-size: 2.5rem; margin-bottom: 0.5rem;">
+                <span class="pulse-dot"></span>3 Approvals Awaiting
+              </h2>
+              <p class="dim">Review generated scripts and approve daily compute budgets to unblock production.</p>
+            </div>
+            <button class="action-button">Review All</button>
+          </div>
+          
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem;">
+            <div style="background: var(--surface-2); padding: 0.5rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-soft); font-size: 0.875rem;">
+              <strong class="text-title">Weird Food</strong>: Script Review (2)
+            </div>
+            <div style="background: var(--surface-2); padding: 0.5rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-soft); font-size: 0.875rem;">
+              <strong class="text-title">Cosmic Mysteries</strong>: Budget Approval (1)
+            </div>
+          </div>
+        </article>
+
+        <!-- System Glance -->
+        <article class="glass-panel system-glance">
+          <div>
+            <p class="text-mono dim" style="font-size: 0.875rem; margin-bottom: 1.5rem;">// SYSTEM GLANCE</p>
+            <div class="stat-row">
+              <span class="dim">Active Channels</span>
+              <span class="stat-value text-mono">4</span>
+            </div>
+            <div class="stat-row" style="margin-top: 1rem;">
+              <span class="dim">Active Runs</span>
+              <span class="stat-value text-mono">12</span>
+            </div>
+          </div>
+          
+          <div style="margin-top: 2rem;">
+            <p class="metric-label dim">30-Day Spend</p>
+            <p class="text-display accent text-mono" style="font-size: 2.5rem;">$8,420</p>
+          </div>
+        </article>
+
+      </section>
+
+      <!-- CHANNELS HUB -->
+      <section style="margin-top: 4rem;" aria-label="Channels">
+        <div class="section-header">
+          <div>
+            <h3 class="text-display" style="font-size: 2rem;">Channels</h3>
+            <p class="dim text-mono" style="font-size: 0.875rem; margin-top: 0.25rem;">Root Objects & Production Lines</p>
+          </div>
+          <button class="btn-new-channel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            New Channel
+          </button>
+        </div>
+
+        <div class="channels-grid">
+          
+          <!-- Card 1: Cast -->
+          <article class="glass-panel channel-card" tabindex="0">
+            <div class="card-header">
+              <div class="avatar avatar-cm">CM</div>
+              <div class="channel-info">
+                <h4 class="text-title channel-title">Cosmic Mysteries</h4>
+                <span class="status-badge status-cast">Cast Assigned</span>
+              </div>
+            </div>
+            <div class="card-metrics">
+              <div class="metric-group">
+                <span class="metric-label dim">Active Jobs</span>
+                <span class="metric-value text-mono text-title">3</span>
+              </div>
+              <div class="metric-group" style="text-align: right;">
+                <span class="metric-label dim">30D Cost</span>
+                <span class="metric-value text-mono">$1,240</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 2: Cast -->
+          <article class="glass-panel channel-card" tabindex="0">
+            <div class="card-header">
+              <div class="avatar avatar-wf">WF</div>
+              <div class="channel-info">
+                <h4 class="text-title channel-title">Weird Food</h4>
+                <span class="status-badge status-cast">Cast Assigned</span>
+              </div>
+            </div>
+            <div class="card-metrics">
+              <div class="metric-group">
+                <span class="metric-label dim">Active Jobs</span>
+                <span class="metric-value text-mono text-title">5</span>
+              </div>
+              <div class="metric-group" style="text-align: right;">
+                <span class="metric-label dim">30D Cost</span>
+                <span class="metric-value text-mono">$3,100</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 3: UNCAST -->
+          <article class="glass-panel channel-card" tabindex="0">
+            <div class="card-header">
+              <div class="avatar avatar-uncast">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: relative; z-index: 1;">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
+              <div class="channel-info">
+                <h4 class="text-title channel-title">Declassified History</h4>
+                <span class="status-badge status-uncast">Uncast / Pending</span>
+              </div>
+            </div>
+            <div class="card-metrics">
+              <div class="metric-group">
+                <span class="metric-label dim">Active Jobs</span>
+                <span class="metric-value text-mono text-title">4</span>
+              </div>
+              <div class="metric-group" style="text-align: right;">
+                <span class="metric-label dim">30D Cost</span>
+                <span class="metric-value text-mono">$4,080</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 4: Cast, Zero Activity -->
+          <article class="glass-panel channel-card" tabindex="0">
+            <div class="card-header">
+              <div class="avatar" style="background: linear-gradient(135deg, #00b4db, #0083b0);">UA</div>
+              <div class="channel-info">
+                <h4 class="text-title channel-title">Unusual Animal Facts</h4>
+                <span class="status-badge status-cast">Cast Assigned</span>
+              </div>
+            </div>
+            <div class="card-metrics">
+              <div class="metric-group">
+                <span class="metric-label dim">Active Jobs</span>
+                <span class="metric-value text-mono text-title zero">0</span>
+              </div>
+              <div class="metric-group" style="text-align: right;">
+                <span class="metric-label dim">30D Cost</span>
+                <span class="metric-value text-mono zero">$0</span>
+              </div>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    const btn = document.getElementById('themeBtn');
+    const html = document.documentElement;
+    
+    btn.addEventListener('click', () => {
+      const current = html.getAttribute('data-theme');
+      html.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    });
+  </script>
+</body>
+</html>

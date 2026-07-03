@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Room - Channels Hub</title>
+<style>
+  /* === CORE TOKENS === */
+  :root {
+    --signature: #1D4ED8;
+    --signature-hover: #1E40AF;
+    --signature-dim: rgba(29, 78, 216, 0.08);
+    --signature-text: #FFFFFF;
+
+    --bg: #F3F1EC;
+    --grid-line: #E5E3DC;
+    --surface: #FCFBFA;
+    --surface-raised: #FFFFFF;
+    --border: #D1CFCA;
+
+    --text: #1C1917;
+    --text-dim: #57534E;
+    
+    --status-success: #15803D;
+    --status-success-bg: #DCFCE7;
+    --status-warn: #A16207;
+    --status-warn-bg: #FEF08A;
+    --status-danger: #B91C1C;
+    --status-danger-bg: #FEE2E2;
+
+    --shadow-base: 0 4px 12px rgba(28, 25, 23, 0.04), 0 1px 2px rgba(28, 25, 23, 0.04);
+    --shadow-lift: 0 12px 32px rgba(28, 25, 23, 0.12), 0 4px 8px rgba(28, 25, 23, 0.06);
+
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    
+    --radius-card: 20px;
+    --noise-opacity: 0.35;
+    --noise-blend: multiply;
+  }
+
+  html[data-theme="dark"] {
+    --signature: #60A5FA;
+    --signature-hover: #93C5FD;
+    --signature-dim: rgba(96, 165, 250, 0.15);
+    --signature-text: #0F172A;
+
+    --bg: #12100E;
+    --grid-line: #1F1C18;
+    --surface: #1A1815;
+    --surface-raised: #24211D;
+    --border: #38342E;
+
+    --text: #F5F5F4;
+    --text-dim: #A8A29E;
+
+    --status-success: #4ADE80;
+    --status-success-bg: #064E3B;
+    --status-warn: #FACC15;
+    --status-warn-bg: #713F12;
+    --status-danger: #F87171;
+    --status-danger-bg: #7F1D1D;
+
+    --shadow-base: 0 8px 16px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.03);
+    --shadow-lift: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+
+    --noise-opacity: 0.15;
+    --noise-blend: overlay;
+  }
+
+  /* === RESET & BASE === */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    
+    /* Architectural Blueprint Grid */
+    background-image: 
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 48px 48px;
+    background-position: -1px -1px;
+    transition: background-color 0.3s, color 0.3s;
+  }
+
+  /* Texture / Grain Overlay */
+  .texture-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: var(--noise-opacity);
+    mix-blend-mode: var(--noise-blend);
+  }
+
+  /* Accessibility */
+  :focus-visible {
+    outline: 3px solid var(--signature);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  /* === TOPBAR & TELEMETRY === */
+  .topbar {
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 10;
+  }
+
+  .wordmark {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .wm-icon {
+    width: 28px; height: 28px;
+    color: var(--signature);
+  }
+  .wm-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 0.95;
+  }
+  .wm-mono {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+  }
+  .wm-serif {
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    font-weight: 600;
+    font-style: italic;
+    color: var(--text);
+  }
+
+  .telemetry {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1.25rem;
+    border-radius: 8px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+  }
+  .tel-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .tel-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+  .tel-val {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .tel-divider {
+    width: 1px; height: 24px;
+    background: var(--border);
+  }
+
+  .theme-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.85rem;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    transition: all 0.2s;
+  }
+  .theme-toggle:hover {
+    background: var(--surface-raised);
+    border-color: var(--text-dim);
+    transform: translateY(-1px);
+  }
+  .tt-icon svg { width: 14px; height: 14px; }
+
+  /* === MAIN LAYOUT === */
+  .bento-container {
+    max-width: 1240px;
+    margin: 3rem auto 6rem;
+    padding: 0 2rem;
+  }
+
+  .section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid var(--text);
+    padding-bottom: 0.75rem;
+  }
+  .sh-title {
+    font-family: var(--font-serif);
+    font-size: 2.25rem;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .sh-subtitle {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    align-items: stretch;
+  }
+
+  /* === CARD BASICS === */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-base);
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, border-color 0.2s;
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+  }
+  .card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-lift);
+    background: var(--surface-raised);
+    border-color: var(--text-dim);
+    z-index: 2;
+  }
+  .card:focus-visible {
+    border-radius: var(--radius-card);
+  }
+
+  .span-2 { grid-column: span 2; }
+  .span-1 { grid-column: span 1; }
+
+  /* === ACTION CENTER (HERO) === */
+  .card-action {
+    border: 2px solid var(--signature);
+    overflow: hidden;
+    justify-content: space-between;
+  }
+  .card-action::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    background-image: repeating-linear-gradient(45deg, var(--signature-dim) 0, var(--signature-dim) 1px, transparent 1px, transparent 12px);
+    pointer-events: none;
+  }
+  .action-header { padding: 2rem 2.5rem 1rem; position: relative; }
+  .action-body { padding: 0 2.5rem; flex: 1; position: relative; }
+  .action-footer { padding: 1.5rem 2.5rem 2.5rem; position: relative; }
+  
+  .action-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--signature);
+    background: var(--surface);
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid var(--signature);
+    box-shadow: 0 2px 8px var(--signature-dim);
+  }
+  .pulse-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--signature);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 var(--signature-dim); }
+    70% { box-shadow: 0 0 0 6px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  .action-title {
+    font-family: var(--font-serif);
+    font-size: clamp(2.25rem, 3vw, 3rem);
+    font-weight: 400;
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.02em;
+  }
+  .action-desc {
+    font-family: var(--font-sans);
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    max-width: 90%;
+  }
+  
+  .btn-primary {
+    background: var(--signature);
+    color: var(--signature-text);
+    border: none;
+    padding: 0.85rem 1.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px var(--signature-dim);
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .btn-primary:hover {
+    background: var(--signature-hover);
+    transform: scale(1.02);
+  }
+
+  /* === CHANNEL CARDS === */
+  .cc-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 1.5rem 1.5rem 0.5rem;
+  }
+  .cc-mid {
+    padding: 0 1.5rem 1.5rem;
+    flex-grow: 1;
+  }
+  .cc-bot {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 0 0 var(--radius-card) var(--radius-card);
+  }
+  .cc-data {
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .cc-data:first-child { border-right: 1px solid var(--border); }
+
+  .cc-title {
+    font-family: var(--font-serif);
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .cc-subtitle {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-top: 0.4rem;
+    display: inline-block;
+  }
+
+  .data-lbl {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+  .data-val {
+    font-family: var(--font-mono);
+    font-size: 1.15rem;
+    color: var(--text);
+    letter-spacing: -0.03em;
+    font-weight: 500;
+  }
+
+  /* Specific Card Layouts */
+  .card.wide {
+    flex-direction: row;
+  }
+  .card.wide .cc-main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .card.wide .cc-bot {
+    border-top: none;
+    border-left: 1px solid var(--border);
+    border-radius: 0 var(--radius-card) var(--radius-card) 0;
+    display: flex;
+    flex-direction: column;
+    width: 180px;
+    flex-shrink: 0;
+  }
+  .card.wide .cc-data {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    flex: 1;
+    justify-content: center;
+  }
+  .card.wide .cc-data:last-child { border-bottom: none; }
+
+  /* Status Pills */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 0.35rem 0.6rem;
+    border-radius: 99px;
+    border: 1px solid currentColor;
+  }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+  
+  .status-success { color: var(--status-success); background: var(--status-success-bg); }
+  .status-success .status-dot { background: var(--status-success); }
+  .status-warn { color: var(--status-warn); background: var(--status-warn-bg); }
+  .status-warn .status-dot { background: var(--status-warn); }
+  .status-danger { color: var(--status-danger); background: var(--status-danger-bg); }
+  .status-danger .status-dot { background: var(--status-danger); }
+
+  /* Avatars */
+  .cc-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+    flex-shrink: 0;
+  }
+  
+  /* Uncast State */
+  .card.uncast {
+    border: 2px dashed var(--status-danger);
+  }
+  .card.uncast:hover {
+    border-style: solid;
+    border-color: var(--status-danger);
+  }
+  .uncast-avatar {
+    background: var(--status-danger-bg);
+    color: var(--status-danger);
+    border: 1px dashed var(--status-danger);
+    box-shadow: none;
+  }
+  .uncast-avatar svg { width: 22px; height: 22px; }
+
+  /* New Channel Button */
+  .new-channel {
+    background: transparent;
+    border: 2px dashed var(--border);
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 2rem;
+    cursor: pointer;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .new-channel:hover {
+    border-color: var(--signature);
+    color: var(--signature);
+    background: var(--signature-dim);
+    box-shadow: none;
+  }
+  .new-icon {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .new-icon svg { width: 24px; height: 24px; }
+  .new-title {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    font-size: 0.85rem;
+  }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 1024px) {
+    .bento-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 768px) {
+    .topbar { padding: 1rem; gap: 1rem; flex-wrap: wrap; }
+    .wordmark { flex: 1 1 auto; }
+    .theme-toggle { flex: 0 0 auto; }
+    .telemetry { width: 100%; justify-content: space-between; }
+    .card.wide { flex-direction: column; }
+    .card.wide .cc-bot {
+      width: auto;
+      flex-direction: row;
+      border-left: none;
+      border-top: 1px solid var(--border);
+      border-radius: 0 0 var(--radius-card) var(--radius-card);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .card.wide .cc-data {
+      border-bottom: none;
+      border-right: 1px solid var(--border);
+    }
+    .card.wide .cc-data:last-child { border-right: none; }
+  }
+  @media (max-width: 640px) {
+    .bento-container { padding: 0 1rem; margin-top: 2rem; }
+    .bento-grid { grid-template-columns: 1fr; }
+    .span-2, .span-1 { grid-column: span 1; }
+    .action-title { font-size: 2.25rem; }
+    .action-header, .action-body, .action-footer { padding-left: 1.5rem; padding-right: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Film Grain Overlay -->
+  <svg class="texture-overlay" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="none">
+    <filter id="noiseFilter">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#noiseFilter)"/>
+  </svg>
+
+  <!-- Global Header -->
+  <header class="topbar">
+    <div class="wordmark">
+      <svg class="wm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+        <circle cx="12" cy="12" r="10"></circle>
+        <circle cx="12" cy="12" r="3"></circle>
+        <line x1="12" y1="2" x2="12" y2="6"></line>
+        <line x1="12" y1="18" x2="12" y2="22"></line>
+        <line x1="2" y1="12" x2="6" y2="12"></line>
+        <line x1="18" y1="12" x2="22" y2="12"></line>
+      </svg>
+      <div class="wm-text">
+        <span class="wm-mono">CTRL</span>
+        <span class="wm-serif">ROOM</span>
+      </div>
+    </div>
+
+    <div class="telemetry">
+      <div class="tel-item">
+        <span class="tel-label">CHANNELS</span>
+        <span class="tel-val">05</span>
+      </div>
+      <div class="tel-divider"></div>
+      <div class="tel-item">
+        <span class="tel-label">ACTIVE JOBS</span>
+        <span class="tel-val">18</span>
+      </div>
+      <div class="tel-divider"></div>
+      <div class="tel-item">
+        <span class="tel-label">30D SPEND</span>
+        <span class="tel-val">$4,285</span>
+      </div>
+    </div>
+
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle Theme">
+      <span class="tt-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+          <path d="M12 3v18M21 12H3M18.36 5.64l-12.73 12.73M5.64 5.64l12.73 12.73"></path>
+        </svg>
+      </span>
+      <span>INVERT</span>
+    </button>
+  </header>
+
+  <!-- Main Content -->
+  <main class="bento-container">
+    
+    <div class="section-heading">
+      <h2 class="sh-title">Network Operations</h2>
+      <span class="sh-subtitle">ALL SYSTEMS NOMINAL</span>
+    </div>
+
+    <div class="bento-grid">
+      
+      <!-- Action Center (Hero) -->
+      <div class="card card-action span-2">
+        <div class="action-header">
+          <div class="action-badge">
+            <span class="pulse-dot"></span> ACTION REQUIRED
+          </div>
+        </div>
+        <div class="action-body">
+          <h1 class="action-title">3 approvals awaiting you.</h1>
+          <p class="action-desc">Two scripts are ready for review on <strong>Weird Food</strong>, and one final video cut is pending on <strong>Cosmic Mysteries</strong>.</p>
+        </div>
+        <div class="action-footer">
+          <button class="btn-primary">
+            REVIEW QUEUE
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Channel: Weird Food (Wide) -->
+      <a href="#" class="card span-2 wide">
+        <div class="cc-main-content">
+          <div class="cc-top">
+            <div class="status-pill status-warn">
+              <span class="status-dot"></span> HIGH VOLUME
+            </div>
+            <div class="cc-avatar" style="background: linear-gradient(135deg, #9A3412, #EA580C); color: #FFEDD5;" aria-label="Cast: Chef V">
+              WF
+            </div>
+          </div>
+          <div class="cc-mid">
+            <h2 class="cc-title">Weird Food</h2>
+            <span class="cc-subtitle">Faceless / Shorts</span>
+          </div>
+        </div>
+        <div class="cc-bot">
+          <div class="cc-data">
+            <span class="data-lbl">ACTIVE JOBS</span>
+            <span class="data-val">08</span>
+          </div>
+          <div class="cc-data">
+            <span class="data-lbl">30D COST</span>
+            <span class="data-val">$1,240</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Channel: Cosmic Mysteries -->
+      <a href="#" class="card span-1">
+        <div class="cc-top">
+          <div class="status-pill status-success">
+            <span class="status-dot"></span> IN PRODUCTION
+          </div>
+          <div class="cc-avatar" style="background: linear-gradient(135deg, #0F172A, #4C1D95); color: #F8FAFC;" aria-label="Cast: Orion">
+            CM
+          </div>
+        </div>
+        <div class="cc-mid">
+          <h2 class="cc-title">Cosmic Mysteries</h2>
+          <span class="cc-subtitle">Faceless / Shorts</span>
+        </div>
+        <div class="cc-bot">
+          <div class="cc-data">
+            <span class="data-lbl">ACTIVE JOBS</span>
+            <span class="data-val">02</span>
+          </div>
+          <div class="cc-data">
+            <span class="data-lbl">30D COST</span>
+            <span class="data-val">$840</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Channel: Declassified History (Uncast) -->
+      <a href="#" class="card span-1 uncast">
+        <div class="cc-top">
+          <div class="status-pill status-danger">
+            <span class="status-dot"></span> BLOCKED
+          </div>
+          <div class="cc-avatar uncast-avatar" aria-label="Uncast Placeholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+              <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
+              <circle cx="8.5" cy="7" r="4"></circle>
+              <line x1="20" y1="8" x2="20" y2="14"></line>
+              <line x1="23" y1="11" x2="17" y2="11"></line>
+            </svg>
+          </div>
+        </div>
+        <div class="cc-mid">
+          <h2 class="cc-title">Declassified History</h2>
+          <span class="cc-subtitle" style="color: var(--status-danger);">MISSING CHARACTER</span>
+        </div>
+        <div class="cc-bot">
+          <div class="cc-data">
+            <span class="data-lbl">ACTIVE JOBS</span>
+            <span class="data-val">00</span>
+          </div>
+          <div class="cc-data">
+            <span class="data-lbl">30D COST</span>
+            <span class="data-val">$0</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Channel: Deep Sea Oddities -->
+      <a href="#" class="card span-1">
+        <div class="cc-top">
+          <div class="status-pill status-success">
+            <span class="status-dot"></span> IN PRODUCTION
+          </div>
+          <div class="cc-avatar" style="background: linear-gradient(135deg, #064E3B, #0D9488); color: #CCFBF1;" aria-label="Cast: Marina">
+            DS
+          </div>
+        </div>
+        <div class="cc-mid">
+          <h2 class="cc-title">Deep Sea Oddities</h2>
+          <span class="cc-subtitle">Faceless / Shorts</span>
+        </div>
+        <div class="cc-bot">
+          <div class="cc-data">
+            <span class="data-lbl">ACTIVE JOBS</span>
+            <span class="data-val">01</span>
+          </div>
+          <div class="cc-data">
+            <span class="data-lbl">30D COST</span>
+            <span class="data-val">$420</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- New Channel Affordance -->
+      <button class="card new-channel span-1">
+        <div class="new-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </div>
+        <span class="new-title">DEPLOY NEW CHANNEL</span>
+      </button>
+
+    </div>
+  </main>
+
+  <script>
+    const btn = document.getElementById('themeToggle');
+    const html = document.documentElement;
+    btn.addEventListener('click', () => {
+      const current = html.getAttribute('data-theme');
+      html.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+    });
+  </script>
+</body>
+</html>

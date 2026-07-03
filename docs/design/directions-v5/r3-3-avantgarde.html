@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Room // Chroma-Struct</title>
+<style>
+  :root {
+    /* Semantic Palette - Light */
+    --bg: #EBEDF0;
+    --surface: #FFFFFF;
+    --surface-hover: #F7F8FA;
+    --text: #090A0C;
+    --text-dim: #5C616B;
+    --accent: #1133FF;
+    --accent-dim: rgba(17, 51, 255, 0.08);
+    --success: #007A3D;
+    --warn: #B85C00;
+    --danger: #D61A00;
+    --border: #D1D4DC;
+    --grid-line: rgba(9, 10, 12, 0.06);
+    --shadow-ambient: rgba(9, 10, 12, 0.08);
+    --shadow-direct: rgba(9, 10, 12, 0.04);
+    --glass-shine: rgba(255, 255, 255, 0.8);
+    
+    /* Type Families */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', Courier, monospace;
+    
+    /* Structural variables */
+    --bento-gap: 1.5rem;
+    --radius: 12px;
+  }
+
+  html[data-theme="dark"] {
+    --bg: #090A0E;
+    --surface: #151720;
+    --surface-hover: #1A1D28;
+    --text: #F2F4F8;
+    --text-dim: #8E94A3;
+    --accent: #5C77FF;
+    --accent-dim: rgba(92, 119, 255, 0.15);
+    --success: #00D169;
+    --warn: #FF9933;
+    --danger: #FF4D4D;
+    --border: #2B2F40;
+    --grid-line: rgba(242, 244, 248, 0.04);
+    --shadow-ambient: rgba(0, 0, 0, 0.6);
+    --shadow-direct: rgba(0, 0, 0, 0.4);
+    --glass-shine: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Reset & Base */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.4;
+    min-height: 100vh;
+    padding: 1.5rem;
+    position: relative;
+    overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    
+    /* Blueprint Grid */
+    background-image: 
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 3rem 3rem;
+  }
+
+  /* SVG Noise Overlay */
+  .noise-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.35;
+    mix-blend-mode: overlay;
+  }
+  html[data-theme="dark"] .noise-overlay { opacity: 0.15; mix-blend-mode: color-dodge; }
+
+  /* Accessibility */
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  /* Layout Shell */
+  .app-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 10;
+  }
+
+  /* Global Action Center */
+  .action-center {
+    background: var(--text);
+    color: var(--bg);
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--bento-gap);
+    box-shadow: 0 12px 30px var(--shadow-ambient);
+  }
+  .action-center-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .pulse-dot {
+    width: 10px; height: 10px;
+    background-color: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(92, 119, 255, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(92, 119, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(92, 119, 255, 0); }
+  }
+  .action-label {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    opacity: 0.8;
+  }
+  .action-message {
+    font-weight: 800;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+  }
+  .action-btn {
+    background: var(--accent);
+    color: #FFFFFF; /* High contrast forced */
+    border: none;
+    padding: 0.6rem 1.2rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    border-radius: calc(var(--radius) / 2);
+    cursor: pointer;
+    transition: transform 0.1s ease, filter 0.2s ease;
+  }
+  .action-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+  /* Header & System Glance */
+  .master-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: calc(var(--bento-gap) * 2);
+    padding-bottom: var(--bento-gap);
+    border-bottom: 2px solid var(--border);
+  }
+  .brand-lockup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .wordmark {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    line-height: 0.9;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .wordmark-badge {
+    background: var(--accent);
+    color: #FFF;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    vertical-align: middle;
+    letter-spacing: 0;
+  }
+  .system-glance {
+    display: flex;
+    gap: 3rem;
+  }
+  .glance-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .glance-lbl {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .glance-val {
+    font-family: var(--font-mono);
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--text);
+    text-shadow: 3px 3px 0 var(--accent-dim);
+  }
+  .theme-toggle-wrap { margin-bottom: 0.5rem; }
+  .theme-toggle {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem;
+    border-radius: 50px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px var(--shadow-ambient);
+    transition: all 0.2s ease;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .theme-toggle svg { width: 1.2rem; height: 1.2rem; fill: currentColor; }
+
+  /* Bento Grid */
+  .channels-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: var(--bento-gap);
+  }
+
+  /* Base Card Styling */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 
+      0 12px 40px var(--shadow-ambient),
+      0 2px 8px var(--shadow-direct),
+      inset 0 1px 0 var(--glass-shine);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 20px 50px var(--shadow-ambient),
+      0 4px 12px var(--shadow-direct),
+      inset 0 1px 0 var(--glass-shine);
+  }
+  /* Structural color bar on cards */
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0; width: 6px;
+    background: var(--card-color, var(--text-dim));
+  }
+
+  /* Grid Asymmetry */
+  .hero-card { grid-column: span 8; grid-row: span 2; padding: 2.5rem; }
+  .std-card-1 { grid-column: span 4; grid-row: span 1; }
+  .std-card-2 { grid-column: span 4; grid-row: span 1; }
+  .wide-card { grid-column: span 6; grid-row: span 1; }
+  .new-card { grid-column: span 6; grid-row: span 1; }
+
+  /* Card Internals */
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    padding-left: 1rem;
+  }
+  .led-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+  }
+  .led-light {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--status-color);
+    box-shadow: 0 0 8px var(--status-color);
+  }
+  .card-cost {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-align: right;
+  }
+  .card-cost strong { color: var(--text); font-size: 1.1rem; display: block; }
+  
+  .card-title {
+    font-size: clamp(1.8rem, 3vw, 2.5rem);
+    font-weight: 900;
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    padding-left: 1rem;
+  }
+  .hero-card .card-title {
+    font-size: clamp(3rem, 6vw, 5rem);
+    line-height: 0.85;
+    margin-bottom: auto; /* push content down */
+  }
+
+  .card-bottom {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding-left: 1rem;
+    gap: 1rem;
+    margin-top: auto;
+  }
+  
+  /* Character Display */
+  .character-zone {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+  }
+  .avatar-cast {
+    width: 3rem; height: 3rem;
+    border-radius: 50%;
+    background: conic-gradient(from 180deg at 50% 50%, var(--accent), var(--success), var(--accent));
+    box-shadow: 0 4px 12px var(--shadow-ambient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFF;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    letter-spacing: -1px;
+  }
+  .hero-card .avatar-cast {
+    width: 5rem; height: 5rem;
+    font-size: 1.5rem;
+  }
+  .char-name {
+    font-weight: 800;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+  }
+  .char-role {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  
+  /* Uncast State */
+  .uncast-zone {
+    flex: 1;
+    background: repeating-linear-gradient(45deg, var(--surface-hover), var(--surface-hover) 8px, transparent 8px, transparent 16px);
+    border: 1px dashed var(--warn);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .uncast-icon {
+    width: 2rem; height: 2rem;
+    background: var(--warn);
+    color: #FFF; /* High contrast */
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    font-family: var(--font-mono); font-weight: bold;
+  }
+  .uncast-text {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--warn);
+    text-transform: uppercase;
+  }
+
+  .run-badge {
+    text-align: right;
+  }
+  .run-count {
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 1px var(--text);
+  }
+  .run-lbl {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    font-weight: bold;
+  }
+
+  /* New Channel Card */
+  .new-channel-card {
+    background: transparent;
+    border: 2px dashed var(--text-dim);
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    cursor: pointer;
+    min-height: 200px;
+    transition: all 0.2s ease;
+  }
+  .new-channel-card::before { display: none; }
+  .new-channel-card:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+  .new-icon {
+    font-size: 3rem;
+    font-weight: 300;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  .new-text {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  /* Utilities */
+  .c-success { --status-color: var(--success); --card-color: var(--success); }
+  .c-warn { --status-color: var(--warn); --card-color: var(--warn); }
+  .c-danger { --status-color: var(--danger); --card-color: var(--danger); }
+  .c-accent { --status-color: var(--accent); --card-color: var(--accent); }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .channels-grid { display: flex; flex-direction: column; }
+    .hero-card, .std-card-1, .std-card-2, .wide-card, .new-card { grid-column: auto; grid-row: auto; }
+    .hero-card { padding: 1.5rem; }
+    .system-glance { display: none; /* Simplify header on small screens */ }
+  }
+  @media (max-width: 600px) {
+    .action-center { flex-direction: column; align-items: flex-start; gap: 1rem; }
+    .card-bottom { flex-direction: column; align-items: flex-start; }
+    .run-badge { text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Grain Texture -->
+  <svg class="noise-overlay" aria-hidden="true">
+    <filter id="noiseFilter">
+      <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0" />
+    </filter>
+    <rect width="100%" height="100%" filter="url(#noiseFilter)" />
+  </svg>
+
+  <div class="app-container">
+    
+    <!-- Action Center -->
+    <section class="action-center">
+      <div class="action-center-left">
+        <div class="pulse-dot"></div>
+        <div>
+          <div class="action-label">SYS_REQ // TRIAGE_LOOP</div>
+          <div class="action-message">3 Approvals Awaiting You</div>
+        </div>
+      </div>
+      <button class="action-btn">RESOLVE &rarr;</button>
+    </section>
+
+    <!-- Header -->
+    <header class="master-header">
+      <div class="brand-lockup">
+        <h1 class="wordmark">TRANSMIT <span class="wordmark-badge">CTRL</span></h1>
+        <div class="theme-toggle-wrap">
+          <button class="theme-toggle" id="themeToggle" aria-label="Toggle Theme">
+            <!-- Moon icon inline -->
+            <svg viewBox="0 0 24 24">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="system-glance">
+        <div class="glance-stat">
+          <span class="glance-lbl">ACTIVE_CH</span>
+          <span class="glance-val">04</span>
+        </div>
+        <div class="glance-stat">
+          <span class="glance-lbl">ACTIVE_RUNS</span>
+          <span class="glance-val">12</span>
+        </div>
+        <div class="glance-stat">
+          <span class="glance-lbl">30D_SPEND</span>
+          <span class="glance-val">$1.4K</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Channels Grid -->
+    <main class="channels-grid">
+      
+      <!-- HERO CARD: Weird Food (Cast) -->
+      <article class="card hero-card c-success">
+        <div class="card-top">
+          <div class="led-status"><span class="led-light"></span> LIVE</div>
+          <div class="card-cost">SPEND 30D<strong>$480.00</strong></div>
+        </div>
+        <h2 class="card-title">WEIRD<br>FOOD</h2>
+        <div class="card-bottom">
+          <div class="character-zone">
+            <div class="avatar-cast">CX</div>
+            <div>
+              <div class="char-name">Chef Xavier</div>
+              <div class="char-role">CAST / PRIMARY</div>
+            </div>
+          </div>
+          <div class="run-badge">
+            <div class="run-count">05</div>
+            <div class="run-lbl">ACTIVE JOBS</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- STD CARD 1: Cosmic Mysteries (Uncast) -->
+      <article class="card std-card-1 c-warn">
+        <div class="card-top">
+          <div class="led-status"><span class="led-light"></span> PENDING</div>
+          <div class="card-cost">SPEND 30D<strong>$120.00</strong></div>
+        </div>
+        <h2 class="card-title">COSMIC<br>MYSTERIES</h2>
+        <div class="card-bottom" style="flex-direction: column; align-items: flex-start; gap: 1.5rem;">
+          <div class="uncast-zone" style="width: 100%;">
+            <div class="uncast-icon">!</div>
+            <div class="uncast-text">ACTION REQ<br>UNCAST</div>
+          </div>
+          <div class="run-badge" style="align-self: flex-end;">
+            <div class="run-count">00</div>
+            <div class="run-lbl">ACTIVE JOBS</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- STD CARD 2: Animal Facts (Cast) -->
+      <article class="card std-card-2 c-success">
+        <div class="card-top">
+          <div class="led-status"><span class="led-light"></span> LIVE</div>
+          <div class="card-cost">SPEND 30D<strong>$820.00</strong></div>
+        </div>
+        <h2 class="card-title">UNUSUAL<br>ANIMAL<br>FACTS</h2>
+        <div class="card-bottom" style="flex-direction: column; align-items: flex-start; gap: 1.5rem;">
+          <div class="character-zone">
+            <div class="avatar-cast" style="background: conic-gradient(from 45deg, var(--accent), #FF33A1, var(--accent)); width: 2.5rem; height: 2.5rem; font-size: 1rem;">DZ</div>
+            <div>
+              <div class="char-name" style="font-size: 0.9rem;">Dr. Zarkov</div>
+              <div class="char-role">CAST</div>
+            </div>
+          </div>
+          <div class="run-badge" style="align-self: flex-end;">
+            <div class="run-count">07</div>
+            <div class="run-lbl">ACTIVE JOBS</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- WIDE CARD: Declassified (Paused) -->
+      <article class="card wide-card c-danger">
+        <div class="card-top">
+          <div class="led-status"><span class="led-light"></span> PAUSED</div>
+          <div class="card-cost">SPEND 30D<strong>$0.00</strong></div>
+        </div>
+        <h2 class="card-title">DECLASSIFIED HISTORY</h2>
+        <div class="card-bottom">
+          <div class="character-zone">
+            <div class="avatar-cast" style="background: #333; width: 2.5rem; height: 2.5rem; font-size: 1rem;">AG</div>
+            <div>
+              <div class="char-name" style="font-size: 0.9rem;">Agent G</div>
+              <div class="char-role">CAST / INACTIVE</div>
+            </div>
+          </div>
+          <div class="run-badge">
+            <div class="run-count">00</div>
+            <div class="run-lbl">ACTIVE JOBS</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- NEW CHANNEL ACTION -->
+      <button class="card new-channel-card new-card">
+        <div class="new-icon">+</div>
+        <div class="new-text">INITIATE NEW CHANNEL</div>
+      </button>
+
+    </main>
+  </div>
+
+  <script>
+    const toggleBtn = document.getElementById('themeToggle');
+    const htmlEl = document.documentElement;
+    
+    // Simple toggle logic
+    toggleBtn.addEventListener('click', () => {
+      const currentTheme = htmlEl.getAttribute('data-theme');
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      htmlEl.setAttribute('data-theme', newTheme);
+      
+      // Update icon visual slightly for feedback
+      toggleBtn.style.transform = 'scale(0.9)';
+      setTimeout(() => { toggleBtn.style.transform = 'scale(1)'; }, 100);
+    });
+  </script>
+</body>
+</html>

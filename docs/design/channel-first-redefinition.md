@@ -177,7 +177,10 @@ Global Action Center (Correction 3) rides in Phase 1 (as a real inline-approve q
 
 ## 6. Risks / what this does NOT solve
 - **The pipeline correlation key is the critical path for F4.** If it's not scheduled, Phase 3's
-  headline feature degrades to heuristic matching. **File the HQ ask early.**
+  headline feature degrades to heuristic matching. **File the HQ ask early.** _[HQ ask filed
+  2026-07-02; **Pipeline ANSWERED 2026-07-03: feasible, QUEUED — additive nullable
+  `episodes.correlation_key` echoing the job's `idempotency_key`; owner-to-act = operator to
+  sequence.** Non-blocking; best-effort until it lands.]_
 - Does not fix pipeline latency or generative (voice/image) quality — those stay operator-judged
   (constraint C). New casting surface still needs robust async loading/error states.
 - Global vs channel-scoped component state must be cleanly prop-driven (`channelId`) or data leaks
