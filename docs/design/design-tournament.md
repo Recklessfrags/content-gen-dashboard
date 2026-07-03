@@ -47,8 +47,31 @@ option):
 - **R3-3 Avant-garde "TRANSMIT"** (free roam) — bento + colored status edge-bars + outlined numerals.
 - **R3-4 Timeless "CHROMA"** (free roam) — restrained Swiss-premium, blue.
 
-_Status: **Round 3 field produced** (all four rendered + verified, both modes). Contenders now: C, D,
-+ these four (+ Transmission held). **Winners TBD by operator.**_
+_Round 3: operator liked **R3-1 Spatial/Aurora + R3-2 Risograph** (near-opposites). Operator elected
+to **narrow toward a decision.**_
+
+### FINAL BALLOT — pick one to become the Phase-1 design language
+Finalists: **C** (Bento×Editorial hybrid, `directions-v4/r2c-…`), **D** (Autonomous fusion,
+`directions-v4/r2d-…`), **R3-1** (Spatial/Aurora, `directions-v5/r3-1-…`), **R3-2** (Risograph,
+`directions-v5/r3-2-…`).
+
+Architect's decision-useful read (for a **daily, dense, money/brand control tool**, solo non-tech
+operator, must be AA + fast to scan + work at 412px + endure):
+- **C — best all-rounder:** character (editorial serif) + scannable bento + approachable. Low
+  build/legibility risk. _Risk: all-pink signature can tire; serif needs care at small sizes._
+- **R3-1 — most premium/novel:** luminous depth, beautiful. _Risk: gradients/glow can date and can
+  fight data legibility; AA-on-gradient needs care; heaviest to build well._
+- **R3-2 — most personality:** distinctive print-craft brand. _Risk: HIGHEST for a daily tool —
+  limited-ink/halftone + spot color can hurt dense-data legibility + AA, and can tire; most niche/
+  least timeless._
+- **D — safest/most conventional:** confident dark operator deck. _Risk: least distinctive._
+
+**Architect recommendation:** **C** for the best character↔usability↔longevity balance; **R3-1** if
+you want maximum premium/novelty and accept a bit more build+legibility care. (Taste is the
+operator's — this is a starting point.)
+
+_Status: **FINAL BALLOT open** — awaiting operator's single pick → then the full Phase-1 design
+system + all screens are built against it, through the Gemini + suerta(Fable-5 on money path) gate._
 
 ---
 
