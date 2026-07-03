@@ -11,7 +11,66 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-03) — PHASE-1 DESIGN LOCKED (Aurora); NEXT SESSION = BUILD. Read this first.
+## ⚡ LATEST (2026-07-03) — PHASE-1 BUILD STARTED: Lanes 1 + 2a landed on branch. Read this first.
+
+Build session opened on branch **`claude/channel-first-phase1-build-gji3vi`** (fresh from production
+`new-session-3l99vs`; the harness-designated working-branch name for this work — note the kickoff's
+placeholder `…-dx9gan` was superseded by this designated name; same base, all specs + Aurora package
+present). **Two foundation lanes are built, reviewed, and pushed** (not yet merged, not yet
+browser-ratified):
+
+- **Lane 1 — Aurora design-system FOUNDATION** (commit `483de36`). New `src/app/aurora.css` (tokens
+  light+dark under `[data-theme]`, aurora backdrop + monochrome noise, glass panel, `.au-btn*` /
+  `.au-badge` primitives **renamed off the legacy globals `.btn`/`.status-badge` to avoid bleed**,
+  inputs, avatars, self-contained channel card, action-center hero + inline row, layout helpers,
+  focus-visible, reduced-motion) + `layout.tsx` (import, `data-theme="dark"` default, SSR-safe
+  pre-hydration theme script, theme-aware `themeColor`) + `src/lib/theme.ts` (theme seam + live
+  `<meta theme-color>` sync). **Additive, scoped under `.aurora-app`; the legacy `.cr` app is
+  untouched and still builds.** Full review loop: **Gemini + suerta(Opus)** both REQUEST-CHANGES →
+  all folded. suerta caught a real WCAG-AA blocker the other lenses missed — light-mode danger/warn
+  badge text failed 4.5:1 on their own 15% tints; corrected (`--danger:#B91C1C`, `--warn:#92400E`,
+  light only) and **proven by measurement** (5.10 / 6.05 / 5.82). Build clean; visual smoke Chromium
+  dark+light @1440 + 412. Gates `L1-1..L1-10` PASS in `GATES.md`.
+  - **OPEN AA item (carry forward):** dark-mode `--danger` badge text (`#FF1744`) is borderline
+    (~4.3:1 by static estimate; true value depends on the composited surface + aurora bleed-through)
+    → **pixel-sample it on the rendered dark screens at the first browser-ratification gate**; if
+    <4.5, darken/brighten the dark danger text or raise `--danger-bg` opacity.
+- **Lane 2a — URL-routing MODEL** (commit `af5e8c5`). `src/lib/route.ts` + tests — pure TS for slice
+  §3 (hub/channel/tab scope; legacy `?view=`→hub one-time redirect; bare→hub; unknown channel→hub;
+  invalid tab→production canonicalized; round-trip idempotent). `vitest` 12/12, build clean. Gates
+  `L2r-1..L2r-7` PASS. This is the single source of truth the ControlRoom wiring will consume.
+
+**NEXT LANES (in order; each gets the full Gemini+suerta review + browser ratification):**
+1. **Lane 2b — wire `route.ts` into `ControlRoom.tsx` + mount the global Channels hub** in
+   `.aurora-app`. **Extend the existing local-state + `pushState`/`popstate` pattern**
+   (`ControlRoom.tsx:88-99`, `690-790`, `1119`) — do NOT introduce `useSearchParams`-driven
+   rendering (slice §3 App-Router note). Hub = grid of `channel_profiles` cards (best-effort avatar,
+   cast/uncast chip), "+ New channel", empty/loading/error states, per-channel **Active Jobs** count
+   from `jobs.channel`. **TRAP (§4 + hub mock lies): do NOT render per-channel 30D cost — episodes
+   have no channel key; per-channel Runs/Cost are DEFERRED. The finalist hub mock SHOWS fake
+   per-channel `$` figures — omit them / dim per design-system §2.4.**
+2. Lane 3 — per-channel workspace shell + sub-nav (Production·Character·Guidelines·Cost).
+3. Lane 4 — **global Action Center (inline)** — reuse `QueueActionDialog`'s handlers/validation,
+   discard its modal chrome, act in-row, keep the publish double-gate. **suerta ESCALATED to
+   Fable-5** here (money path) + Gemini.
+4. Lane 5+ — re-parent Guidelines / Character / Production / Cost, rebuilt against Aurora; Fork-A
+   `channelId` prop toggles global vs scoped (build each once; no channel state leak).
+
+**BLOCKER for ratifying lanes 2b+:** **QA creds (`RATIFY_EMAIL`/`RATIFY_PASSWORD`) are NOT in the
+container** — request from the operator and put in gitignored `.env.local` before the ratify gates.
+Design-system + routing-model lanes did not need them; every data-driven screen does.
+
+**Toolchain confirmed live this session:** Codex (login via `printenv OPENAI_API_KEY | codex login
+--with-api-key`), `scripts/gemini.sh` REST (default `gemini-3.1-pro-preview`), suerta via Agent tool
+(the `claude`/`general-purpose` subagent). Visual smoke = inline the shipped CSS into a standalone
+HTML + Chromium at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome` (run the node script from the
+repo root so it resolves `playwright`). WCAG contrast proved with a small node compositing calculator
+(composite the 15% badge tint over the surface, then ratio vs text — pure-white is NOT the effective
+bg). **Codex did NOT touch `docs/HANDOFF.md` this session (guard held).**
+
+---
+
+## ⚡ (2026-07-03) — PHASE-1 DESIGN LOCKED (Aurora). Context for the build above.
 
 The Phase-1 **design is done and chosen**; the next session **builds** it. Full kickoff (branch +
 paste-in starting prompt + traps): **`docs/PHASE1-BUILD-KICKOFF.md`**.
