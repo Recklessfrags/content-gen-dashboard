@@ -233,3 +233,36 @@ so the full Gemini+suerta+browser-ratify gate applies to the *wiring* lane, not 
 Next: Lane 2 (part 2) = wire this into ControlRoom.tsx (extend the existing local-state +
 `pushState`/`popstate` pattern — NOT `useSearchParams`-driven, per slice §3 App-Router note) +
 mount the global Channels hub in `.aurora-app`. That lane is the full review + ratify gate.
+
+---
+
+# Phase-1 Lane 1 — FIDELITY REBUILD (aurora.css lifted from the mock CSS) — on branch
+
+Operator feedback (2026-07-03): builds were drifting from the design renders because aurora.css was
+hand-ported from the markdown summary, not the mock's real CSS. Fix per operator's guidance: **lift
+the mock component CSS verbatim; the HTML mock is the source of truth; measure fidelity with an
+image-diff (rule 35), not vibes.**
+
+- `aurora.css` rewritten to lift the mock's tokens + component rules VERBATIM from
+  `finalist-3-aurora.html` + `aurora-system/*.html` (595→~1465 lines: hub, action-center, overview,
+  workspace, gallery components, overlays, skeletons), scoped under `.aurora-app`. Only 3 classes
+  renamed for legacy-global collisions (`.status-badge`→`.status-chip`, `.metric-value`→
+  `.au-metric-value`, `.pulse-dot`→`.au-pulse-dot`). Preserved a11y/correctness deltas: light-mode AA
+  badge tokens, `isolation:isolate`, focus-visible, reduced-motion, monochrome grain. One real bug
+  found + fixed: the scoped reset had `box-sizing` but not `margin:0;padding:0`, so default UA
+  `<h1>`/`<p>` margins inflated every text block (~100px accumulated).
+
+| # | Gate | Status | Evidence (MEASURED) |
+| --- | --- | --- | --- |
+| L1F-1 | Tokens identical to the mock | **PASS** | `:root`/`[data-theme]` diffed byte-for-byte vs mock (bg-base #05050A, aurora stops, surfaces, radii, system fonts). |
+| L1F-2 | Shared component rules lifted verbatim | **PASS** | `.glass-panel`/`.hero-grid`/`.action-center` byte-identical to mock; component set restored. |
+| L1F-3 | Rendered hub == mock (image-diff, rule 35) | **PASS** | Content-only pixel-diff mock vs built (Chromium 1440, backdrop frozen, real-app body reset): **dark 0.52% / light 0.65%** changed pixels (>60 threshold) — residual is text anti-aliasing. |
+| L1F-4 | Layout metrics match | **PASS** | action-center h=326 (mock 326), channels-grid h=201 (mock 201) after the reset fix (were 428/228). |
+| L1F-5 | Build clean; a11y deltas preserved | **PASS** | `next build` clean; light AA tokens, isolation, focus-visible, reduced-motion all present. |
+
+Note: raw (unmasked) pixel-diff is ~14–32% because the full-page **animated translucent aurora
+backdrop** covers every pixel and is non-deterministic frame-to-frame — that is expected and is NOT a
+fidelity miss; the content-only measured gate (L1F-3) is the meaningful one. **Intentional honest
+deviation from the mock:** the mock shows a per-channel "30D COST" figure; the build OMITS it
+(episodes have no channel key — §4 DATA REALITY). Method (build-from-mock-CSS + image-diff gate) is
+now the standard for every re-parented surface.
