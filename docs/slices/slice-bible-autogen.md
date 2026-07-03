@@ -13,8 +13,9 @@ it's blank, the video pipeline can't make the episode (that's what broke Fine Pr
 **The fix:** let an AI write a **first draft** of the bible automatically; you read it, tweak it, and
 approve it. You're never handed a blank page, and nothing saves without your OK.
 
-**Do you need to do anything now? No.** This is parked for later (it comes with the Phase-2 Character
-screen). It's written down here so it's ready when we get to it.
+**Do you need to do anything now? No.** **PARKED by the operator (2026-07-03)** — build it later with
+the Phase-2 Character screen; the money/AI choice gets decided then. It's written down here so it's
+ready when we get to it.
 
 **The one decision, when we build it — pre-filled so it's a single "yes":**
 > Using an AI to draft bibles costs a little money each time (roughly a cent or two per draft).
