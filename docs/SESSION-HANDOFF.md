@@ -55,6 +55,11 @@ merged to production as **PR #64 (squash `2daf70f`)** since the entry below was 
   == the builders (`publish_only/publish_approved/source_episode_id`; `spend_approved`), poll-survival, and F1
   verified (Back → return → 0 armed confirms). Commits `3691cec` + `90958c1` on the branch; **merge gated on
   Fable round-2 APPROVE.** GATES `L4-1..L4-9 + L4-a11y`.
+- **Lane 4 carried nits (Fable round-2, non-blocking, safe-direction — fold into Lane 3/5):** (1) a cross-shell
+  popstate into `?hub=actions` with a still-armed *legacy* pending can flash the inline confirm for one frame
+  before the scope-effect clears it (worst case a stray Enter *cancels* — strictly better than the pre-fold
+  invisible-armed bug); (2) `openLegacyConsole` with an armed aurora confirm doesn't clear pending, but the
+  legacy modal renders it visibly + cancellably (pre-existing, not the F1 invisible-armed case). Both optional.
 - **NEXT after Lane 4 merges: Lane 3** — re-parent the 4 workspace tabs (Production·Character·Guidelines·Cost)
   against Aurora; Fork-A `channelId` toggles global vs channel-scoped; Production scopes Ideas+Queue (real cols),
   Runs/Cost = honest DEFERRED (§4). Fold **N11** (hub link in the legacy rail). Then Lane 5 (retire legacy shell +
