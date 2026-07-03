@@ -39,12 +39,21 @@ rebuild (see §6).
 ## 4. Open decisions (bucket-3 — operator owns; NO spend until greenlit)
 Auto-draft needs an **LLM call**, which the dashboard has no sanctioned path for today (casting uses
 the ElevenLabs `casting-proxy` edge function; there is no general text-LLM path). Real decisions:
-- **D1 — where does generation run + which key?** A new **dashboard edge-function proxy** (à la
-  `casting-proxy`, `verify_jwt`, server-clamped, day-cap) with a text-LLM key, **OR** a
-  **pipeline-provided "draft bible" endpoint** the dashboard calls (the pipeline already has the
-  register/legal context and did it once — but the bible is **dashboard-owned content**, so the
-  authoring UX belongs in the dashboard regardless of where the model call sits). **Cross-team
-  question — file on HQ before building.**
+- **D1 — where does generation run + which key? → ARCHITECT RECOMMENDATION: a dashboard-owned
+  edge-function generation path** (new proxy à la `casting-proxy`: holds the secret, `verify_jwt`,
+  server-clamp, count/day-cap), **NOT** a pipeline-hosted endpoint. Rationale: (a) the bible is
+  dashboard-owned content authored in the dashboard — keep trigger→draft→edit→approve→save in one
+  place, no cross-team coupling/latency for a daily authoring aid; (b) it's the **same sanctioned
+  generation infra E2 and 2b need** — build once, unblock the family; (c) proven pattern already
+  exists (`casting-proxy`). _Steelman for the pipeline-endpoint alternative:_ the pipeline owns the
+  render-consumed bible format and already drafted one, so its endpoint would guarantee
+  compatibility — but it couples our authoring UX to their repo/availability, adds latency, and
+  generalizes to nothing. **Capture the compatibility without the coupling:** generate to the
+  pipeline's consumed bible format as a **mirrored contract** (already on HQ: Fine Print's authored
+  bible + the `_word_bounds` note + the food brief), so the only cross-team ask is a **narrow
+  contract-confirm** ("confirm the exact bible fields/shape the worker's script-writer reads"), NOT
+  "host generation for us." _(Architecture = Architect's recommendation; spend/provider/key below =
+  operator's.)_
 - **D2 — provider/model + cost cap** (count-based, never a shared reviews key) — same discipline as
   the 2b provider fork.
 - **D3 — boundary:** the dashboard writes `characters.bible` (already owned); **no** unsanctioned
@@ -78,6 +87,8 @@ D1's "sanctioned dashboard generation path" decision is **shared** across bible 
 
 ## 7. Open items for the operator
 1. Greenlight scoping bible auto-draft as a real roadmap item (this doc) — priority vs E2/2b?
-2. D1: dashboard edge-proxy vs pipeline-provided draft endpoint? (I'll file the HQ cross-team
-   question once you point a direction.)
+2. **D1 direction is recommended (dashboard edge-proxy generation path — §4).** Operator's part is
+   the **bucket-3 spend + provider/model + key** greenlight (same call as the 2b fork). On your go,
+   I file the **narrow HQ contract-confirm** (the bible fields/shape the worker reads) — not an ask
+   to host generation.
 3. Confirm the guard ships as the interim (Phase-2 fold vs sooner standalone).
