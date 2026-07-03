@@ -44,11 +44,21 @@ merged to production as **PR #64 (squash `2daf70f`)** since the entry below was 
   so it needs no browser bridge. **Trap:** rail nav has hidden mobile-duplicate buttons — target the *visible
   desktop* `.cr .rail .navbtn` (a `.first()`+`.catch()` faked a dirty-guard "gap"). **Trap:** sample AFTER CSS
   transitions settle (a mid-transition tween faked a hover-AA fail).
-- **NEXT (creds are live in THIS container): build Lane 4** — global inline Action Center (`?hub=actions`,
-  replaces the placeholder at ControlRoom ~L1534). Reuse `confirmQueueAction`/`buildFact|Spend|PublishApprovalReenqueue`
-  + the `jobParkById` classifier; act in-row; KEEP the publish double-gate (`buildPublishApprovalReenqueue` +
-  no-Buffer). **Money path → Fable gate mandatory; live-assert intercepted payloads byte-identical to the legacy
-  path + double-gate intact; poll-surviving.** Then Lane 3 (workspace tabs), Lane 5 (retire legacy).
+- **Lane 4 — global inline Action Center — BUILT + MONEY-PATH-RATIFIED (Fable round-2 pending at handoff).**
+  New `src/components/aurora/ActionCenter.tsx` (presentational; lists `actionableJobs`, approves in-row) wired
+  into the `?hub=actions` return; reuses `requestQueueAction`→inline confirm→`confirmQueueAction` +
+  `build{Fact,Spend,Publish}ApprovalReenqueue` **verbatim** (no new write path). Fable round-1 REQUEST-CHANGES
+  caught a real regression (**F1**: navigating away with a confirm open left an *invisible armed* `pendingQueueAction`
+  → froze both pollers globally + stale-snapshot fire risk) → folded: clear `pendingQueueAction` on scope change,
+  + a11y Esc/focus-restore, + submitting-guard. **Live money-path ratify = 9/9, ZERO live writes** (every `jobs`
+  POST intercepted-and-aborted): double-gate intact on publish+spend (step1 no write, step2 exactly one), payloads
+  == the builders (`publish_only/publish_approved/source_episode_id`; `spend_approved`), poll-survival, and F1
+  verified (Back → return → 0 armed confirms). Commits `3691cec` + `90958c1` on the branch; **merge gated on
+  Fable round-2 APPROVE.** GATES `L4-1..L4-9 + L4-a11y`.
+- **NEXT after Lane 4 merges: Lane 3** — re-parent the 4 workspace tabs (Production·Character·Guidelines·Cost)
+  against Aurora; Fork-A `channelId` toggles global vs channel-scoped; Production scopes Ideas+Queue (real cols),
+  Runs/Cost = honest DEFERRED (§4). Fold **N11** (hub link in the legacy rail). Then Lane 5 (retire legacy shell +
+  reinstate the `?view=`→hub redirect). Ratify harness stays warm this container (see the RATIFY HARNESS note above).
 
 ---
 
