@@ -218,7 +218,33 @@ transition settled** (the un-settled tween misread 4.23 — a measurement artifa
 | L1-AA2 | Dark `.btn-danger:hover` white-on-solid AA ≥4.5:1 | **PASS** | 3.85→**5.81:1**, settled-state Chromium sample; PR #66. |
 
 **Remaining OPEN AA note (ticketed):** none known in the danger family after #65/#66. Fable's residual
-sweep found no other white-on-solid-danger or on-tint-danger failures.
+sweep found no other white-on-solid-danger or on-tint-danger failures. Extended audit (this session):
+the OTHER dark status-badge text tokens all pass on the *composited* panel (success 8.46, warn 9.51,
+running 5.63, parked 5.84, accent 10.02) — danger was the sole real failure; the imprecise "vs #05050A"
+comments elsewhere are harmless (large luminance margins).
+
+## IMMEDIATE #1 — deployed foundation RATIFIED on the live artifact (2026-07-03)
+
+QA creds provided by operator → gitignored `.env.local`. Ratified a local **prod build** (`next build`
+clean + `next start :4311`) driven by Chromium at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`,
+with browser→`*.supabase.co` **bridged through Node fetch** (forwarding the browser JWT so RLS applies;
+**28 supabase reads proxied, 0 failed, 0 websockets** — confirms polling-only). QA login = `cameronnicodemus@…`.
+
+| Gate | Result | Evidence |
+| --- | --- | --- |
+| I1-1 Bare `/` lands on the hub | **PASS** | After login `/` renders HubLanding (`.hero-grid` + `#channels-hub-title`=Channels); URL canonicalizes to `?hub=channels` (route.ts `canonicalize`, by design — the hub IS the landing). |
+| I1-2 Channel grid == live `channel_profiles` | **PASS** | Exactly **1** `.channel-card` rendered; System-Glance "Active Channels" = **1**; matches live count (Supabase MCP). |
+| I1-3 Per-card Active Jobs scoped to `jobs.channel` | **PASS (honest 0)** | Card shows **0** active jobs — correct: 0/46 live jobs carry a channel slug, so the scope filter honestly yields 0. |
+| I1-4 No per-channel cost rendered | **PASS** | Card shows only the "Runs & cost — Phase 3" deferred label; no `$` value in-card (§4 honesty). |
+| I1-5 Open channel → workspace | **PASS** | Card click → `?channel=default&tab=production`. |
+| I1-6 Back → hub | **PASS** | "Back to Channels" → hub landing (`?hub=channels`, hero renders). |
+| I1-7 Legacy console reachable + capabilities | **PASS** | "Legacy console" → `.cr` shell; rail = Roster·Channels·The Wire·Queue·Runs·Overview·Cost·Exit (Casting/Editor are Roster sub-surfaces). |
+| I1-8 "+ New Channel" reachable | **PASS** | Hub "New Channel" → opens the legacy channels console. |
+| I1-9 Dual-shell dirty-guard | **PASS** | In legacy Roster: edit a Field → dirty (savebar label + rail `*`) → nav "THE WIRE" → **"UNSAVED CHANGES IN BUFFER"** dialog, nav blocked; "KEEP EDITING" dismisses + preserves edits. |
+| I1-10 Dark `--danger` badge pixel-sample | **PASS** | Resolved in #65 (6.10:1), see L1-AA1. |
+| I1-console | **PASS (env-only)** | 2 console errors are environmental, not app defects: `fonts.googleapis.com` reset (external CDN blocked in-sandbox; loads on real Vercel) + `POST /login` ERR_ABORTED (redirect superseding the action). No data request failed. |
+
+**IMMEDIATE #1 = RATIFIED.** The un-ratified `#64` merge is now closed out on the real artifact against the live DB.
 
 **Lane 1 = reviewed + build-green + visually smoked (not yet browser-ratified against the live DB —
 that gate needs the built screens + QA creds, arrives in the interactive lanes).** Next: Lane 2

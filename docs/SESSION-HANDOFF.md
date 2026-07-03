@@ -30,13 +30,25 @@ merged to production as **PR #64 (squash `2daf70f`)** since the entry below was 
   - **PR #66 (`fae85c6`)** — Fable-surfaced follow-up: `.btn-danger:hover` white-on-solid `#FF1744` = 3.85:1.
     Added `--danger-solid #CC0033` (5.81:1). Ratified via forced-`:hover` render **after the 0.3s transition
     settled** (tween misreads mid-transition — measured-gate lesson). Fable APPROVE. GATES `L1-AA1/L1-AA2` PASS.
-- **STILL BLOCKED — the auth-gated remainder of IMMEDIATE #1 + all data-lane merges:** live UI walk (bare `/`
-  → hub, "+ New channel"/legacy reachability, Back/dual-shell/dirty-guard) and Lane 4's money-path payload
-  assertions need **QA creds `RATIFY_EMAIL`/`RATIFY_PASSWORD`** — **NOT in the container**. Requested from the
-  operator. **Do not merge Lane 4 (money path) or Lane 3 un-ratified** — that's the exact mistake #64 flagged.
-- **Deliberately did NOT pre-build Lane 4 un-mergeably** (rule 30: measure by ships; reserve budget for the
-  land tail). Next session, with creds in `.env.local`, should: (1) finish the IMMEDIATE #1 live UI walk on the
-  merged foundation, then (2) build Lane 4 → Fable money-path gate → live-assert intercepted payloads → merge.
+- **IMMEDIATE #1 — RATIFIED on the live artifact (operator provided QA creds mid-session).** Local prod build
+  (`next build` clean + `next start :4311`) + Chromium + browser→supabase bridged (28 reads proxied, 0 failed,
+  0 ws → polling-only). All 10 gates green (GATES `I1-1..I1-10`): bare `/`→hub (canonical `?hub=channels`),
+  grid==1==live `channel_profiles`, per-card Active Jobs honest 0, no per-channel cost, open→workspace,
+  Back→hub, Legacy console + capabilities, "+ New Channel", **dual-shell dirty-guard** (edit→"UNSAVED CHANGES
+  IN BUFFER"→nav blocked→"KEEP EDITING" preserves). 2 console errors are env-only (sandbox blocks Google Fonts
+  CDN; login-POST abort on redirect) — NOT app defects. The un-ratified `#64` merge is now closed out.
+- **RATIFY HARNESS IS WARM + PROVEN THIS CONTAINER:** `.env.local` has `RATIFY_EMAIL`/`RATIFY_PASSWORD` +
+  Supabase URL/anon (gitignored, **ephemeral — re-request creds each fresh container**). The bridge pattern:
+  `ctx.route('**/*.supabase.co/**')` → Node `fetch` forwarding `req.headers()` (JWT rides along, RLS applies),
+  fulfill with the response (strip content-encoding/length). Login server-action runs in the local node server
+  so it needs no browser bridge. **Trap:** rail nav has hidden mobile-duplicate buttons — target the *visible
+  desktop* `.cr .rail .navbtn` (a `.first()`+`.catch()` faked a dirty-guard "gap"). **Trap:** sample AFTER CSS
+  transitions settle (a mid-transition tween faked a hover-AA fail).
+- **NEXT (creds are live in THIS container): build Lane 4** — global inline Action Center (`?hub=actions`,
+  replaces the placeholder at ControlRoom ~L1534). Reuse `confirmQueueAction`/`buildFact|Spend|PublishApprovalReenqueue`
+  + the `jobParkById` classifier; act in-row; KEEP the publish double-gate (`buildPublishApprovalReenqueue` +
+  no-Buffer). **Money path → Fable gate mandatory; live-assert intercepted payloads byte-identical to the legacy
+  path + double-gate intact; poll-surviving.** Then Lane 3 (workspace tabs), Lane 5 (retire legacy).
 
 ---
 
