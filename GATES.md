@@ -405,8 +405,10 @@ rebuild (`form-input`/`form-label`) is a later polish.
 
 ## Lane 3c — channel workspace CHARACTER tab (channel-first Phase 1)
 
-Codex built (ControlRoom.tsx only) → Fable-5 review → **live-artifact ratify 9/9 gates**
-(`scripts/ratify-lane3c.mjs`). Resolves the cast character by best-effort name match of the loose
+Codex built (ControlRoom.tsx only) → **Fable-5 APPROVE-WITH-NITS** (no blockers; correctness, §6 no-leak,
+Q1 reachability, a11y one-`h1`, CSS combos all code-verified; 3 nits folded — chars loading/error gate,
+inert read-only label→span, dev-facing copy reworded) → **live-artifact ratify 9/9 gates** (re-run clean
+after the fold; `scripts/ratify-lane3c.mjs`). Resolves the cast character by best-effort name match of the loose
 free-text `channel_profiles.character` → `chars[].codename` (no FK — Phase 2). Live truth: `default` is
 uncast → the uncast state is the ratified live state.
 

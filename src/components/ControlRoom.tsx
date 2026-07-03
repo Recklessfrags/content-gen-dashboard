@@ -1763,7 +1763,27 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               renderDeferredWorkspacePanel("Production arrives in the next lane.")}
 
             {scope.tab === "character" &&
-              (castChar ? (
+              (loading ? (
+                <article className="glass-panel au-empty">
+                  <div>
+                    <span className="spin" /> Loading cast…
+                  </div>
+                </article>
+              ) : loadError ? (
+                <article className="glass-panel au-empty">
+                  <div>
+                    <h3 className="text-title" style={{ marginBottom: "0.5rem" }}>
+                      Cast unavailable
+                    </h3>
+                    <p className="dim text-body" style={{ marginBottom: "1rem" }}>
+                      Couldn&apos;t reach the character roster: {loadError}
+                    </p>
+                    <button className="btn" type="button" onClick={() => void fetchCharacters()}>
+                      Retry
+                    </button>
+                  </div>
+                </article>
+              ) : castChar ? (
                 <article className="glass-panel">
                   <div className="panel-header">
                     <h2 className="text-title" style={{ fontSize: "1.25rem" }}>
@@ -1809,7 +1829,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       </div>
 
                       <div className="form-group" style={{ maxWidth: "none" }}>
-                        <label className="form-label">Character Dossier (Bible)</label>
+                        <span className="form-label">Character Dossier (Bible)</span>
                         <div
                           className="form-input"
                           style={{
@@ -1886,7 +1906,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                           className="text-mono dim"
                           style={{ fontSize: "0.75rem", marginTop: "0.5rem", textAlign: "center" }}
                         >
-                          Modal triggers (Phase 2 demodularization pending)
+                          Voice &amp; visual casting open in the character console. Inline casting
+                          arrives in Phase 2.
                         </p>
                       </div>
                     </div>
