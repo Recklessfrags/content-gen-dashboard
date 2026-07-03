@@ -1,10 +1,13 @@
 # Slice — Casting: guard an empty bible at voice lock
 
-_Status: **SPEC — ready for the builder (fresh session / Codex).** Author: Architect (Claude),
-2026-07-03. Source: HQ heads-up "Fine Print `characters.bible` was EMPTY … Casting Studio gap"
-(pipeline, 2026-07-02). Small, isolated. **Sequencing note below** — best folded into the Phase-2
-Character/casting rebuild to avoid double-work, but low enough rework risk to ship standalone if the
-operator wants the protection sooner._
+_Status: **SPEC — ready for the builder (fresh session / Codex). INTERIM STOPGAP** under
+`slice-bible-autogen.md` — the **real** fix is bible **auto-draft** (manual authoring is the weak
+link; the empty bible was predictable, not a fluke). This guard only *catches* the bad state;
+auto-draft *prevents* it and removes the manual burden. The guard still stays valid after auto-draft
+lands (a draft can be skipped/rejected/edited to empty). Author: Architect (Claude), 2026-07-03.
+Source: HQ heads-up "Fine Print `characters.bible` was EMPTY … Casting Studio gap" (pipeline,
+2026-07-02). Best folded into the Phase-2 Character rebuild; low enough rework to ship standalone if
+the operator wants the protection sooner._
 
 ## Problem (real, cost-bearing)
 The Casting Studio can **lock a voice** (`voice_id`/`voice_settings`/`voice_recipe` written) while
