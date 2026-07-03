@@ -11,6 +11,35 @@ is the fast path._
 
 ---
 
+## ⚡ LATEST (2026-07-03, continuation `…-cont-la0yh9`) — foundation MERGED (#64); 2 AA fixes shipped; live UI ratify still creds-blocked. Read this first.
+
+Branch **`claude/channel-first-phase1-cont-la0yh9`**, fresh off production. The Phase-1 FOUNDATION
+merged to production as **PR #64 (squash `2daf70f`)** since the entry below was written. This session:
+
+- **Ratified the DB-truth half of IMMEDIATE #1 via Supabase MCP (no creds needed):**
+  `channel_profiles` = **1** (hub grid must show exactly 1 card); `episodes` has **no `channel` column**
+  (has `character_id`) → per-channel Runs/Cost genuinely DEFERRED (§4 honesty holds against the live DB);
+  **`jobs.channel` is populated on 0 of 46 rows** → the hub's per-card "Active Jobs" correctly computes to
+  **0** for the channel, but is *empty in practice* because no live job carries a channel slug yet (a real
+  finding, not a bug — the scoping code is right; the pipeline/enqueue path isn't writing `jobs.channel` on
+  these rows). Worth an eyes-on once real channel-tagged jobs exist.
+- **Shipped 2 measured AA fixes (Codex build → Fable-5 gate → squash-merge):**
+  - **PR #65 (`87dfa45`)** — the carried-forward OPEN dark `--danger` badge item was a *real FAIL* (4.34:1
+    on the composited panel, not the token comment's 5.2:1-vs-pure-base). Added `--danger-fg #FF6B81`
+    (6.10:1), routed text uses. Proven by compositing calc **and** Chromium pixel-sample. Fable APPROVE-WITH-NITS.
+  - **PR #66 (`fae85c6`)** — Fable-surfaced follow-up: `.btn-danger:hover` white-on-solid `#FF1744` = 3.85:1.
+    Added `--danger-solid #CC0033` (5.81:1). Ratified via forced-`:hover` render **after the 0.3s transition
+    settled** (tween misreads mid-transition — measured-gate lesson). Fable APPROVE. GATES `L1-AA1/L1-AA2` PASS.
+- **STILL BLOCKED — the auth-gated remainder of IMMEDIATE #1 + all data-lane merges:** live UI walk (bare `/`
+  → hub, "+ New channel"/legacy reachability, Back/dual-shell/dirty-guard) and Lane 4's money-path payload
+  assertions need **QA creds `RATIFY_EMAIL`/`RATIFY_PASSWORD`** — **NOT in the container**. Requested from the
+  operator. **Do not merge Lane 4 (money path) or Lane 3 un-ratified** — that's the exact mistake #64 flagged.
+- **Deliberately did NOT pre-build Lane 4 un-mergeably** (rule 30: measure by ships; reserve budget for the
+  land tail). Next session, with creds in `.env.local`, should: (1) finish the IMMEDIATE #1 live UI walk on the
+  merged foundation, then (2) build Lane 4 → Fable money-path gate → live-assert intercepted payloads → merge.
+
+---
+
 ## ⚡ LATEST (2026-07-03) — PHASE-1 BUILD: Lanes 1 / 2a / 2b landed + Fable-approved. Read this first.
 
 > **PROCESS CHANGE (operator, 2026-07-03): the pre-merge review gate is now FABLE-5 ONLY** ("only
