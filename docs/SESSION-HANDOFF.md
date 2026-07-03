@@ -16,9 +16,10 @@ is the fast path._
 The Phase-1 **design is done and chosen**; the next session **builds** it. Full kickoff (branch +
 paste-in starting prompt + traps): **`docs/PHASE1-BUILD-KICKOFF.md`**.
 
-- **Branch:** work from **`claude/channel-first-phase1-dx9gan`** (`git fetch` first) — it carries all
-  Phase-1 specs + the Aurora design package; **none of it is on production yet** (production =
-  `claude/new-session-3l99vs`). Continue on this branch (or cut a fresh lane from its tip, rule 27).
+- **Branch:** the design/spec/governance work is **merged to production** (PR #62, squash `cc5cb39`,
+  2026-07-03). **Branch fresh from production** `claude/new-session-3l99vs` (rule 27), keeping the
+  working-branch name `claude/channel-first-phase1-dx9gan`. The build session is the first to add
+  **app code** for Phase 1.
 - **Design language = "Aurora"** (operator pick, 2026-07-03, via a multi-round tournament; both
   light+dark first-class). Runners-up retained as fallbacks. Chosen mock =
   `docs/design/finalists/finalist-3-aurora.html`; **full build package =

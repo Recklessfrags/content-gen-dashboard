@@ -6,13 +6,13 @@ Written 2026-07-03 at end of the design session (rule 41 handoff)._
 ---
 
 ## BRANCH TO USE
-**`claude/channel-first-phase1-dx9gan`** — `git fetch origin` first, then work from
-`origin/claude/channel-first-phase1-dx9gan`. It carries **all Phase-1 specs + the full Aurora design
-package** (none of which is on production yet). Production/default = `claude/new-session-3l99vs`.
-> The Phase-1 design work is **docs only, not merged to production.** So the build continues on this
-> branch (it's the base that has the specs). Cutting a *fresh* lane from this tip is fine (rule 27) —
-> just don't base off production, which lacks the design package. If the operator has since merged the
-> design docs to production, branch fresh from production instead.
+**Branch fresh from production** (rule 27). `git fetch origin` first, then
+`git checkout -B claude/channel-first-phase1-dx9gan origin/claude/new-session-3l99vs`.
+Production/default = **`claude/new-session-3l99vs`**, which **now carries all Phase-1 specs + the
+full Aurora design package** (merged via PR #62, squash `cc5cb39`, 2026-07-03). Keep the same
+working-branch name; it's the designated branch for this work.
+> The design/spec work is already **landed on production** — so start clean from production, don't
+> reuse old feature-branch history. This build session is the first to add **app code** for Phase 1.
 
 ---
 
