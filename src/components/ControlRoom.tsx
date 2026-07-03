@@ -217,6 +217,15 @@ function channelInitials(channel: string, character: string | null | undefined) 
   return chars.slice(0, 2).join("").toUpperCase() || "CH";
 }
 
+function characterInitials(codename: string) {
+  const tokens = codename.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length >= 2) {
+    return `${tokens[0]?.[0] ?? ""}${tokens[1]?.[0] ?? ""}`.toUpperCase() || "CH";
+  }
+  const chars = codename.match(/[a-z0-9]/gi) ?? [];
+  return chars.slice(0, 2).join("").toUpperCase() || "CH";
+}
+
 function comparableChannel(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
@@ -1655,6 +1664,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       channelProfiles.find((profile) => profile.channel === scope.channel) ?? null;
     const channelName = channelProfile?.display_name?.trim() || scope.channel;
     const characterName = channelProfile?.character?.trim() ?? "";
+    const castChar = characterName
+      ? (chars.find(
+          (character) => character.codename.trim().toLowerCase() === characterName.toLowerCase(),
+        ) ?? null)
+      : null;
     const activeTabId = workspaceTabId(scope.tab);
     const activePanelId = workspacePanelId(scope.tab);
     const renderDeferredWorkspacePanel = (title: string) => (
@@ -1749,7 +1763,226 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               renderDeferredWorkspacePanel("Production arrives in the next lane.")}
 
             {scope.tab === "character" &&
-              renderDeferredWorkspacePanel("Character arrives in the next lane.")}
+              (loading ? (
+                <article className="glass-panel au-empty">
+                  <div>
+                    <span className="spin" /> Loading cast…
+                  </div>
+                </article>
+              ) : loadError ? (
+                <article className="glass-panel au-empty">
+                  <div>
+                    <h3 className="text-title" style={{ marginBottom: "0.5rem" }}>
+                      Cast unavailable
+                    </h3>
+                    <p className="dim text-body" style={{ marginBottom: "1rem" }}>
+                      Couldn&apos;t reach the character roster: {loadError}
+                    </p>
+                    <button className="btn" type="button" onClick={() => void fetchCharacters()}>
+                      Retry
+                    </button>
+                  </div>
+                </article>
+              ) : castChar ? (
+                <article className="glass-panel">
+                  <div className="panel-header">
+                    <h2 className="text-title" style={{ fontSize: "1.25rem" }}>
+                      Active Cast
+                    </h2>
+                    <button
+                      type="button"
+                      className="text-mono accent"
+                      onClick={() => openLegacyConsole("roster")}
+                      style={{
+                        background: "transparent",
+                        border: 0,
+                        cursor: "pointer",
+                        fontSize: "0.875rem",
+                        padding: 0,
+                      }}
+                    >
+                      Manage all characters →
+                    </button>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 300px", minWidth: "300px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "1rem",
+                          alignItems: "center",
+                          marginBottom: "1.5rem",
+                        }}
+                      >
+                        <div className="avatar-large avatar--cast" aria-hidden="true">
+                          {characterInitials(castChar.codename)}
+                        </div>
+                        <div>
+                          <h3 className="text-display" style={{ fontSize: "1.5rem" }}>
+                            {castChar.codename}
+                          </h3>
+                          <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
+                            {castChar.concept || "No concept logged yet."}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="form-group" style={{ maxWidth: "none" }}>
+                        <span className="form-label">Character Dossier (Bible)</span>
+                        <div
+                          className="form-input"
+                          style={{
+                            background: "var(--surface-0)",
+                            color: "var(--text-dim)",
+                            minHeight: "100px",
+                            whiteSpace: "pre-wrap",
+                          }}
+                        >
+                          {castChar.voice || "No dossier logged yet."}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        width: "250px",
+                        background: "var(--surface-0)",
+                        padding: "1.5rem",
+                        borderRadius: "var(--radius-md)",
+                        border: "1px solid var(--border-soft)",
+                      }}
+                    >
+                      <h4 className="form-label" style={{ marginBottom: "1rem" }}>
+                        Casting Configuration
+                      </h4>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={() => openLegacyConsole("roster")}
+                          style={{ width: "100%", justifyContent: "flex-start" }}
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <line x1="12" y1="19" x2="12" y2="22" />
+                          </svg>
+                          Configure Voice
+                        </button>
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={() => openLegacyConsole("roster")}
+                          style={{ width: "100%", justifyContent: "flex-start" }}
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                          Configure Visuals
+                        </button>
+                        <p
+                          className="text-mono dim"
+                          style={{ fontSize: "0.75rem", marginTop: "0.5rem", textAlign: "center" }}
+                        >
+                          Voice &amp; visual casting open in the character console. Inline casting
+                          arrives in Phase 2.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ) : (
+                <article className="glass-panel">
+                  <div className="panel-header">
+                    <h2 className="text-title" style={{ fontSize: "1.25rem" }}>
+                      Active Cast
+                    </h2>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "1.5rem",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div className="avatar-large avatar-uncast-large" aria-hidden="true">
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ position: "relative", zIndex: 1 }}
+                        aria-hidden="true"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-title" style={{ marginBottom: "0.25rem" }}>
+                        No Character Assigned
+                      </h3>
+                      <p
+                        className="dim text-body"
+                        style={{ fontSize: "0.875rem", marginBottom: "1rem" }}
+                      >
+                        This channel requires a cast member to generate voice and visual assets.
+                      </p>
+                      <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() =>
+                            navigate({
+                              kind: "workspace",
+                              channel: scope.channel,
+                              tab: "guidelines",
+                            })
+                          }
+                        >
+                          Assign Character
+                        </button>
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={() => openLegacyConsole("roster")}
+                        >
+                          Create New
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))}
 
             {scope.tab === "guidelines" && (
               <article className="glass-panel">

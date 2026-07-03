@@ -399,5 +399,35 @@ mock-fidelity deltas (breadcrumb in `main` not top-bar; cast badge lacks the moc
 
 **Scope note:** the Guidelines editor is a functional re-parent — legacy markup, now Aurora-skinned via
 a `.channel-profiles.scoped` override block (theme-aware, AA-proven). A full field-by-field Aurora
-rebuild (`form-input`/`form-label`) is a later polish. **Next: Lane 3b (Production — money path, Fable
-money gate) + Lane 3c (Character).**
+rebuild (`form-input`/`form-label`) is a later polish.
+
+---
+
+## Lane 3c — channel workspace CHARACTER tab (channel-first Phase 1)
+
+Codex built (ControlRoom.tsx only) → **Fable-5 APPROVE-WITH-NITS** (no blockers; correctness, §6 no-leak,
+Q1 reachability, a11y one-`h1`, CSS combos all code-verified; 3 nits folded — chars loading/error gate,
+inert read-only label→span, dev-facing copy reworded) → **live-artifact ratify 9/9 gates** (re-run clean
+after the fold; `scripts/ratify-lane3c.mjs`). Resolves the cast character by best-effort name match of the loose
+free-text `channel_profiles.character` → `chars[].codename` (no FK — Phase 2). Live truth: `default` is
+uncast → the uncast state is the ratified live state.
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| L3c-1/2 | Character tab is the active panel + nav-tab aria-selected | **PASS** | `#workspace-panel-character.tab-panel.active` visible; "Character" selected. |
+| L3c-3/4 | UNCAST state shown for the live uncast `default` (No Character Assigned + uncast avatar) | **PASS** | text + `.avatar-uncast-large` present. |
+| L3c-5 | Uncast CTAs present (Assign Character + Create New) | **PASS** | both buttons render. |
+| L3c-6 | a11y heading order — exactly one `<h1>` on the workspace page (panel uses h2/h3/h4) | **PASS** | `main h1` == 1. |
+| L3c-7 | "Assign Character" routes to the Guidelines tab (free-text `character` field) | **PASS** | → `?channel=default&tab=guidelines`. |
+| L3c-8 | **Q1 no-capability-lost** — "Create New" opens the legacy roster (full character CRUD/bible/history/casting reachable) | **PASS** | legacy `.cr .rail` renders. |
+| L3c-9 | No app-level console errors | **PASS** | (env-only fonts CDN excluded). |
+
+**Note:** the CAST-state markup (avatar + read-only bible + Casting Configuration → legacy roster,
+"Manage all characters →") is built + build-verified but not live-demonstrable (no cast channel exists
+yet); it ratifies live once a channel is cast. No inline Casting/Visual modals (Phase 2 de-modaling);
+no new write path.
+
+**Lane 3b (Production) is DEFERRED** — data reality: `ideas.channel` ∈ {"Food","Dark history"} (not the
+`default` codename) and all `jobs.channel` are NULL, so the channel-scoped Ideas/Queue are empty and the
+mandatory money-path live-ratify has no channel-tagged parked job to exercise. Build when channel-tagged
+ideas/jobs exist. **Next: Lane 5 (retire legacy shell + reinstate the `?view=`→hub redirect).**
