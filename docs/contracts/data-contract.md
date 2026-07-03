@@ -214,6 +214,15 @@ Discovered already-present in the shared project. **Do not recreate or alter.**
 **RLS:** enabled. Added by this dashboard: `episodes_read` = `select to authenticated
 using (true)`. **No** insert/update/delete policies — clients can never write.
 
+> **Incoming (agreed, NOT yet in schema) — `episodes.correlation_key`.** Cross-team ask ANSWERED
+> 2026-07-03: the pipeline will add an **additive nullable `correlation_key`** the worker writes
+> from the job's `idempotency_key` at `begin_episode`, letting the dashboard join idea→job→episode
+> robustly (`ideas.id` ↔ `idempotency_key` dashboard-owned map ↔ `episodes.correlation_key`).
+> Read-only for us; legacy/absent rows fall back to `food`+`character_id`+window. **Status: QUEUED,
+> not started — owner-to-act = operator to sequence** (shared-schema migration + live-worker
+> write). Gates dashboard **Phase 3** (threaded Production); non-blocking for Phase 1/2. Pipeline
+> will post a migration/worker-write heads-up when it lands.
+
 ## `receipts` — PIPELINE-owned (READ-ONLY for dashboard)
 
 | column | type | notes |

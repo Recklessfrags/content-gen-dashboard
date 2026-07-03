@@ -50,6 +50,15 @@ via the HQ 📮 Coordination Log (child pages, rule 34). Hard gates:
    (L-1 — never claim a cross-team state from a cached view). If not landed: ship **only** the
    honest deferred state (slice §4); do **not** build the heuristic (it's Phase 3, and even then
    labeled "matched approximately").
+   - **UPDATE 2026-07-03 — Pipeline ANSWERED: FEASIBLE, QUEUED (not started).** Agreed key =
+     additive nullable **`episodes.correlation_key`**; the worker echoes the job's
+     `idempotency_key` onto it at `begin_episode` (chosen over `job_id→episode_id` because the
+     worker carries `idempotency_key` end-to-end and it survives resumes). Read-only for us;
+     legacy/absent rows fall back to today's `food`+`character_id`+window match. **owner-to-act =
+     OPERATOR to sequence** (shared-`episodes`-schema migration + live-worker write; pipeline won't
+     start unprompted). Non-blocking — ship best-effort meanwhile; pipeline posts a
+     migration/worker-write heads-up when it lands. **Phase-3 join chain becomes:** `ideas.id` ↔
+     `idempotency_key` (our dashboard-owned map) ↔ `episodes.correlation_key` (pipeline echo).
 3. **Live migration apply (Supabase MCP):** HQ heads-up → apply → verify structure → negative
    contract tests → **VALIDATE as a separate step.** Never fold apply+validate.
 4. **Casting-proxy edge function** (if touched): redeploy via Supabase MCP, keep `verify_jwt:true`
