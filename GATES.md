@@ -266,3 +266,40 @@ fidelity miss; the content-only measured gate (L1F-3) is the meaningful one. **I
 deviation from the mock:** the mock shows a per-channel "30D COST" figure; the build OMITS it
 (episodes have no channel key — §4 DATA REALITY). Method (build-from-mock-CSS + image-diff gate) is
 now the standard for every re-parented surface.
+
+---
+
+# Phase-1 Lane 2b — routing wiring + Channels hub — FABLE-APPROVED on branch
+
+`ControlRoom.tsx` wired to the `route.ts` AppScope model; `HubLanding`/`ChannelsHub`/`AuroraShell`
+mounted as the `?hub=channels` landing. Interim **dual-shell**: the new Aurora hub is the landing;
+the legacy `.cr` shell stays fully reachable (valid `?view=` deep links open it + a "Legacy console"
+button on the hub) so NO capability is dark while surfaces are re-parented.
+
+Review gate = **Fable-5** (operator: "only fable before merge"). Round-1 = REQUEST-CHANGES (4
+blockers: dueling popstate desync; scope effect not mount-only → ejected the operator on any profile
+refetch; "+ New channel" couldn't create a 2nd channel; "nothing lost" violated — legacy shell
+unreachable with ≥1 channel). All folded → **Round-2 = APPROVE-WITH-NITS** (Fable traced every fix in
+code: single legacy-aware popstate handler; `didInitScopeRef`-gated one-time restore; new-channel →
+legacy panel; dual-shell reachability of queue/wire/runs/roster/casting/cost/editor; global-only
+system-glance; tolerant `jobs.channel` match; hash preserved; hoisted dialog/toast; scope-based poll).
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| L2b-1 | App-Router rule: manual pushState/popstate + local state, no useSearchParams desync | **PASS** | Fable-traced; one popstate handler; deterministic first render (hub) → hydration-safe. |
+| L2b-2 | Bare / + legacy ?view= behave (hub landing; legacy opens, not dark) | **PASS** | dual-shell; valid ?view= opens legacy; Legacy-console button; Back returns to hub. |
+| L2b-3 | Nothing lost (§2, gate 5) — every legacy capability reachable | **PASS** | Fable reachability trace: queue/wire/runs/roster/casting/cost/channel-editor all reachable. |
+| L2b-4 | Data honesty (§4): no per-channel cost; glance is global | **PASS** | cards = Active Jobs only + "Runs & cost · Phase 3"; activeRuns/spend30d global. |
+| L2b-5 | No state leak (Fork-A §6) | **PASS** | per-card counts pure per-row from props; tolerant channel compare. |
+| L2b-6 | Build + route tests | **PASS** | `next build` clean; `vitest` 12/12. |
+
+**Accepted nits (non-blocking; Fable round-2):** dirty-cancel `replaceState` is mildly lossy on
+history (standard revert-without-`history.go()` tradeoff); `cancelUrl` uses post-pop hash (cosmetic);
+one-frame hub flash on deep links (SSR-safe design); **no in-rail hub link from the legacy console →
+add one in the next lane (N11).**
+
+**NOT yet done:** LIVE browser ratification (needs QA creds — production-merge gate; the interactive
+Back/dual-shell/dirty-guard behavior is code-verified by Fable but not yet exercised against the live
+DB). **Next lanes:** Lane 4 = global inline Action Center (money path → Fable gate, keep the publish
+double-gate); Lane 3 = re-parent workspace surfaces (Production/Character/Guidelines/Cost) replacing
+the placeholders + fold N11; then retire the legacy shell + reinstate §3 Q3's legacy→hub redirect.
