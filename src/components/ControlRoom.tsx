@@ -1069,11 +1069,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   useEffect(() => {
     if (legacyShellOpen || scope.kind !== "hub" || scope.hub !== "characters") {
-      if (isDraftCharacterId(activeId)) {
-        discardDraftCharacter();
+      if (!legacyShellOpen) {
+        if (isDraftCharacterId(activeId)) {
+          discardDraftCharacter();
+        }
+        setCastingOpen(false);
+        setVisualCastingOpen(false);
       }
-      setCastingOpen(false);
-      setVisualCastingOpen(false);
       setCharactersBenchMode("grid");
     }
   }, [
@@ -1086,7 +1088,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   ]);
 
   useEffect(() => {
-    if (charactersBenchMode !== "editor") {
+    if (
+      !legacyShellOpen &&
+      scope.kind === "hub" &&
+      scope.hub === "characters" &&
+      charactersBenchMode !== "editor"
+    ) {
       setCastingOpen(false);
       setVisualCastingOpen(false);
       if (isDraftCharacterId(activeId)) {
@@ -1097,6 +1104,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     activeId,
     charactersBenchMode,
     discardDraftCharacter,
+    legacyShellOpen,
+    scope,
     setCastingOpen,
     setVisualCastingOpen,
   ]);
