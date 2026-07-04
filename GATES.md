@@ -472,3 +472,42 @@ so dep-arrays are tsc-checked only.
 **Scope note:** Lane 5 does NOT delete the legacy shell — the legacy roster remains the reachable home for
 full character CRUD/bible/history/casting until the Phase-2 character bench re-homes it (else gate 5 breaks).
 "Retire the legacy shell" completes in Phase 2.
+
+---
+
+## Phase-3 Lane 1 — non-null re-enqueue keys + `idea_job_map` provenance (money path) — ratified live 15/15
+
+**Trigger:** the pipeline shipped `episodes.correlation_key` (worker echoes the job `idempotency_key` at
+`begin_episode`; 7 episodes carry it live), which made the dashboard's null-key bug **active** — the three
+approval re-enqueue builders forced `idempotency_key:null` → null-in-null-out → money-spending re-runs
+un-threadable. Scoped per Fable (`SCOPED-MIDDLE`): shipped §3.1 (non-null keys) + §3.2 (`dash_0006
+idea_job_map`) + §3.3 (provenance recovery, ordered writes); **deferred** §3.4 `enqueue_job_with_map` RPC +
+Lane 2 resolver + Lane 3 per-channel Runs/Cost UI (data-blocked consumers). Loop: Codex build → Architect
+commit → **Fable-5 REQUEST-CHANGES** (one real diff-introduced money-path BLOCKER — a double-submit →
+double-spend race: `setQueueActionSubmitting(false)` fired before the awaited `idea_job_map` lookup closed the
+dialog, so a 2nd confirm click inserted a duplicate fresh-key spend job) → fold (hold `submitting` true across
+the lookup; release with `setPendingQueueAction(null)`) → **Fable-5 re-audit APPROVE** → live money-path
+ratify (`scripts/ratify-lane1.mjs`, intercept-and-abort). Commits `3ef5b5d` + `5f2f4c9`.
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| L1-1/2 | Spend double-gate — step1 (request) writes 0 jobs; step2 (confirm) writes exactly 1 | **PASS** | `step1Writes=0`; `jobsWrites=1`. |
+| L1-3/7/11 | Every re-enqueue (spend/publish/stale) carries a fresh non-null `job_rerun_<id>_<ts>` key | **PASS** | `job_rerun_28_…`, `job_rerun_51_…`, `job_rerun_47_…` (regex-matched). |
+| L1-4 | Spend payload flags identical — `spend_approved:true`, `publish_only:false` | **PASS** | measured on the intercepted POST. |
+| L1-8 | Publish payload identity — `publish_approved:true` + `publish_only:true` + `source_episode_id` set; spend NOT forced | **PASS** | `src=cottage-cheese-20260703-185756-22ed68`; `spend_approved` unchanged. |
+| L1-5/9 | Each re-enqueue writes exactly one `idea_job_map` row under the fresh key | **PASS** | `mapKey == jobs key`. |
+| L1-12 | All exercised re-enqueue keys are unique | **PASS** | 3/3 distinct. |
+| L1-13 | **Double-submit race closed** (Fable blocker) — rapid triple-confirm → exactly one jobs write | **PASS** | `jobsWrites=1` (button disabled while `submitting`). |
+| L1-14 | Re-enqueue provenance recovery — the map row carries the recovered `idea_id` (seeded positive) | **PASS** | `idea_id == 667a22e3-…` (recovered from the parked row's key). |
+| L1-15 | No app-level console errors (env fonts CDN excluded) | **PASS** | 0 app errors. |
+| L1-16 | **Zero live writes** — every `jobs`/`idea_job_map` POST intercepted-and-fulfilled, none forwarded | **PASS** | live `jobs` == 50 before/after; `idea_job_map` == 0 after seed cleanup. |
+| L1-17 | Migration `dash_0006` — nullable `idea_id` FK **ON DELETE SET NULL**, owner-scoped ownership-integrity RLS | **PASS** | structure via `list_tables`/`pg_policies` (5 cols, 4 policies, RLS on, `idea_id` FK confdeltype `n`, `owner` `c`); **SET NULL proven** by an MCP seed→delete-idea→assert round-trip (map row survives with `idea_id` null, `channel`/`owner` kept — channel-level cost preserved). |
+
+Unit layer: `jobs.test.ts` 32/32 (key preservation + distinctness pinned; publish-not-forcing-spend preserved);
+`tsc --noEmit` + `next build` clean. HQ heads-up posted (Coordination Log, 2026-07-04) — the non-null
+idempotency-key seam change (one grep ask: does any pipeline tooling treat a null key as "approval re-run"?)
++ the `dash_0006` announce.
+
+**Deferred (sequenced for when channel-tagged threaded data exists):** §3.4 RPC (ordered writes with a
+surfaced non-blocking failure ship now instead — a map-orphaned job is recoverable; a null key / unmapped
+enqueue is not); Lane 2 `thread.ts` resolver; Lane 3 threaded Production + per-channel Runs/Cost UI.
