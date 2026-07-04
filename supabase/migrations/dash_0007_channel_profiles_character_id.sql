@@ -13,7 +13,9 @@ alter table public.channel_profiles add column if not exists character_id uuid;
 do $$
 begin
   if not exists (
-    select 1 from pg_constraint where conname = 'channel_profiles_character_id_fkey'
+    select 1 from pg_constraint
+    where conname = 'channel_profiles_character_id_fkey'
+      and conrelid = 'public.channel_profiles'::regclass
   ) then
     alter table public.channel_profiles
       add constraint channel_profiles_character_id_fkey

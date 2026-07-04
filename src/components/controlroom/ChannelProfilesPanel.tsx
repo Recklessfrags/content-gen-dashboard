@@ -245,9 +245,11 @@ export function ChannelProfilesPanel({
     const selectedCharacter = current.character_id
       ? (characters.find((character) => character.id === current.character_id) ?? null)
       : null;
+    // No-implicit-wipe: when unassigned, preserve an unmatchable legacy free-text name
+    // (explicit "Unassigned" already cleared current.character to "" → still nulls).
     const characterMirror = current.character_id
       ? ((selectedCharacter?.codename ?? current.character) || null)
-      : null;
+      : (current.character.trim() || null);
 
     return {
       channel: current.channel,

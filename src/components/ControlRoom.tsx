@@ -485,6 +485,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     addCharacter,
     commitSnapshot,
   } = useCharacters(supabase);
+  const channelCharacterOptions = useMemo(
+    () => chars.map((character) => ({ id: character.id, codename: character.codename })),
+    [chars],
+  );
   const [jobParkById, setJobParkById] = useState<Record<number, JobParkResolution>>({});
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [activeEnqueueIdeaId, setActiveEnqueueIdeaId] = useState<string | null>(null);
@@ -2068,10 +2072,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 <ChannelProfilesPanel
                   supabase={supabase}
                   profiles={channelProfiles}
-                  characters={chars.map((character) => ({
-                    id: character.id,
-                    codename: character.codename,
-                  }))}
+                  characters={channelCharacterOptions}
                   loading={channelProfilesLoading}
                   error={channelProfilesError}
                   onRefetch={refetchChannelProfiles}
@@ -2542,10 +2543,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             <ChannelProfilesPanel
               supabase={supabase}
               profiles={channelProfiles}
-              characters={chars.map((character) => ({
-                id: character.id,
-                codename: character.codename,
-              }))}
+              characters={channelCharacterOptions}
               loading={channelProfilesLoading}
               error={channelProfilesError}
               onRefetch={refetchChannelProfiles}
