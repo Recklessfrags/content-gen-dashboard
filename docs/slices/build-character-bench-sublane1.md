@@ -41,7 +41,12 @@ sub-lanes 2–5 can progressively re-home CRUD and delete the legacy shell.
    `hub === "characters"` dispatch branch (mirror the `overview` block at `:1747-1771`, render
    `<CharactersHub/>` inside `<AuroraShell>`); (c) a read handler `onOpenCharacter(id)` (see below);
    (d) an additive "Characters →" entry button in the ChannelsHub section header path.
-5. `src/app/aurora.css` — ONLY if a new class alias is genuinely needed; otherwise no change.
+5. `src/components/aurora/ChannelsHub.tsx` — add an optional `onOpenCharacters?: () => void` prop; when
+   present, render the "Characters →" secondary button in the `section-header` (beside "New Channel").
+   Keep it presentational/props-driven (no navigation logic inside the component).
+6. `src/components/aurora/HubLanding.tsx` — thread the `onOpenCharacters` prop through to `ChannelsHub`
+   (add it to `channels` / `HubLandingProps` as appropriate).
+7. `src/app/aurora.css` — ONLY if a new class alias is genuinely needed; otherwise no change.
 
 ## Behavior / states (spec every state — rule 29)
 
