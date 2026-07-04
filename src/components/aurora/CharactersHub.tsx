@@ -48,7 +48,7 @@ export function CharactersHub({
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
-          <button type="button" className="btn" onClick={onCreateCharacter}>
+          <button type="button" className="btn btn-primary" onClick={onCreateCharacter}>
             + New character
           </button>
           <button type="button" className="btn-secondary" onClick={onBack}>
@@ -153,7 +153,7 @@ function CharacterCard({
       role="button"
       tabIndex={0}
       aria-label={`Open ${codename} character dossier`}
-      aria-pressed={card.isSelected}
+      aria-current={card.isSelected ? "true" : undefined}
       onClick={() => onOpenCharacter(card.id)}
       onKeyDown={handleKeyDown}
     >

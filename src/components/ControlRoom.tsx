@@ -810,7 +810,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         setActiveId(nextId);
       });
     },
-    [activeId, discardDraftCharacter, guardDirtyAction, setCharactersBenchMode],
+    [activeId, discardDraftCharacter, guardDirtyAction],
   );
 
   const guardedSetView = useCallback(
@@ -941,9 +941,18 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const handleCharactersBenchBack = useCallback(() => {
     guardDirtyAction(() => {
       if (isDraftCharacterId(activeId)) discardDraftCharacter();
+      setCastingOpen(false);
+      setVisualCastingOpen(false);
       setCharactersBenchMode("grid");
     });
-  }, [activeId, discardDraftCharacter, guardDirtyAction, setCharactersBenchMode]);
+  }, [
+    activeId,
+    discardDraftCharacter,
+    guardDirtyAction,
+    setCastingOpen,
+    setCharactersBenchMode,
+    setVisualCastingOpen,
+  ]);
 
   const handleCharactersHubNav = useCallback(() => {
     guardDirtyAction(() => {
@@ -1060,9 +1069,37 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   useEffect(() => {
     if (legacyShellOpen || scope.kind !== "hub" || scope.hub !== "characters") {
+      if (isDraftCharacterId(activeId)) {
+        discardDraftCharacter();
+      }
+      setCastingOpen(false);
+      setVisualCastingOpen(false);
       setCharactersBenchMode("grid");
     }
-  }, [legacyShellOpen, scope]);
+  }, [
+    activeId,
+    discardDraftCharacter,
+    legacyShellOpen,
+    scope,
+    setCastingOpen,
+    setVisualCastingOpen,
+  ]);
+
+  useEffect(() => {
+    if (charactersBenchMode !== "editor") {
+      setCastingOpen(false);
+      setVisualCastingOpen(false);
+      if (isDraftCharacterId(activeId)) {
+        discardDraftCharacter();
+      }
+    }
+  }, [
+    activeId,
+    charactersBenchMode,
+    discardDraftCharacter,
+    setCastingOpen,
+    setVisualCastingOpen,
+  ]);
 
   useEffect(() => {
     const onPopState = () => {
@@ -1093,6 +1130,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
       guardDirtyAction(
         () => {
+          if (scope.kind === "hub" && scope.hub === "characters") {
+            if (isDraftCharacterId(activeId)) {
+              discardDraftCharacter();
+            }
+            setCastingOpen(false);
+            setVisualCastingOpen(false);
+          }
           setLegacyShellOpen(false);
           setPendingQueueAction(null);
           setScope(nextScope);
@@ -1111,12 +1155,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return () => window.removeEventListener("popstate", onPopState);
   }, [
     channelProfilesError,
+    activeId,
     channelProfilesLoading,
     guardDirtyAction,
     knownChannels,
     legacyShellOpen,
     scope,
+    setCastingOpen,
+    setVisualCastingOpen,
     view,
+    discardDraftCharacter,
   ]);
 
   useEffect(() => {
@@ -1766,6 +1814,26 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           restoreFocusRef={discardDialogRestoreFocusRef}
         />
       )}
+      {castingOpen && active && (
+        <CastingStudioPanel
+          character={active}
+          supabase={supabase}
+          onClose={() => setCastingOpen(false)}
+          onCharacterPatched={patchCharacter}
+          showFlash={showFlash}
+          restoreFocusRef={castingTriggerRef}
+        />
+      )}
+      {visualCastingOpen && active && (
+        <VisualIdentityPanel
+          character={active}
+          supabase={supabase}
+          onClose={closeVisualCasting}
+          onCharacterPatched={patchCharacter}
+          showFlash={showFlash}
+          restoreFocusRef={visualCastingTriggerRef}
+        />
+      )}
     </>
   );
 
@@ -2040,7 +2108,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               >
                 EXPORT MANUAL (MD)
               </button>
-              <button className="btn ghost" onClick={() => guardedSetView("wire")} disabled={activeIsDraft}>
+              {/* Legacy ideas capture stays on the wire console until its Aurora home ships. */}
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => openLegacyConsole("wire")}
+                disabled={activeIsDraft}
+              >
                 Log an idea →
               </button>
             </div>
@@ -2091,7 +2165,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           <Icon name="roster" />
           <h3>No characters yet</h3>
           <p>Create your first character to start building a field manual.</p>
-          <button className="btn" onClick={createHandler} disabled={adding}>
+          <button className="btn btn-primary" onClick={createHandler} disabled={adding}>
             {adding ? "Creating…" : "+ New character"}
           </button>
         </div>
@@ -2149,7 +2223,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 <div className="empty">
                   <h3>Comms down</h3>
                   <p>Couldn&apos;t reach the database: {loadError}</p>
-                  <button className="btn" type="button" onClick={() => void refetchCharacters()}>
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    onClick={() => void refetchCharacters()}
+                  >
                     Retry Roster
                   </button>
                 </div>
@@ -3632,26 +3710,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           onClose={closeEnqueuePanel}
           onSubmit={enqueueJob}
           restoreFocusRef={enqueueRestoreFocusRef}
-        />
-      )}
-      {castingOpen && active && (
-        <CastingStudioPanel
-          character={active}
-          supabase={supabase}
-          onClose={() => setCastingOpen(false)}
-          onCharacterPatched={patchCharacter}
-          showFlash={showFlash}
-          restoreFocusRef={castingTriggerRef}
-        />
-      )}
-      {visualCastingOpen && active && (
-        <VisualIdentityPanel
-          character={active}
-          supabase={supabase}
-          onClose={closeVisualCasting}
-          onCharacterPatched={patchCharacter}
-          showFlash={showFlash}
-          restoreFocusRef={visualCastingTriggerRef}
         />
       )}
       {pendingQueueAction && (

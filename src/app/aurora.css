@@ -1501,7 +1501,7 @@
 }
 
 .aurora-app .characters-bench.scoped .savebar {
-  background: transparent;
+  background: var(--surface-1);
   border-top: 1px solid var(--border-soft);
   margin-top: 1.5rem;
   padding-top: 1.5rem;
@@ -1509,6 +1509,7 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
+  position: static;
 }
 
 .aurora-app .characters-bench.scoped .savebar .btn {
@@ -1555,12 +1556,12 @@
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
   padding: 0.75rem 1rem;
-  color: var(--warning-fg, var(--text-main));
+  color: var(--warn);
 }
 
 .aurora-app .characters-bench.scoped .savebar-dirty-label {
   background: rgba(255, 214, 0, 0.15);
-  color: var(--warning-fg, var(--text-main));
+  color: var(--warn);
   border: 1px solid rgba(255, 214, 0, 0.35);
 }
 
@@ -1588,8 +1589,18 @@
 
 .aurora-app .characters-bench.scoped .chip.draft {
   background: rgba(255, 214, 0, 0.15);
-  color: var(--warning-fg, var(--text-main));
+  color: var(--warn);
   border: 1px solid rgba(255, 214, 0, 0.35);
+}
+
+@media (max-width: 880px) {
+  .aurora-app .characters-bench.scoped .savebar {
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    z-index: auto;
+  }
 }
 
 .aurora-app .characters-bench.scoped .mobile-roster {
