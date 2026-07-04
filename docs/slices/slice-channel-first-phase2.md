@@ -189,3 +189,44 @@ alter table public.channel_profiles
   side-by-side). Reviewer trio to rule the collapse.
 - **Q3 — mirror sync on rename vs surface-staleness:** default = sync the mirror on codename change;
   confirm no worker-race in the sync write.
+
+---
+
+## 7. Build outcome — Lane 1 (shipped) + Lane 2 (this session)
+
+- **Lane 1 (FK + read authority + Guidelines picker) — SHIPPED** as `dash_0007` + PR #78 (worker-read
+  ASK answered NO by pipeline, so no expand/contract window was needed). Live: `default` →
+  `character_id` = Fine Print, free-text `character` kept as the denormalized codename mirror.
+- **Lane 2 (Casting de-modaled + E1.b) — built this session.** Both `CastingStudioPanel` and
+  `VisualIdentityPanel` gained an opt-in `variant: "modal" | "inline"` prop. Inline drops the fixed
+  overlay, body scroll-lock, and outer focus-trap while **preserving every handler verbatim** and
+  keeping the inner sub-dialogs (save-template, browse-records drawer, audition lock-confirm)
+  focus-trapped. The legacy roster savebar keeps the modal path (default variant) so no capability is
+  lost. Workspace Character tab cast state now renders the two panels inline as a split-screen
+  (dossier + Visual Identity side-by-side, Casting Studio full-width below; stacks at ≤720px, Q2).
+  E1.b: `suggestPersonaForChannel(channelProfile)` pre-selects the Casting persona chip only when the
+  character has no saved `voice_recipe`; operator-overridable, non-binding, seed-once.
+- **Design decision (recorded):** inline mode preserves the panels' **exact internal surfaces** (the
+  parchment "dossier" theme) so the already-measured AA carries over; only the chrome (overlay →
+  inline card) changed. A deeper Aurora re-theme of the casting internals is out of scope (operator
+  taste call, deferred).
+- **Review:** Fable-5 (cross-vendor) round-1 **BLOCKER** — inline panels render under `.aurora-app`,
+  not `.cr`, so they lost the `.cr`-scoped base rules and the casting textareas typed near-black on
+  the dark surface (code-verified: `globals.css:21` is the only rule coloring `.field` inputs).
+  Folded: re-establish those base rules scoped to `.casting-inline`/`.visual-inline`; add a fixed
+  backdrop + viewport positioning for inline sub-dialogs (the lock-confirm money gate is now a true
+  modal); fix the inline loading-dim selector. suerta (same-vendor L-2) — no BLOCKER; confirmed
+  no-spend-on-mount, birth-certificate write intact, ref-image graceful degrade, tokens resolve.
+  Both flagged the latent persona-suggestion clobber → made seed-once + `key={castChar.id}`.
+
+### Deferred residuals (rationale)
+- **Visual-Identity staged-work on tab-away** (Fable #3 / suerta NIT-3): inline, switching workspace
+  tabs unmounts the panel and drops a *staged-but-unlocked* reference image / edited style with no
+  prompt. **No DB write or credit spend is lost.** The modal's close-guard existed to stop *accidental*
+  dismissal (backdrop-click / Escape); inline has no accidental-dismissal vector — only a deliberate
+  tab navigation — and the primary dossier dirty-guard ("UNSAVED CHANGES IN BUFFER") is untouched.
+  A workspace-nav dirty check (panel exposes `isDirty`) is the clean fix; deferred as a SHOULD.
+- **Always-mounted read fan-out** (suerta SHOULD-2): the inline panels mount on Character-tab view,
+  so each visit issues 2 Supabase reads (`casting_usage`, voice templates) + 1 Storage sign. Reads
+  only — no spend. Lazy-loading templates would zero the "[ BROWSE RECORDS (N) ]" count until opened;
+  deferred as a minor optimization.

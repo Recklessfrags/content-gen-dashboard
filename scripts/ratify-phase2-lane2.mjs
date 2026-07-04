@@ -276,6 +276,34 @@ async function main() {
     check("L2-6c E1.b is overridable — selecting another persona chip moves the selection", overridden);
     state.blankRecipe = false;
 
+    // ── L2-10 (BLOCKER-fix proof): the inline casting textarea text is LEGIBLE ──
+    //    (Fable found casting inputs typed black-on-dark once outside the .cr scope).
+    await gotoCharacterTab(page);
+    const legible = await page.locator(".casting-inline #casting-description").evaluate((el) => {
+      const parse = (c) => {
+        const m = c.match(/rgba?\(([^)]+)\)/);
+        if (!m) return null;
+        const p = m[1].split(",").map((n) => parseFloat(n.trim()));
+        return { r: p[0], g: p[1], b: p[2], a: p[3] ?? 1 };
+      };
+      const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      const L = (c) => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+      // effective background: walk up until a non-transparent bg is found
+      let bg = null, node = el;
+      while (node) {
+        const c = parse(getComputedStyle(node).backgroundColor);
+        if (c && c.a > 0) { bg = c; break; }
+        node = node.parentElement;
+      }
+      const fg = parse(getComputedStyle(el).color);
+      if (!fg || !bg) return { ok: false, ratio: 0, fg: getComputedStyle(el).color };
+      const l1 = L(fg), l2 = L(bg);
+      const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+      return { ok: ratio >= 4.5, ratio: Math.round(ratio * 100) / 100, fg: getComputedStyle(el).color };
+    }).catch((e) => ({ ok: false, ratio: 0, fg: "err:" + e.message }));
+    check("L2-10 inline casting textarea text is legible (>=4.5:1) — BLOCKER fix",
+      legible.ok, `ratio=${legible.ratio} color=${legible.fg}`);
+
     // ── L2-9: no app-level console errors (env fonts CDN excluded) ───────────
     check("L2-9 no app-level console errors", appErrors.length === 0, appErrors.slice(0, 3).join(" | "));
   } catch (error) {
