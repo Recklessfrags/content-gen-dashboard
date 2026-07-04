@@ -64,6 +64,10 @@ Reuse the **data/logic seams**, rebuild the **chrome** against Aurora (same disc
    `build-character-bench-sublane1.md`; ratify `scripts/ratify-character-bench-sublane1.mjs` 22/22, zero writes.
 2. **Dossier editor re-home** — the bible editor + save + revisions + draft-create in Aurora; re-point
    "Manage all characters →" and "Create New" to it.
+   **✅ SHIPPED (#94, squash `b392a10`, 2026-07-04)** — reused the dossier JSX + write-path wiring verbatim under
+   `.characters-bench.scoped` + aurora.css restyle; grid|editor via `charactersBenchMode`; casting/visual/history
+   reachable on the Aurora editor; legacy `.cr` roster intact. Build spec `build-character-bench-sublane2.md`;
+   ratify `scripts/ratify-character-bench-sublane2.mjs` 26/26, zero live writes.
 3. **History/restore re-skin** — Aurora HistoryDrawer/Compare/Restore.
 4. **New-channel Aurora form** — the durable tier of #1 (removes the legacy channels console for create).
 5. **Reachability sweep + delete the legacy shell** — only after 1–4 + confirming ideas/queue/runs/cost

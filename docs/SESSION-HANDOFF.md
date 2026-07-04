@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-04 (Character bench SUB-LANE 1 SHIPPED #92 — Aurora `?hub=characters` read surface; HQ current). Production tip = `a845d5f` (#92)** by the Architect (Claude).
+_Last updated: **2026-07-04 (Character bench SUB-LANES 1 & 2 SHIPPED #92/#94 — Aurora `?hub=characters` read bench + dossier-editor re-home; HQ current). Production tip = `b392a10` (#94)** by the Architect (Claude).
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,91 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-04) — CHARACTER BENCH SUB-LANE 1 SHIPPED (#92, squash `a845d5f`): Aurora `?hub=characters` read surface. NEXT = sub-lane 2 (dossier editor re-home). Read this first.
+## ⚡ LATEST (2026-07-04) — CHARACTER BENCH SUB-LANE 2 SHIPPED (#94, squash `b392a10`): Aurora dossier editor re-home. NEXT = sub-lane 3 (history/restore re-skin). Read this first.
+
+**Production/default = `claude/new-session-3l99vs` @ `b392a10` (#94).** The dossier editor now lives in the Aurora
+`?hub=characters` surface (grid|editor). Branch for new work: **start fresh off production** (keep your
+harness-designated working-branch name).
+
+### Copy-paste KICKOFF for the next session (rule 41 — paste this to start)
+```
+You are the Architect for the Reels Content Control Room dashboard (Next.js 15 / React 19 / Supabase, plain-CSS
+"Aurora" design system; channel-first per D-6). You own judgment/specs/reviews/commits/merges; you never write
+app code yourself — Codex builds, Fable-5 (cross-vendor) + suerta (same-vendor Opus, L-2) review, you squash-merge
+via the GitHub MCP (owner recklessfrags, repo content-gen-dashboard).
+FIRST: read docs/SESSION-HANDOFF.md top-to-bottom, then governance.md + AGENTS.md, then do a FRESH HQ fetch
+(Notion 📮 Coordination Log, page 38fd346e-22d2-8133-bd2e-e5b7f97f7c2e — read the Open Cross-Team Items tracker +
+Process Learnings Ledger) before planning or claiming anything blocked (rule L-1).
+BRANCH: start fresh off production `claude/new-session-3l99vs` (git fetch origin claude/new-session-3l99vs &&
+git checkout -B <your-working-branch> origin/claude/new-session-3l99vs); keep the harness-designated branch name.
+TASK: continue the Aurora character bench — docs/slices/slice-character-bench-retire-legacy.md. Sub-lanes 1 (read
+bench, #92) + 2 (dossier editor re-home, #94) SHIPPED. NEXT = sub-lane 3: re-skin HistoryDrawer / CompareDialog /
+RestoreDialog to Aurora (they're already reachable + wired from the Aurora editor via renderDossierEditor — this
+lane only re-skins the chrome, reuse the handlers/state verbatim). Then sub-lane 4 (new-channel Aurora form) and
+sub-lane 5 (reachability sweep + delete the legacy .cr shell — consensus review). Drive build→Fable+suerta→ratify→
+squash-merge. Ratify harness = scripts/ratify-*.mjs (prod build + Chromium + Supabase bridge, intercept-and-abort);
+QA creds live only in gitignored .env.local (RATIFY_EMAIL/RATIFY_PASSWORD — password contains !, run the ratify as
+`set -a; . ./.env.local; set +a; node scripts/ratify-*.mjs`; ephemeral per container — re-request). Keep chat terse (L-3).
+```
+
+### What shipped this session (both merged to production)
+- **Sub-lane 1 (#92, squash `a845d5f`)** — read-only `?hub=characters` bench (cards + voice/visual cast chips +
+  concept + draft badge; loading/error/empty; keyboard-activatable cards; additive "Characters →" entry). See the
+  EARLIER section below.
+- **Sub-lane 2 (#94, squash `b392a10`) — Aurora dossier editor re-home.** The dossier editor now renders inside
+  the `?hub=characters` surface (`.characters-bench.scoped`, grid↔editor via `charactersBenchMode` + the existing
+  `activeId`). **Strategy: reuse the legacy dossier JSX + `save()`/`character_bible_revisions`/dirty-guard/
+  draft-create wiring VERBATIM under a scoped wrapper + an `aurora.css` restyle** (ChannelProfilesPanel precedent) —
+  no new write path, no migration, no shared seam, `casting-proxy` untouched. Casting Studio + Visual Cast +
+  History/Compare/Restore all reachable on the Aurora editor (panels moved into `globalOverlays`). Re-pointed to
+  the Aurora editor: bench cards, bench "+ New character", workspace "Manage all characters →", uncast "Create New".
+  **The legacy `.cr` roster path is left INTACT** (sub-lane 5 deletes it).
+  - **Review (both REQUEST-CHANGES → APPROVE):** the hard parts (verbatim write-path, single-fire dirty-guard on
+    all nav paths, JSX verbatim, legacy intact) were clean from pass 1. Folded 4 BLOCKERs across 2 rounds: **B1**
+    casting/visual dead on the Aurora editor (panels mounted only in the legacy subtree → moved to `globalOverlays`
+    + reset on editor exit); **B2** "Log an idea →" no-op/URL-desync → `openLegacyConsole("wire")`; **B3** unscoped
+    legacy `.savebar` (`fixed;left:84px`;transparent) broke @412 → scoped opaque `--surface-1` + `position:static`
+    + ≤880px override; **B4** (introduced by the B1 fold) the exit-reset effects ran in the legacy shell too and
+    wiped legacy "+ New character" drafts → gated the draft-discard/casting-reset on `!legacyShellOpen`.
+  - **Ratify:** `scripts/ratify-character-bench-sublane2.mjs` **26/26, ZERO live writes** (all character writes
+    intercept-and-aborted): editor renders in AuroraShell; **Save intercepts exactly one `characters` PATCH + one
+    `character_bible_revisions` INSERT** with the edited payload, zero leaked; draft-create writes nothing before
+    save; dirty-guard fires once; Casting/Visual open on the Aurora editor; "Log an idea →" opens the wire board;
+    Manage→bench; savebar `position:static`+non-transparent+no-overflow @412; **legacy "+ New" draft survives**
+    (B4 proof). `tsc` + 148 tests + `next build` clean.
+
+### Process notes (this session — worth heeding)
+- **Codex thrashed hard on the big restructure** (stopped to ask twice, broke the JSX, once hallucinated a fix
+  against a wrong path). Rule-16 signal on large monolith restructures. Mitigations that worked: precise,
+  line-cited fold prompts; "proceed autonomously, don't stop to ask"; the Architect verifying tsc/test/build every
+  round (Codex's self-reported "all green" was once false). For a big lane, expect several fix passes — reserve
+  budget (rule 30). Consider smaller sub-lanes.
+- **Reviewer convergence caught two rounds of real bugs** the green floor + tests were blind to (dead affordances,
+  the legacy-draft-wipe regression the B1 fold introduced). Two independent lenses earned their keep on a
+  write-path lane. A fold can introduce a new BLOCKER — always re-review the delta (rule 7).
+- **Ratify traps (still current):** run the ratify with `set -a; . ./.env.local; set +a` (creds are `process.env`,
+  not just NEXT_PUBLIC); flip `data-theme` on the `.aurora-app [data-aurora-shell]` div (not `<html>`); composite
+  the full translucent stack over the first OPAQUE ancestor for AA; exclude env-only console noise
+  (fonts CDN / ERR_CONNECTION_RESET / **ERR_CERT_AUTHORITY_INVALID** from the agent proxy).
+
+### NEXT (remaining character-bench sub-lanes — §4 of the slice)
+3. **History/restore re-skin** — Aurora `HistoryDrawer` / `CompareDialog` / `RestoreDialog`. They're already
+   reachable + wired from the Aurora editor (`renderDossierEditor`); this lane re-skins the chrome only (reuse the
+   handlers/state verbatim). **This is the next lane** — smaller/safer than sub-lane 2.
+4. **New-channel Aurora form** — durable tier of `slice-newcomer-journey-fixes.md` #1.
+5. **Reachability sweep + delete the legacy `.cr` shell** — only after 1–4 + confirming ideas/queue/runs/cost each
+   have an Aurora home (ideas/wire is still legacy — the Aurora editor's "Log an idea →" deliberately opens the
+   legacy wire board until this lane). **Consensus review (Fable+suerta) on the delete step.** The payoff.
+- **Deferred cosmetic nits (from #94 review, non-blocking):** off-token cyan `rgba(0,229,255,…)` glows in light
+  theme (aurora.css ~1256/1478/1580); ≤880px `.dossier{padding-bottom:240px}` whitespace on the now-static bench
+  savebar. Fold into sub-lane 3 or a polish pass.
+- **Data-blocked (skip until `jobs.channel` populates):** Lane 3b Production runs, Phase-3 Lanes 2-3.
+- **HQ open ask (answered, awaiting pipeline):** `channel_profiles` per-channel knob contract = **A (grouped
+  jsonb)**; no build now (gated on pipeline Gate-2 + hold-lift).
+
+---
+
+## ⚡ EARLIER (2026-07-04) — CHARACTER BENCH SUB-LANE 1 SHIPPED (#92, squash `a845d5f`): Aurora `?hub=characters` read surface.
 
 **Production/default = `claude/new-session-3l99vs` @ `a845d5f` (#92).** First sub-lane of the character-bench lane
 (`slice-character-bench-retire-legacy.md`) is live: a **read-only** Aurora "Characters" bench. Branch for new
