@@ -25,9 +25,11 @@ auto-persists. The `ANTHROPIC_API_KEY` lives ONLY in the edge function.
 2. **Voice / cast-brief seed** (boundary-respecting bridge). Stage 2 also emits
    `cast_brief: { voice_archetype, voice_description }` — `voice_description` is 200–600 chars of
    ElevenLabs-ready prose. `voice_archetype` fills the form field. `voice_description` is shown + copyable in
-   a "Cast brief" area and **stashed in `localStorage` keyed by channel** (`channel_cast_brief_<channel>`) on
-   Save. The **Casting Studio** offers it as a **one-click seed** for the active character whose channel
-   matches. Auto-gen NEVER casts and NEVER writes `characters` — the operator still generates/auditions in the
+   a "Cast brief" area and **stashed in `localStorage` keyed by the assigned `character_id`**
+   (`cast_brief_<character_id>`) on Save — a channel with no character assigned yet keeps only the copyable
+   in-panel brief until a character is assigned + saved. The **Casting Studio** (opened from a character)
+   reads that key directly and offers it as a **one-click seed** for the voice design.
+   Auto-gen NEVER casts and NEVER writes `characters` — the operator still generates/auditions in the
    Studio (its own `casting-proxy` cap). Durable server-side `channel_profiles.cast_brief` is a **future
    expand pending HQ worker-read confirmation**; localStorage keeps v2 free of the shared seam (casting
    brackets already persist client-side, so this matches precedent).
@@ -72,23 +74,28 @@ auto-persists. The `ANTHROPIC_API_KEY` lives ONLY in the edge function.
 ## 5. Edge function — `supabase/functions/channel-guideline-proxy/index.ts` (casting-proxy clone)
 One action `"generate"`. OPTIONS/CORS → session validation → parse + validate description length (30–2000)
 BEFORE cap → daily cap via the RPC (429) → **stage 1** (brief) → **stage 2** (forced tool over the brief) →
-server-side clamp → `{ brief, suggestions, assumptions, cast_brief }`. Model `claude-opus-4-8`. Handle
-`stop_reason: "refusal"` (200 + typed error) and no-tool-block/`max_tokens` (200 + typed error). Every enum
-clamped to a Deno-local catalog mirror via `clampToCatalog`; `length_target.short_s` → `clampNumber(…,15,180,60)`
-rounded to int; lists filtered to non-empty strings; `voice_description` trimmed + length-guarded; suggestions
-built field-by-field (never spread raw → no `character`/`character_id` leak). Errors never leak the key.
+server-side clamp → `{ brief, suggestions, assumptions, cast_brief }`. Model `claude-opus-4-8` — **no
+`temperature`/`top_p`/`top_k`** (Opus 4.8 rejects sampling params with a 400; steer by prompt only). Both
+calls are gated by ONE cap unit. Handle `stop_reason: "refusal"` and `"max_tokens"` (both stages → 200 +
+typed error), and no-tool-block (200 + typed error). Every enum clamped to a Deno-local catalog mirror via
+`clampToCatalog`; `length_target.short_s` → `clampNumber(…,15,180,60)` rounded to int; lists filtered to
+non-empty strings; `voice_description` trimmed + length-guarded; suggestions built field-by-field (never
+spread raw → no `character`/`character_id` leak). Upstream Anthropic errors → **always 502** (never mirror
+the upstream status — an upstream 429/401 must not read as our cap/auth error — and never forward upstream
+text; log it server-side). Errors never leak the key.
 
 ## 6. Client
 - `src/lib/channelGuideline.ts` — typed `functions.invoke("channel-guideline-proxy", …)` wrapper +
   `GuidelineGenError` + `edgeErrorMessage`-style 429/401 mapping. Returns `{ brief, suggestions, assumptions,
-  cast_brief }`.
+  cast_brief }`, and **re-clamps every enum client-side** (defense-in-depth: the form's `AROUSAL_CEILING`
+  catalog still contains `aggressive`, so a stale/regressed edge deploy can't pipe a bad enum into the form).
 - `src/lib/channelGuidelineTelemetry.ts` — `logGuidelineKeepRate(client, channel, rows)` best-effort insert;
   swallows errors (telemetry must never break Save).
 - `ChannelProfilesPanel.tsx` — "Generate from concept" button (disabled < 30 chars) → staged `proposals`;
   the **review panel** (accept/reject per field, enforced-dial flag, brief display, cast-brief display +
   copy); "Apply accepted" → `updateForm`; on Save, stash the cast brief in localStorage + fire telemetry.
-- `CastingStudioPanel.tsx` — read `channel_cast_brief_<channel>` for the active character's channel; if
-  present, a "Seed from channel cast brief" one-click that drops `voice_description` into the design field.
+- `CastingStudioPanel.tsx` — read `cast_brief_<character_id>` for the active character; if present, a
+  "Seed from channel cast brief" one-click that drops `voice_description` into the design field.
 - E1 `suggestPersona` still recomputes for free (keys off form fields) and remains the **zero-spend fallback**.
 
 ## 7. Gates (falsifiable, MEASURED; QA creds + ANTHROPIC_API_KEY set for the live-gen gate)
@@ -113,3 +120,15 @@ built field-by-field (never spread raw → no `character`/`character_id` leak). 
 Durable server-side `channel_profiles.cast_brief` column (needs HQ worker-read confirmation → then the cast
 brief persists cross-device instead of localStorage). A telemetry read-out view. Per-field regenerate ("try
 this field again"). All ride on the same edge response shape — no rework.
+
+Deferred from the Fable review (real but secondary; documented, not fixed in v2):
+- **Cap-refund on upstream outage** (Fable F5): cap-before-call means an Anthropic 5xx incident can burn 10
+  units → day lockout with zero output. A `channel_guideline_refund_usage` RPC called on a ≥500 upstream
+  failure would fix it; deferred to avoid a compensating-write race in v2 (a refusal/bad concept should
+  still cost a unit — only outages shouldn't).
+- **CORS origin env + verify_jwt hygiene** (Fable F7): `CHANNEL_GUIDELINE_ALLOWED_ORIGINS` fails open when
+  unset (same posture as the shipped `casting-proxy`); the in-function `getUser(token)` check holds the
+  boundary regardless. Set the origin env + confirm `verify_jwt:true` as a deploy step.
+- **Telemetry normalization + `strict` tool** (Fable F9): telemetry `saved` records the pre-`buildChannelProfileUpsert`
+  FormState string, so keep-rate can misclassify at format boundaries (clamped `short_s`, re-split lists).
+  Consider recording post-normalization values, and `strict: true` on the tool as a free structural guarantee.

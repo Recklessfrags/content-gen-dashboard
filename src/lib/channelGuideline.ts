@@ -23,6 +23,18 @@ export type GuidelineSuggestions = {
 export type CastBrief = { voice_description: string; preview_line: string };
 export type GuidelineGenResult = { brief: string; suggestions: GuidelineSuggestions; assumptions: string[]; cast_brief: CastBrief };
 
+const FACT_ANCHOR = ["fda_standard_of_identity", "declassified_primary_doc", "none"];
+const TREATMENT = ["archival_documentary", "motion_graphic", "avatar", "live_demo"];
+const CLAIM_DISCIPLINE = ["fact_first", "loose", "none"];
+const AROUSAL_CEILING = ["conservative", "standard"]; // "aggressive" intentionally excluded
+
+function clampEnum(value: unknown, catalog: string[], fallback: string): string {
+  return typeof value === "string" && catalog.includes(value) ? value : fallback;
+}
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
 export class GuidelineGenError extends Error {
   readonly capReached: boolean;
   constructor(message: string, capReached = false) {
@@ -75,9 +87,30 @@ export async function generateChannelGuidelines(
   if (!data?.suggestions) {
     throw new GuidelineGenError("The model did not return a usable suggestion.");
   }
+  const rawS = (data.suggestions ?? {}) as Record<string, any>;
+  const posture = (rawS.engagement_posture ?? {}) as Record<string, any>;
+  const packaging = (rawS.packaging ?? {}) as Record<string, any>;
+  const lengthTarget = (rawS.length_target ?? {}) as Record<string, any>;
+  const suggestions: GuidelineSuggestions = {
+    display_name: typeof rawS.display_name === "string" ? rawS.display_name : "",
+    voice_archetype: typeof rawS.voice_archetype === "string" ? rawS.voice_archetype : "",
+    fact_anchor: clampEnum(rawS.fact_anchor, FACT_ANCHOR, "none"),
+    treatment: clampEnum(rawS.treatment, TREATMENT, "archival_documentary"),
+    engagement_posture: {
+      claim_discipline: clampEnum(posture.claim_discipline, CLAIM_DISCIPLINE, "fact_first"),
+      arousal_ceiling: clampEnum(posture.arousal_ceiling, AROUSAL_CEILING, "conservative"),
+    },
+    source_ladder: stringList(rawS.source_ladder),
+    packaging: {
+      title_style: typeof packaging.title_style === "string" ? packaging.title_style : "",
+      thumbnail_style: typeof packaging.thumbnail_style === "string" ? packaging.thumbnail_style : "",
+    },
+    length_target: { short_s: typeof lengthTarget.short_s === "number" ? lengthTarget.short_s : 60 },
+    platforms: stringList(rawS.platforms),
+  };
   return {
     brief: typeof data.brief === "string" ? data.brief : "",
-    suggestions: data.suggestions,
+    suggestions,
     assumptions: Array.isArray(data.assumptions) ? data.assumptions : [],
     cast_brief: {
       voice_description: typeof data.cast_brief?.voice_description === "string" ? data.cast_brief.voice_description : "",

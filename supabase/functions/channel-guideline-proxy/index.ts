@@ -248,7 +248,6 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
         max_tokens: BRIEF_MAX_TOKENS,
-        temperature: 0.4,
         system: BRIEF_SYSTEM_PROMPT,
         messages: [{ role: "user", content: `Channel concept:\n\n${description}` }],
       }),
@@ -257,6 +256,9 @@ Deno.serve(async (req: Request) => {
     const briefData = await briefRes.json();
     if (briefData?.stop_reason === "refusal") {
       return json({ error: "The model declined to generate guidelines for this concept. Edit the description and try again." }, 200, origin);
+    }
+    if (briefData?.stop_reason === "max_tokens") {
+      return json({ error: "The model ran out of room writing the brief. Try a shorter or more focused description." }, 200, origin);
     }
     const brief = extractText(briefData);
     if (!brief) {
@@ -274,7 +276,6 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
         max_tokens: MAP_MAX_TOKENS,
-        temperature: 0.2,
         system: MAP_SYSTEM_PROMPT,
         tools: [GUIDELINE_TOOL],
         tool_choice: { type: "tool", name: "propose_channel_guidelines" },
@@ -290,6 +291,9 @@ Deno.serve(async (req: Request) => {
         200,
         origin,
       );
+    }
+    if (data?.stop_reason === "max_tokens") {
+      return json({ error: "The model did not finish a usable suggestion. Try a more specific description." }, 200, origin);
     }
     const block = Array.isArray(data?.content) ? data.content.find((b) => b?.type === "tool_use") : null;
     if (!block) {
@@ -333,8 +337,9 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-// Map an Anthropic non-2xx response to a clean JSON error (never leak the key
-// or raw upstream internals).
+// Map an Anthropic non-2xx to a clean 502. Never mirror the upstream status (an
+// Anthropic 429/401 must not read to the client as our daily-cap / auth error)
+// and never forward upstream text (it can expose proxy internals). Log server-side.
 async function anthropicError(res: Response, origin: string | null): Promise<Response> {
   let detail = "";
   try {
@@ -343,10 +348,6 @@ async function anthropicError(res: Response, origin: string | null): Promise<Res
   } catch {
     detail = "";
   }
-  const status = res.status >= 500 ? 502 : res.status;
-  return json(
-    { error: `Generation failed (${res.status})${detail ? `: ${detail}` : ""}.` },
-    status,
-    origin,
-  );
+  console.error(`channel-guideline-proxy upstream ${res.status}${detail ? `: ${detail}` : ""}`);
+  return json({ error: "Generation failed upstream. Please try again." }, 502, origin);
 }

@@ -189,7 +189,9 @@ async function main() {
   page.on("console", (m) => {
     if (m.type() !== "error") return;
     const t = m.text();
-    if (/fonts\.googleapis|ERR_CONNECTION_RESET/.test(t)) return;
+    // The G4 cap test intentionally injects a 429 from the proxy; the browser
+    // logs a resource-load error for it. That is the expected path, not an app bug.
+    if (/fonts\.googleapis|ERR_CONNECTION_RESET|429|Too Many Requests/.test(t)) return;
     appErrors.push(t);
   });
 
