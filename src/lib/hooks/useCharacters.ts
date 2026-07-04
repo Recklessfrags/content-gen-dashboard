@@ -14,6 +14,12 @@ type CharacterLoadResult =
   | { ok: true; chars: FlatChar[] }
   | { ok: false; error: string };
 
+export const DRAFT_CHARACTER_ID = "__draft__";
+
+export function isDraftCharacterId(id: string | null | undefined) {
+  return id === DRAFT_CHARACTER_ID;
+}
+
 export function useCharacters(supabase: ReturnType<typeof createClient>) {
   const [chars, setChars] = useState<FlatChar[]>([]);
   const [savedSnapshots, setSavedSnapshots] = useState<Record<string, EditableCharacterFields>>({});
@@ -77,20 +83,73 @@ export function useCharacters(supabase: ReturnType<typeof createClient>) {
     setChars((cs) => cs.map((c) => (c.id === id ? character : c)));
   }, []);
 
-  const addCharacter = useCallback(async () => {
+  const createDraftCharacter = useCallback(() => {
+    const now = new Date().toISOString();
+    const draft = flatten({
+      id: DRAFT_CHARACTER_ID,
+      codename: "",
+      concept: "",
+      status: "draft",
+      bible: {},
+      created_at: now,
+      updated_at: now,
+      owner: "",
+      voice_id: null,
+      voice_settings: null,
+      voice_recipe: null,
+      reference_image_url: null,
+      visual_style: null,
+    } as Character);
+
+    setChars((cs) => [...cs.filter((c) => !isDraftCharacterId(c.id)), draft]);
+    setSavedSnapshots((snapshots) => {
+      const rest = { ...snapshots };
+      delete rest[DRAFT_CHARACTER_ID];
+      return { ...rest, [DRAFT_CHARACTER_ID]: editableSnapshot(draft) };
+    });
+    return draft;
+  }, []);
+
+  const persistDraftCharacter = useCallback(async (fields: {
+    codename: string;
+    concept: string;
+    status: string;
+    bible: Character["bible"];
+  }) => {
     const { data, error } = await supabase
       .from("characters")
-      .insert({ codename: "New character", status: "draft", bible: {} })
+      .insert(fields)
       .select("*")
       .single();
 
     if (error || !data) return { data: null, error };
 
     const flat = flatten(data as Character);
-    setChars((cs) => [...cs, flat]);
-    setSavedSnapshots((snapshots) => ({ ...snapshots, [flat.id]: editableSnapshot(flat) }));
+    setChars((cs) => {
+      let replacedDraft = false;
+      const next = cs.map((c) => {
+        if (!isDraftCharacterId(c.id)) return c;
+        replacedDraft = true;
+        return flat;
+      });
+      return replacedDraft ? next : [...next, flat];
+    });
+    setSavedSnapshots((snapshots) => {
+      const rest = { ...snapshots };
+      delete rest[DRAFT_CHARACTER_ID];
+      return { ...rest, [flat.id]: editableSnapshot(flat) };
+    });
     return { data: flat, error: null };
   }, [supabase]);
+
+  const discardDraftCharacter = useCallback(() => {
+    setChars((cs) => cs.filter((c) => !isDraftCharacterId(c.id)));
+    setSavedSnapshots((snapshots) => {
+      const rest = { ...snapshots };
+      delete rest[DRAFT_CHARACTER_ID];
+      return rest;
+    });
+  }, []);
 
   const commitSnapshot = useCallback((id: string, snapshot: EditableCharacterFields) => {
     setSavedSnapshots((snapshots) => ({
@@ -109,7 +168,9 @@ export function useCharacters(supabase: ReturnType<typeof createClient>) {
     applySnapshot,
     applyCharacter,
     patchCharacter,
-    addCharacter,
+    createDraftCharacter,
+    persistDraftCharacter,
+    discardDraftCharacter,
     commitSnapshot,
   };
 }

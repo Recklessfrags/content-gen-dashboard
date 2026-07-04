@@ -3,7 +3,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
 import { useChannelProfiles } from "@/lib/hooks/useChannelProfiles";
-import { useCharacters } from "@/lib/hooks/useCharacters";
+import {
+  DRAFT_CHARACTER_ID,
+  isDraftCharacterId,
+  useCharacters,
+} from "@/lib/hooks/useCharacters";
 import { useCostReceipts } from "@/lib/hooks/useCostReceipts";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useEpisodes } from "@/lib/hooks/useEpisodes";
@@ -483,7 +487,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     applySnapshot,
     applyCharacter,
     patchCharacter,
-    addCharacter,
+    createDraftCharacter,
+    persistDraftCharacter,
+    discardDraftCharacter,
     commitSnapshot,
   } = useCharacters(supabase);
   const channelCharacterOptions = useMemo(
@@ -517,7 +523,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [runsFilter, setRunsFilter] = useState<RunsFilter>("all");
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const adding = false;
   const [pendingQueueAction, setPendingQueueAction] = useState<{
     job: QueueJob;
     action: "fact" | "spend" | "publish" | "stale";
@@ -705,6 +711,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, [jobParkById, jobs, supabase]);
 
   const active = chars.find((c) => c.id === activeId) ?? null;
+  const activeIsDraft = isDraftCharacterId(active?.id);
   const previewingRevision =
     revisions.find((revision) => revision.id === previewingRevisionId) ?? null;
   const displayedActive =
@@ -790,9 +797,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const guardedSetActiveId = useCallback(
     (nextId: string) => {
       if (nextId === activeId) return;
-      guardDirtyAction(() => setActiveId(nextId));
+      guardDirtyAction(() => {
+        if (isDraftCharacterId(activeId)) discardDraftCharacter();
+        setActiveId(nextId);
+      });
     },
-    [activeId, guardDirtyAction],
+    [activeId, discardDraftCharacter, guardDirtyAction],
   );
 
   const guardedSetView = useCallback(
@@ -801,13 +811,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       // In-app nav: push a history entry (after the dirty guard approves) so
       // the URL reflects the view AND browser back/forward moves between views.
       guardDirtyAction(() => {
+        if (isDraftCharacterId(activeId)) discardDraftCharacter();
         setView(nextView);
         if (typeof window !== "undefined") {
           window.history.pushState(null, "", viewUrl(nextView));
         }
       }, cancel);
     },
-    [guardDirtyAction, view],
+    [activeId, discardDraftCharacter, guardDirtyAction, view],
   );
 
   const focusSelectedViewTab = useCallback(() => {
@@ -864,23 +875,28 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     workspaceTabRefs.current[nextTab]?.focus();
   }, []);
 
-  const navigate = useCallback((next: AppScope) => {
-    didInitScopeRef.current = true;
-    setLegacyShellOpen(false);
-    setPendingQueueAction(null);
-    setScope(next);
-    if (typeof window !== "undefined") {
-      window.history.pushState(
-        null,
-        "",
-        scopeToUrl(next, window.location.pathname, window.location.hash),
-      );
-    }
-  }, []);
+  const navigate = useCallback(
+    (next: AppScope) => {
+      if (activeId === DRAFT_CHARACTER_ID) discardDraftCharacter();
+      didInitScopeRef.current = true;
+      setLegacyShellOpen(false);
+      setPendingQueueAction(null);
+      setScope(next);
+      if (typeof window !== "undefined") {
+        window.history.pushState(
+          null,
+          "",
+          scopeToUrl(next, window.location.pathname, window.location.hash),
+        );
+      }
+    },
+    [activeId, discardDraftCharacter],
+  );
 
   const openLegacyConsole = useCallback(
     (nextView: View = "roster") => {
       guardDirtyAction(() => {
+        if (activeId === DRAFT_CHARACTER_ID) discardDraftCharacter();
         didInitScopeRef.current = true;
         setLegacyShellOpen(true);
         setPendingQueueAction(null);
@@ -890,7 +906,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         }
       });
     },
-    [guardDirtyAction],
+    [activeId, discardDraftCharacter, guardDirtyAction],
   );
 
   const activateWorkspaceTab = useCallback(
@@ -1342,6 +1358,51 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       bible: toBible(active),
     };
     setSaving(true);
+    if (isDraftCharacterId(active.id)) {
+      const { data, error } = await persistDraftCharacter({
+        codename: snapshot.codename,
+        concept: snapshot.concept,
+        status: snapshot.status,
+        bible: snapshot.bible,
+      });
+      if (error || !data) {
+        setSaving(false);
+        showFlash("Could not create character — " + (error?.message ?? ""), true);
+        return;
+      }
+
+      const savedId = data.id;
+      const savedSnapshot = {
+        character_id: savedId,
+        codename: snapshot.codename,
+        concept: snapshot.concept,
+        status: snapshot.status,
+        bible: snapshot.bible,
+      };
+      setActiveId(savedId);
+      commitSnapshot(savedId, {
+        codename: savedSnapshot.codename,
+        concept: savedSnapshot.concept,
+        status: savedSnapshot.status,
+        bible: savedSnapshot.bible,
+      });
+
+      const { error: revisionError } = await supabase
+        .from("character_bible_revisions")
+        .insert(savedSnapshot);
+
+      setSaving(false);
+      if (revisionError) {
+        showFlash("Saved, but history snapshot failed — " + revisionError.message, true);
+        return;
+      }
+
+      setIsRestoredDraft(false);
+      showFlash("✓ Saved · revision snapshot logged");
+      if (historyOpen) void fetchRevisions(savedId);
+      return;
+    }
+
     const { error } = await supabase
       .from("characters")
       .update({
@@ -1379,16 +1440,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     if (historyOpen) void fetchRevisions(snapshot.character_id);
   };
 
-  const addChar = async () => {
+  const addChar = () => {
     if (adding) return;
-    setAdding(true);
-    const { data: flat, error } = await addCharacter();
-    setAdding(false);
-    if (error || !flat) {
-      showFlash("Could not create character — " + (error?.message ?? ""), true);
-      return;
-    }
-    setActiveId(flat.id);
+    discardDraftCharacter();
+    const draft = createDraftCharacter();
+    setActiveId(draft.id);
     setView("roster");
     // Keep the URL in sync with this programmatic view switch (a refresh would
     // otherwise restore a stale ?view=).
@@ -1399,7 +1455,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const guardedAddChar = () => {
     guardDirtyAction(() => {
-      void addChar();
+      addChar();
     });
   };
 
@@ -2426,6 +2482,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         onClick={() => setCastingOpen(true)}
                         aria-haspopup="dialog"
                         aria-expanded={castingOpen}
+                        disabled={activeIsDraft}
                       >
                         {isCast(active) ? "🎙 Casting Studio" : "🎙 Cast a voice"}
                       </button>
@@ -2436,6 +2493,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         onClick={() => setVisualCastingOpen(true)}
                         aria-haspopup="dialog"
                         aria-expanded={visualCastingOpen}
+                        disabled={activeIsDraft}
                       >
                         {isVisuallyCast(active) ? "[ RECAST VISUAL ]" : "[ VISUAL CAST ]"}
                       </button>
@@ -2443,11 +2501,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         className="btn ghost"
                         type="button"
                         onClick={handleExport}
-                        disabled={saving || loading || !active}
+                        disabled={saving || loading || !active || activeIsDraft}
                       >
                         EXPORT MANUAL (MD)
                       </button>
-                      <button className="btn ghost" onClick={() => guardedSetView("wire")}>
+                      <button className="btn ghost" onClick={() => guardedSetView("wire")} disabled={activeIsDraft}>
                         Log an idea →
                       </button>
                     </div>

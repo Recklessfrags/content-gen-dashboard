@@ -3,6 +3,7 @@ import type { ChannelProfile, ChannelProfileUpsertInput } from "@/lib/channelPro
 
 type PersonaSuggestionField =
   | "channel"
+  | "description"
   | "display_name"
   | "voice_archetype"
   | "treatment"
@@ -66,7 +67,12 @@ function tokenize(value: string | null | undefined): string[] {
   return (value ?? "")
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter(Boolean);
+    .filter(Boolean)
+    .flatMap((token) =>
+      token.length > 3 && token.endsWith("s") && !token.endsWith("ss")
+        ? [token, token.slice(0, -1)]
+        : [token],
+    );
 }
 
 function tokensFor(values: readonly (string | null | undefined)[]): Set<string> {
@@ -85,15 +91,24 @@ export function suggestPersonaForChannel(
   input: SuggestPersonaInput,
 ): { chipId: string; reason: string } | null {
   const voiceTokens = tokensFor([input.voice_archetype]);
+  const conceptTokens = tokensFor([input.description]);
   const nicheTokens = tokensFor(NICHE_FIELDS.map((field) => input[field]));
+  const passes: ReadonlyArray<{ scope: SuggestionScope; label: string; tokens: Set<string> }> = [
+    { scope: "voice_archetype", label: "voice_archetype", tokens: voiceTokens },
+    { scope: "niche", label: "description", tokens: conceptTokens },
+    { scope: "niche", label: "niche fallback", tokens: nicheTokens },
+  ];
 
-  for (const rule of SUGGEST_PERSONA_RULES) {
-    const keyword = matchedKeyword(rule, rule.scope === "voice_archetype" ? voiceTokens : nicheTokens);
-    if (keyword) {
-      return {
-        chipId: rule.chipId,
-        reason: `matched ${rule.scope} "${keyword}" -> ${personaLabel(rule.chipId)}`,
-      };
+  for (const pass of passes) {
+    for (const rule of SUGGEST_PERSONA_RULES) {
+      if (rule.scope !== pass.scope) continue;
+      const keyword = matchedKeyword(rule, pass.tokens);
+      if (keyword) {
+        return {
+          chipId: rule.chipId,
+          reason: `matched ${pass.label} "${keyword}" -> ${personaLabel(rule.chipId)}`,
+        };
+      }
     }
   }
 

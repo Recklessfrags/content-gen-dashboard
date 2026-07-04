@@ -13,6 +13,8 @@ describe("suggestPersonaForChannel", () => {
     [{ voice_archetype: "drill_instructor" }, "drill-sergeant-historian"],
     [{ voice_archetype: "hype_announcer" }, "street-energizer"],
     [{ voice_archetype: "npr_explainer" }, "wry-regulatory-insider"],
+    [{ description: "deep sea creatures", treatment: "archival_documentary" }, "hushed-naturalist"],
+    [{ description: "food identity segment", channel: "wildlife-weekly" }, "wry-regulatory-insider"],
     [{ channel: "food" }, "wry-regulatory-insider"],
     [{ display_name: "Wildlife Field Notes" }, "hushed-naturalist"],
     [{ treatment: "mystery dossier" }, "true-crime-skeptic"],
@@ -52,6 +54,15 @@ describe("suggestPersonaForChannel", () => {
     ).toBe("street-energizer");
   });
 
+  it("gives voice_archetype precedence over matching description", () => {
+    expect(
+      suggestPersonaForChannel({
+        voice_archetype: "drill_instructor",
+        description: "wildlife nature",
+      })?.chipId,
+    ).toBe("drill-sergeant-historian");
+  });
+
   it("uses table order for ties within niche fields", () => {
     expect(
       suggestPersonaForChannel({
@@ -68,7 +79,7 @@ describe("suggestPersonaForChannel", () => {
     expect(suggestPersonaForChannel(input)).toBeNull();
   });
 
-  it.each(["channel", "display_name", "voice_archetype", "treatment", "fact_anchor", "character"] as const)(
+  it.each(["channel", "description", "display_name", "voice_archetype", "treatment", "fact_anchor", "character"] as const)(
     "is null-safe for %s",
     (field) => {
       expect(() => suggestPersonaForChannel({ [field]: null })).not.toThrow();
