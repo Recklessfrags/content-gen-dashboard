@@ -78,6 +78,8 @@ type CastingStudioPanelProps = {
   ) => void;
   showFlash: (msg: string, err?: boolean) => void;
   restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
+  variant?: "modal" | "inline";
+  suggestedPersonaChipId?: string | null;
 };
 
 const GUIDANCE_PRESETS: ReadonlyArray<{ label: string; value: number }> = [
@@ -132,6 +134,13 @@ export function purgeCreatedVoiceId(
   }
 }
 
+function withSuggestedPersona(base: BuilderSelections, chipId: string | null | undefined): BuilderSelections {
+  if (chipId && PERSONA_BANK.some((p) => p.id === chipId)) {
+    return { ...base, persona: chipId };
+  }
+  return base;
+}
+
 export function CastingStudioPanel({
   character,
   supabase,
@@ -139,7 +148,11 @@ export function CastingStudioPanel({
   onCharacterPatched,
   showFlash,
   restoreFocusRef,
+  variant = "modal",
+  suggestedPersonaChipId = null,
 }: CastingStudioPanelProps) {
+  const inline = variant === "inline";
+  const suggestedPersonaRef = useRef(suggestedPersonaChipId);
   const panelRef = useRef<HTMLElement>(null);
   const firstFieldRef = useRef<HTMLButtonElement>(null);
   const mainInitialFocusRef = useRef<HTMLElement | null>(null);
@@ -157,7 +170,8 @@ export function CastingStudioPanel({
     () => castingInputsFromRecipe(character.voice_recipe),
     [character.voice_recipe],
   );
-  const initialBuilderSelections = characterRecipeInputs?.builderState ?? DEFAULT_BUILDER_SELECTIONS;
+  const initialBuilderSelections =
+    characterRecipeInputs?.builderState ?? withSuggestedPersona(DEFAULT_BUILDER_SELECTIONS, suggestedPersonaChipId);
 
   const [voiceDescription, setVoiceDescription] = useState(
     () => characterRecipeInputs?.voiceDescription ?? assembleKitDescription(initialBuilderSelections),
@@ -224,7 +238,7 @@ export function CastingStudioPanel({
   const descriptionValid = isValidVoiceDescription(voiceDescription);
   const canGenerate = descriptionValid && sampleValid && !capReached && !designing;
 
-  useScrollLock();
+  useScrollLock(!inline);
 
   const closeDrawer = useCallback(() => {
     mainInitialFocusRef.current = browseRecordsRef.current;
@@ -256,7 +270,7 @@ export function CastingStudioPanel({
   }, []);
 
   useFocusTrap({
-    active: !saveDialogOpen && !drawerOpen && !lockConfirmCandidate,
+    active: !inline && !saveDialogOpen && !drawerOpen && !lockConfirmCandidate,
     containerRef: panelRef,
     onEscape: () => {
       onClose();
@@ -294,6 +308,10 @@ export function CastingStudioPanel({
     mainInitialFocusRef.current = firstFieldRef.current;
   }, [drawerOpen, saveDialogOpen, lockConfirmCandidate]);
 
+  useEffect(() => {
+    suggestedPersonaRef.current = suggestedPersonaChipId;
+  }, [suggestedPersonaChipId]);
+
   // Guard against setState after the panel is closed/unmounted mid-request
   // (Edge/ElevenLabs calls can be slow).
   const aliveRef = useRef(true);
@@ -310,7 +328,7 @@ export function CastingStudioPanel({
 
   useEffect(() => {
     const inputs = castingInputsFromRecipe(character.voice_recipe);
-    const nextBuilder = inputs?.builderState ?? DEFAULT_BUILDER_SELECTIONS;
+    const nextBuilder = inputs?.builderState ?? withSuggestedPersona(DEFAULT_BUILDER_SELECTIONS, suggestedPersonaRef.current);
     setBuilderSelections(nextBuilder);
     setBuilderDetached(inputs?.detached ?? false);
     setVoiceDescription(inputs?.voiceDescription ?? assembleKitDescription(nextBuilder));
@@ -843,20 +861,15 @@ export function CastingStudioPanel({
     );
   };
 
-  return (
-    <div className="history-layer" role="presentation" onMouseDown={handleLayerMouseDown}>
-      <aside
-        ref={panelRef}
-        className="drilldown-panel casting-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="casting-panel-title"
-      >
+  const content = (
+    <>
         <div className="col-head">
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <button ref={firstFieldRef} className="btn ghost close-btn" type="button" onClick={onClose}>
-              ← Back
-            </button>
+            {!inline && (
+              <button ref={firstFieldRef} className="btn ghost close-btn" type="button" onClick={onClose}>
+                ← Back
+              </button>
+            )}
             <h2 id="casting-panel-title">Casting Studio</h2>
           </div>
           <div className="casting-header-actions">
@@ -1424,6 +1437,30 @@ export function CastingStudioPanel({
             )}
           </section>
         </div>
+    </>
+  );
+
+  if (inline) {
+    return (
+      <section ref={panelRef} className="casting-inline" aria-labelledby="casting-panel-title">
+        {(drawerOpen || saveDialogOpen || lockConfirmCandidate) && (
+          <div className="casting-inline-backdrop" aria-hidden="true" />
+        )}
+        {content}
+      </section>
+    );
+  }
+
+  return (
+    <div className="history-layer" role="presentation" onMouseDown={handleLayerMouseDown}>
+      <aside
+        ref={panelRef}
+        className="drilldown-panel casting-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="casting-panel-title"
+      >
+        {content}
       </aside>
     </div>
   );
