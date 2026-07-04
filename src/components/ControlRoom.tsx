@@ -1477,7 +1477,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       channelProfiles.map((profile) => ({
         channel: profile.channel,
         displayName: profile.display_name?.trim() || profile.channel,
-        cast: Boolean(profile.character?.trim()),
+        cast: Boolean(profile.character_id || profile.character?.trim()),
         avatarUrl: null,
         initials: channelInitials(profile.channel, profile.character),
         activeJobs: jobs.filter((job) => {
@@ -1705,11 +1705,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       channelProfiles.find((profile) => profile.channel === scope.channel) ?? null;
     const channelName = channelProfile?.display_name?.trim() || scope.channel;
     const characterName = channelProfile?.character?.trim() ?? "";
-    const castChar = characterName
-      ? (chars.find(
-          (character) => character.codename.trim().toLowerCase() === characterName.toLowerCase(),
-        ) ?? null)
-      : null;
+    const castChar = channelProfile?.character_id
+      ? (chars.find((character) => character.id === channelProfile.character_id) ?? null)
+      : characterName
+        ? (chars.find(
+            (character) => character.codename.trim().toLowerCase() === characterName.toLowerCase(),
+          ) ?? null)
+        : null;
     const activeTabId = workspaceTabId(scope.tab);
     const activePanelId = workspacePanelId(scope.tab);
     const renderDeferredWorkspacePanel = (title: string) => (
@@ -2066,6 +2068,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 <ChannelProfilesPanel
                   supabase={supabase}
                   profiles={channelProfiles}
+                  characters={chars.map((character) => ({
+                    id: character.id,
+                    codename: character.codename,
+                  }))}
                   loading={channelProfilesLoading}
                   error={channelProfilesError}
                   onRefetch={refetchChannelProfiles}
@@ -2536,6 +2542,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             <ChannelProfilesPanel
               supabase={supabase}
               profiles={channelProfiles}
+              characters={chars.map((character) => ({
+                id: character.id,
+                codename: character.codename,
+              }))}
               loading={channelProfilesLoading}
               error={channelProfilesError}
               onRefetch={refetchChannelProfiles}

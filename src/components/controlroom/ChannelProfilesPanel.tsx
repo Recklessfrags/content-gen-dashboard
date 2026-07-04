@@ -26,15 +26,22 @@ import { Field } from "./shared";
 type ChannelProfilesPanelProps = {
   supabase: ReturnType<typeof createClient>;
   profiles: ChannelProfile[];
+  characters?: CharacterOption[];
   loading: boolean;
   error: string | null;
   onRefetch: () => Promise<void> | void;
   scopedChannel?: string;
 };
 
+type CharacterOption = {
+  id: string;
+  codename: string;
+};
+
 type FormState = {
   channel: string;
   displayName: string;
+  character_id: string | null;
   character: string;
   voiceArchetype: string;
   factAnchor: string;
@@ -52,19 +59,36 @@ function labelize(value: string) {
   return value.replace(/_/g, " ");
 }
 
+function comparableCodename(value: string) {
+  return value.trim().toLowerCase();
+}
+
 function jsonValue(value: ChannelProfile["source_ladder"] | undefined): Json {
   return value ?? [];
 }
 
-function profileToForm(profile: ChannelProfile | ChannelProfileUpsertInput): FormState {
+function profileToForm(
+  profile: ChannelProfile | ChannelProfileUpsertInput,
+  characters: CharacterOption[],
+): FormState {
   const engagement = parseEngagementPosture(profile.engagement_posture ?? {});
   const packaging = parsePackaging(profile.packaging ?? {});
   const lengthTarget = parseLengthTarget(profile.length_target ?? {});
+  const characterName = profile.character?.trim() ?? "";
+  const matchedCharacterId =
+    profile.character_id ??
+    (characterName
+      ? (characters.find(
+          (character) =>
+            comparableCodename(character.codename) === comparableCodename(characterName),
+        )?.id ?? null)
+      : null);
 
   return {
     channel: profile.channel ?? "",
     displayName: profile.display_name ?? "",
-    character: profile.character ?? "",
+    character_id: matchedCharacterId,
+    character: characterName,
     voiceArchetype: profile.voice_archetype ?? "",
     factAnchor: profile.fact_anchor ?? "none",
     treatment: profile.treatment ?? "archival_documentary",
@@ -82,6 +106,7 @@ function profileToForm(profile: ChannelProfile | ChannelProfileUpsertInput): For
 export function ChannelProfilesPanel({
   supabase,
   profiles,
+  characters = [],
   loading,
   error,
   onRefetch,
@@ -148,19 +173,55 @@ export function ChannelProfilesPanel({
     setSelectedChannel(nextProfile.channel);
     if (nextProfile.channel !== hydratedChannelRef.current) {
       hydratedChannelRef.current = nextProfile.channel;
-      setForm(profileToForm(nextProfile));
+      setForm(profileToForm(nextProfile, characters));
     }
-  }, [creating, loading, profiles, scopedChannel, selectedProfile]);
+  }, [characters, creating, loading, profiles, scopedChannel, selectedProfile]);
 
-  const updateForm = useCallback((key: keyof FormState, value: string) => {
+  useEffect(() => {
+    if (creating || !form || form.character_id || !form.character.trim()) return;
+
+    const matchedCharacter = characters.find(
+      (character) =>
+        comparableCodename(character.codename) === comparableCodename(form.character),
+    );
+    if (matchedCharacter) {
+      setForm((current) =>
+        current && !current.character_id
+          ? { ...current, character_id: matchedCharacter.id }
+          : current,
+      );
+    }
+  }, [characters, creating, form]);
+
+  const updateForm = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => (current ? { ...current, [key]: value } : current));
   }, []);
+
+  const updateCharacter = useCallback(
+    (characterId: string) => {
+      const nextCharacterId = characterId || null;
+      const selectedCharacter = nextCharacterId
+        ? (characters.find((character) => character.id === nextCharacterId) ?? null)
+        : null;
+
+      setForm((current) =>
+        current
+          ? {
+              ...current,
+              character_id: nextCharacterId,
+              character: selectedCharacter?.codename ?? "",
+            }
+          : current,
+      );
+    },
+    [characters],
+  );
 
   const selectProfile = (profile: ChannelProfile) => {
     setCreating(false);
     setSelectedChannel(profile.channel);
     hydratedChannelRef.current = profile.channel;
-    setForm(profileToForm(profile));
+    setForm(profileToForm(profile, characters));
     setNotice(null);
   };
 
@@ -168,7 +229,7 @@ export function ChannelProfilesPanel({
     setCreating(true);
     setSelectedChannel(null);
     hydratedChannelRef.current = null;
-    setForm(profileToForm(defaultChannelProfile("")));
+    setForm(profileToForm(defaultChannelProfile(""), characters));
     setNotice(null);
   };
 
@@ -181,12 +242,20 @@ export function ChannelProfilesPanel({
       throw new Error("length_target.short_s must be a number");
     }
 
+    const selectedCharacter = current.character_id
+      ? (characters.find((character) => character.id === current.character_id) ?? null)
+      : null;
+    const characterMirror = current.character_id
+      ? ((selectedCharacter?.codename ?? current.character) || null)
+      : null;
+
     return {
       channel: current.channel,
       display_name: current.displayName,
       fact_anchor: current.factAnchor,
       treatment: current.treatment,
-      character: current.character || null,
+      character_id: current.character_id,
+      character: characterMirror,
       source_ladder: splitListInput(current.sourceLadder),
       voice_archetype: current.voiceArchetype || null,
       packaging: {
@@ -221,7 +290,7 @@ export function ChannelProfilesPanel({
       setCreating(false);
       setSelectedChannel(built.channel);
       hydratedChannelRef.current = built.channel;
-      setForm(profileToForm(built));
+      setForm(profileToForm(built, characters));
       await onRefetch();
       setNotice({ message: "Channel profile saved." });
     } catch (saveError) {
@@ -259,7 +328,7 @@ export function ChannelProfilesPanel({
       const nextProfile = profiles.find((profile) => profile.channel !== deletingChannel) ?? null;
       setSelectedChannel(nextProfile?.channel ?? null);
       hydratedChannelRef.current = nextProfile?.channel ?? null;
-      setForm(nextProfile ? profileToForm(nextProfile) : null);
+      setForm(nextProfile ? profileToForm(nextProfile, characters) : null);
       await onRefetch();
       setNotice({ message: "Channel profile deleted." });
     } finally {
@@ -423,15 +492,26 @@ export function ChannelProfilesPanel({
               </div>
 
               <div className="grid2">
-                <Field
-                  id="channel-profile-character"
-                  label="Character"
-                  hint="Optional"
-                  value={form.character}
-                  onChange={(value) => updateForm("character", value)}
-                  rows={1}
-                  multiline={false}
-                />
+                <div className="field">
+                  <label htmlFor="channel-profile-character">
+                    <span className="eyebrow">Character</span>
+                    <span className="field-label-side">
+                      <span className="hint">Optional</span>
+                    </span>
+                  </label>
+                  <select
+                    id="channel-profile-character"
+                    value={form.character_id ?? ""}
+                    onChange={(event) => updateCharacter(event.target.value)}
+                  >
+                    <option value="">Unassigned</option>
+                    {characters.map((character) => (
+                      <option key={character.id} value={character.id}>
+                        {character.codename}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="field">
                   <label htmlFor="channel-profile-voice-archetype">
                     <span className="eyebrow">Voice archetype</span>
