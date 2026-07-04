@@ -900,30 +900,37 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     [activeId, discardDraftCharacter],
   );
 
+  const openLegacyConsoleUnguarded = useCallback(
+    (nextView: View = "roster") => {
+      if (activeId === DRAFT_CHARACTER_ID) discardDraftCharacter();
+      didInitScopeRef.current = true;
+      setLegacyShellOpen(true);
+      setPendingQueueAction(null);
+      setView(nextView);
+      if (typeof window !== "undefined") {
+        window.history.pushState(null, "", viewUrl(nextView));
+      }
+    },
+    [activeId, discardDraftCharacter],
+  );
+
   const openLegacyConsole = useCallback(
     (nextView: View = "roster") => {
       guardDirtyAction(() => {
-        if (activeId === DRAFT_CHARACTER_ID) discardDraftCharacter();
-        didInitScopeRef.current = true;
-        setLegacyShellOpen(true);
-        setPendingQueueAction(null);
-        setView(nextView);
-        if (typeof window !== "undefined") {
-          window.history.pushState(null, "", viewUrl(nextView));
-        }
+        openLegacyConsoleUnguarded(nextView);
       });
     },
-    [activeId, discardDraftCharacter, guardDirtyAction],
+    [guardDirtyAction, openLegacyConsoleUnguarded],
   );
 
   const handleOpenCharacter = useCallback(
     (characterId: string) => {
       guardDirtyAction(() => {
-        guardedSetActiveId(characterId);
-        openLegacyConsole("roster");
+        setActiveId(characterId);
+        openLegacyConsoleUnguarded("roster");
       });
     },
-    [guardDirtyAction, guardedSetActiveId, openLegacyConsole],
+    [guardDirtyAction, openLegacyConsoleUnguarded],
   );
 
   const activateWorkspaceTab = useCallback(
@@ -1572,7 +1579,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   );
   const charactersHubCards = useMemo<CharactersHubCardVM[]>(
     () =>
-      chars.map((character) => ({
+      chars.filter((character) => !isDraftCharacterId(character.id)).map((character) => ({
         id: character.id,
         codename: character.codename ?? "",
         concept: character.concept ?? null,
@@ -1615,7 +1622,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       cards: charactersHubCards,
       loading,
       error: loadError,
-      onRetry: refetchCharacters,
+      onRetry: () => {
+        void refetchCharacters();
+      },
       onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
       onOpenCharacter: handleOpenCharacter,
     }),
