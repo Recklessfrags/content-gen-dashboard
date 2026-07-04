@@ -1,10 +1,10 @@
-export type HubKey = "channels" | "actions" | "overview";
+export type HubKey = "channels" | "actions" | "overview" | "characters";
 export type WorkspaceTab = "production" | "character" | "guidelines" | "cost";
 export type AppScope =
   | { kind: "hub"; hub: HubKey }
   | { kind: "workspace"; channel: string; tab: WorkspaceTab };
 
-export const HUB_KEYS = ["channels", "actions", "overview"] as const satisfies readonly HubKey[];
+export const HUB_KEYS = ["channels", "actions", "overview", "characters"] as const satisfies readonly HubKey[];
 export const WORKSPACE_TABS = [
   "production",
   "character",
