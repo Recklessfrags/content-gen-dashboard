@@ -1645,3 +1645,42 @@
     transition: none !important; /* Reduced motion disables non-essential transitions. */
   }
 }
+
+/* ── Phase-2 Lane 2 — de-modaled casting inline (workspace Character tab) ── */
+.workspace-character-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+.workspace-character-casting { margin-top: 1.5rem; }
+
+/* Inline Casting Studio: same self-contained "dossier" surface as the modal
+   (.drilldown-panel) but positioned inline instead of as a fixed overlay. */
+.casting-inline {
+  display: flex;
+  flex-direction: column;
+  background: var(--ink);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+/* let the page scroll rather than creating a nested scroll region */
+.casting-inline .casting-content { overflow: visible; }
+
+/* Inline Visual Identity: same paper surface as the modal, inline. */
+.visual-inline {
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.visual-inline .visual-studio-body { overflow: visible; }
+
+/* Q2 — stack the split on narrow screens (panels can't sit side-by-side at 412px). */
+@media (max-width: 720px) {
+  .workspace-character-split { grid-template-columns: 1fr; }
+}

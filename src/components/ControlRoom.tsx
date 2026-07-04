@@ -31,6 +31,7 @@ import {
 import { isCast } from "@/lib/casting";
 import { isVisuallyCast, signedRefImageUrl } from "@/lib/castingVisual";
 import { createClient } from "@/lib/supabase/client";
+import { suggestPersonaForChannel } from "@/lib/suggestPersona";
 import {
   CHANNELS,
   type CharacterBibleRevision,
@@ -1573,6 +1574,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const closeVisualCasting = useCallback(() => {
     setVisualCastingOpen(false);
   }, []);
+  const noopClose = useCallback(() => {}, []);
 
   const globalOverlays = (
     <>
@@ -1852,113 +1854,70 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     </button>
                   </div>
 
-                  <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
-                    <div style={{ flex: "1 1 300px", minWidth: "300px" }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "1rem",
-                          alignItems: "center",
-                          marginBottom: "1.5rem",
-                        }}
-                      >
-                        <div className="avatar-large avatar--cast" aria-hidden="true">
-                          {characterInitials(castChar.codename)}
-                        </div>
-                        <div>
-                          <h3 className="text-display" style={{ fontSize: "1.5rem" }}>
-                            {castChar.codename}
-                          </h3>
-                          <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
-                            {castChar.concept || "No concept logged yet."}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="form-group" style={{ maxWidth: "none" }}>
-                        <span className="form-label">Character Dossier (Bible)</span>
+                  <>
+                    <div className="workspace-character-split">
+                      <div className="workspace-character-dossier">
                         <div
-                          className="form-input"
                           style={{
-                            background: "var(--surface-0)",
-                            color: "var(--text-dim)",
-                            minHeight: "100px",
-                            whiteSpace: "pre-wrap",
+                            display: "flex",
+                            gap: "1rem",
+                            alignItems: "center",
+                            marginBottom: "1.5rem",
                           }}
                         >
-                          {castChar.voice || "No dossier logged yet."}
+                          <div className="avatar-large avatar--cast" aria-hidden="true">
+                            {characterInitials(castChar.codename)}
+                          </div>
+                          <div>
+                            <h3 className="text-display" style={{ fontSize: "1.5rem" }}>
+                              {castChar.codename}
+                            </h3>
+                            <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
+                              {castChar.concept || "No concept logged yet."}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="form-group" style={{ maxWidth: "none" }}>
+                          <span className="form-label">Character Dossier (Bible)</span>
+                          <div
+                            className="form-input"
+                            style={{
+                              background: "var(--surface-0)",
+                              color: "var(--text-dim)",
+                              minHeight: "100px",
+                              whiteSpace: "pre-wrap",
+                            }}
+                          >
+                            {castChar.voice || "No dossier logged yet."}
+                          </div>
                         </div>
                       </div>
-                    </div>
-
-                    <div
-                      style={{
-                        width: "250px",
-                        background: "var(--surface-0)",
-                        padding: "1.5rem",
-                        borderRadius: "var(--radius-md)",
-                        border: "1px solid var(--border-soft)",
-                      }}
-                    >
-                      <h4 className="form-label" style={{ marginBottom: "1rem" }}>
-                        Casting Configuration
-                      </h4>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() => openLegacyConsole("roster")}
-                          style={{ width: "100%", justifyContent: "flex-start" }}
-                        >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                            <line x1="12" y1="19" x2="12" y2="22" />
-                          </svg>
-                          Configure Voice
-                        </button>
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() => openLegacyConsole("roster")}
-                          style={{ width: "100%", justifyContent: "flex-start" }}
-                        >
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                          Configure Visuals
-                        </button>
-                        <p
-                          className="text-mono dim"
-                          style={{ fontSize: "0.75rem", marginTop: "0.5rem", textAlign: "center" }}
-                        >
-                          Voice &amp; visual casting open in the character console. Inline casting
-                          arrives in Phase 2.
-                        </p>
+                      <div className="workspace-character-visual">
+                        <VisualIdentityPanel
+                          variant="inline"
+                          character={castChar}
+                          supabase={supabase}
+                          onClose={noopClose}
+                          onCharacterPatched={patchCharacter}
+                          showFlash={showFlash}
+                          restoreFocusRef={visualCastingTriggerRef}
+                        />
                       </div>
                     </div>
-                  </div>
+                    <div className="workspace-character-casting">
+                      <CastingStudioPanel
+                        variant="inline"
+                        suggestedPersonaChipId={suggestPersonaForChannel(channelProfile ?? {})?.chipId ?? null}
+                        character={castChar}
+                        supabase={supabase}
+                        onClose={noopClose}
+                        onCharacterPatched={patchCharacter}
+                        showFlash={showFlash}
+                        restoreFocusRef={castingTriggerRef}
+                      />
+                    </div>
+                  </>
                 </article>
               ) : (
                 <article className="glass-panel">

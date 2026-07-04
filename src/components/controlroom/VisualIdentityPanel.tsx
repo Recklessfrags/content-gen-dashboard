@@ -26,6 +26,7 @@ type VisualIdentityPanelProps = {
   onCharacterPatched: (id: string, patch: VisualIdentityFields) => void;
   showFlash: (msg: string, err?: boolean) => void;
   restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
+  variant?: "modal" | "inline";
 };
 
 type Mode = "empty" | "preview" | "locked" | "loading" | "error" | "missing";
@@ -37,7 +38,9 @@ export function VisualIdentityPanel({
   onCharacterPatched,
   showFlash,
   restoreFocusRef,
+  variant = "modal",
 }: VisualIdentityPanelProps) {
+  const inline = variant === "inline";
   const panelRef = useRef<HTMLElement>(null);
   const firstFieldRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -71,10 +74,10 @@ export function VisualIdentityPanel({
     onClose();
   }, [character.visual_style, hasPreview, onClose, style]);
 
-  useScrollLock();
+  useScrollLock(!inline);
 
   useFocusTrap({
-    active: true,
+    active: !inline,
     containerRef: panelRef,
     onEscape: handleEscape,
     initialFocusRef: firstFieldRef,
@@ -229,29 +232,24 @@ export function VisualIdentityPanel({
     onClose();
   };
 
-  return (
-    <div className="history-layer visual-studio-layer" role="presentation" onMouseDown={handleLayerMouseDown}>
-      <aside
-        ref={panelRef}
-        className={className}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="visual-panel-title"
-      >
+  const content = (
+    <>
         <div className="visual-studio-head">
           <div>
             <span className="eyebrow">CHARACTER</span>
             <h2 id="visual-panel-title">VISUAL IDENTITY ARCHIVE</h2>
           </div>
-          <button
-            ref={firstFieldRef}
-            className="history-x"
-            type="button"
-            aria-label="Close visual identity archive"
-            onClick={onClose}
-          >
-            ×
-          </button>
+          {!inline && (
+            <button
+              ref={firstFieldRef}
+              className="history-x"
+              type="button"
+              aria-label="Close visual identity archive"
+              onClick={onClose}
+            >
+              ×
+            </button>
+          )}
         </div>
 
         <div className="visual-studio-body" aria-busy={loading || signing}>
@@ -388,6 +386,27 @@ export function VisualIdentityPanel({
             </section>
           )}
         </div>
+    </>
+  );
+
+  if (inline) {
+    return (
+      <section ref={panelRef} className={"visual-inline visual-inline--" + mode} aria-labelledby="visual-panel-title">
+        {content}
+      </section>
+    );
+  }
+
+  return (
+    <div className="history-layer visual-studio-layer" role="presentation" onMouseDown={handleLayerMouseDown}>
+      <aside
+        ref={panelRef}
+        className={className}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="visual-panel-title"
+      >
+        {content}
       </aside>
     </div>
   );
