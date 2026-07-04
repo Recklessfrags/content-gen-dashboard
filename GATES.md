@@ -528,3 +528,25 @@ Real channel→character FK replacing the free-text name-match. Pipeline confirm
 | P2-5 | No app-level console errors (env fonts CDN excluded) | **PASS** | 0. |
 
 **Deferred (noted, not blocking):** codename-rename mirror sync (spec §4.1/gate 7 — display/fallback-only post-Q1); the "Linked — not visible in this session" labeled state (single-operator: negligible); the de-modaled casting split-screen (Phase 2 Lane 2). E1.b (casting-studio persona pre-select) deferred.
+
+## Channel auto-gen — two-stage LLM guideline generation + cast brief + review panel + telemetry — ratified live 9/9
+
+Operator-invoked "Generate from concept": an LLM proposes channel guideline fields the operator reviews (accept/reject) and Saves. Built on the `casting-proxy` pattern (Anthropic key server-side only; per-user daily cap; server-side enum clamp). Two-stage generation (prose brief → forced-tool JSON map), a cast brief bridged to the Casting Studio via `localStorage`, and keep-rate telemetry. Fable-5 **BLOCK → fixed → clean**: the blocker was `temperature` on `claude-opus-4-8` (rejected with a 400 — every generation would have failed *after* burning a cap unit); folded + 4 more (anthropicError → 502 never mirroring upstream status/text; `max_tokens` both stages; client enum re-clamp). Migrations `dash_0009` (cap RPC) + `dash_0010` (telemetry) applied; edge function `channel-guideline-proxy` deployed (v1, verify_jwt:true). Ratify: `scripts/ratify-channel-autogen.mjs` (intercept-and-abort, zero live writes) + a cap-RPC SQL test + one live generation.
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| AG-1 | Generate stages a review panel and does NOT auto-fill the form | **PASS** | review shown; form fields unchanged from pre-gen snapshot. |
+| AG-1b | Exactly one proxy call per click; zero upserts during Generate | **PASS** | proxyCalls=1, upserts=0. |
+| AG-2 | Apply fills the form from the proposal — arousal=standard, **NOT aggressive** | **PASS** | name/fact/arousal match the accepted proposal. |
+| AG-2b | Accept-gated — no upsert attempted through Generate+Apply (not auto-persist) | **PASS** | upserts=0. |
+| AG-3 | Save upsert carries only the accepted values and no `aggressive` | **PASS** | `engagement_posture.arousal_ceiling=standard`. |
+| AG-3b | Telemetry POSTed on Save with proposed-vs-saved rows | **PASS** | 11 rows; displayName/arousalCeiling proposed==saved. |
+| AG-3c | Cast brief stashed in `localStorage` keyed by the assigned `character_id` | **PASS** | `cast_brief_<Fine Print id>` present with voice_description. |
+| AG-4 | Cap 429 → cap notice, no review panel, one proxy call (capped request reaches Anthropic 0 times) | **PASS** | review=false, notice shown, proxyCalls=1. |
+| AG-5 | No app-level console errors (env fonts CDN + the intentional cap-test 429 excluded) | **PASS** | 0. |
+| AG-cap | `channel_guideline_bump_usage` RPC — fresh bump allowed (used=1); at-cap bump blocked (used=10); atomic guard held past cap | **PASS** | live SQL: `allowed=true/used=1`, then `allowed=false/used=10` (no increment past cap). |
+| AG-live | One live generation (deployed fn, verify_jwt, real key) → coherent brief + safe-floor enums (no aggressive) + usable 200–600 char cast brief | **PASS** | operator quality gate; two-stage output verified end-to-end. |
+
+**Enum-safety (hard blocker):** double-locked — the stage-2 tool schema OMITS `aggressive` (structurally unrepresentable) AND the edge function builds `suggestions` field-by-field with `clampToCatalog` (invalid → safe default), with a defense-in-depth client re-clamp. No `aggressive` reached the proposal/form/DB in any ratify path.
+
+**Deferred (noted, not blocking — `docs/slices/slice-channel-autogen.md` §8):** cap refund on upstream outage; `CHANNEL_GUIDELINE_ALLOWED_ORIGINS` origin hygiene (same fail-open posture as the shipped `casting-proxy`; the in-function `getUser` check holds the boundary); telemetry post-normalization + `strict` tool; durable server-side `channel_profiles.cast_brief` column (pending HQ worker-read confirmation); per-field regenerate; a telemetry read-out.
