@@ -1676,6 +1676,11 @@
 .casting-inline select { font-family: inherit; color: var(--paper); }
 .visual-inline button { font-family: inherit; cursor: pointer; }
 
+/* Tap-target floor for the inline casting chips on small screens (WCAG 2.5.5). */
+@media (max-width: 880px) {
+  .casting-inline .casting-choice-chip { min-height: 44px; padding-top: 8px; padding-bottom: 8px; }
+}
+
 /* Inline Visual Identity: same paper surface as the modal, inline. */
 .visual-inline {
   display: flex;
