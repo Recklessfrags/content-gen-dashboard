@@ -1518,7 +1518,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       actionableJobs.slice(0, 2).map((job) => ({
         id: job.id,
         title: job.channel ?? job.food,
-        detail: `${JOB_STATUS_LABELS[classifyJobStatus(job.status)]} · ${job.food}`,
+        detail: job.channel
+          ? `${JOB_STATUS_LABELS[classifyJobStatus(job.status)]} · ${job.food}`
+          : JOB_STATUS_LABELS[classifyJobStatus(job.status)],
       })),
     [actionableJobs],
   );
@@ -1728,7 +1730,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             {title}
           </h3>
           <p className="dim text-body" style={{ maxWidth: "500px", margin: "0 auto" }}>
-            This channel workspace will be wired in the next lane.
+            Per-channel production appears once the pipeline tags jobs with a channel. Until then, use the global
+            Action Center and Runs.
           </p>
         </div>
       </div>
@@ -1810,7 +1813,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             style={{ marginTop: "1.5rem" }}
           >
             {scope.tab === "production" &&
-              renderDeferredWorkspacePanel("Production arrives in the next lane.")}
+              renderDeferredWorkspacePanel("Per-channel production is pending pipeline data")}
 
             {scope.tab === "character" &&
               (loading ? (

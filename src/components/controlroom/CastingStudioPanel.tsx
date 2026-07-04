@@ -893,7 +893,7 @@ export function CastingStudioPanel({
             </span>
           )}
           {cast && (
-            <span className="chip active" role="status">
+            <span className="chip" role="status">
               Currently cast — this character has a live locked voice. Locking a new winner replaces it (the old
               voice is deleted).
             </span>
