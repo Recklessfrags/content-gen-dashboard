@@ -12,7 +12,7 @@
 
 | Class | Tables | Writer | Dashboard access |
 | --- | --- | --- | --- |
-| **Dashboard-owned** | `characters`, `ideas`, `character_bible_revisions` | the dashboard (authenticated user) | owner-scoped; revisions insert/read only |
+| **Dashboard-owned** | `characters`, `ideas`, `idea_job_map`, `character_bible_revisions` | the dashboard (authenticated user) | owner-scoped; revisions insert/read only |
 | **Dashboard-owned, operation-global** | `channel_profiles` | the dashboard (authenticated user) | **`authenticated` full CRUD** (NOT owner-scoped — shared operator config); pipeline worker **reads** via service role |
 | **Pipeline-owned, read-only** | `episodes`, `receipts` | the content pipeline (service role) | **read-only** |
 | **Pipeline-owned, dashboard-enqueue** | `jobs` | the pipeline **worker** owns all lifecycle/transitions; the dashboard may **INSERT (enqueue-only) + SELECT** | **read + enqueue-only insert** (see `jobs` section) |
@@ -83,6 +83,28 @@ each gated by `owner = auth.uid()`.
 | `created_at` | timestamptz NOT NULL | `default now()` |
 
 **RLS:** enabled, owner-scoped on all four verbs (same shape as `characters`).
+
+---
+
+## `idea_job_map` — dashboard-owned
+
+Added by `dash_0006` for channel-first Phase 3 Lane 1. Records the dashboard-owned
+provenance link from a job idempotency key back to the originating idea, including
+approval re-runs whose keys are echoed by the worker into `episodes.correlation_key`.
+
+| column | type | notes |
+| --- | --- | --- |
+| `idempotency_key` | text PK | the job key written by the dashboard |
+| `idea_id` | uuid NULL | → `ideas(id)` ON DELETE SET NULL, so job/spend history survives idea deletion |
+| `owner` | uuid NOT NULL | `default auth.uid()` → `auth.users(id)` ON DELETE CASCADE |
+| `channel` | text NULL | denormalized from the job payload |
+| `created_at` | timestamptz NOT NULL | `default now()` |
+
+**Indexes:** `(idea_id)` and `(owner, channel)`.
+
+**RLS:** enabled, owner-scoped on all four verbs. Inserts and updates also enforce
+ownership integrity: a non-null `idea_id` must point at an idea owned by the same
+authenticated user.
 
 ---
 
@@ -268,7 +290,7 @@ repo.**
 | `publish_approved` | bool | default `false` (migration `0015`). Clears a **publish** park; **double-gated** — never posts without a wired Buffer adapter. |
 | `idempotency_key` | text | UNIQUE; **dashboard generates its own** unique-per-logical-job key (no CLI parity). Duplicate → `409` "already queued". |
 | `channel` | text | pipeline `0018` (**APPLIED live 2026-07-01**, operator GO) — routes the job to a `channel_profiles` row. **Tolerant resolution worker-side:** absent/`null`/unknown → the `default` profile, so it is always safe to omit. Participates in the dashboard's idempotency hash **only when non-null** (legacy keys stay byte-stable). |
-| `fact_approved` | bool | pipeline `0017` — operator sign-off gate for **regulated-YELLOW claims** (mirror of `spend_approved`; RED/Gate behavior unaffected). Not in the `jobs_enqueue` WITH CHECK (verified live 2026-07-02) — the dashboard's `buildJobInsert` emits an explicit `false` on every insert and `true` only on a **fact approval re-enqueue** (fresh row, parked row stays as audit, null idempotency key). Participates in the idempotency hash **only when `true`** (explicit `false` hashes identically to omitted — legacy keys byte-stable). A fact approval does **NOT** auto-set `spend_approved` (a claims sign-off is not a spend decision); the parked row's spend state carries, and the dialog **warns** when it is already `true` (the re-run will not park again before spending). **Fact approval UI SHIPPED 2026-07-02.** |
+| `fact_approved` | bool | pipeline `0017` — operator sign-off gate for **regulated-YELLOW claims** (mirror of `spend_approved`; RED/Gate behavior unaffected). Not in the `jobs_enqueue` WITH CHECK (verified live 2026-07-02) — the dashboard's `buildJobInsert` emits an explicit `false` on every insert and `true` only on a **fact approval re-enqueue** (fresh row, parked row stays as audit, fresh non-null re-run idempotency key). Participates in the idempotency hash **only when `true`** (explicit `false` hashes identically to omitted — legacy keys byte-stable). A fact approval does **NOT** auto-set `spend_approved` (a claims sign-off is not a spend decision); the parked row's spend state carries, and the dialog **warns** when it is already `true` (the re-run will not park again before spending). **Fact approval UI SHIPPED 2026-07-02.** |
 
 **Worker-owned columns — the dashboard MUST NOT set them** (RLS `jobs_enqueue` WITH CHECK
 rejects a row that does): `status` (defaults `'queued'`), `attempts` (defaults `0`),
@@ -283,8 +305,12 @@ them on insert; all have safe defaults. A forged running/done/spent row is rejec
 
 **Approval flow (fact + spend + publish parks):** approval is a **FRESH job row**, not an
 update of the parked one — the parked `ready_for_review` row stays as the audit record.
-**Omit `idempotency_key`** (NULLs are exempt from the UNIQUE index) so the re-enqueue
-isn't a 409. A **publish** approval re-enqueue sets **both** `publish_approved=true`
+The dashboard sends a non-null idempotency key on every dashboard-originated job:
+initial enqueues use the derived hash, and every fact/spend/publish/stale re-enqueue
+sends a FRESH unique key `job_rerun_<parentJobId>_<ts>`. It never collides (so no
+409), and the worker echoes it into `episodes.correlation_key`, so a money-spending
+re-run is threadable back to its idea via the dashboard-owned `idea_job_map` (Phase 3
+Lane 1). A **publish** approval re-enqueue sets **both** `publish_approved=true`
 **and** `spend_approved=true` ("approve & go", so the live re-run doesn't re-park at the
 spend gate). A **fact** approval sets only `fact_approved=true` (carrying the parked
 row's other flags — see the `fact_approved` row above).

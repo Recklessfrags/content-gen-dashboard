@@ -314,6 +314,38 @@ export type Database = {
           },
         ]
       }
+      idea_job_map: {
+        Row: {
+          channel: string | null
+          created_at: string
+          idea_id: string | null
+          idempotency_key: string
+          owner: string
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string
+          idea_id?: string | null
+          idempotency_key: string
+          owner?: string
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string
+          idea_id?: string | null
+          idempotency_key?: string
+          owner?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "idea_job_map_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           anchor_citation: string | null

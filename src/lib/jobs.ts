@@ -274,9 +274,10 @@ export function jobInputFromRow(
 }
 
 /**
- * Assumed SPEND-park recovery mechanism pending pipeline confirmation:
- * re-enqueue the same logical job with spend approved and no idempotency key so
- * Supabase does not reject it as a duplicate insert.
+ * Approval recovery re-enqueues the job with a caller-supplied fresh unique
+ * non-null key (`job_rerun_<parentJobId>_<ts>`). That key never collides, so the
+ * insert avoids a 409, and the worker echoes it into `episodes.correlation_key`
+ * so the money-spending re-run remains threadable (Phase 3 Lane 1).
  */
 export function buildSpendApprovalReenqueue(
   originalInput: JobEnqueueInput,
@@ -284,13 +285,9 @@ export function buildSpendApprovalReenqueue(
   const input = {
     ...originalInput,
     spend_approved: true,
-    idempotency_key: null,
   };
 
-  return {
-    ...buildJobInsert(input),
-    idempotency_key: null,
-  };
+  return buildJobInsert(input);
 }
 
 export function buildFactApprovalReenqueue(
@@ -299,13 +296,9 @@ export function buildFactApprovalReenqueue(
   const input = {
     ...originalInput,
     fact_approved: true,
-    idempotency_key: null,
   };
 
-  return {
-    ...buildJobInsert(input),
-    idempotency_key: null,
-  };
+  return buildJobInsert(input);
 }
 
 /**
@@ -345,13 +338,9 @@ export function buildPublishApprovalReenqueue(
     publish_approved: true,
     publish_only: true,
     source_episode_id: sourceEpisodeId,
-    idempotency_key: null,
   };
 
-  return {
-    ...buildJobInsert(input),
-    idempotency_key: null,
-  };
+  return buildJobInsert(input);
 }
 
 /**
