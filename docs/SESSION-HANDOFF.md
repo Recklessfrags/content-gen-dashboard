@@ -44,10 +44,21 @@ Lane 3b stays **data-blocked** (`jobs.channel` 0/50). So the timely lane = **Pha
     payload flag identity (publish does NOT force spend), the double-submit race fix (triple-confirm → 1 write),
     `idea_job_map` provenance incl. seeded positive recovery (`idea_id` recovered). `dash_0006` applied live;
     **SET NULL proven** via an MCP round-trip. Live `jobs` == 50 before/after (no money writes leaked).
-  - **NEXT (still gated, unchanged):** Phase 2 (worker-read ASK still 🟡 OPEN — fresh-fetch the tracker before
-    building); Lane 3b (data-blocked, `jobs.channel` 0/50 — re-check via `execute_sql`); Phase-3 Lanes 2-3
-    (resolver + per-channel Runs/Cost UI) + §3.4 RPC — build when real channel-tagged threaded data exists
-    (Lane 1 now captures the provenance so future idea→job→episode threads accumulate).
+  - **NEXT — Phase 2 is now UNBLOCKED (pipeline ANSWERED the worker-read ASK, 2026-07-04):** the worker does
+    **NOT** read `channel_profiles.character` (grep-verified — `load_channel_profile()`/`_profile_from_row()`
+    consume only `channel`+`engagement_posture`; character resolves from the job's `character` param →
+    `characters`). So the Phase-2 FK is safe with **NO expand/contract window and NO pipeline migration** — the
+    spec's "keep `character` populated through cutover" (the `if-yes` branch) is unnecessary; retire the free-text
+    whenever the DASHBOARD's own reads move to `character_id` (Lane 3c's best-effort name-match is the only
+    remaining reader). **Simplify `slice-channel-first-phase2.md` §2/§3 accordingly at build.** ⚠️ Data-ratify
+    caveat: Phase-2's payoff (FK link + de-modaled casting on a CAST character; hub avatar via `character_id`)
+    can't be fully live-demonstrated while `default` is the only channel AND uncast — cast `default`→Fine Print
+    (operator, ungated: setting `channel_profiles.character` is normal config, NOT the retire-the-column ASK) to
+    make it demonstrable, or ratify the migration/backfill (0-row on uncast) + build the FK-preference logic and
+    ratify the cast-state once a channel is cast.
+  - **Also NEXT (unchanged gates):** Lane 3b (data-blocked, `jobs.channel` 0/50 — re-check via `execute_sql`);
+    Phase-3 Lanes 2-3 (resolver + per-channel Runs/Cost UI) + §3.4 RPC — build when real channel-tagged threaded
+    data exists (Lane 1 now captures the provenance so future idea→job→episode threads accumulate).
 - **HQ:** heads-up posted (Coordination Log, 2026-07-04) — the non-null idempotency-key seam change (one grep
   ask back: does any pipeline tooling treat null key as "approval re-run"?) + the `dash_0006` announce.
 
