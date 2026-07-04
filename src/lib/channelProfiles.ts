@@ -6,7 +6,11 @@ export type ChannelProfileUpsertInput = TablesInsert<"channel_profiles">;
 export const CLAIM_DISCIPLINE = ["fact_first", "loose", "none"] as const;
 export type ClaimDiscipline = (typeof CLAIM_DISCIPLINE)[number];
 
-export const AROUSAL_CEILING = ["conservative", "standard", "aggressive"] as const;
+export const AROUSAL_CEILING = [
+  "conservative",
+  "standard",
+  "aggressive",
+] as const;
 export type ArousalCeiling = (typeof AROUSAL_CEILING)[number];
 
 export const FACT_ANCHOR = [
@@ -30,7 +34,8 @@ export const VOICE_ARCHETYPE_SUGGESTIONS = [
   "npr_explainer",
   "hype_announcer",
 ] as const;
-export type VoiceArchetypeSuggestion = (typeof VOICE_ARCHETYPE_SUGGESTIONS)[number];
+export type VoiceArchetypeSuggestion =
+  (typeof VOICE_ARCHETYPE_SUGGESTIONS)[number];
 
 export type EngagementPosture = {
   claim_discipline: ClaimDiscipline;
@@ -157,9 +162,12 @@ export function parseLengthTarget(json: Json): LengthTarget {
   return { short_s: shortS };
 }
 
-export function defaultChannelProfile(channel: string): TablesInsert<"channel_profiles"> {
+export function defaultChannelProfile(
+  channel: string,
+): TablesInsert<"channel_profiles"> {
   return {
     channel,
+    description: "",
     display_name: channel === "default" ? "Default (food behavior)" : "",
     fact_anchor: "fda_standard_of_identity",
     treatment: "archival_documentary",
@@ -174,13 +182,16 @@ export function defaultChannelProfile(channel: string): TablesInsert<"channel_pr
   };
 }
 
-export function validateChannelProfile(input: ChannelProfileUpsertInput): string[] {
+export function validateChannelProfile(
+  input: ChannelProfileUpsertInput,
+): string[] {
   const errors: string[] = [];
   const channel = input.channel.trim();
   const factAnchor = input.fact_anchor ?? "none";
   const treatment = input.treatment ?? "archival_documentary";
   const engagementPosture =
-    input.engagement_posture !== undefined && isJsonRecord(input.engagement_posture)
+    input.engagement_posture !== undefined &&
+    isJsonRecord(input.engagement_posture)
       ? input.engagement_posture
       : {};
   const claimDiscipline = engagementPosture.claim_discipline;
@@ -226,6 +237,7 @@ export function buildChannelProfileUpsert(
 
   return {
     channel: input.channel.trim(),
+    description: input.description?.trim() ?? "",
     display_name: input.display_name?.trim() ?? "",
     fact_anchor: input.fact_anchor ?? "none",
     treatment: input.treatment ?? "archival_documentary",

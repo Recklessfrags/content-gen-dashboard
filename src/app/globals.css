@@ -87,6 +87,9 @@ body{font-family:var(--body)}
 .dossier-head h1{font-family:var(--display);font-weight:700;font-size:40px;letter-spacing:.02em;
   text-transform:uppercase;margin:0;line-height:.98}
 .dossier-head .sub{color:var(--paper-dim);margin-top:8px;max-width:60ch}
+.channel-profile-section{margin-top:26px;padding-top:22px;border-top:1px solid var(--line-soft)}
+.channel-profile-section:first-of-type{margin-top:0;padding-top:0;border-top:none}
+.channel-profile-section-title{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--paper-dim);margin:0 0 16px}
 .casting-stamp{position:absolute;top:22px;right:30px;font-family:var(--display);font-weight:700;font-size:13px;
   letter-spacing:.14em;color:var(--stamp);border:2.5px solid var(--stamp);border-radius:4px;
   padding:5px 11px;text-transform:uppercase;transform:rotate(7deg);opacity:.92}
@@ -126,7 +129,7 @@ body{font-family:var(--body)}
   padding:2px 6px;border-radius:2px;white-space:nowrap}
 .dials-inert{border:1px solid #6e5a26;border-left:3px solid var(--brass);border-radius:3px;
   background:rgba(201,162,75,.06);padding:14px 14px 0;margin:0 0 24px}
-.dials-inert legend{display:flex;align-items:center;gap:10px;padding:0 6px}
+.dials-inert legend{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:0 6px}
 .dials-inert > .hint{margin:2px 0 14px;color:var(--paper-dim);font-family:var(--mono);font-size:12px}
 .channel-number-field{max-width:260px}
 

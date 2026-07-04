@@ -70,6 +70,7 @@ export type Database = {
           character: string | null
           character_id: string | null
           created_at: string
+          description: string
           display_name: string
           engagement_posture: Json
           fact_anchor: string
@@ -86,6 +87,7 @@ export type Database = {
           character?: string | null
           character_id?: string | null
           created_at?: string
+          description?: string
           display_name?: string
           engagement_posture?: Json
           fact_anchor?: string
@@ -102,6 +104,7 @@ export type Database = {
           character?: string | null
           character_id?: string | null
           created_at?: string
+          description?: string
           display_name?: string
           engagement_posture?: Json
           fact_anchor?: string

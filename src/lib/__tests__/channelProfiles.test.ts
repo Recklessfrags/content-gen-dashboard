@@ -66,6 +66,7 @@ describe("defaultChannelProfile", () => {
   it("matches the food-safe default row shape", () => {
     expect(defaultChannelProfile("default")).toEqual({
       channel: "default",
+      description: "",
       display_name: "Default (food behavior)",
       fact_anchor: "fda_standard_of_identity",
       treatment: "archival_documentary",
@@ -86,12 +87,9 @@ describe("defaultChannelProfile", () => {
 
 describe("list input helpers", () => {
   it("splits newlines, commas, extra whitespace, and empty entries", () => {
-    expect(splitListInput(" archival,  still_motion\n\n generated , , shorts ")).toEqual([
-      "archival",
-      "still_motion",
-      "generated",
-      "shorts",
-    ]);
+    expect(
+      splitListInput(" archival,  still_motion\n\n generated , , shorts "),
+    ).toEqual(["archival", "still_motion", "generated", "shorts"]);
   });
 
   it("round-trips joined list values through split", () => {
@@ -113,15 +111,15 @@ describe("validateChannelProfile", () => {
   });
 
   it("rejects a bad fact anchor", () => {
-    expect(validateChannelProfile(profileInput({ fact_anchor: "rumor" }))).toContain(
-      "fact_anchor is invalid",
-    );
+    expect(
+      validateChannelProfile(profileInput({ fact_anchor: "rumor" })),
+    ).toContain("fact_anchor is invalid");
   });
 
   it("rejects a bad treatment", () => {
-    expect(validateChannelProfile(profileInput({ treatment: "podcast" }))).toContain(
-      "treatment is invalid",
-    );
+    expect(
+      validateChannelProfile(profileInput({ treatment: "podcast" })),
+    ).toContain("treatment is invalid");
   });
 
   it("rejects a bad claim discipline", () => {
@@ -156,6 +154,7 @@ describe("buildChannelProfileUpsert", () => {
     expect(
       buildChannelProfileUpsert({
         channel: " food ",
+        description: " Food stories with receipts ",
         display_name: " Food Channel ",
         fact_anchor: "fda_standard_of_identity",
         treatment: "archival_documentary",
@@ -179,6 +178,7 @@ describe("buildChannelProfileUpsert", () => {
       }),
     ).toEqual({
       channel: "food",
+      description: "Food stories with receipts",
       display_name: "Food Channel",
       fact_anchor: "fda_standard_of_identity",
       treatment: "archival_documentary",
@@ -201,7 +201,9 @@ describe("buildChannelProfileUpsert", () => {
 
   it("throws on invalid input", () => {
     expect(() =>
-      buildChannelProfileUpsert(profileInput({ channel: "", fact_anchor: "bad" })),
+      buildChannelProfileUpsert(
+        profileInput({ channel: "", fact_anchor: "bad" }),
+      ),
     ).toThrow("channel is required; fact_anchor is invalid");
   });
 });
