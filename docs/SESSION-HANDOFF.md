@@ -11,6 +11,47 @@ is the fast path._
 
 ---
 
+## ⚡ LATEST (2026-07-04, continuation `…-cont-x8y66i`) — Phase-3 LANE 1 built + Fable-APPROVED + migration APPLIED; blocked ONLY on QA creds for the mandatory money-path live-ratify → merge. Read this first.
+
+Branch **`claude/channel-first-phase1-cont-x8y66i`** (off production `ced2c08`). **Trigger:** the pipeline
+shipped `episodes.correlation_key` (7 episodes carry it) — this LIFTED Phase-3's structural gate AND made
+the dashboard's null-key bug **active** (approval re-enqueues forced `idempotency_key:null` → null-in-null-out
+→ money-spending re-runs un-threadable). Phase 2 stays **blocked** (worker-read ASK still 🟡 OPEN, unanswered);
+Lane 3b stays **data-blocked** (`jobs.channel` 0/50). So the timely lane = **Phase-3 Lane 1**.
+
+- **Phase-3 Lane 1 (SCOPED per Fable) — BUILT, Fable-APPROVED, NOT yet merged.** Commits `3ef5b5d`
+  (build) + `5f2f4c9` (fold) + `039e981` (ratify harness) on the branch.
+  - **What landed (code):** the three approval re-enqueue builders (`buildSpend/Fact/PublishApprovalReenqueue`,
+    `src/lib/jobs.ts`) now PRESERVE the caller-supplied key instead of forcing `null`; `confirmQueueAction`
+    (`ControlRoom.tsx`) sends a fresh `job_rerun_<id>_<ts>` key on ALL re-enqueue actions (avoids the
+    `idempotencyKeyFor` 409 trap) and writes an `idea_job_map` provenance row (job-first, ordered, non-blocking;
+    re-enqueue recovers `idea_id` from the parked row's key). New dashboard-owned migration
+    `dash_0006_idea_job_map` (owner-scoped, ownership-integrity RLS, `idea_id` ON DELETE SET NULL). Tests +
+    `database.types.ts` + `data-contract.md` updated. **DEFERRED (Fable ruling):** the §3.4 `enqueue_job_with_map`
+    RPC + Lane 2 resolver + Lane 3 per-channel Runs/Cost UI (their consumers are data-blocked).
+  - **Review:** Fable-5 round-1 **REQUEST-CHANGES** caught a real diff-introduced money-path BLOCKER — a
+    double-submit race (`setQueueActionSubmitting(false)` fired before the awaited `idea_job_map` lookup closed
+    the dialog → a 2nd confirm click inserted a duplicate fresh-key spend job = double spend). Folded (`5f2f4c9`:
+    hold `submitting` true across the lookup; release with `setPendingQueueAction(null)`). Fable re-audit
+    **APPROVE**. Also corrected the stale contract prose ("publish sets both flags" — false; publish_only skips
+    render, no re-spend, does NOT force spend).
+  - **Migration:** `dash_0006` **APPLIED live** (HQ heads-up posted first — Coordination Log §2026-07-04). Structure
+    verified (5 cols, 4 RLS policies, RLS on, `idea_id` FK=SET NULL, `owner` FK=CASCADE); types match live.
+    **SET NULL proven** via an MCP seed→delete-idea→assert→cleanup round-trip (map row survives with `idea_id`
+    null, `channel`/`owner` kept — channel-level cost preserved).
+  - **REMAINING (blocked on QA creds):** the **mandatory money-path live-ratify** (`scripts/ratify-lane1.mjs`,
+    intercept-and-abort — non-null unique keys on spend/publish/stale, double-gate step1/step2, payload flag
+    identity, zero live writes, the double-submit race fix, `idea_job_map` provenance incl. seeded positive
+    recovery). Harness is written + committed; deps present (playwright + chrome). **To run:** request
+    `RATIFY_EMAIL`/`RATIFY_PASSWORD`, write `.env.local` (+ URL + anon), `rm -rf .next && npm run build` AFTER
+    `.env.local` (the NEXT_PUBLIC bake trap), seed the first spend row's key via MCP + set `RATIFY_SEED_IDEA_ID`,
+    run. **Then squash-merge (owner recklessfrags) + update GATES/ledger/tracker.** Fable's code-APPROVE is NOT
+    a substitute for the live money-path gate (Lane 4 precedent).
+- **HQ:** heads-up posted (Coordination Log, 2026-07-04) — the non-null idempotency-key seam change (one grep
+  ask back: does any pipeline tooling treat null key as "approval re-run"?) + the `dash_0006` announce.
+
+---
+
 ## ⚡ LATEST (2026-07-04, continuation `…-cont-t38jxy`) — Lane 5 SHIPPED: legacy `?view=`→hub deep-link redirect (roster-preserving), live-ratified 12/12. Read this first.
 
 Branch **`claude/channel-first-phase1-cont-t38jxy`**, fresh off production (was tip `5eef5f9`, post-Lane-3c).
