@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-04 (Phase-2 Lane 2 "casting de-modaled" + E1.b SHIPPED #84, ratified 15/15; HQ current)** by the Architect (Claude).
+_Last updated: **2026-07-04 (Phase-2 Lane 2 SHIPPED #84; two non-destructive UI/UX audits run; follow-ups #87–#90 shipped; character-bench lane specced; HQ current). Production tip = `bf1c690` (#90)** by the Architect (Claude).
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,77 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-04) — PHASE-2 LANE 2 "CASTING DE-MODALED" + E1.b SHIPPED (#84, squash `8186ae15`). Read this first.
+## ⚡ LATEST (2026-07-04) — LANE 2 SHIPPED + UI/UX AUDITED + FOLLOW-UPS #87–#90 LANDED; NEXT = the Aurora character bench. Read this first.
+
+**Production/default = `claude/new-session-3l99vs` @ `bf1c690` (#90).** Since Lane 2 (#84) this session ran two
+**non-destructive** UI/UX audits and shipped every actionable follow-up. Branch for new work: **start fresh off
+production** (keep your harness-designated working-branch name).
+
+### Copy-paste KICKOFF for the next session (rule 41 — paste this to start)
+```
+You are the Architect for the Reels Content Control Room dashboard (Next.js 15 / React 19 / Supabase, plain-CSS
+"Aurora" design system; channel-first per D-6). You own judgment/specs/reviews/commits/merges; you never write
+app code yourself — Codex builds, Fable-5 (cross-vendor) + suerta (same-vendor Opus, L-2) review, you squash-merge
+via the GitHub MCP (owner recklessfrags, repo content-gen-dashboard).
+FIRST: read docs/SESSION-HANDOFF.md top-to-bottom, then governance.md + AGENTS.md, then do a FRESH HQ fetch
+(Notion 📮 Coordination Log, page 38fd346e-22d2-8133-bd2e-e5b7f97f7c2e — read the Open Cross-Team Items tracker +
+Process Learnings Ledger) before planning or claiming anything blocked (rule L-1).
+BRANCH: start fresh off production `claude/new-session-3l99vs` (git fetch origin claude/new-session-3l99vs &&
+git checkout -B <your-working-branch> origin/claude/new-session-3l99vs); keep the harness-designated branch name.
+TASK: the next substantial lane = the Aurora character bench that retires the legacy roster shell —
+docs/slices/slice-character-bench-retire-legacy.md. Start with sub-lane 1 (Aurora "Characters" read surface:
+cards + cast/visual status + links), the small safe foothold. Drive build→Fable+suerta→ratify→squash-merge.
+Ratify harness = scripts/ratify-*.mjs (prod build + Chromium + Supabase bridge, intercept-and-abort = zero live
+writes); QA creds live only in gitignored .env.local (RATIFY_EMAIL/RATIFY_PASSWORD — password contains !, quote
+it; ephemeral per container — re-request). Keep chat terse (rule L-3).
+```
+
+### What shipped this session (all merged to production)
+- **Phase-2 Lane 2 — casting de-modaled + E1.b (#84, squash `8186ae15`)** — see the EARLIER section below; ratified 15/15.
+- **UI/UX audits (non-destructive, no product change).** (a) A route-crawler (`scripts/audit-ui.mjs`, #86) — every
+  Aurora + legacy surface × desktop/mobile, screenshots + programmatic checks (overflow/tap-targets/contrast/console);
+  0 writes persisted, 0 overflow bugs, 0 console errors. (b) An **agentic newcomer journey** (a Claude subagent drove
+  "create a new niche channel start-to-finish" against prod with casting intercepted + established rows write-protected,
+  then torn down). Report published as an Artifact; findings drove the fixes below. **Key method lesson (in the HQ
+  ledger):** trust the crawler's geometry/overflow, treat its auto-contrast as a lead to pixel-verify (it false-reports
+  ~1:1 on translucent/gradient surfaces); a route crawl can't find journey friction — an agentic walkthrough can.
+- **Follow-ups (#87–#90):** quick-wins (chip 44px tap floor, neutral "currently cast" notice, de-duped hub pill, honest
+  Production copy) `#87`; **persona-from-concept** (suggestPersona now reads `description` as the primary topic signal,
+  concept beats incidental treatment/fact_anchor) + **no-stub character** (in-memory draft, `DRAFT_CHARACTER_ID`, first
+  save persists — no DB litter) `#88`; **casting Aurora re-theme** (inline casting/visual now a fixed dark Aurora
+  console; Fable caught real AA blockers on error/confirm/winner STATES — folded with fixed on-dark colors #FF6B81/
+  #34D399, NOT theme-flipping tokens; re-ratified 15/15) + **New-Channel decoy fix** (hub "+ New Channel" now lands on a
+  blank create form, never the existing channel in edit mode) `#89`; **production-readiness checklist** (Production tab:
+  Guidelines/Character/Voice/Visual ✓/○, read-derived) `#90`.
+
+### Live data reality (re-verify with `execute_sql`, don't trust this cached view)
+`channel_profiles` = **1** (`default` → **Fine Print** via `character_id`; Fine Print is **voice-cast, NOT
+visually-cast**) → the workspace Character tab renders the CAST branch + readiness shows 3/4. `characters` = **3**
+(Fine Print, Grandma Pearl, Mad Dog). `jobs.channel` still **0/50** → Lane 3b (Production runs) + Phase-3 Lanes 2-3
+(per-channel Runs/Cost) stay **data-blocked** (skip). Phase-3 threading is unblocked (`episodes.correlation_key` shipped).
+
+### NEXT (pick per value; character bench is the recommended big lane)
+- **Aurora character bench → retire the legacy roster shell** (`slice-character-bench-retire-legacy.md`) — the recurring
+  root cause of the audit findings (#2 paradigm switch on every create path, #6 duplicate casting/visual entry points)
+  and the last piece of the channel-first migration (finishes Lane 5's dual-shell retirement). 5 incremental sub-lanes;
+  **start with sub-lane 1 (bench read)**. De-risked by prior work (FK, inline casting, draft-create, Aurora primitives).
+- **Open journey items** not yet built: `slice-newcomer-journey-fixes.md` #1 durable tier (Aurora new-channel form) +
+  #2/#6 (fold into the bench). **Casting re-theme mobile disclosure** (optional half of `slice-casting-aurora-retheme.md`).
+- **HQ open ask (answered, awaiting pipeline):** the `channel_profiles` per-channel knob contract A/B/C storage fork —
+  dashboard replied **A (grouped jsonb)** + acked the two notes (platforms define full specs; non-food fact_anchor
+  fail-closed lexicon). No build now (gated on pipeline Gate-2 + hold-lift); lands additively as a `dash_*` migration
+  when it un-holds.
+- **Data-blocked (skip until `jobs.channel` populates):** Lane 3b Production runs, Phase-3 Lanes 2-3.
+
+### Process notes (this session)
+- **Verification is a MEASURED gate.** The re-theme's happy-path AA sample missed error-state contrast — Fable caught
+  it. Sample the STATES (error/confirm/winner), not just defaults; composite translucent layers when measuring.
+- **Non-destructive audit pattern** (reusable): intercept-and-abort the money/edge/storage calls, write-protect
+  established rows, create-then-teardown throwaways — no product "revert" needed to test safely.
+
+---
+
+## ⚡ EARLIER (2026-07-04) — PHASE-2 LANE 2 "CASTING DE-MODALED" + E1.b SHIPPED (#84, squash `8186ae15`).
 
 Branch **`claude/casting-de-modaled-phase2-skinrd`** off production **`8186ae15`**. The Casting Studio (voice) +
 Visual Identity panels are now an **inline split-screen region of the workspace Character tab** instead of modal
