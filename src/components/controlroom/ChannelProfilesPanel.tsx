@@ -26,6 +26,7 @@ import {
   type ChannelProfileUpsertInput,
 } from "@/lib/channelProfiles";
 import {
+  DESCRIPTION_MAX,
   DESCRIPTION_MIN,
   GuidelineGenError,
   generateChannelGuidelines,
@@ -660,7 +661,7 @@ export function ChannelProfilesPanel({
                     className="btn ghost"
                     type="button"
                     onClick={() => void generate()}
-                    disabled={generating || form.description.trim().length < DESCRIPTION_MIN}
+                    disabled={generating || form.description.trim().length < DESCRIPTION_MIN || form.description.trim().length > DESCRIPTION_MAX}
                   >
                     {generating ? "Generating…" : "Generate from concept"}
                   </button>
