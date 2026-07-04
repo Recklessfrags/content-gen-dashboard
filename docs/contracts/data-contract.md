@@ -310,10 +310,14 @@ initial enqueues use the derived hash, and every fact/spend/publish/stale re-enq
 sends a FRESH unique key `job_rerun_<parentJobId>_<ts>`. It never collides (so no
 409), and the worker echoes it into `episodes.correlation_key`, so a money-spending
 re-run is threadable back to its idea via the dashboard-owned `idea_job_map` (Phase 3
-Lane 1). A **publish** approval re-enqueue sets **both** `publish_approved=true`
-**and** `spend_approved=true` ("approve & go", so the live re-run doesn't re-park at the
-spend gate). A **fact** approval sets only `fact_approved=true` (carrying the parked
-row's other flags — see the `fact_approved` row above).
+Lane 1). A **publish** approval re-enqueue sets `publish_approved=true`,
+`publish_only=true`, and `source_episode_id` (resume distribution from the reviewed
+episode). It is `publish_only`, so the worker **skips gen/render** — it does not
+re-spend — and therefore does **NOT** force `spend_approved`; the parked row's spend
+state carries verbatim (verified by `buildPublishApprovalReenqueue` + its unit tests,
+`src/lib/jobs.ts` / `src/lib/__tests__/jobs.test.ts`). A **fact** approval sets only
+`fact_approved=true` (carrying the parked row's other flags — see the `fact_approved`
+row above).
 
 **`park_kind` — WRITTEN by the worker since pipeline PR #42 (2026-07-02, operator-ruled
 merged vocabulary; SUPERSEDES 0016's `approval_required` value):** approval parks

@@ -1276,9 +1276,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }
 
     const { error } = await supabase.from("jobs").insert(payload);
-    setQueueActionSubmitting(false);
 
     if (error) {
+      setQueueActionSubmitting(false);
       showFlash(
         action === "fact"
           ? "Fact approval failed — " + error.message
@@ -1307,6 +1307,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }
 
     setPendingQueueAction(null);
+    setQueueActionSubmitting(false);
     showFlash(
       action === "fact"
         ? "✓ Facts approved. Job re-entered the pipeline."
