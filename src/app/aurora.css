@@ -1290,8 +1290,13 @@
 .aurora-app .channel-profiles.scoped .eyebrow,
 .aurora-app .channel-profiles.scoped .hint,
 .aurora-app .channel-profiles.scoped legend,
-.aurora-app .channel-profiles.scoped .field-label-side {
+.aurora-app .channel-profiles.scoped .field-label-side,
+.aurora-app .channel-profiles.scoped .channel-profile-section-title {
   color: var(--text-dim);
+}
+
+.aurora-app .channel-profiles.scoped .channel-profile-section {
+  border-top-color: var(--border-soft);
 }
 
 .aurora-app .channel-profiles.scoped .filecode .live,

@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { Json } from "@/lib/database.types";
 import { PERSONA_BANK } from "@/lib/castingPhrases";
 import {
@@ -40,6 +46,7 @@ type CharacterOption = {
 
 type FormState = {
   channel: string;
+  description: string;
   displayName: string;
   character_id: string | null;
   character: string;
@@ -80,12 +87,14 @@ function profileToForm(
     (characterName
       ? (characters.find(
           (character) =>
-            comparableCodename(character.codename) === comparableCodename(characterName),
+            comparableCodename(character.codename) ===
+            comparableCodename(characterName),
         )?.id ?? null)
       : null);
 
   return {
     channel: profile.channel ?? "",
+    description: profile.description ?? "",
     displayName: profile.display_name ?? "",
     character_id: matchedCharacterId,
     character: characterName,
@@ -94,12 +103,16 @@ function profileToForm(
     treatment: profile.treatment ?? "archival_documentary",
     claimDiscipline: engagement.claim_discipline,
     arousalCeiling: engagement.arousal_ceiling,
-    sourceLadder: joinListInput(parseSourceLadder(jsonValue(profile.source_ladder))),
+    sourceLadder: joinListInput(
+      parseSourceLadder(jsonValue(profile.source_ladder)),
+    ),
     platforms: joinListInput(parsePlatforms(jsonValue(profile.platforms))),
     titleStyle: packaging.title_style ?? "",
     thumbnailStyle: packaging.thumbnail_style ?? "",
     shortSeconds:
-      typeof lengthTarget.short_s === "number" ? String(lengthTarget.short_s) : "",
+      typeof lengthTarget.short_s === "number"
+        ? String(lengthTarget.short_s)
+        : "",
   };
 }
 
@@ -117,11 +130,15 @@ export function ChannelProfilesPanel({
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [notice, setNotice] = useState<{ message: string; error?: boolean } | null>(null);
+  const [notice, setNotice] = useState<{
+    message: string;
+    error?: boolean;
+  } | null>(null);
   const hydratedChannelRef = useRef<string | null>(null);
 
   const selectedProfile = useMemo(
-    () => profiles.find((profile) => profile.channel === selectedChannel) ?? null,
+    () =>
+      profiles.find((profile) => profile.channel === selectedChannel) ?? null,
     [profiles, selectedChannel],
   );
   const isDefaultProfile = !creating && form?.channel === "default";
@@ -178,11 +195,13 @@ export function ChannelProfilesPanel({
   }, [characters, creating, loading, profiles, scopedChannel, selectedProfile]);
 
   useEffect(() => {
-    if (creating || !form || form.character_id || !form.character.trim()) return;
+    if (creating || !form || form.character_id || !form.character.trim())
+      return;
 
     const matchedCharacter = characters.find(
       (character) =>
-        comparableCodename(character.codename) === comparableCodename(form.character),
+        comparableCodename(character.codename) ===
+        comparableCodename(form.character),
     );
     if (matchedCharacter) {
       setForm((current) =>
@@ -193,15 +212,19 @@ export function ChannelProfilesPanel({
     }
   }, [characters, creating, form]);
 
-  const updateForm = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((current) => (current ? { ...current, [key]: value } : current));
-  }, []);
+  const updateForm = useCallback(
+    <K extends keyof FormState>(key: K, value: FormState[K]) => {
+      setForm((current) => (current ? { ...current, [key]: value } : current));
+    },
+    [],
+  );
 
   const updateCharacter = useCallback(
     (characterId: string) => {
       const nextCharacterId = characterId || null;
       const selectedCharacter = nextCharacterId
-        ? (characters.find((character) => character.id === nextCharacterId) ?? null)
+        ? (characters.find((character) => character.id === nextCharacterId) ??
+          null)
         : null;
 
       setForm((current) =>
@@ -243,16 +266,19 @@ export function ChannelProfilesPanel({
     }
 
     const selectedCharacter = current.character_id
-      ? (characters.find((character) => character.id === current.character_id) ?? null)
+      ? (characters.find(
+          (character) => character.id === current.character_id,
+        ) ?? null)
       : null;
     // No-implicit-wipe: when unassigned, preserve an unmatchable legacy free-text name
     // (explicit "Unassigned" already cleared current.character to "" → still nulls).
     const characterMirror = current.character_id
-      ? ((selectedCharacter?.codename ?? current.character) || null)
-      : (current.character.trim() || null);
+      ? (selectedCharacter?.codename ?? current.character) || null
+      : current.character.trim() || null;
 
     return {
       channel: current.channel,
+      description: current.description,
       display_name: current.displayName,
       fact_anchor: current.factAnchor,
       treatment: current.treatment,
@@ -297,7 +323,10 @@ export function ChannelProfilesPanel({
       setNotice({ message: "Channel profile saved." });
     } catch (saveError) {
       setNotice({
-        message: saveError instanceof Error ? saveError.message : "Could not save profile.",
+        message:
+          saveError instanceof Error
+            ? saveError.message
+            : "Could not save profile.",
         error: true,
       });
     } finally {
@@ -327,7 +356,8 @@ export function ChannelProfilesPanel({
         return;
       }
 
-      const nextProfile = profiles.find((profile) => profile.channel !== deletingChannel) ?? null;
+      const nextProfile =
+        profiles.find((profile) => profile.channel !== deletingChannel) ?? null;
       setSelectedChannel(nextProfile?.channel ?? null);
       hydratedChannelRef.current = nextProfile?.channel ?? null;
       setForm(nextProfile ? profileToForm(nextProfile, characters) : null);
@@ -371,7 +401,10 @@ export function ChannelProfilesPanel({
     return (
       <div className="empty">
         <h3>No channels yet</h3>
-        <p>Create a channel profile to store operator intent for script treatment and engagement posture.</p>
+        <p>
+          Create a channel profile to store operator intent for script treatment
+          and engagement posture.
+        </p>
         <button className="btn" type="button" onClick={startNew}>
           + New channel
         </button>
@@ -391,14 +424,21 @@ export function ChannelProfilesPanel({
             {profiles.map((profile) => (
               <button
                 key={profile.channel}
-                className={"pcard" + (!creating && profile.channel === form?.channel ? " on" : "")}
+                className={
+                  "pcard" +
+                  (!creating && profile.channel === form?.channel ? " on" : "")
+                }
                 type="button"
                 onClick={() => selectProfile(profile)}
               >
-                <div className="codename">{profile.display_name || profile.channel}</div>
+                <div className="codename">
+                  {profile.display_name || profile.channel}
+                </div>
                 <div className="concept">{profile.channel}</div>
                 <div className="meta">
-                  <span className="chip draft">{labelize(profile.treatment)}</span>
+                  <span className="chip draft">
+                    {labelize(profile.treatment)}
+                  </span>
                 </div>
               </button>
             ))}
@@ -418,7 +458,7 @@ export function ChannelProfilesPanel({
             <select
               id="mobile-channel-roster-select"
               className="mobile-roster-select"
-              value={creating ? "" : form?.channel ?? ""}
+              value={creating ? "" : (form?.channel ?? "")}
               onChange={(event) => {
                 const nextProfile = profiles.find(
                   (profile) => profile.channel === event.target.value,
@@ -465,225 +505,303 @@ export function ChannelProfilesPanel({
             </h1>
           )}
           <p className="sub">
-            Store channel-level treatment, source, packaging, and ADR-005 intent.
+            Store channel-level treatment, source, packaging, and ADR-005
+            intent.
           </p>
         </header>
 
         {form && (
           <>
             <div className="sheet channel-profile-sheet">
-              <div className="grid2">
+              <section
+                className="channel-profile-section"
+                aria-labelledby="channel-profile-concept-heading"
+              >
+                <h3
+                  id="channel-profile-concept-heading"
+                  className="text-title channel-profile-section-title"
+                >
+                  Concept
+                </h3>
                 <Field
-                  id="channel-profile-channel"
-                  label="Channel"
-                  hint={creating ? "Primary key" : "Primary key - read-only"}
-                  value={form.channel}
-                  onChange={(value) => updateForm("channel", value)}
-                  rows={1}
-                  multiline={false}
-                  readOnly={!creating}
+                  id="channel-profile-description"
+                  label="Channel concept"
+                  hint="What is this channel about? Plain language — this seeds guideline auto-generation."
+                  value={form.description}
+                  onChange={(value) => updateForm("description", value)}
+                  rows={4}
                 />
-                <Field
-                  id="channel-profile-display-name"
-                  label="Display name"
-                  value={form.displayName}
-                  onChange={(value) => updateForm("displayName", value)}
-                  rows={1}
-                  multiline={false}
-                />
-              </div>
-
-              <div className="grid2">
-                <div className="field">
-                  <label htmlFor="channel-profile-character">
-                    <span className="eyebrow">Character</span>
-                    <span className="field-label-side">
-                      <span className="hint">Optional</span>
-                    </span>
-                  </label>
-                  <select
-                    id="channel-profile-character"
-                    value={form.character_id ?? ""}
-                    onChange={(event) => updateCharacter(event.target.value)}
-                  >
-                    <option value="">Unassigned</option>
-                    {characters.map((character) => (
-                      <option key={character.id} value={character.id}>
-                        {character.codename}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid2">
+                  <Field
+                    id="channel-profile-channel"
+                    label="Channel"
+                    hint={creating ? "Primary key" : "Primary key - read-only"}
+                    value={form.channel}
+                    onChange={(value) => updateForm("channel", value)}
+                    rows={1}
+                    multiline={false}
+                    readOnly={!creating}
+                  />
+                  <Field
+                    id="channel-profile-display-name"
+                    label="Display name"
+                    value={form.displayName}
+                    onChange={(value) => updateForm("displayName", value)}
+                    rows={1}
+                    multiline={false}
+                  />
                 </div>
-                <div className="field">
-                  <label htmlFor="channel-profile-voice-archetype">
-                    <span className="eyebrow">Voice archetype</span>
+              </section>
+
+              <section
+                className="channel-profile-section"
+                aria-labelledby="channel-profile-character-voice-heading"
+              >
+                <h3
+                  id="channel-profile-character-voice-heading"
+                  className="text-title channel-profile-section-title"
+                >
+                  Character &amp; voice
+                </h3>
+                <div className="grid2">
+                  <div className="field">
+                    <label htmlFor="channel-profile-character">
+                      <span className="eyebrow">Character</span>
+                      <span className="field-label-side">
+                        <span className="hint">Optional</span>
+                      </span>
+                    </label>
+                    <select
+                      id="channel-profile-character"
+                      value={form.character_id ?? ""}
+                      onChange={(event) => updateCharacter(event.target.value)}
+                    >
+                      <option value="">Unassigned</option>
+                      {characters.map((character) => (
+                        <option key={character.id} value={character.id}>
+                          {character.codename}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="channel-profile-voice-archetype">
+                      <span className="eyebrow">Voice archetype</span>
+                      <span className="field-label-side">
+                        <span className="hint">Optional, open vocabulary</span>
+                      </span>
+                    </label>
+                    <input
+                      id="channel-profile-voice-archetype"
+                      list="channel-profile-voice-suggestions"
+                      type="text"
+                      value={form.voiceArchetype}
+                      onChange={(event) =>
+                        updateForm("voiceArchetype", event.target.value)
+                      }
+                    />
+                    <datalist id="channel-profile-voice-suggestions">
+                      {VOICE_ARCHETYPE_SUGGESTIONS.map((suggestion) => (
+                        <option key={suggestion} value={suggestion} />
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+              </section>
+
+              <section
+                className="channel-profile-section"
+                aria-labelledby="channel-profile-content-settings-heading"
+              >
+                <h3
+                  id="channel-profile-content-settings-heading"
+                  className="text-title channel-profile-section-title"
+                >
+                  Content settings
+                </h3>
+                <div className="grid2">
+                  <div className="field">
+                    <label htmlFor="channel-profile-fact-anchor">
+                      <span className="eyebrow">Fact anchor</span>
+                    </label>
+                    <select
+                      id="channel-profile-fact-anchor"
+                      value={form.factAnchor}
+                      onChange={(event) =>
+                        updateForm("factAnchor", event.target.value)
+                      }
+                    >
+                      {FACT_ANCHOR.map((value) => (
+                        <option key={value} value={value}>
+                          {labelize(value)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="channel-profile-treatment">
+                      <span className="eyebrow">Treatment</span>
+                    </label>
+                    <select
+                      id="channel-profile-treatment"
+                      value={form.treatment}
+                      onChange={(event) =>
+                        updateForm("treatment", event.target.value)
+                      }
+                    >
+                      {TREATMENT.map((value) => (
+                        <option key={value} value={value}>
+                          {labelize(value)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {personaSuggestion && (
+                  <div className="field" aria-live="polite">
+                    <p className="hint">
+                      <span aria-hidden="true">💡 </span>
+                      Suggested casting persona:{" "}
+                      <strong>{personaSuggestion.label}</strong> - seeds the
+                      Casting Card when you cast this channel&apos;s character.{" "}
+                      {personaSuggestion.reason}
+                    </p>
+                  </div>
+                )}
+
+                <fieldset className="dials-inert">
+                  <legend>
+                    <span className="eyebrow">Engagement dials</span>
+                    <span className="badge">
+                      Active — enforced pipeline-side
+                    </span>
+                  </legend>
+                  <p className="hint">
+                    Enforced by the worker at job start (ADR-005): claim
+                    discipline gates Tier-1 levers, arousal ceiling gates
+                    Tier-2. Missing or invalid values fail safe to fact_first /
+                    conservative.
+                  </p>
+                  <div className="grid2">
+                    <div className="field">
+                      <label htmlFor="channel-profile-claim-discipline">
+                        <span className="eyebrow">Claim discipline</span>
+                      </label>
+                      <select
+                        id="channel-profile-claim-discipline"
+                        value={form.claimDiscipline}
+                        onChange={(event) =>
+                          updateForm("claimDiscipline", event.target.value)
+                        }
+                      >
+                        {CLAIM_DISCIPLINE.map((value) => (
+                          <option key={value} value={value}>
+                            {labelize(value)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label htmlFor="channel-profile-arousal-ceiling">
+                        <span className="eyebrow">Arousal ceiling</span>
+                      </label>
+                      <select
+                        id="channel-profile-arousal-ceiling"
+                        value={form.arousalCeiling}
+                        onChange={(event) =>
+                          updateForm("arousalCeiling", event.target.value)
+                        }
+                      >
+                        {AROUSAL_CEILING.map((value) => (
+                          <option key={value} value={value}>
+                            {labelize(value)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </fieldset>
+              </section>
+
+              <section
+                className="channel-profile-section"
+                aria-labelledby="channel-profile-sources-packaging-heading"
+              >
+                <h3
+                  id="channel-profile-sources-packaging-heading"
+                  className="text-title channel-profile-section-title"
+                >
+                  Sources &amp; packaging
+                </h3>
+                <div className="grid2">
+                  <Field
+                    id="channel-profile-source-ladder"
+                    label="Source ladder"
+                    hint="Newline or comma list"
+                    value={form.sourceLadder}
+                    onChange={(value) => updateForm("sourceLadder", value)}
+                    rows={5}
+                    mono
+                  />
+                  <Field
+                    id="channel-profile-platforms"
+                    label="Platforms"
+                    hint="Newline or comma list"
+                    value={form.platforms}
+                    onChange={(value) => updateForm("platforms", value)}
+                    rows={5}
+                    mono
+                  />
+                </div>
+
+                <div className="grid2">
+                  <Field
+                    id="channel-profile-title-style"
+                    label="Title style"
+                    value={form.titleStyle}
+                    onChange={(value) => updateForm("titleStyle", value)}
+                    rows={1}
+                    multiline={false}
+                  />
+                  <Field
+                    id="channel-profile-thumbnail-style"
+                    label="Thumbnail style"
+                    value={form.thumbnailStyle}
+                    onChange={(value) => updateForm("thumbnailStyle", value)}
+                    rows={1}
+                    multiline={false}
+                  />
+                </div>
+
+                <div className="field channel-number-field">
+                  <label htmlFor="channel-profile-short-seconds">
+                    <span className="eyebrow">Short length target</span>
                     <span className="field-label-side">
-                      <span className="hint">Optional, open vocabulary</span>
+                      <span className="hint">Seconds, optional</span>
                     </span>
                   </label>
                   <input
-                    id="channel-profile-voice-archetype"
-                    list="channel-profile-voice-suggestions"
-                    type="text"
-                    value={form.voiceArchetype}
-                    onChange={(event) => updateForm("voiceArchetype", event.target.value)}
+                    id="channel-profile-short-seconds"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.shortSeconds}
+                    onChange={(event) =>
+                      updateForm("shortSeconds", event.target.value)
+                    }
                   />
-                  <datalist id="channel-profile-voice-suggestions">
-                    {VOICE_ARCHETYPE_SUGGESTIONS.map((suggestion) => (
-                      <option key={suggestion} value={suggestion} />
-                    ))}
-                  </datalist>
                 </div>
-              </div>
-
-              <div className="grid2">
-                <div className="field">
-                  <label htmlFor="channel-profile-fact-anchor">
-                    <span className="eyebrow">Fact anchor</span>
-                  </label>
-                  <select
-                    id="channel-profile-fact-anchor"
-                    value={form.factAnchor}
-                    onChange={(event) => updateForm("factAnchor", event.target.value)}
-                  >
-                    {FACT_ANCHOR.map((value) => (
-                      <option key={value} value={value}>
-                        {labelize(value)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="channel-profile-treatment">
-                    <span className="eyebrow">Treatment</span>
-                  </label>
-                  <select
-                    id="channel-profile-treatment"
-                    value={form.treatment}
-                    onChange={(event) => updateForm("treatment", event.target.value)}
-                  >
-                    {TREATMENT.map((value) => (
-                      <option key={value} value={value}>
-                        {labelize(value)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {personaSuggestion && (
-                <div className="field" aria-live="polite">
-                  <p className="hint">
-                    <span aria-hidden="true">💡 </span>
-                    Suggested casting persona: <strong>{personaSuggestion.label}</strong> - seeds the Casting Card when you cast this channel&apos;s character. {personaSuggestion.reason}
-                  </p>
-                </div>
-              )}
-
-              <fieldset className="dials-inert">
-                <legend>
-                  <span className="eyebrow">Engagement dials</span>
-                  <span className="badge">Active — enforced pipeline-side</span>
-                </legend>
-                <p className="hint">
-                  Enforced by the worker at job start (ADR-005): claim discipline gates Tier-1 levers, arousal ceiling gates Tier-2. Missing or invalid values fail safe to fact_first / conservative.
-                </p>
-                <div className="grid2">
-                  <div className="field">
-                    <label htmlFor="channel-profile-claim-discipline">
-                      <span className="eyebrow">Claim discipline</span>
-                    </label>
-                    <select
-                      id="channel-profile-claim-discipline"
-                      value={form.claimDiscipline}
-                      onChange={(event) => updateForm("claimDiscipline", event.target.value)}
-                    >
-                      {CLAIM_DISCIPLINE.map((value) => (
-                        <option key={value} value={value}>
-                          {labelize(value)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label htmlFor="channel-profile-arousal-ceiling">
-                      <span className="eyebrow">Arousal ceiling</span>
-                    </label>
-                    <select
-                      id="channel-profile-arousal-ceiling"
-                      value={form.arousalCeiling}
-                      onChange={(event) => updateForm("arousalCeiling", event.target.value)}
-                    >
-                      {AROUSAL_CEILING.map((value) => (
-                        <option key={value} value={value}>
-                          {labelize(value)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </fieldset>
-
-              <div className="grid2">
-                <Field
-                  id="channel-profile-source-ladder"
-                  label="Source ladder"
-                  hint="Newline or comma list"
-                  value={form.sourceLadder}
-                  onChange={(value) => updateForm("sourceLadder", value)}
-                  rows={5}
-                  mono
-                />
-                <Field
-                  id="channel-profile-platforms"
-                  label="Platforms"
-                  hint="Newline or comma list"
-                  value={form.platforms}
-                  onChange={(value) => updateForm("platforms", value)}
-                  rows={5}
-                  mono
-                />
-              </div>
-
-              <div className="grid2">
-                <Field
-                  id="channel-profile-title-style"
-                  label="Title style"
-                  value={form.titleStyle}
-                  onChange={(value) => updateForm("titleStyle", value)}
-                  rows={1}
-                  multiline={false}
-                />
-                <Field
-                  id="channel-profile-thumbnail-style"
-                  label="Thumbnail style"
-                  value={form.thumbnailStyle}
-                  onChange={(value) => updateForm("thumbnailStyle", value)}
-                  rows={1}
-                  multiline={false}
-                />
-              </div>
-
-              <div className="field channel-number-field">
-                <label htmlFor="channel-profile-short-seconds">
-                  <span className="eyebrow">Short length target</span>
-                  <span className="field-label-side">
-                    <span className="hint">Seconds, optional</span>
-                  </span>
-                </label>
-                <input
-                  id="channel-profile-short-seconds"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.shortSeconds}
-                  onChange={(event) => updateForm("shortSeconds", event.target.value)}
-                />
-              </div>
+              </section>
             </div>
 
             <div className="savebar channel-profile-actions">
-              <button className="btn" type="button" onClick={() => void saveProfile()} disabled={saving}>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => void saveProfile()}
+                disabled={saving}
+              >
                 {saving ? "Saving..." : "Save channel"}
               </button>
               {!scopedChannel && (
@@ -697,7 +815,9 @@ export function ChannelProfilesPanel({
                 </button>
               )}
               {!scopedChannel && isDefaultProfile && (
-                <span className="hint">fallback profile, can&apos;t delete</span>
+                <span className="hint">
+                  fallback profile, can&apos;t delete
+                </span>
               )}
               {notice && (
                 <span className={"flash show" + (notice.error ? " err" : "")}>
