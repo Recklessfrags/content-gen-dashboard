@@ -185,22 +185,29 @@ describe("approval re-enqueue builders", () => {
     stub_upstream: true,
   };
 
-  it("marks spend approval and clears idempotency_key", () => {
-    expect(buildSpendApprovalReenqueue(jobInput({ spend_approved: false }))).toMatchObject({
+  it("marks spend approval and preserves the caller-supplied idempotency_key", () => {
+    expect(
+      buildSpendApprovalReenqueue(
+        jobInput({
+          spend_approved: false,
+          idempotency_key: "job_rerun_1_1700000000000",
+        }),
+      ),
+    ).toMatchObject({
       spend_approved: true,
       publish_approved: false,
-      idempotency_key: null,
+      idempotency_key: "job_rerun_1_1700000000000",
     });
   });
 
-  it("marks fact approval, clears idempotency_key, and preserves original inputs", () => {
+  it("marks fact approval, preserves the caller-supplied idempotency_key, and preserves original inputs", () => {
     expect(
       buildFactApprovalReenqueue(
         jobInput({
           channel: "dark-history",
           spend_approved: false,
           publish_approved: false,
-          idempotency_key: "parked-key",
+          idempotency_key: "job_rerun_1_1700000000000",
         }),
       ),
     ).toEqual({
@@ -222,19 +229,25 @@ describe("approval re-enqueue builders", () => {
       publish_only: false,
       channel: "dark-history",
       source_episode_id: null,
-      idempotency_key: null,
+      idempotency_key: "job_rerun_1_1700000000000",
     });
   });
 
-  it("marks publish-only resume fields and clears idempotency_key without forcing spend approval", () => {
+  it("marks publish-only resume fields and preserves the caller-supplied idempotency_key without forcing spend approval", () => {
     expect(
-      buildPublishApprovalReenqueue(jobInput({ spend_approved: false }), "episode-reviewed-001"),
+      buildPublishApprovalReenqueue(
+        jobInput({
+          spend_approved: false,
+          idempotency_key: "job_rerun_1_1700000000000",
+        }),
+        "episode-reviewed-001",
+      ),
     ).toMatchObject({
       spend_approved: false,
       publish_approved: true,
       publish_only: true,
       source_episode_id: "episode-reviewed-001",
-      idempotency_key: null,
+      idempotency_key: "job_rerun_1_1700000000000",
     });
   });
 
@@ -256,28 +269,43 @@ describe("approval re-enqueue builders", () => {
   });
 
   it("preserves channel from a parked row through approval re-enqueue payloads", () => {
-    const input = jobInputFromRow(parkedJob);
+    const input = jobInputFromRow(parkedJob, {
+      idempotencyKey: "job_rerun_42_1700000000000",
+    });
 
     expect(input.channel).toBe("dark-history");
     expect(buildSpendApprovalReenqueue(input)).toMatchObject({
       channel: "dark-history",
       fact_approved: false,
       spend_approved: true,
-      idempotency_key: null,
+      idempotency_key: "job_rerun_42_1700000000000",
     });
     expect(buildFactApprovalReenqueue(input)).toMatchObject({
       channel: "dark-history",
       fact_approved: true,
       spend_approved: false,
-      idempotency_key: null,
+      idempotency_key: "job_rerun_42_1700000000000",
     });
     expect(buildPublishApprovalReenqueue(input, "episode-rendered-001")).toMatchObject({
       channel: "dark-history",
       publish_approved: true,
       publish_only: true,
       source_episode_id: "episode-rendered-001",
-      idempotency_key: null,
+      idempotency_key: "job_rerun_42_1700000000000",
     });
+  });
+
+  it("preserves distinct caller-supplied idempotency keys across calls", () => {
+    const left = buildSpendApprovalReenqueue(
+      jobInput({ idempotency_key: "job_rerun_1_1700000000000" }),
+    );
+    const right = buildSpendApprovalReenqueue(
+      jobInput({ idempotency_key: "job_rerun_1_1700000000001" }),
+    );
+
+    expect(left.idempotency_key).toBe("job_rerun_1_1700000000000");
+    expect(right.idempotency_key).toBe("job_rerun_1_1700000000001");
+    expect(left.idempotency_key).not.toBe(right.idempotency_key);
   });
 });
 

@@ -567,6 +567,26 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 2200);
   }, []);
+  const writeIdeaJobMap = async ({
+    key,
+    ideaId,
+    channel,
+  }: {
+    key: string;
+    ideaId: string | null;
+    channel: string | null;
+  }) => {
+    const { error } = await supabase.from("idea_job_map").insert({
+      idempotency_key: key,
+      idea_id: ideaId,
+      channel,
+    });
+
+    if (error) {
+      console.error("Could not record idea/job provenance", error);
+      showFlash("Run queued (thread link skipped)");
+    }
+  };
   const {
     ideas,
     loading: ideasLoading,
@@ -1185,6 +1205,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
     if (!error) {
       showFlash("Queued as run");
+      if (payload.idempotency_key) {
+        await writeIdeaJobMap({
+          key: payload.idempotency_key,
+          ideaId: activeEnqueueIdeaId ?? null,
+          channel: payload.channel ?? null,
+        });
+      } else {
+        console.error("Queued job payload did not include an idempotency_key", payload);
+        showFlash("Run queued (thread link skipped)");
+      }
       return { kind: "success" };
     }
 
@@ -1217,12 +1247,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
     setQueueActionSubmitting(true);
     const { job, action } = pendingQueueAction;
-    const input =
-      action === "fact" || action === "spend" || action === "publish"
-        ? jobInputFromRow(job)
-        : jobInputFromRow(job, {
-            idempotencyKey: `job_rerun_${job.id}_${Date.now()}`,
-          });
+    const rerunKey = `job_rerun_${job.id}_${Date.now()}`;
+    const input = jobInputFromRow(job, { idempotencyKey: rerunKey });
 
     let payload: ReturnType<typeof buildJobInsert>;
     try {
@@ -1250,9 +1276,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }
 
     const { error } = await supabase.from("jobs").insert(payload);
-    setQueueActionSubmitting(false);
 
     if (error) {
+      setQueueActionSubmitting(false);
       showFlash(
         action === "fact"
           ? "Fact approval failed — " + error.message
@@ -1266,7 +1292,22 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       return;
     }
 
+    let recoveredIdeaId: string | null = null;
+    if (job.idempotency_key) {
+      const { data, error: mapLookupError } = await supabase
+        .from("idea_job_map")
+        .select("idea_id")
+        .eq("idempotency_key", job.idempotency_key)
+        .maybeSingle();
+
+      if (mapLookupError) {
+        console.error("Could not recover idea provenance for re-enqueue", mapLookupError);
+      }
+      recoveredIdeaId = data?.idea_id ?? null;
+    }
+
     setPendingQueueAction(null);
+    setQueueActionSubmitting(false);
     showFlash(
       action === "fact"
         ? "✓ Facts approved. Job re-entered the pipeline."
@@ -1276,6 +1317,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           ? "✓ Publish approved. Job re-entered the pipeline."
         : "✓ Stranded job re-queued for execution",
     );
+    await writeIdeaJobMap({
+      key: rerunKey,
+      ideaId: recoveredIdeaId,
+      channel: payload.channel ?? null,
+    });
     void fetchJobs();
   };
 
