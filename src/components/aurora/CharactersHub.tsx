@@ -11,6 +11,7 @@ export type CharacterCardVM = {
   isVoiceCast: boolean;
   isVisualCast: boolean;
   isDraft: boolean;
+  isSelected: boolean;
 };
 
 export type CharactersHubProps = {
@@ -20,6 +21,7 @@ export type CharactersHubProps = {
   onRetry: () => void;
   onBack: () => void;
   onOpenCharacter: (id: string) => void;
+  onCreateCharacter: () => void;
 };
 
 export function CharactersHub({
@@ -29,6 +31,7 @@ export function CharactersHub({
   onRetry,
   onBack,
   onOpenCharacter,
+  onCreateCharacter,
 }: CharactersHubProps) {
   const showEmpty = !loading && error === null && cards.length === 0;
   const showCards = !loading && error === null && cards.length > 0;
@@ -44,9 +47,14 @@ export function CharactersHub({
             Channel personas &amp; field manuals
           </p>
         </div>
-        <button type="button" className="btn-secondary" onClick={onBack}>
-          Back to Channels
-        </button>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" className="btn" onClick={onCreateCharacter}>
+            + New character
+          </button>
+          <button type="button" className="btn-secondary" onClick={onBack}>
+            Back to Channels
+          </button>
+        </div>
       </div>
 
       {loading ? <LoadingGrid /> : null}
@@ -128,6 +136,8 @@ function CharacterCard({
   const codename = card.codename.trim() === "" ? "Untitled Character" : card.codename;
   const concept = card.concept?.trim() || "No concept logged yet.";
   const avatarClass = card.isVoiceCast ? "avatar avatar--cast" : "avatar avatar-uncast";
+  const cardClass =
+    "glass-panel channel-card" + (card.isSelected ? " channel-card--selected" : "");
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (!isActivationKey(event.key)) {
@@ -139,10 +149,11 @@ function CharacterCard({
 
   return (
     <article
-      className="glass-panel channel-card"
+      className={cardClass}
       role="button"
       tabIndex={0}
       aria-label={`Open ${codename} character dossier`}
+      aria-pressed={card.isSelected}
       onClick={() => onOpenCharacter(card.id)}
       onKeyDown={handleKeyDown}
     >
