@@ -46,6 +46,8 @@ type ChannelProfilesPanelProps = {
   error: string | null;
   onRefetch: () => Promise<void> | void;
   scopedChannel?: string;
+  autoStartNew?: boolean;
+  onAutoStartNewConsumed?: () => void;
 };
 
 type CharacterOption = {
@@ -154,10 +156,12 @@ export function ChannelProfilesPanel({
   error,
   onRefetch,
   scopedChannel,
+  autoStartNew,
+  onAutoStartNewConsumed,
 }: ChannelProfilesPanelProps) {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<boolean>(Boolean(autoStartNew));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState<{
@@ -368,6 +372,13 @@ export function ChannelProfilesPanel({
     setLastApplied(null);
     setAiFlagged(new Set());
   };
+
+  useEffect(() => {
+    if (!autoStartNew) return;
+    startNew();
+    onAutoStartNewConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when the create intent arrives
+  }, [autoStartNew]);
 
   const formToInput = (current: FormState): ChannelProfileUpsertInput => {
     const shortSeconds = current.shortSeconds.trim();

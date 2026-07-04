@@ -515,6 +515,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [view, setView] = useState<View>("roster");
   const [scope, setScope] = useState<AppScope>({ kind: "hub", hub: DEFAULT_HUB });
   const [legacyShellOpen, setLegacyShellOpen] = useState(false);
+  const [channelsAutoNew, setChannelsAutoNew] = useState(false);
   const [draftIdea, setDraftIdea] = useState("");
   const [draftIdeaNote, setDraftIdeaNote] = useState("");
   const [draftIdeaCharacterId, setDraftIdeaCharacterId] = useState<string | null>(null);
@@ -881,6 +882,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       didInitScopeRef.current = true;
       setLegacyShellOpen(false);
       setPendingQueueAction(null);
+      setChannelsAutoNew(false);
       setScope(next);
       if (typeof window !== "undefined") {
         window.history.pushState(
@@ -1587,7 +1589,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       error: channelProfilesError,
       onOpenChannel: (channel: string) =>
         navigate({ kind: "workspace", channel, tab: DEFAULT_TAB }),
-      onNewChannel: () => openLegacyConsole("channels"),
+      onNewChannel: () => {
+        setChannelsAutoNew(true);
+        openLegacyConsole("channels");
+      },
     },
     glance: {
       activeChannels: channelProfiles.length,
@@ -2570,6 +2575,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               loading={channelProfilesLoading}
               error={channelProfilesError}
               onRefetch={refetchChannelProfiles}
+              autoStartNew={channelsAutoNew}
+              onAutoStartNewConsumed={() => setChannelsAutoNew(false)}
             />
           )}
 
