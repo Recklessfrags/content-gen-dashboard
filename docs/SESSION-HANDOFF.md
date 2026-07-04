@@ -11,6 +11,63 @@ is the fast path._
 
 ---
 
+## ⚡ LATEST (2026-07-04, continuation `…-cont-t38jxy`) — Lane 5 SHIPPED: legacy `?view=`→hub deep-link redirect (roster-preserving), live-ratified 12/12. Read this first.
+
+Branch **`claude/channel-first-phase1-cont-t38jxy`**, fresh off production (was tip `5eef5f9`, post-Lane-3c).
+This session shipped **Lane 5** — reinstating slice §3-Q3's one-time legacy `?view=`→`?hub=channels`
+`replaceState` redirect that was commented out during the dual-shell interim.
+
+- **Lane 5 — legacy deep-link redirect (roster-preserving) — ✅ SHIPPED (PR #73, squash `78d03f0`).**
+  Codex built (ControlRoom.tsx only) → **Fable-5 REQUEST-CHANGES (1 real BLOCKER)** → Option A fold →
+  **Fable-5 re-audit APPROVE-WITH-NITS** → **live-artifact ratify 12/12** (`scripts/ratify-lane5.mjs`).
+  - **What landed:** the cold-mount init effect no longer intercepts legacy `?view=` links into the legacy
+    console. They fall through to `parseScope`, which already canonicalizes any `?view=` to the default hub
+    → a stale bookmark cleanly lands on the Aurora Channels hub (one-time `replaceState`, no history entry,
+    no 404). **The change is a ~5-line delete + 2-line fix** — `route.ts`'s `parseScope` already had the Q3
+    mapping; only the dual-shell interception in ControlRoom was removed.
+  - **Gate 5 preserved (no capability lost):** the WARM `openLegacyConsole(...)` path + the `popstate`
+    legacy-reopen branch are UNCHANGED. Character CRUD/bible/history/casting (roster), new-channel creation,
+    ideas capture, runs drill-down stay reachable. **The dual shell is retired for DEEP LINKS only, not
+    reachability** — the legacy roster is still the home for full character CRUD until the **Phase-2
+    character bench** re-homes it (deleting it now would violate gate 5). "Retire the legacy shell"
+    *completes* in Phase 2, not here.
+  - **Lane-4 popstate nits folded:** `pendingQueueAction` now clears synchronously in `navigate`/
+    `openLegacyConsole`/both popstate success callbacks (batched with the transition) — kills the one-frame
+    armed-confirm flash on cross-shell popstate into the Action Center.
+  - **⚠️ REVIEW-CAUGHT BLOCKER (the value of the gate, log it):** the deleted `?view=` branch was
+    **silently load-bearing during the `channelProfilesLoading` window**. A legacy console opened via a CTA
+    (HubLanding "Legacy console" / ChannelsHub "New Channel" — both live during load, gated only on
+    `creating`) *while `channel_profiles` was still fetching* got **clobbered/snapped-shut** when the
+    cold-mount init effect re-ran on load-resolve (`didInitScopeRef` not yet committed → it canonicalized the
+    warm-pushed `?view=` back to `?hub=channels`, overwriting the pushed history entry). Invisible in the
+    diff; only surfaced under adversarial tracing of the loading window. **Fix (Option A):** `navigate` +
+    `openLegacyConsole` now set `didInitScopeRef.current = true`, so an explicit user nav settles the initial
+    scope and the init effect no-ops. Ratified live via **L5-10** (delay the channel_profiles GET ~3s, click
+    New Channel during it, assert the console survives resolve).
+  - **RATIFY HARNESS re-warmed this container:** operator provided QA creds mid-session → gitignored
+    `.env.local` written (URL + anon from Supabase MCP + `RATIFY_EMAIL`/`PASSWORD`). Clean rebuild AFTER
+    `.env.local` (NEXT_PUBLIC baked at build time — the known trap). Reusable walk = `scripts/ratify-lane5.mjs`.
+- **DATA REALITY re-checked 2026-07-04 (Supabase MCP):** `channel_profiles` = **1** (`default`, uncast);
+  `jobs` = **50 total, 0 with a `channel`** (was 0/47 — pipeline produced 3 more jobs, still none
+  channel-tagged); `ideas.channel` ∈ {"Food","Dark history"} (free-text, ≠ the `default` codename). **Lane
+  3b stays data-blocked** — no channel-tagged parked job to exercise the mandatory money-path live-ratify.
+  The enqueue path still isn't writing `jobs.channel` (standing cross-team finding, now count-updated).
+- **NEXT — pick per data reality + value:**
+  - **Lane 3b — Production tab — STILL DEFERRED** (data reality above). Build when real channel-tagged
+    ideas/jobs exist (pipeline writes `jobs.channel` + ideas carry the channel *codename*, not a display
+    name). Plan unchanged (see the Lane-3b entry below / slice §4).
+  - **Phase 2** (`channel_profiles.character_id` FK + de-modaled split-screen Character surface + a global
+    character bench that **re-homes the legacy roster** — the prerequisite to fully deleting the dual shell)
+    — gated on the still-pending HQ answer "does the worker read `channel_profiles.character`?" (check its
+    status first). **This is the lane that lets Lane 5's "retire the legacy shell" finish.**
+  - **Phase 3** (idea→job→episode threading + the pipeline correlation key — the unlock for real per-channel
+    Runs/Cost).
+  - **Polish backlog:** Character-tab error-state Retry button uses legacy `.btn` styling (cosmetic, rare
+    path); Lane 5 nit — eagerly redirect a `?view=` buried behind an in-load nav (currently only on Back);
+    a warm-open-during-load regression test once jsdom/RTL infra exists.
+
+---
+
 ## ⚡ LATEST (2026-07-03, continuation `…-cont-40jine`) — Lane 3a SHIPPED: channel WORKSPACE shell + Guidelines + Cost tabs + N11, live-ratified 24/24. Read this first.
 
 Branch **`claude/channel-first-phase1-cont-40jine`**, fresh off production (tip `4e6ea38`, post-Lane-4).

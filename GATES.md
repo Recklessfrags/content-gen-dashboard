@@ -431,3 +431,44 @@ no new write path.
 `default` codename) and all `jobs.channel` are NULL, so the channel-scoped Ideas/Queue are empty and the
 mandatory money-path live-ratify has no channel-tagged parked job to exercise. Build when channel-tagged
 ideas/jobs exist. **Next: Lane 5 (retire legacy shell + reinstate the `?view=`→hub redirect).**
+
+---
+
+## Lane 5 — reinstate the legacy `?view=`→hub deep-link redirect (channel-first Phase 1)
+
+Codex built (ControlRoom.tsx only) → **Fable-5 REQUEST-CHANGES** (1 real BLOCKER: the deleted `?view=`
+branch was silently load-bearing — a legacy console opened via a CTA *during the `channelProfilesLoading`
+window* got clobbered/snapped-shut when the cold-mount init effect re-ran on load-resolve; code-verified
+against `HubLanding`/`ChannelsHub` CTAs being live during load + the loading-guard returning before
+`didInitScopeRef` commits) → Option A fold (`navigate`/`openLegacyConsole` set `didInitScopeRef.current =
+true`, so an explicit user nav settles the initial scope and the init effect no-ops) → **Fable-5 re-audit
+APPROVE-WITH-NITS** (Blocker closed, no new regression; redirect/popstate/money-path double-gate/dep-array
+invariants re-verified) → **live-artifact ratify 12/12** (`scripts/ratify-lane5.mjs`; PR #73, squash
+`78d03f0`). What landed: cold-mount init effect no longer intercepts legacy `?view=` links; they fall
+through to `parseScope`'s canonicalize → one-time `replaceState` to `?hub=channels` (slice §3-Q3). The warm
+`openLegacyConsole` path + the `popstate` legacy-reopen branch are preserved, so every legacy-homed
+capability (character CRUD/bible/history/casting via roster, new-channel creation, ideas capture, runs
+drill-down) stays reachable — the dual shell is retired for **deep links only**, not reachability (gate 5).
+Lane-4 popstate nits folded (`pendingQueueAction` cleared synchronously in `navigate`/`openLegacyConsole`/
+both popstate success callbacks).
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| L5-10 | **Blocker-1 regression** — legacy console opened during the `channel_profiles` loading window survives load-resolve | **PASS** | delayed channel_profiles GET ~3s, clicked New Channel during it → `railAfterResolve=1 url=?view=channels` (pre-fix would snap back to `?hub=channels`). |
+| L5-1..4 | Every cold legacy `?view=` (channels/queue/cost/roster) → `?hub=channels`, no legacy shell | **PASS** | all four: `url=?hub=channels legacyRail=0`. |
+| L5-5 | Redirect lands on the working hub (1 card == live `channel_profiles`) | **PASS** | `cards=1`. |
+| L5-6 | **Gate 5 no-capability-lost** — legacy roster reachable via warm Character-tab "Create New" CTA | **PASS** | `legacyRail=1 url=?view=roster`. |
+| L5-7 | N11 — legacy rail Hub button still exits to the Aurora hub | **PASS** | `?hub=channels railNodes=0`. |
+| L5-8 | Warm back-nav — Back from warm legacy exits to prior Aurora scope (popstate, dirty-guard intact) | **PASS** | `railBack=0 url=?channel=default&tab=character`. |
+| L5-9 | No app-level console errors | **PASS** | (env-only fonts CDN excluded). |
+
+**Accepted nits (non-blocking, Fable re-audit):** (1) a cold `?view=` entry buried behind an in-load
+navigation is canonicalized only on Back, not eagerly (`parseScope` decides the `view` case without
+`knownChannels`, so the redirect could fire before the fetch resolves); (2) no machine-checked regression
+test for the warm-open-during-load path — deferred, repo has no jsdom/RTL infra (`environment: "node"`),
+and the behavior is covered by the live L5-10 gate; ESLint has no config wired (`next lint` is interactive)
+so dep-arrays are tsc-checked only.
+
+**Scope note:** Lane 5 does NOT delete the legacy shell — the legacy roster remains the reachable home for
+full character CRUD/bible/history/casting until the Phase-2 character bench re-homes it (else gate 5 breaks).
+"Retire the legacy shell" completes in Phase 2.
