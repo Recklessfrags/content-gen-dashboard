@@ -25,6 +25,14 @@ import {
   type ChannelProfile,
   type ChannelProfileUpsertInput,
 } from "@/lib/channelProfiles";
+import {
+  DESCRIPTION_MIN,
+  GuidelineGenError,
+  generateChannelGuidelines,
+  type CastBrief,
+} from "@/lib/channelGuideline";
+import { logGuidelineKeepRate } from "@/lib/channelGuidelineTelemetry";
+import { stashCastBrief } from "@/lib/castBrief";
 import { suggestPersonaForChannel } from "@/lib/suggestPersona";
 import type { createClient } from "@/lib/supabase/client";
 import { Field } from "./shared";
@@ -60,6 +68,27 @@ type FormState = {
   titleStyle: string;
   thumbnailStyle: string;
   shortSeconds: string;
+};
+
+type ProposalField = {
+  key: keyof FormState;
+  label: string;
+  proposed: string;
+  current: string;
+  enforced: boolean;
+  accepted: boolean;
+};
+type Proposal = {
+  generatedAt: string;
+  brief: string;
+  assumptions: string[];
+  castBrief: CastBrief;
+  fields: ProposalField[];
+};
+type AppliedProposal = {
+  generatedAt: string;
+  castBrief: CastBrief;
+  fields: { key: keyof FormState; proposed: string }[];
 };
 
 function labelize(value: string) {
@@ -134,6 +163,10 @@ export function ChannelProfilesPanel({
     message: string;
     error?: boolean;
   } | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [lastApplied, setLastApplied] = useState<AppliedProposal | null>(null);
+  const [aiFlagged, setAiFlagged] = useState<Set<string>>(new Set());
   const hydratedChannelRef = useRef<string | null>(null);
 
   const selectedProfile = useMemo(
@@ -240,12 +273,86 @@ export function ChannelProfilesPanel({
     [characters],
   );
 
+  const clearAiFlag = useCallback((key: string) => {
+    setAiFlagged((current) => {
+      if (!current.has(key)) return current;
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+  }, []);
+
+  const generate = async () => {
+    if (!form || generating) return;
+    setGenerating(true);
+    setNotice(null);
+    try {
+      const { brief, suggestions, assumptions, cast_brief } = await generateChannelGuidelines(supabase, form.description);
+      const s = suggestions;
+      const current = form;
+      const mk = (key: keyof FormState, label: string, proposed: string, enforced: boolean): ProposalField => ({
+        key, label, proposed, current: String(current[key] ?? ""), enforced, accepted: true,
+      });
+      const fields: ProposalField[] = [
+        mk("displayName", "Display name", s.display_name, false),
+        mk("voiceArchetype", "Voice archetype", s.voice_archetype, false),
+        mk("factAnchor", "Fact anchor", s.fact_anchor, false),
+        mk("treatment", "Treatment", s.treatment, false),
+        mk("claimDiscipline", "Claim discipline", s.engagement_posture.claim_discipline, true),
+        mk("arousalCeiling", "Arousal ceiling", s.engagement_posture.arousal_ceiling, true),
+        mk("sourceLadder", "Source ladder", joinListInput(s.source_ladder), false),
+        mk("platforms", "Platforms", joinListInput(s.platforms), false),
+        mk("titleStyle", "Title style", s.packaging.title_style, false),
+        mk("thumbnailStyle", "Thumbnail style", s.packaging.thumbnail_style, false),
+        mk("shortSeconds", "Short length (s)", typeof s.length_target.short_s === "number" ? String(s.length_target.short_s) : "", false),
+      ].filter((f) => f.enforced || f.proposed.trim().length > 0);
+      setProposal({ generatedAt: new Date().toISOString(), brief, assumptions, castBrief: cast_brief, fields });
+      setNotice({ message: "Draft generated — review each field, then Apply. Nothing is saved yet." });
+    } catch (genError) {
+      setNotice({
+        message: genError instanceof GuidelineGenError ? genError.message : "Could not generate guidelines.",
+        error: true,
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const toggleProposalField = (key: keyof FormState) => {
+    setProposal((current) =>
+      current ? { ...current, fields: current.fields.map((f) => (f.key === key ? { ...f, accepted: !f.accepted } : f)) } : current,
+    );
+  };
+
+  const applyProposal = () => {
+    if (!proposal) return;
+    const accepted = proposal.fields.filter((f) => f.accepted);
+    accepted.forEach((f) => updateForm(f.key, f.proposed));
+    setAiFlagged(new Set(accepted.filter((f) => f.enforced).map((f) => String(f.key))));
+    setLastApplied({
+      generatedAt: proposal.generatedAt,
+      castBrief: proposal.castBrief,
+      fields: accepted.map((f) => ({ key: f.key, proposed: f.proposed })),
+    });
+    setProposal(null);
+    setNotice({ message: "Applied — review the flagged dials, then Save." });
+  };
+
+  const dismissProposal = () => setProposal(null);
+
+  const copyCastBrief = async (text: string) => {
+    try { await navigator.clipboard.writeText(text); setNotice({ message: "Cast brief copied." }); } catch { /* ignore */ }
+  };
+
   const selectProfile = (profile: ChannelProfile) => {
     setCreating(false);
     setSelectedChannel(profile.channel);
     hydratedChannelRef.current = profile.channel;
     setForm(profileToForm(profile, characters));
     setNotice(null);
+    setProposal(null);
+    setLastApplied(null);
+    setAiFlagged(new Set());
   };
 
   const startNew = () => {
@@ -254,6 +361,9 @@ export function ChannelProfilesPanel({
     hydratedChannelRef.current = null;
     setForm(profileToForm(defaultChannelProfile(""), characters));
     setNotice(null);
+    setProposal(null);
+    setLastApplied(null);
+    setAiFlagged(new Set());
   };
 
   const formToInput = (current: FormState): ChannelProfileUpsertInput => {
@@ -321,6 +431,20 @@ export function ChannelProfilesPanel({
       setForm(profileToForm(built, characters));
       await onRefetch();
       setNotice({ message: "Channel profile saved." });
+      if (lastApplied) {
+        const rows = lastApplied.fields.map((f) => ({
+          field: String(f.key),
+          proposed: f.proposed,
+          saved: String(form[f.key] ?? ""),
+        }));
+        void logGuidelineKeepRate(supabase, built.channel, lastApplied.generatedAt, rows);
+        if (built.character_id && lastApplied.castBrief.voice_description.trim()) {
+          stashCastBrief(built.character_id, lastApplied.castBrief);
+        }
+      }
+      setProposal(null);
+      setLastApplied(null);
+      setAiFlagged(new Set());
     } catch (saveError) {
       setNotice({
         message:
@@ -531,6 +655,74 @@ export function ChannelProfilesPanel({
                   onChange={(value) => updateForm("description", value)}
                   rows={4}
                 />
+                <div className="field" aria-live="polite">
+                  <button
+                    className="btn ghost"
+                    type="button"
+                    onClick={() => void generate()}
+                    disabled={generating || form.description.trim().length < DESCRIPTION_MIN}
+                  >
+                    {generating ? "Generating…" : "Generate from concept"}
+                  </button>
+                  <span className="hint">
+                    Drafts editable guideline fields from the concept. Non-binding — review and Save. Enforced dials are flagged.
+                  </span>
+                </div>
+                {proposal && (
+                  <div className="autogen-review" aria-live="polite">
+                    <div className="autogen-review-head">
+                      <strong>Proposed guidelines</strong>
+                      <span className="hint">Review each field, then Apply. Nothing is saved until you Save the channel.</span>
+                    </div>
+                    {proposal.brief && (
+                      <details className="autogen-brief">
+                        <summary>Editorial brief</summary>
+                        <p>{proposal.brief}</p>
+                      </details>
+                    )}
+                    {proposal.assumptions.length > 0 && (
+                      <p className="hint">
+                        <span aria-hidden="true">🧭 </span>
+                        <strong>Assumptions:</strong> {proposal.assumptions.join(" · ")}
+                      </p>
+                    )}
+                    <ul className="autogen-fields">
+                      {proposal.fields.map((f) => (
+                        <li key={String(f.key)} className="autogen-field">
+                          <label className="autogen-field-accept">
+                            <input type="checkbox" checked={f.accepted} onChange={() => toggleProposalField(f.key)} />
+                            <span className="autogen-field-label">
+                              {f.label}
+                              {f.enforced && <span className="badge">enforced</span>}
+                            </span>
+                          </label>
+                          <div className="autogen-field-diff">
+                            <span className="autogen-current">{f.current || "—"}</span>
+                            <span aria-hidden="true"> → </span>
+                            <span className="autogen-proposed">{f.proposed || "—"}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    {proposal.castBrief.voice_description && (
+                      <div className="autogen-castbrief">
+                        <div className="autogen-castbrief-head">
+                          <strong>Cast brief</strong>
+                          <button type="button" className="btn ghost" onClick={() => void copyCastBrief(proposal.castBrief.voice_description)}>
+                            Copy
+                          </button>
+                        </div>
+                        <p>{proposal.castBrief.voice_description}</p>
+                        {proposal.castBrief.preview_line && <p className="hint">“{proposal.castBrief.preview_line}”</p>}
+                        <p className="hint">Seeds the Casting Studio voice design when you Save (needs an assigned character).</p>
+                      </div>
+                    )}
+                    <div className="autogen-review-actions">
+                      <button type="button" className="btn" onClick={applyProposal}>Apply accepted</button>
+                      <button type="button" className="btn ghost" onClick={dismissProposal}>Dismiss</button>
+                    </div>
+                  </div>
+                )}
                 <div className="grid2">
                   <Field
                     id="channel-profile-channel"
@@ -687,13 +879,17 @@ export function ChannelProfilesPanel({
                     <div className="field">
                       <label htmlFor="channel-profile-claim-discipline">
                         <span className="eyebrow">Claim discipline</span>
+                        {aiFlagged.has("claimDiscipline") && (
+                          <span className="badge">AI-suggested · enforced · review</span>
+                        )}
                       </label>
                       <select
                         id="channel-profile-claim-discipline"
                         value={form.claimDiscipline}
-                        onChange={(event) =>
-                          updateForm("claimDiscipline", event.target.value)
-                        }
+                        onChange={(event) => {
+                          updateForm("claimDiscipline", event.target.value);
+                          clearAiFlag("claimDiscipline");
+                        }}
                       >
                         {CLAIM_DISCIPLINE.map((value) => (
                           <option key={value} value={value}>
@@ -705,13 +901,17 @@ export function ChannelProfilesPanel({
                     <div className="field">
                       <label htmlFor="channel-profile-arousal-ceiling">
                         <span className="eyebrow">Arousal ceiling</span>
+                        {aiFlagged.has("arousalCeiling") && (
+                          <span className="badge">AI-suggested · enforced · review</span>
+                        )}
                       </label>
                       <select
                         id="channel-profile-arousal-ceiling"
                         value={form.arousalCeiling}
-                        onChange={(event) =>
-                          updateForm("arousalCeiling", event.target.value)
-                        }
+                        onChange={(event) => {
+                          updateForm("arousalCeiling", event.target.value);
+                          clearAiFlag("arousalCeiling");
+                        }}
                       >
                         {AROUSAL_CEILING.map((value) => (
                           <option key={value} value={value}>

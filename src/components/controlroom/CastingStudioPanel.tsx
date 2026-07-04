@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Json } from "@/lib/database.types";
+import { loadCastBrief } from "@/lib/castBrief";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import { useScrollLock } from "@/lib/hooks/useScrollLock";
 import {
@@ -161,6 +162,7 @@ export function CastingStudioPanel({
   const [voiceDescription, setVoiceDescription] = useState(
     () => characterRecipeInputs?.voiceDescription ?? assembleKitDescription(initialBuilderSelections),
   );
+  const channelCastBrief = useMemo(() => loadCastBrief(character.id), [character.id]);
   const [builderSelections, setBuilderSelections] = useState<BuilderSelections>(() => initialBuilderSelections);
   const [builderDetached, setBuilderDetached] = useState(() => characterRecipeInputs?.detached ?? false);
   const [sampleText, setSampleText] = useState(() =>
@@ -1048,6 +1050,19 @@ export function CastingStudioPanel({
                   setBuilderDetached(true);
                 }}
               />
+              {channelCastBrief?.voice_description && channelCastBrief.voice_description !== voiceDescription && (
+                <button
+                  type="button"
+                  className="btn ghost compact"
+                  disabled={designing}
+                  onClick={() => {
+                    setVoiceDescription(channelCastBrief.voice_description);
+                    setBuilderDetached(true);
+                  }}
+                >
+                  Seed from channel cast brief
+                </button>
+              )}
             </div>
 
             <div className="field">
