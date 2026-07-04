@@ -68,6 +68,7 @@ export type Database = {
         Row: {
           channel: string
           character: string | null
+          character_id: string | null
           created_at: string
           display_name: string
           engagement_posture: Json
@@ -83,6 +84,7 @@ export type Database = {
         Insert: {
           channel: string
           character?: string | null
+          character_id?: string | null
           created_at?: string
           display_name?: string
           engagement_posture?: Json
@@ -98,6 +100,7 @@ export type Database = {
         Update: {
           channel?: string
           character?: string | null
+          character_id?: string | null
           created_at?: string
           display_name?: string
           engagement_posture?: Json
@@ -110,7 +113,15 @@ export type Database = {
           updated_at?: string
           voice_archetype?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "channel_profiles_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       character_bible_revisions: {
         Row: {

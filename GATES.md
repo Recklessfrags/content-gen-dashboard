@@ -511,3 +511,20 @@ idempotency-key seam change (one grep ask: does any pipeline tooling treat a nul
 **Deferred (sequenced for when channel-tagged threaded data exists):** §3.4 RPC (ordered writes with a
 surfaced non-blocking failure ship now instead — a map-orphaned job is recoverable; a null key / unmapped
 enqueue is not); Lane 2 `thread.ts` resolver; Lane 3 threaded Production + per-channel Runs/Cost UI.
+
+---
+
+## Phase-2 Lane 1 — channel_profiles.character_id FK + read-authority + picker — ratified live 6/6
+
+Real channel→character FK replacing the free-text name-match. Pipeline confirmed (grep, HQ 2026-07-04) the worker does NOT read `channel_profiles.character` → no expand/contract, no pipeline migration. `character_id` is the dashboard read authority; free-text `character` stays as a denormalized mirror. `default` cast to Fine Print. Fable-5 APPROVE-WITH-NITS (read-authority/adoption-guards/migration all CORRECT; top nit = the one-line no-implicit-wipe preserve, folded `cc235df` + conrelid guard + memoized picker options). Migration `dash_0007` applied + backfilled (default→Fine Print, single same-owner match) + VALIDATED (convalidated=true). Ratify: `scripts/ratify-phase2-lane1.mjs`.
+
+| # | Gate | Status | Evidence |
+| --- | --- | --- | --- |
+| P2-1 | Hub card renders the cast channel as CAST (via character_id OR mirror) | **PASS** | castMarker present. |
+| P2-2 | **FK-preference** — Character tab resolves Fine Print via `character_id` with the free-text mirror BLANKED in-session (proves FK read, not name-match) | **PASS** | finePrint=true, uncast=false. |
+| P2-3 | Guidelines Character control is a `<select>` picker bound to `character_id`, Fine Print selected | **PASS** | isSelect, value=Fine Print id, 4 options. |
+| P2-4a | Picker save mirrors — payload writes `character_id` + `character`=codename | **PASS** | character_id=Fine Print, character="Fine Print". |
+| P2-4b | Unassigned save → `character_id` null + `character` null (explicit clear); unmatchable legacy name preserved (no-implicit-wipe fold) | **PASS** | both null (intercept-and-abort, zero live writes). |
+| P2-5 | No app-level console errors (env fonts CDN excluded) | **PASS** | 0. |
+
+**Deferred (noted, not blocking):** codename-rename mirror sync (spec §4.1/gate 7 — display/fallback-only post-Q1); the "Linked — not visible in this session" labeled state (single-operator: negligible); the de-modaled casting split-screen (Phase 2 Lane 2). E1.b (casting-studio persona pre-select) deferred.
