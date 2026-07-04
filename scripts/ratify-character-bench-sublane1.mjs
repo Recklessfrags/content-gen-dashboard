@@ -179,50 +179,65 @@ async function main() {
     });
     check("BR-7a card exposes a focus indicator", !!focusRing && (focusRing.outline !== "none" || (focusRing.box && focusRing.box !== "none")), JSON.stringify(focusRing));
 
-    // AA contrast sample of a status chip (dark theme), composited over its surface
+    // AA contrast sample of a status chip — composite the FULL translucent stack
+    // (chip bg + any translucent ancestors) over the first fully-opaque ancestor,
+    // then ratio the (opaque) text color against that effective background.
     async function chipContrast() {
       return page.evaluate(() => {
         const chip = document.querySelector('.channels-grid[aria-label="Characters"] .status-chip');
         if (!chip) return null;
-        const cs = getComputedStyle(chip);
-        // walk up for an opaque backdrop
-        let node = chip, bg = null;
-        while (node) {
-          const b = getComputedStyle(node).backgroundColor;
-          if (b && !/rgba?\(0, 0, 0, 0\)/.test(b)) { bg = b; break; }
-          node = node.parentElement;
+        const theme = document.documentElement.getAttribute("data-theme") || "dark";
+        const parse = (s) => { const m = s.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(",").map((x) => parseFloat(x)); return { r: p[0], g: p[1], b: p[2], a: p[3] === undefined ? 1 : p[3] }; };
+        const layers = [];
+        let n = chip;
+        while (n) {
+          const c = parse(getComputedStyle(n).backgroundColor);
+          if (c && c.a > 0) { layers.push(c); if (c.a === 1) break; }
+          n = n.parentElement;
         }
-        return { color: cs.color, chipBg: cs.backgroundColor, surfaceBg: bg };
+        let base = layers.length && layers[layers.length - 1].a === 1 ? layers.pop() : (theme === "light" ? { r: 245, g: 245, b: 247, a: 1 } : { r: 5, g: 5, b: 10, a: 1 });
+        for (let i = layers.length - 1; i >= 0; i--) {
+          const f = layers[i];
+          base = { r: f.r * f.a + base.r * (1 - f.a), g: f.g * f.a + base.g * (1 - f.a), b: f.b * f.a + base.b * (1 - f.a), a: 1 };
+        }
+        return { color: getComputedStyle(chip).color, effBg: `rgb(${Math.round(base.r)}, ${Math.round(base.g)}, ${Math.round(base.b)})` };
       });
     }
     const cDark = await chipContrast();
     if (cDark) {
-      const surface = parseRGB(cDark.surfaceBg) || { r: 10, g: 12, b: 20, a: 1 };
-      const chipBg = comp(parseRGB(cDark.chipBg) || { r: 0, g: 0, b: 0, a: 0 }, surface);
-      const txt = comp(parseRGB(cDark.color), chipBg);
-      const rr = ratio(txt, chipBg);
-      check("BR-7b status chip text AA (dark, ratio>=4.5)", rr >= 4.5, `ratio=${rr.toFixed(2)} ${cDark.color} on ${cDark.chipBg}`);
+      const effBg = parseRGB(cDark.effBg);
+      const txt = comp(parseRGB(cDark.color), effBg);
+      const rr = ratio(txt, effBg);
+      check("BR-7b status chip text AA (dark, ratio>=4.5)", rr >= 4.5, `ratio=${rr.toFixed(2)} ${cDark.color} on ${cDark.effBg}`);
     } else check("BR-7b status chip text AA (dark)", false, "no chip");
 
     // no horizontal overflow at 1440 dark
     const noOverflow1440 = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
     check("BR-7c no horizontal overflow @1440 dark", noOverflow1440);
 
-    // light theme
-    await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+    // light theme — flip data-theme on the AuroraShell div (CSS keys off the attribute;
+    // this element sits nearer the chip than <html>, so it is the one that wins)
+    await page.evaluate(() => {
+      document.documentElement.setAttribute("data-theme", "light");
+      const shell = document.querySelector("[data-aurora-shell]");
+      if (shell) shell.setAttribute("data-theme", "light");
+    });
     await page.waitForTimeout(400);
     const cLight = await chipContrast();
     if (cLight) {
-      const surface = parseRGB(cLight.surfaceBg) || { r: 245, g: 245, b: 245, a: 1 };
-      const chipBg = comp(parseRGB(cLight.chipBg) || { r: 0, g: 0, b: 0, a: 0 }, surface);
-      const txt = comp(parseRGB(cLight.color), chipBg);
-      const rr = ratio(txt, chipBg);
-      check("BR-7d status chip text AA (light, ratio>=4.5)", rr >= 4.5, `ratio=${rr.toFixed(2)} ${cLight.color} on ${cLight.chipBg}`);
+      const effBg = parseRGB(cLight.effBg);
+      const txt = comp(parseRGB(cLight.color), effBg);
+      const rr = ratio(txt, effBg);
+      check("BR-7d status chip text AA (light, ratio>=4.5)", rr >= 4.5, `ratio=${rr.toFixed(2)} ${cLight.color} on ${cLight.effBg}`);
     } else check("BR-7d status chip text AA (light)", false, "no chip");
 
     // 412px mobile — cards render, no horizontal overflow
     await page.setViewportSize({ width: 412, height: 900 });
-    await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+    await page.evaluate(() => {
+      document.documentElement.setAttribute("data-theme", "dark");
+      const shell = document.querySelector("[data-aurora-shell]");
+      if (shell) shell.setAttribute("data-theme", "dark");
+    });
     await page.waitForTimeout(500);
     const cards412 = await page.locator('.channels-grid[aria-label="Characters"] .channel-card').count();
     const noOverflow412 = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
