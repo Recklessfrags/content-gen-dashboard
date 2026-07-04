@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-02 (governance re-adoption + channel persona auto-suggest session)** by the Architect (Claude).
+_Last updated: **2026-07-04 (channel auto-gen shipped, #80)** by the Architect (Claude).
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,50 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-04, continuation `…-cont-x8y66i`) — Phase-3 LANE 1 SHIPPED (#75, squash `1475b24`): non-null re-enqueue keys + `idea_job_map` provenance, money-path live-ratified 15/15 (zero live writes). Read this first.
+## ⚡ LATEST (2026-07-04, continuation `…-cont-x8y66i`) — CHANNEL AUTO-GEN SHIPPED (#80, squash `d00a91b`): operator-invoked two-stage LLM guideline generation + cast brief + accept/reject review panel + keep-rate telemetry. Read this first.
+
+Branch **`claude/channel-first-phase1-cont-x8y66i`** (now off production `d00a91b`). Since the Phase-3 Lane 1
+entry below, three PRs shipped: **#78** (Phase-2 Lane 1 — `channel_profiles.character_id` FK + read-authority +
+picker), **#79** (channel `description` field + section-grouped Guidelines editor, `dash_0008`), and **#80**
+(the channel auto-gen feature). The operator explicitly drove #80 "start to merge" and chose **all four
+grandiose layers**.
+
+- **Channel auto-gen (#80, squash `d00a91b`) — ✅ SHIPPED.** Operator writes a plain-language channel
+  `description` → **Generate from concept** → an LLM proposes guideline fields the operator reviews (accept/
+  reject) and Saves. Built on the `casting-proxy` pattern (Anthropic key server-side only; per-user daily cap;
+  server-side enum clamp). Four layers:
+  - **Two-stage generation** — edge function `channel-guideline-proxy` makes TWO Anthropic calls (stage 1 =
+    prose editorial brief; stage 2 = forced-tool JSON mapping brief → guideline fields + assumptions +
+    `cast_brief`). **ONE cap unit gates both calls** (10/day, `channel_guideline_bump_usage` atomic RPC).
+    Model `claude-opus-4-8`, **no sampling params** (Opus 4.8 rejects `temperature`/`top_p`/`top_k` with a
+    400 — this was the Fable BLOCKER). `arousal_ceiling` schema omits the blocked value AND every enum is
+    server-clamped; a defense-in-depth client re-clamp guards against a stale edge deploy.
+  - **Accept/reject review panel** (`ChannelProfilesPanel.tsx`) — generation stages proposals; the form is
+    filled only on **Apply**, the DB only on **Save**. Enforced dials flagged; the editorial brief + cast brief
+    shown (cast brief copyable).
+  - **Voice cast brief** — stage 2 emits a 200–600 char ElevenLabs-ready `voice_description`; on Save it's
+    stashed in `localStorage` keyed by the assigned `character_id`, and the **Casting Studio** offers a one-click
+    "Seed from channel cast brief" for the voice design. Auto-gen NEVER casts or writes `characters`
+    (pipeline boundary). Durable server column deferred (needs HQ worker-read confirmation).
+  - **Keep-rate telemetry** — `dash_0010` (dashboard-owned, owner-scoped RLS, `user_id` default `auth.uid()`);
+    on Save, proposed-vs-saved rows written best-effort (never blocks the Save).
+  - **Review:** Fable-5 **BLOCK** (the `temperature`-400 that would 400 every generation *after* consuming a
+    cap unit) → folded + 4 more (anthropicError → 502 never mirroring upstream status/text; `max_tokens`
+    handled both stages; client enum re-clamp). Fable verified all 8 hard invariants against the code.
+  - **Ratify:** cap RPC live-tested (allowed→used=1, at-cap→blocked/used=10, atomic guard held);
+    `scripts/ratify-channel-autogen.mjs` **9/9, zero live writes** (no-auto-fill, accept-gated, no-auto-persist,
+    no `aggressive` through Apply/Save, telemetry proposed-vs-saved, cast-brief stash by `character_id`, cap-429
+    handling); **one live generation** against the deployed function (verify_jwt:true, real key) produced a
+    coherent brief + safe-floor enums + a usable cast brief (operator quality gate). `tsc` + `build` clean.
+  - **Live state:** edge function `channel-guideline-proxy` **deployed** (v1, verify_jwt:true); `dash_0009`
+    (cap) + `dash_0010` (telemetry) **applied**; types regenerated. **`ANTHROPIC_API_KEY` set by the operator.**
+  - **NEXT:** operator quality-audit the live generations (the only non-programmatic gate); if v1 quality holds,
+    the deferred richness (per-field regenerate, durable `channel_profiles.cast_brief` column pending HQ, a
+    telemetry read-out) rides the same edge response shape — no rework. Fable's deferred nits (cap refund on
+    upstream outage; CORS origin env; telemetry post-normalization + `strict` tool) are logged in
+    `docs/slices/slice-channel-autogen.md` §8.
+
+## Earlier (2026-07-04, `…-cont-x8y66i`) — Phase-3 LANE 1 SHIPPED (#75, squash `1475b24`): non-null re-enqueue keys + `idea_job_map` provenance, money-path live-ratified 15/15 (zero live writes).
 
 Branch **`claude/channel-first-phase1-cont-x8y66i`** (off production `ced2c08`). **Trigger:** the pipeline
 shipped `episodes.correlation_key` (7 episodes carry it) — this LIFTED Phase-3's structural gate AND made
