@@ -64,6 +64,57 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_guideline_telemetry: {
+        Row: {
+          channel: string
+          created_at: string
+          field: string
+          generated_at: string | null
+          id: string
+          proposed: string | null
+          saved: string | null
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          field: string
+          generated_at?: string | null
+          id?: string
+          proposed?: string | null
+          saved?: string | null
+          user_id?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          field?: string
+          generated_at?: string | null
+          id?: string
+          proposed?: string | null
+          saved?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      channel_guideline_usage: {
+        Row: {
+          count: number
+          day: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          day?: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          day?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       channel_profiles: {
         Row: {
           channel: string
