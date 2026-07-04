@@ -60,6 +60,8 @@ Reuse the **data/logic seams**, rebuild the **chrome** against Aurora (same disc
 ## 4. Sequencing (sub-lanes)
 
 1. **Bench list + read** — Aurora Characters surface (cards, status, links). Read-only; low risk.
+   **✅ SHIPPED (#92, squash `a845d5f`, 2026-07-04)** — `?hub=characters` read-only bench; build spec
+   `build-character-bench-sublane1.md`; ratify `scripts/ratify-character-bench-sublane1.mjs` 22/22, zero writes.
 2. **Dossier editor re-home** — the bible editor + save + revisions + draft-create in Aurora; re-point
    "Manage all characters →" and "Create New" to it.
 3. **History/restore re-skin** — Aurora HistoryDrawer/Compare/Restore.
