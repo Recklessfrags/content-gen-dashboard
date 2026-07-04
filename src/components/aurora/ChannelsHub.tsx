@@ -18,6 +18,7 @@ export type ChannelsHubProps = {
   onOpenChannel: (channel: string) => void;
   onNewChannel: () => void;
   creating?: boolean;
+  onOpenCharacters?: () => void;
 };
 
 export function getChannelLabel(card: Pick<ChannelCardVM, "channel" | "displayName">): string {
@@ -42,6 +43,7 @@ export function ChannelsHub({
   onOpenChannel,
   onNewChannel,
   creating = false,
+  onOpenCharacters,
 }: ChannelsHubProps) {
   const showEmpty = !loading && error === null && cards.length === 0;
   const showCards = !loading && error === null && cards.length > 0;
@@ -57,16 +59,23 @@ export function ChannelsHub({
             Root Objects &amp; Production Lines
           </p>
         </div>
-        <button
-          type="button"
-          className="btn-new-channel"
-          disabled={creating}
-          aria-busy={creating}
-          onClick={onNewChannel}
-        >
-          <PlusIcon />
-          New Channel
-        </button>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
+          {onOpenCharacters ? (
+            <button type="button" className="btn-secondary" onClick={onOpenCharacters}>
+              Characters {"\u2192"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn-new-channel"
+            disabled={creating}
+            aria-busy={creating}
+            onClick={onNewChannel}
+          >
+            <PlusIcon />
+            New Channel
+          </button>
+        </div>
       </div>
 
       {loading ? <LoadingGrid /> : null}

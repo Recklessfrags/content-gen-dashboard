@@ -45,7 +45,12 @@ import {
 import { AuroraShell } from "./aurora/AuroraShell";
 import { ActionCenter } from "./aurora/ActionCenter";
 import { HubLanding } from "./aurora/HubLanding";
+import { CharactersHub } from "./aurora/CharactersHub";
 import type { ChannelCardVM } from "./aurora/ChannelsHub";
+import type {
+  CharacterCardVM as CharactersHubCardVM,
+  CharactersHubProps,
+} from "./aurora/CharactersHub";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
@@ -911,6 +916,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     [activeId, discardDraftCharacter, guardDirtyAction],
   );
 
+  const handleOpenCharacter = useCallback(
+    (characterId: string) => {
+      guardDirtyAction(() => {
+        guardedSetActiveId(characterId);
+        openLegacyConsole("roster");
+      });
+    },
+    [guardDirtyAction, guardedSetActiveId, openLegacyConsole],
+  );
+
   const activateWorkspaceTab = useCallback(
     (channel: string, nextTab: WorkspaceTab) => {
       if (scope.kind === "workspace" && scope.channel === channel && scope.tab === nextTab) {
@@ -1555,6 +1570,19 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       })),
     [channelProfiles, jobs],
   );
+  const charactersHubCards = useMemo<CharactersHubCardVM[]>(
+    () =>
+      chars.map((character) => ({
+        id: character.id,
+        codename: character.codename ?? "",
+        concept: character.concept ?? null,
+        initials: characterInitials(character.codename ?? ""),
+        isVoiceCast: isCast(character),
+        isVisualCast: isVisuallyCast(character),
+        isDraft: character.status === "draft",
+      })),
+    [chars],
+  );
   const activeRuns = useMemo(
     () => episodes.filter((episode) => runMatchesFilter(episode.status, "running")).length,
     [episodes],
@@ -1582,6 +1610,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       })),
     [actionableJobs],
   );
+  const charactersHubProps = useMemo<CharactersHubProps>(
+    () => ({
+      cards: charactersHubCards,
+      loading,
+      error: loadError,
+      onRetry: refetchCharacters,
+      onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
+      onOpenCharacter: handleOpenCharacter,
+    }),
+    [charactersHubCards, handleOpenCharacter, loadError, loading, navigate, refetchCharacters],
+  );
   const hubLandingProps = {
     channels: {
       cards: hubChannelCards,
@@ -1593,6 +1632,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         setChannelsAutoNew(true);
         openLegacyConsole("channels");
       },
+      onOpenCharacters: () => navigate({ kind: "hub", hub: "characters" }),
     },
     glance: {
       activeChannels: channelProfiles.length,
@@ -1739,6 +1779,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
             statusLabel={(job) => JOB_STATUS_LABELS[classifyJobStatus(job.status)]}
           />
+        </AuroraShell>
+      </>
+    );
+  }
+
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "characters") {
+    return (
+      <>
+        {globalOverlays}
+        <AuroraShell operatorInitials={operatorInitials}>
+          <CharactersHub {...charactersHubProps} />
         </AuroraShell>
       </>
     );
