@@ -1299,6 +1299,10 @@
   border-top-color: var(--border-soft);
 }
 
+.aurora-app .channel-profiles.scoped .channel-profile-section-title {
+  letter-spacing: 0.1em;
+}
+
 .aurora-app .channel-profiles.scoped .filecode .live,
 .aurora-app .channel-profiles.scoped .field label {
   color: var(--text-muted);
