@@ -11,7 +11,7 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-04, continuation `…-cont-x8y66i`) — Phase-3 LANE 1 built + Fable-APPROVED + migration APPLIED; blocked ONLY on QA creds for the mandatory money-path live-ratify → merge. Read this first.
+## ⚡ LATEST (2026-07-04, continuation `…-cont-x8y66i`) — Phase-3 LANE 1 SHIPPED (#75, squash `1475b24`): non-null re-enqueue keys + `idea_job_map` provenance, money-path live-ratified 15/15 (zero live writes). Read this first.
 
 Branch **`claude/channel-first-phase1-cont-x8y66i`** (off production `ced2c08`). **Trigger:** the pipeline
 shipped `episodes.correlation_key` (7 episodes carry it) — this LIFTED Phase-3's structural gate AND made
@@ -19,8 +19,8 @@ the dashboard's null-key bug **active** (approval re-enqueues forced `idempotenc
 → money-spending re-runs un-threadable). Phase 2 stays **blocked** (worker-read ASK still 🟡 OPEN, unanswered);
 Lane 3b stays **data-blocked** (`jobs.channel` 0/50). So the timely lane = **Phase-3 Lane 1**.
 
-- **Phase-3 Lane 1 (SCOPED per Fable) — BUILT, Fable-APPROVED, NOT yet merged.** Commits `3ef5b5d`
-  (build) + `5f2f4c9` (fold) + `039e981` (ratify harness) on the branch.
+- **Phase-3 Lane 1 (SCOPED per Fable) — ✅ SHIPPED (PR #75, squash `1475b24`).** Was commits `3ef5b5d`
+  (build) + `5f2f4c9` (fold) + `039e981` (ratify harness).
   - **What landed (code):** the three approval re-enqueue builders (`buildSpend/Fact/PublishApprovalReenqueue`,
     `src/lib/jobs.ts`) now PRESERVE the caller-supplied key instead of forcing `null`; `confirmQueueAction`
     (`ControlRoom.tsx`) sends a fresh `job_rerun_<id>_<ts>` key on ALL re-enqueue actions (avoids the
@@ -39,14 +39,15 @@ Lane 3b stays **data-blocked** (`jobs.channel` 0/50). So the timely lane = **Pha
     verified (5 cols, 4 RLS policies, RLS on, `idea_id` FK=SET NULL, `owner` FK=CASCADE); types match live.
     **SET NULL proven** via an MCP seed→delete-idea→assert→cleanup round-trip (map row survives with `idea_id`
     null, `channel`/`owner` kept — channel-level cost preserved).
-  - **REMAINING (blocked on QA creds):** the **mandatory money-path live-ratify** (`scripts/ratify-lane1.mjs`,
-    intercept-and-abort — non-null unique keys on spend/publish/stale, double-gate step1/step2, payload flag
-    identity, zero live writes, the double-submit race fix, `idea_job_map` provenance incl. seeded positive
-    recovery). Harness is written + committed; deps present (playwright + chrome). **To run:** request
-    `RATIFY_EMAIL`/`RATIFY_PASSWORD`, write `.env.local` (+ URL + anon), `rm -rf .next && npm run build` AFTER
-    `.env.local` (the NEXT_PUBLIC bake trap), seed the first spend row's key via MCP + set `RATIFY_SEED_IDEA_ID`,
-    run. **Then squash-merge (owner recklessfrags) + update GATES/ledger/tracker.** Fable's code-APPROVE is NOT
-    a substitute for the live money-path gate (Lane 4 precedent).
+  - **Money-path live-ratify — 15/15, ZERO live writes** (`scripts/ratify-lane1.mjs`, intercept-and-abort;
+    GATES `L1-1..L1-17`): non-null unique `job_rerun` keys on spend/publish/stale, double-gate step1/step2,
+    payload flag identity (publish does NOT force spend), the double-submit race fix (triple-confirm → 1 write),
+    `idea_job_map` provenance incl. seeded positive recovery (`idea_id` recovered). `dash_0006` applied live;
+    **SET NULL proven** via an MCP round-trip. Live `jobs` == 50 before/after (no money writes leaked).
+  - **NEXT (still gated, unchanged):** Phase 2 (worker-read ASK still 🟡 OPEN — fresh-fetch the tracker before
+    building); Lane 3b (data-blocked, `jobs.channel` 0/50 — re-check via `execute_sql`); Phase-3 Lanes 2-3
+    (resolver + per-channel Runs/Cost UI) + §3.4 RPC — build when real channel-tagged threaded data exists
+    (Lane 1 now captures the provenance so future idea→job→episode threads accumulate).
 - **HQ:** heads-up posted (Coordination Log, 2026-07-04) — the non-null idempotency-key seam change (one grep
   ask back: does any pipeline tooling treat null key as "approval re-run"?) + the `dash_0006` announce.
 
