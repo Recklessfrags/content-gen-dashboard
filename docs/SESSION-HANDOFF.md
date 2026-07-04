@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-04 (channel auto-gen shipped #80, ratified/handoff #81, suerta fix-forward #82; HQ current; next lane = Phase-2 Lane 2)** by the Architect (Claude).
+_Last updated: **2026-07-04 (Phase-2 Lane 2 "casting de-modaled" + E1.b SHIPPED #84, ratified 15/15; HQ current)** by the Architect (Claude).
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,47 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-04, continuation `…-cont-x8y66i`) — CHANNEL AUTO-GEN SHIPPED (#80, squash `d00a91b`): operator-invoked two-stage LLM guideline generation + cast brief + accept/reject review panel + keep-rate telemetry. Read this first.
+## ⚡ LATEST (2026-07-04) — PHASE-2 LANE 2 "CASTING DE-MODALED" + E1.b SHIPPED (#84, squash `8186ae15`). Read this first.
+
+Branch **`claude/casting-de-modaled-phase2-skinrd`** off production **`8186ae15`**. The Casting Studio (voice) +
+Visual Identity panels are now an **inline split-screen region of the workspace Character tab** instead of modal
+overlays. Pure UI re-home — **no migration, no shared-seam change** (worker doesn't read `channel_profiles.character`;
+`casting-proxy` untouched); HQ announce-only note posted.
+
+- **What landed:** a `variant: "modal" | "inline"` prop on `CastingStudioPanel` + `VisualIdentityPanel`. Inline drops
+  the fixed overlay / body scroll-lock / outer focus-trap while **reusing every handler verbatim** and keeping the
+  inner sub-dialogs (save-template, browse-records drawer, audition lock-confirm) focus-trapped. Inline preserves the
+  panels' exact internal (parchment) surfaces so measured AA carries over — only the chrome changed. The **legacy roster
+  savebar keeps the modal path** (default variant) → no capability lost. Workspace Character tab cast state renders the
+  panels inline (dossier + Visual side-by-side, Casting Studio full-width below; stacks ≤720px, Q2). **E1.b** folded:
+  `suggestPersonaForChannel(channelProfile)` pre-selects the Casting persona chip only when the character has no saved
+  `voice_recipe` — operator-overridable, non-binding, **seed-once** (via a ref, out of the reset-effect deps so a late
+  channel suggestion can't clobber in-progress edits); inline panels keyed on `castChar.id` for clean per-character remount.
+- **Invariants preserved (behavior-identical):** cancel = no-write/no-spend · `voice_recipe` birth-certificate write
+  stays behind the audition lock-confirm ack gate · daily cap · modal path untouched.
+- **Review:** Fable-5 (cross-vendor) round-1 **BLOCKER** — inline panels render under `.aurora-app` not `.cr`, losing
+  the `.cr`-scoped base rules so casting textareas typed near-black on the dark surface (`globals.css:21` is the only
+  rule coloring `.field` inputs). Folded: re-established those rules scoped to `.casting-inline`/`.visual-inline`
+  (faithful to the shipped modal) + fixed backdrop/viewport positioning for inline sub-dialogs (the lock-confirm money
+  gate is now a true modal) + inline loading-dim selector. suerta (same-vendor L-2) — no BLOCKER (no-spend-on-mount,
+  birth-certificate write, ref-image degrade, tokens all verified). Both flagged the persona clobber → seed-once + key.
+- **Ratify:** `scripts/ratify-phase2-lane2.mjs` **15/15, ZERO live writes / ZERO live spend** (intercept-and-abort the
+  `casting-proxy` calls + any `characters` write): inline render / no overlay, redirect removed, cast + empty states,
+  no-spend-on-mount, generate wired-and-aborted, **CONFIRM LOCK birth-certificate write gated + intercepted**, 412px
+  stack, **E1.b pre-select (`HUSHED NATURALIST` for the Animal channel) + safety (recipe wins) + overridable**,
+  **textarea legibility 12.67:1 (BLOCKER-fix proof)**, no console errors. Live DB unchanged (Fine Print `voice_id`
+  is the real EL id, not the harness fake). `tsc` + `build` clean.
+- **Data reality (live, 2026-07-04):** `default` → `character_id` = Fine Print (voice-cast, **not** visually-cast) →
+  the Character-tab cast branch renders live; Casting Studio = cast state, Visual Identity = empty/upload state.
+- **Deferred residuals** (documented `slice-channel-first-phase2.md` §7): inline Visual-Identity staged-work is dropped
+  on a *deliberate* tab-away (no write/spend lost; dossier dirty-guard untouched) — a workspace-nav dirty check is the
+  clean fix; inline panels fan out 2 reads + 1 storage-sign per Character-tab visit (reads only) — lazy-load deferred.
+- **NEXT:** Phase-2's remaining §4.1 refinements if wanted (mirror-sync-on-rename Q3, linked-but-unreadable defensive
+  state — both single-operator-latent today), then **retire the legacy roster shell** (Lane 5 finished deep links; the
+  full retire needs a global character bench that re-homes roster CRUD). Lane 3b + Phase-3 Lanes 2-3 stay **data-blocked**
+  (`jobs.channel` still 0/50 — re-verify live). Phase-3 threading is unblocked (`episodes.correlation_key` shipped).
+
+## ⚡ EARLIER (2026-07-04, continuation `…-cont-x8y66i`) — CHANNEL AUTO-GEN SHIPPED (#80, squash `d00a91b`): operator-invoked two-stage LLM guideline generation + cast brief + accept/reject review panel + keep-rate telemetry.
 
 Branch **`claude/channel-first-phase1-cont-x8y66i`** (now off production **`bc27496`**, tip = #82). Since the
 Phase-3 Lane 1 entry below, five PRs shipped: **#78** (Phase-2 Lane 1 — `channel_profiles.character_id` FK +
