@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-04 (channel auto-gen shipped, #80)** by the Architect (Claude).
+_Last updated: **2026-07-04 (channel auto-gen shipped #80, ratified/handoff #81, suerta fix-forward #82; HQ current; next lane = Phase-2 Lane 2)** by the Architect (Claude).
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -13,11 +13,13 @@ is the fast path._
 
 ## ⚡ LATEST (2026-07-04, continuation `…-cont-x8y66i`) — CHANNEL AUTO-GEN SHIPPED (#80, squash `d00a91b`): operator-invoked two-stage LLM guideline generation + cast brief + accept/reject review panel + keep-rate telemetry. Read this first.
 
-Branch **`claude/channel-first-phase1-cont-x8y66i`** (now off production `d00a91b`). Since the Phase-3 Lane 1
-entry below, three PRs shipped: **#78** (Phase-2 Lane 1 — `channel_profiles.character_id` FK + read-authority +
-picker), **#79** (channel `description` field + section-grouped Guidelines editor, `dash_0008`), and **#80**
-(the channel auto-gen feature). The operator explicitly drove #80 "start to merge" and chose **all four
-grandiose layers**.
+Branch **`claude/channel-first-phase1-cont-x8y66i`** (now off production **`bc27496`**, tip = #82). Since the
+Phase-3 Lane 1 entry below, five PRs shipped: **#78** (Phase-2 Lane 1 — `channel_profiles.character_id` FK +
+read-authority + picker), **#79** (channel `description` field + section-grouped Guidelines editor, `dash_0008`),
+**#80** (the channel auto-gen feature), **#81** (GATES/handoff durable record), and **#82** (suerta fix-forward:
+server error surfacing + client max-length guard). The operator explicitly drove #80 "start to merge" and chose
+**all four grandiose layers**. The auto-gen feature is fully closed out — shipped, ratified, both review lenses
+(Fable cross-vendor + suerta same-vendor) passed, and HQ updated.
 
 - **Channel auto-gen (#80, squash `d00a91b`) — ✅ SHIPPED.** Operator writes a plain-language channel
   `description` → **Generate from concept** → an LLM proposes guideline fields the operator reviews (accept/
@@ -48,11 +50,44 @@ grandiose layers**.
     coherent brief + safe-floor enums + a usable cast brief (operator quality gate). `tsc` + `build` clean.
   - **Live state:** edge function `channel-guideline-proxy` **deployed** (v1, verify_jwt:true); `dash_0009`
     (cap) + `dash_0010` (telemetry) **applied**; types regenerated. **`ANTHROPIC_API_KEY` set by the operator.**
+  - **suerta (same-vendor L-2 second lens, #82):** independently re-derived and **CONFIRMED correct** the
+    migrations (RLS + `auth.uid()` default no-forge; cap RPC race-safe + privilege-tight), money path, key
+    custody, no-auto-persist gating, triple-gated enum safety, and the characters boundary. Two minor client-only
+    findings **fixed in #82** (`edgeErrorMessage` now surfaces the server's typed error body on 400/502 instead of
+    the generic supabase-js string; `DESCRIPTION_MAX=2000` client guard). F3/F4 nits (cast-brief localStorage
+    last-writer-wins; no `user_id` index on the write-only telemetry table) deferred + documented in
+    `slice-channel-autogen.md` §8.
+  - **HQ (Coordination Log) — current.** Posted the cross-team heads-up (E2 auto-gen SHIPPED = the
+    channel-researcher the pipeline tracked as deferred; `dash_0009`/`dash_0010` announce), flipped the stale
+    **E2 tracker row → SHIPPED**, and logged the `temperature`-400 lesson to the Process Learnings Ledger. No new
+    pipeline inbound owed.
   - **NEXT:** operator quality-audit the live generations (the only non-programmatic gate); if v1 quality holds,
     the deferred richness (per-field regenerate, durable `channel_profiles.cast_brief` column pending HQ, a
     telemetry read-out) rides the same edge response shape — no rework. Fable's deferred nits (cap refund on
     upstream outage; CORS origin env; telemetry post-normalization + `strict` tool) are logged in
     `docs/slices/slice-channel-autogen.md` §8.
+
+### Session close state (2026-07-04, `…-cont-x8y66i`) — pick up here
+- **Data reality re-checked (live DB):** `episodes.character_id` is now **31/50** (was 0) → the HQ-tracked
+  **per-character cost drill-down is now live for free** — `CostBoxDashboard` already renders `characterSplit`;
+  it only needed character-linked runs, which now exist. **Nothing to build there.** `jobs.channel` still
+  **0/50** → Lane 3b + Phase-3 Lanes 2-3 remain **data-blocked** (per-channel Runs/Cost can't be built until the
+  pipeline tags jobs with a channel). `channel_profiles` = 1 (`default`), `characters` = 3, `channel_guideline_telemetry` = 0 (operator hasn't used auto-gen yet).
+- **NEXT LANE (the one substantial *unblocked* build) = Phase 2 Lane 2 — "Casting de-modaled"**
+  (`docs/slices/slice-channel-first-phase2.md` §4.2). HQ-confirmed unblocked (worker does NOT read
+  `channel_profiles.character`; no expand/contract). Move Casting Studio (voice) + Visual Identity out of modal
+  overlays into a **split-screen region of the workspace Character tab** — **reuse the handlers/logic verbatim**
+  (dirty-guard, cancel = no-write/no-spend, the `voice_recipe` birth-certificate write must all survive the
+  de-modal), rebuild only the chrome. Folds in **E1.b** (pre-select the mapped casting persona chip, overridable).
+  It's a full build→Fable+suerta→ratify→merge cycle (a UI restructure where operator taste matters); §5 gates are
+  falsifiable + QA-creds-required (`scripts/ratify-*.mjs` pattern). §6 open items: reviewer-trio first; Q2 =
+  split-screen treatment at 412px (stacked/disclosure on mobile).
+- **Pipeline shipped (read-only for us, no action owed):** Visual-Sourcing **Wave A/B** (#64/#65) added additive
+  `RenderManifest` receipt fields — `visual_distinctness`, `visual_reuse_advisory`, `visual_relevance`. Optional
+  future surfacing on an episode/receipt/operator-watch view; nothing owed.
+- **Governance note:** rules **30 & 33** were folded pipeline-side (measure a run by what ships; cap spec review
+  ~2 rounds) — the operator syncs the dashboard `governance.md` mirror directly (standing convention); not a
+  dashboard build task.
 
 ## Earlier (2026-07-04, `…-cont-x8y66i`) — Phase-3 LANE 1 SHIPPED (#75, squash `1475b24`): non-null re-enqueue keys + `idea_job_map` provenance, money-path live-ratified 15/15 (zero live writes).
 
