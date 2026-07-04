@@ -39,6 +39,10 @@ function check(name, pass, detail = "") {
   console.log(`${pass ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
+// One-shot delay of the next channel_profiles GET, to deterministically widen the
+// channelProfilesLoading window for the Blocker-1 regression gate (L5-10).
+const bridgeState = { delayChannelProfilesOnceMs: 0 };
+
 async function installBridge(context) {
   await context.route("**/*.supabase.co/**", async (route) => {
     const request = route.request();
@@ -47,6 +51,15 @@ async function installBridge(context) {
     delete headers["content-length"];
     const method = request.method();
     const body = method === "GET" || method === "HEAD" ? undefined : (request.postData() ?? undefined);
+    if (
+      bridgeState.delayChannelProfilesOnceMs > 0 &&
+      method === "GET" &&
+      /\/rest\/v1\/channel_profiles/.test(request.url())
+    ) {
+      const ms = bridgeState.delayChannelProfilesOnceMs;
+      bridgeState.delayChannelProfilesOnceMs = 0; // one-shot
+      await sleep(ms);
+    }
     try {
       const response = await fetch(request.url(), { method, headers, body, redirect: "manual" });
       const rh = {};
@@ -123,6 +136,31 @@ async function main() {
 
   try {
     await login(page);
+
+    // --- L5-10: BLOCKER-1 regression — a legacy console opened DURING the channel_profiles
+    // loading window must survive load-resolve (not get clobbered by the cold-mount init effect).
+    // Deterministically widen the window by delaying the next channel_profiles GET ~3s, then click
+    // "New Channel" (openLegacyConsole) during it; after resolve the console + its ?view= URL must
+    // remain. Pre-fix (without didInitScopeRef=true in the nav callbacks) this snaps back to the hub.
+    bridgeState.delayChannelProfilesOnceMs = 3000;
+    await page.goto(`${BASE}/?hub=channels`, { waitUntil: "domcontentloaded" });
+    const newChannelBtn = page.locator(".btn-new-channel");
+    await newChannelBtn.waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
+    const loadingDuringClick = await page.locator('.channels-grid[aria-busy="true"]').count();
+    await newChannelBtn.click();
+    await page.waitForTimeout(800);
+    const railDuringLoad = await page.locator(".cr .rail").count();
+    // wait past the 3s delay so channel_profiles resolves and the init effect re-runs
+    await page.waitForTimeout(3500);
+    await page.waitForLoadState("networkidle").catch(() => {});
+    const railAfterResolve = await page.locator(".cr .rail").count();
+    const urlAfterResolve = new URL(page.url());
+    check(
+      "L5-10 legacy console opened during load survives load-resolve (Blocker-1 fix)",
+      loadingDuringClick >= 1 && railDuringLoad >= 1 && railAfterResolve >= 1 && urlAfterResolve.searchParams.get("view") === "channels",
+      `loadingAtClick=${loadingDuringClick} railDuringLoad=${railDuringLoad} railAfterResolve=${railAfterResolve} url=${urlAfterResolve.search}`,
+    );
+    bridgeState.delayChannelProfilesOnceMs = 0; // ensure disarmed for the remaining gates
 
     // --- L5-1..4: EVERY legacy ?view= cold deep link redirects to the Aurora hub ---
     await assertColdRedirect(page, "channels");
