@@ -7,6 +7,7 @@ const EDGE_FUNCTION = "channel-guideline-proxy";
 
 export const CHANNEL_GUIDELINE_DAILY_CAP = 10;
 export const DESCRIPTION_MIN = 30;
+export const DESCRIPTION_MAX = 2000;
 
 export type GuidelineSuggestions = {
   display_name: string;
@@ -44,21 +45,32 @@ export class GuidelineGenError extends Error {
   }
 }
 
-function edgeErrorMessage(error: unknown, fallback: string): {
+async function edgeErrorMessage(error: unknown, fallback: string): Promise<{
   message: string;
   capReached: boolean;
-} {
+}> {
   // supabase-js FunctionsHttpError carries the HTTP status in .context.
   if (error && typeof error === "object") {
-    const ctx = (error as { context?: { status?: number } }).context;
+    const ctx = (error as { context?: { status?: number; json?: () => Promise<unknown> } }).context;
     const status = ctx?.status;
-    const msg = (error as { message?: string }).message;
     if (status === 429) {
       return { message: "Daily generation cap reached. Auto-generation is locked until tomorrow.", capReached: true };
     }
     if (status === 401) {
       return { message: "Your session expired — sign in again to generate.", capReached: false };
     }
+    // Prefer the edge function's typed error body for other non-2xx (400 / 502 / …).
+    if (ctx && typeof ctx.json === "function") {
+      try {
+        const body = (await ctx.json()) as { error?: string; cap_reached?: boolean } | null;
+        if (body && typeof body.error === "string" && body.error.length > 0) {
+          return { message: body.error, capReached: Boolean(body.cap_reached) };
+        }
+      } catch {
+        // body not JSON / already consumed — fall through
+      }
+    }
+    const msg = (error as { message?: string }).message;
     if (typeof msg === "string" && msg.length > 0) {
       return { message: msg, capReached: false };
     }
@@ -74,11 +86,14 @@ export async function generateChannelGuidelines(
   if (trimmed.length < DESCRIPTION_MIN) {
     throw new GuidelineGenError(`Write at least ${DESCRIPTION_MIN} characters describing the channel first.`);
   }
+  if (trimmed.length > DESCRIPTION_MAX) {
+    throw new GuidelineGenError(`Description is too long (max ${DESCRIPTION_MAX} characters).`);
+  }
   const { data, error } = await client.functions.invoke<{ brief?: string; suggestions?: GuidelineSuggestions; assumptions?: string[]; cast_brief?: { voice_description?: string; preview_line?: string }; error?: string }>(EDGE_FUNCTION, {
     body: { action: "generate", description: trimmed },
   });
   if (error) {
-    const mapped = edgeErrorMessage(error, "Could not generate guidelines.");
+    const mapped = await edgeErrorMessage(error, "Could not generate guidelines.");
     throw new GuidelineGenError(mapped.message, mapped.capReached);
   }
   if (data?.error) {

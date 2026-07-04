@@ -132,3 +132,15 @@ Deferred from the Fable review (real but secondary; documented, not fixed in v2)
 - **Telemetry normalization + `strict` tool** (Fable F9): telemetry `saved` records the pre-`buildChannelProfileUpsert`
   FormState string, so keep-rate can misclassify at format boundaries (clamped `short_s`, re-split lists).
   Consider recording post-normalization values, and `strict: true` on the tool as a free structural guarantee.
+
+From the suerta (same-vendor second-lens) review — migrations, money path, key custody, no-auto-persist,
+enum safety, and the characters boundary all independently CONFIRMED correct. Findings:
+- **Surface server error bodies client-side** (suerta F1, LOW): `edgeErrorMessage` only special-cased 429/401,
+  so a 400 (>2000-char paste) or a 502 showed the generic supabase-js "non-2xx" string, not the server's
+  typed error. **FIXED** — `edgeErrorMessage` now reads the `context` Response body and prefers its `.error`.
+- **Client max-length guard** (suerta F2, NIT): **FIXED** — `DESCRIPTION_MAX = 2000` guards the lib + disables
+  the Generate button, so an over-long description never round-trips.
+- **Cast-brief localStorage last-writer-wins** (suerta F3, NIT, deferred): two channels sharing a character
+  overwrite each other's stashed brief; a stale brief persists. Advisory-only, single-operator — cosmetic.
+- **No `user_id` index on `channel_guideline_telemetry`** (suerta F4, NIT, deferred): write-only today; add
+  the index when a read-out view lands.
