@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { bibleToMarkdown, downloadMarkdown } from "@/lib/exportBible";
 import { useChannelProfiles } from "@/lib/hooks/useChannelProfiles";
 import {
@@ -520,6 +521,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [view, setView] = useState<View>("roster");
   const [scope, setScope] = useState<AppScope>({ kind: "hub", hub: DEFAULT_HUB });
   const [legacyShellOpen, setLegacyShellOpen] = useState(false);
+  const [charactersBenchMode, setCharactersBenchMode] = useState<"grid" | "editor">("grid");
   const [channelsAutoNew, setChannelsAutoNew] = useState(false);
   const [draftIdea, setDraftIdea] = useState("");
   const [draftIdeaNote, setDraftIdeaNote] = useState("");
@@ -926,12 +928,53 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const handleOpenCharacter = useCallback(
     (characterId: string) => {
       guardDirtyAction(() => {
+        if (isDraftCharacterId(activeId) && activeId !== characterId) {
+          discardDraftCharacter();
+        }
         setActiveId(characterId);
-        openLegacyConsoleUnguarded("roster");
+        setCharactersBenchMode("editor");
       });
     },
-    [guardDirtyAction, openLegacyConsoleUnguarded],
+    [activeId, discardDraftCharacter, guardDirtyAction],
   );
+
+  const handleCharactersBenchBack = useCallback(() => {
+    guardDirtyAction(() => {
+      if (isDraftCharacterId(activeId)) discardDraftCharacter();
+      setCastingOpen(false);
+      setVisualCastingOpen(false);
+      setCharactersBenchMode("grid");
+    });
+  }, [
+    activeId,
+    discardDraftCharacter,
+    guardDirtyAction,
+    setCastingOpen,
+    setCharactersBenchMode,
+    setVisualCastingOpen,
+  ]);
+
+  const handleCharactersHubNav = useCallback(() => {
+    guardDirtyAction(() => {
+      setCharactersBenchMode("grid");
+      navigate({ kind: "hub", hub: "characters" });
+    });
+  }, [guardDirtyAction, navigate, setCharactersBenchMode]);
+
+  const createBenchDraft = useCallback(() => {
+    discardDraftCharacter();
+    const draft = createDraftCharacter();
+    setActiveId(draft.id);
+    setCharactersBenchMode("editor");
+  }, [createDraftCharacter, discardDraftCharacter, setCharactersBenchMode]);
+
+  const handleWorkspaceCreateCharacter = useCallback(() => {
+    guardDirtyAction(() => {
+      setCharactersBenchMode("grid");
+      navigate({ kind: "hub", hub: "characters" });
+      createBenchDraft();
+    });
+  }, [createBenchDraft, guardDirtyAction, navigate, setCharactersBenchMode]);
 
   const activateWorkspaceTab = useCallback(
     (channel: string, nextTab: WorkspaceTab) => {
@@ -1025,6 +1068,49 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, [channelProfilesError, channelProfilesLoading, knownChannels, legacyShellOpen, scope]);
 
   useEffect(() => {
+    if (legacyShellOpen || scope.kind !== "hub" || scope.hub !== "characters") {
+      if (!legacyShellOpen) {
+        if (isDraftCharacterId(activeId)) {
+          discardDraftCharacter();
+        }
+        setCastingOpen(false);
+        setVisualCastingOpen(false);
+      }
+      setCharactersBenchMode("grid");
+    }
+  }, [
+    activeId,
+    discardDraftCharacter,
+    legacyShellOpen,
+    scope,
+    setCastingOpen,
+    setVisualCastingOpen,
+  ]);
+
+  useEffect(() => {
+    if (
+      !legacyShellOpen &&
+      scope.kind === "hub" &&
+      scope.hub === "characters" &&
+      charactersBenchMode !== "editor"
+    ) {
+      setCastingOpen(false);
+      setVisualCastingOpen(false);
+      if (isDraftCharacterId(activeId)) {
+        discardDraftCharacter();
+      }
+    }
+  }, [
+    activeId,
+    charactersBenchMode,
+    discardDraftCharacter,
+    legacyShellOpen,
+    scope,
+    setCastingOpen,
+    setVisualCastingOpen,
+  ]);
+
+  useEffect(() => {
     const onPopState = () => {
       const fromUrl = readViewFromUrl();
       const cancelUrl = legacyShellOpen
@@ -1053,6 +1139,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
       guardDirtyAction(
         () => {
+          if (scope.kind === "hub" && scope.hub === "characters") {
+            if (isDraftCharacterId(activeId)) {
+              discardDraftCharacter();
+            }
+            setCastingOpen(false);
+            setVisualCastingOpen(false);
+          }
           setLegacyShellOpen(false);
           setPendingQueueAction(null);
           setScope(nextScope);
@@ -1071,12 +1164,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return () => window.removeEventListener("popstate", onPopState);
   }, [
     channelProfilesError,
+    activeId,
     channelProfilesLoading,
     guardDirtyAction,
     knownChannels,
     legacyShellOpen,
     scope,
+    setCastingOpen,
+    setVisualCastingOpen,
     view,
+    discardDraftCharacter,
   ]);
 
   useEffect(() => {
@@ -1483,6 +1580,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     });
   };
 
+  const handleCharactersBenchCreate = useCallback(() => {
+    guardDirtyAction(() => {
+      createBenchDraft();
+    });
+  }, [createBenchDraft, guardDirtyAction]);
+
   const toggleStatus = () => {
     if (!active) return;
     set("status", active.status === "active" ? "draft" : "active");
@@ -1587,8 +1690,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         isVoiceCast: isCast(character),
         isVisualCast: isVisuallyCast(character),
         isDraft: character.status === "draft",
+        isSelected: character.id === activeId,
       })),
-    [chars],
+    [activeId, chars],
   );
   const activeRuns = useMemo(
     () => episodes.filter((episode) => runMatchesFilter(episode.status, "running")).length,
@@ -1627,8 +1731,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       },
       onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
       onOpenCharacter: handleOpenCharacter,
+      onCreateCharacter: handleCharactersBenchCreate,
     }),
-    [charactersHubCards, handleOpenCharacter, loadError, loading, navigate, refetchCharacters],
+    [
+      charactersHubCards,
+      handleCharactersBenchCreate,
+      handleOpenCharacter,
+      loadError,
+      loading,
+      navigate,
+      refetchCharacters,
+    ],
   );
   const hubLandingProps = {
     channels: {
@@ -1641,7 +1754,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         setChannelsAutoNew(true);
         openLegacyConsole("channels");
       },
-      onOpenCharacters: () => navigate({ kind: "hub", hub: "characters" }),
+      onOpenCharacters: handleCharactersHubNav,
     },
     glance: {
       activeChannels: channelProfiles.length,
@@ -1710,10 +1823,30 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           restoreFocusRef={discardDialogRestoreFocusRef}
         />
       )}
+      {castingOpen && active && (
+        <CastingStudioPanel
+          character={active}
+          supabase={supabase}
+          onClose={() => setCastingOpen(false)}
+          onCharacterPatched={patchCharacter}
+          showFlash={showFlash}
+          restoreFocusRef={castingTriggerRef}
+        />
+      )}
+      {visualCastingOpen && active && (
+        <VisualIdentityPanel
+          character={active}
+          supabase={supabase}
+          onClose={closeVisualCasting}
+          onCharacterPatched={patchCharacter}
+          showFlash={showFlash}
+          restoreFocusRef={visualCastingTriggerRef}
+        />
+      )}
     </>
   );
 
-  const mobileRoster = (
+  const renderMobileRoster = (onCreate: () => void) => (
     <div className="mobile-roster">
       <label className="eyebrow" htmlFor="mobile-roster-select">
         SELECT DOSSIER
@@ -1752,7 +1885,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       <button
         className="mobile-roster-new"
         type="button"
-        onClick={guardedAddChar}
+        onClick={onCreate}
         disabled={adding || saving}
         aria-label="Create new character"
       >
@@ -1760,6 +1893,294 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       </button>
     </div>
   );
+
+  const renderDossierEditor = (createHandler: () => void): ReactNode => {
+    const mobileRosterNode = renderMobileRoster(createHandler);
+
+    if (active && displayedActive) {
+      return (
+        <section className={"dossier" + (historyOpen ? " history-open" : "")}>
+          {mobileRosterNode}
+          {previewingRevision && (
+            <div className="preview-banner" role="status">
+              <div className="preview-banner-copy">
+                <span className="preview-mark">!</span>
+                <span>
+                  Previewing revision from {formatRevisionDate(previewingRevision.created_at)}
+                </span>
+              </div>
+              <div className="preview-actions">
+                <button
+                  ref={previewRestoreButtonRef}
+                  className="btn dark"
+                  type="button"
+                  onClick={() => requestRestore(previewingRevision)}
+                >
+                  Restore this Version
+                </button>
+                <button className="btn dark-ghost" type="button" onClick={exitPreview}>
+                  Exit Preview
+                </button>
+              </div>
+            </div>
+          )}
+          <header className="dossier-head">
+            <DossierVisualAttachment character={active} supabase={supabase} />
+            <div className="filecode">
+              <span>FILE · {displayedActive.id.slice(0, 8).toUpperCase()}</span>
+              <button
+                ref={headerHistoryButtonRef}
+                className="history-trigger"
+                type="button"
+                onClick={() => openHistory("header")}
+                aria-haspopup="dialog"
+                aria-expanded={historyOpen}
+                disabled={!active}
+              >
+                <Icon name="clock" />
+                <span>History</span>
+              </button>
+              <span className="live">
+                ● {displayedActive.status === "active" ? "ACTIVE FIELD MANUAL" : "DRAFT FIELD MANUAL"}
+              </span>
+            </div>
+            <h1>{displayedActive.codename || "Untitled"}</h1>
+            <p className="sub">
+              {displayedActive.concept ||
+                "Add a one-line concept below to anchor this character."}
+            </p>
+            <div className={"casting-stamp" + (isCast(active) ? " is-cast" : "")}>
+              {isCast(active) ? "Cast" : "Uncast"}
+            </div>
+          </header>
+
+          <div className={"sheet" + (previewingRevision ? " preview-active" : "")}>
+            <Field
+              id={fieldControlId(activeId, "codename")}
+              label="Codename"
+              value={displayedActive.codename}
+              onChange={(v) => set("codename", v)}
+              rows={1}
+              multiline={false}
+              readOnly={Boolean(previewingRevision)}
+              locked={Boolean(previewingRevision)}
+            />
+            <Field
+              id={fieldControlId(activeId, "concept")}
+              label="One-line concept"
+              hint="The logline the writer reads first"
+              value={displayedActive.concept}
+              onChange={(v) => set("concept", v)}
+              rows={2}
+              multiline={false}
+              readOnly={Boolean(previewingRevision)}
+              locked={Boolean(previewingRevision)}
+            />
+            <Field
+              id={fieldControlId(activeId, "voice")}
+              label="Voice & identity"
+              hint="Who they are — keep it original, never a real person"
+              value={displayedActive.voice}
+              onChange={(v) => set("voice", v)}
+              rows={4}
+              readOnly={Boolean(previewingRevision)}
+              locked={Boolean(previewingRevision)}
+            />
+            <div className="grid2">
+              <Field
+                id={fieldControlId(activeId, "cadence")}
+                label="Cadence & delivery"
+                value={displayedActive.cadence}
+                onChange={(v) => set("cadence", v)}
+                rows={5}
+                readOnly={Boolean(previewingRevision)}
+                locked={Boolean(previewingRevision)}
+              />
+              <Field
+                id={fieldControlId(activeId, "vocab")}
+                label="Vocabulary & catchphrases"
+                value={displayedActive.vocab}
+                onChange={(v) => set("vocab", v)}
+                rows={5}
+                readOnly={Boolean(previewingRevision)}
+                locked={Boolean(previewingRevision)}
+              />
+            </div>
+            <Field
+              id={fieldControlId(activeId, "offlimits")}
+              label="Off-limits"
+              hint="Hard rules — what they never say (keeps you monetizable & on-brand)"
+              value={displayedActive.offlimits}
+              onChange={(v) => set("offlimits", v)}
+              rows={3}
+              readOnly={Boolean(previewingRevision)}
+              locked={Boolean(previewingRevision)}
+            />
+            <Field
+              id={fieldControlId(activeId, "lines")}
+              label="Gold-standard lines"
+              hint="2–4 example lines — the writer imitates these more than any instruction"
+              value={displayedActive.lines}
+              onChange={(v) => set("lines", v)}
+              rows={5}
+              mono
+              readOnly={Boolean(previewingRevision)}
+              locked={Boolean(previewingRevision)}
+            />
+            <div className="grid2">
+              <Field
+                id={fieldControlId(activeId, "beats")}
+                label="Beat template"
+                value={displayedActive.beats}
+                onChange={(v) => set("beats", v)}
+                rows={6}
+                mono
+                readOnly={Boolean(previewingRevision)}
+                locked={Boolean(previewingRevision)}
+              />
+              <Field
+                id={fieldControlId(activeId, "runtime")}
+                label="Runtime target"
+                hint="Enforced at script + render"
+                value={displayedActive.runtime}
+                onChange={(v) => set("runtime", v)}
+                rows={2}
+                multiline={false}
+                readOnly={Boolean(previewingRevision)}
+                locked={Boolean(previewingRevision)}
+              />
+            </div>
+          </div>
+
+          {!previewingRevision && (
+            <div className="savebar">
+              {isRestoredDraft && (
+                <div className="restore-warning">
+                  ⚠ UNSAVED RESTORED DRAFT — You are viewing a restored manual. Click
+                  Save dossier to make these changes live.
+                </div>
+              )}
+              {dirty && (
+                <span className="savebar-dirty-label chip draft" role="status">
+                  • UNPERSISTED CHANGES IN BUFFER
+                </span>
+              )}
+              <button
+                className={"btn" + (isRestoredDraft ? " save-highlight" : "")}
+                onClick={save}
+                disabled={saving || !dirty}
+              >
+                {saving ? "Saving…" : "Save dossier"}
+              </button>
+              <button className="btn ghost" onClick={toggleStatus}>
+                {active.status === "active" ? "● Active" : "○ Draft"}
+              </button>
+              <button
+                ref={savebarHistoryButtonRef}
+                className="btn ghost"
+                type="button"
+                onClick={() => openHistory("savebar")}
+                aria-haspopup="dialog"
+                aria-expanded={historyOpen}
+              >
+                View History
+              </button>
+              <button
+                ref={castingTriggerRef}
+                className={"btn ghost" + (isCast(active) ? "" : " save-highlight")}
+                type="button"
+                onClick={() => setCastingOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={castingOpen}
+                disabled={activeIsDraft}
+              >
+                {isCast(active) ? "🎙 Casting Studio" : "🎙 Cast a voice"}
+              </button>
+              <button
+                ref={visualCastingTriggerRef}
+                className={
+                  "btn ghost btn-visual-cast" + (isVisuallyCast(active) ? "" : " save-highlight")
+                }
+                type="button"
+                onClick={() => setVisualCastingOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={visualCastingOpen}
+                disabled={activeIsDraft}
+              >
+                {isVisuallyCast(active) ? "[ RECAST VISUAL ]" : "[ VISUAL CAST ]"}
+              </button>
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={handleExport}
+                disabled={saving || loading || !active || activeIsDraft}
+              >
+                EXPORT MANUAL (MD)
+              </button>
+              {/* Legacy ideas capture stays on the wire console until its Aurora home ships. */}
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => openLegacyConsole("wire")}
+                disabled={activeIsDraft}
+              >
+                Log an idea →
+              </button>
+            </div>
+          )}
+          {historyOpen && (
+            <HistoryDrawer
+              revisions={revisions}
+              loading={revisionsLoading}
+              error={revisionsError}
+              previewingRevisionId={previewingRevisionId}
+              focusTrapActive={!compareRevision}
+              onClose={closeHistory}
+              onRetry={() => {
+                void fetchRevisions(active.id);
+              }}
+              onPreview={previewRevision}
+              onRestore={requestRestore}
+              onCompare={compareWithRevision}
+              initialFocusRef={compareRestoreFocusRef}
+              restoreFocusRef={historyRestoreFocusRef}
+            />
+          )}
+          {compareRevision && (
+            <CompareDialog
+              current={active}
+              revision={compareRevision}
+              onClose={closeCompare}
+              onRestore={requestRestoreFromCompare}
+              restoreFocusRef={compareRestoreFocusRef}
+            />
+          )}
+          {pendingRestore && (
+            <RestoreDialog
+              revision={pendingRestore}
+              onCancel={cancelRestore}
+              onConfirm={confirmRestore}
+              restoreFocusRef={restoreDialogRestoreFocusRef}
+            />
+          )}
+        </section>
+      );
+    }
+
+    return (
+      <section className="dossier">
+        {mobileRosterNode}
+        <div className="empty">
+          <Icon name="roster" />
+          <h3>No characters yet</h3>
+          <p>Create your first character to start building a field manual.</p>
+          <button className="btn btn-primary" onClick={createHandler} disabled={adding}>
+            {adding ? "Creating…" : "+ New character"}
+          </button>
+        </div>
+      </section>
+    );
+  };
 
   // ── render ─────────────────────────────────────────────────────────────────
   if (!legacyShellOpen && scope.kind === "hub" && scope.hub === DEFAULT_HUB) {
@@ -1794,11 +2215,55 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }
 
   if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "characters") {
+    const charactersBenchContent =
+      charactersBenchMode === "grid"
+        ? <CharactersHub {...charactersHubProps} />
+        : loading ? (
+            <div className="characters-bench scoped">
+              <div className="characters-bench__content">
+                <div className="loading">
+                  <span className="spin" /> Loading field manuals…
+                </div>
+              </div>
+            </div>
+          ) : loadError ? (
+            <div className="characters-bench scoped">
+              <div className="characters-bench__content">
+                <div className="empty">
+                  <h3>Comms down</h3>
+                  <p>Couldn&apos;t reach the database: {loadError}</p>
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    onClick={() => void refetchCharacters()}
+                  >
+                    Retry Roster
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="characters-bench scoped">
+              <nav className="breadcrumb" aria-label="Breadcrumb">
+                <button type="button" className="breadcrumb-button" onClick={handleCharactersBenchBack}>
+                  Characters
+                </button>
+                <span className="breadcrumb-sep">/</span>
+                <span className="text-main" aria-current="page">
+                  {displayedActive?.codename?.trim() || "Untitled"}
+                </span>
+              </nav>
+              <div className="characters-bench__content">
+                {renderDossierEditor(handleCharactersBenchCreate)}
+              </div>
+            </div>
+          );
+
     return (
       <>
         {globalOverlays}
         <AuroraShell operatorInitials={operatorInitials}>
-          <CharactersHub {...charactersHubProps} />
+          {charactersBenchContent}
         </AuroraShell>
       </>
     );
@@ -2134,7 +2599,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                     <button
                       type="button"
                       className="text-mono accent"
-                      onClick={() => openLegacyConsole("roster")}
+                      onClick={handleCharactersHubNav}
                       style={{
                         background: "transparent",
                         border: 0,
@@ -2275,7 +2740,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         <button
                           type="button"
                           className="btn"
-                          onClick={() => openLegacyConsole("roster")}
+                          onClick={handleWorkspaceCreateCharacter}
                         >
                           Create New
                         </button>
@@ -2521,277 +2986,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 </div>
               </aside>
 
-              {active && displayedActive ? (
-                <section className={"dossier" + (historyOpen ? " history-open" : "")}>
-                  {mobileRoster}
-                  {previewingRevision && (
-                    <div className="preview-banner" role="status">
-                      <div className="preview-banner-copy">
-                        <span className="preview-mark">!</span>
-                        <span>
-                          Previewing revision from {formatRevisionDate(previewingRevision.created_at)}
-                        </span>
-                      </div>
-                      <div className="preview-actions">
-                        <button
-                          ref={previewRestoreButtonRef}
-                          className="btn dark"
-                          type="button"
-                          onClick={() => requestRestore(previewingRevision)}
-                        >
-                          Restore this Version
-                        </button>
-                        <button className="btn dark-ghost" type="button" onClick={exitPreview}>
-                          Exit Preview
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <header className="dossier-head">
-                    <DossierVisualAttachment character={active} supabase={supabase} />
-                    <div className="filecode">
-                      <span>FILE · {displayedActive.id.slice(0, 8).toUpperCase()}</span>
-                      <button
-                        ref={headerHistoryButtonRef}
-                        className="history-trigger"
-                        type="button"
-                        onClick={() => openHistory("header")}
-                        aria-haspopup="dialog"
-                        aria-expanded={historyOpen}
-                        disabled={!active}
-                      >
-                        <Icon name="clock" />
-                        <span>History</span>
-                      </button>
-                      <span className="live">
-                        ● {displayedActive.status === "active" ? "ACTIVE FIELD MANUAL" : "DRAFT FIELD MANUAL"}
-                      </span>
-                    </div>
-                    <h1>{displayedActive.codename || "Untitled"}</h1>
-                    <p className="sub">
-                      {displayedActive.concept ||
-                        "Add a one-line concept below to anchor this character."}
-                    </p>
-                    <div className={"casting-stamp" + (isCast(active) ? " is-cast" : "")}>
-                      {isCast(active) ? "Cast" : "Uncast"}
-                    </div>
-                  </header>
-
-                  <div className={"sheet" + (previewingRevision ? " preview-active" : "")}>
-                    <Field
-                      id={fieldControlId(activeId, "codename")}
-                      label="Codename"
-                      value={displayedActive.codename}
-                      onChange={(v) => set("codename", v)}
-                      rows={1}
-                      multiline={false}
-                      readOnly={Boolean(previewingRevision)}
-                      locked={Boolean(previewingRevision)}
-                    />
-                    <Field
-                      id={fieldControlId(activeId, "concept")}
-                      label="One-line concept"
-                      hint="The logline the writer reads first"
-                      value={displayedActive.concept}
-                      onChange={(v) => set("concept", v)}
-                      rows={2}
-                      multiline={false}
-                      readOnly={Boolean(previewingRevision)}
-                      locked={Boolean(previewingRevision)}
-                    />
-                    <Field
-                      id={fieldControlId(activeId, "voice")}
-                      label="Voice & identity"
-                      hint="Who they are — keep it original, never a real person"
-                      value={displayedActive.voice}
-                      onChange={(v) => set("voice", v)}
-                      rows={4}
-                      readOnly={Boolean(previewingRevision)}
-                      locked={Boolean(previewingRevision)}
-                    />
-                    <div className="grid2">
-                      <Field
-                        id={fieldControlId(activeId, "cadence")}
-                        label="Cadence & delivery"
-                        value={displayedActive.cadence}
-                        onChange={(v) => set("cadence", v)}
-                        rows={5}
-                        readOnly={Boolean(previewingRevision)}
-                        locked={Boolean(previewingRevision)}
-                      />
-                      <Field
-                        id={fieldControlId(activeId, "vocab")}
-                        label="Vocabulary & catchphrases"
-                        value={displayedActive.vocab}
-                        onChange={(v) => set("vocab", v)}
-                        rows={5}
-                        readOnly={Boolean(previewingRevision)}
-                        locked={Boolean(previewingRevision)}
-                      />
-                    </div>
-                    <Field
-                      id={fieldControlId(activeId, "offlimits")}
-                      label="Off-limits"
-                      hint="Hard rules — what they never say (keeps you monetizable & on-brand)"
-                      value={displayedActive.offlimits}
-                      onChange={(v) => set("offlimits", v)}
-                      rows={3}
-                      readOnly={Boolean(previewingRevision)}
-                      locked={Boolean(previewingRevision)}
-                    />
-                    <Field
-                      id={fieldControlId(activeId, "lines")}
-                      label="Gold-standard lines"
-                      hint="2–4 example lines — the writer imitates these more than any instruction"
-                      value={displayedActive.lines}
-                      onChange={(v) => set("lines", v)}
-                      rows={5}
-                      mono
-                      readOnly={Boolean(previewingRevision)}
-                      locked={Boolean(previewingRevision)}
-                    />
-                    <div className="grid2">
-                      <Field
-                        id={fieldControlId(activeId, "beats")}
-                        label="Beat template"
-                        value={displayedActive.beats}
-                        onChange={(v) => set("beats", v)}
-                        rows={6}
-                        mono
-                        readOnly={Boolean(previewingRevision)}
-                        locked={Boolean(previewingRevision)}
-                      />
-                      <Field
-                        id={fieldControlId(activeId, "runtime")}
-                        label="Runtime target"
-                        hint="Enforced at script + render"
-                        value={displayedActive.runtime}
-                        onChange={(v) => set("runtime", v)}
-                        rows={2}
-                        multiline={false}
-                        readOnly={Boolean(previewingRevision)}
-                        locked={Boolean(previewingRevision)}
-                      />
-                    </div>
-                  </div>
-
-                  {!previewingRevision && (
-                    <div className="savebar">
-                      {isRestoredDraft && (
-                        <div className="restore-warning">
-                          ⚠ UNSAVED RESTORED DRAFT — You are viewing a restored manual. Click
-                          Save dossier to make these changes live.
-                        </div>
-                      )}
-                      {dirty && (
-                        <span className="savebar-dirty-label chip draft" role="status">
-                          • UNPERSISTED CHANGES IN BUFFER
-                        </span>
-                      )}
-                      <button
-                        className={"btn" + (isRestoredDraft ? " save-highlight" : "")}
-                        onClick={save}
-                        disabled={saving || !dirty}
-                      >
-                        {saving ? "Saving…" : "Save dossier"}
-                      </button>
-                      <button className="btn ghost" onClick={toggleStatus}>
-                        {active.status === "active" ? "● Active" : "○ Draft"}
-                      </button>
-                      <button
-                        ref={savebarHistoryButtonRef}
-                        className="btn ghost"
-                        type="button"
-                        onClick={() => openHistory("savebar")}
-                        aria-haspopup="dialog"
-                        aria-expanded={historyOpen}
-                      >
-                        View History
-                      </button>
-                      <button
-                        ref={castingTriggerRef}
-                        className={"btn ghost" + (isCast(active) ? "" : " save-highlight")}
-                        type="button"
-                        onClick={() => setCastingOpen(true)}
-                        aria-haspopup="dialog"
-                        aria-expanded={castingOpen}
-                        disabled={activeIsDraft}
-                      >
-                        {isCast(active) ? "🎙 Casting Studio" : "🎙 Cast a voice"}
-                      </button>
-                      <button
-                        ref={visualCastingTriggerRef}
-                        className={"btn ghost btn-visual-cast" + (isVisuallyCast(active) ? "" : " save-highlight")}
-                        type="button"
-                        onClick={() => setVisualCastingOpen(true)}
-                        aria-haspopup="dialog"
-                        aria-expanded={visualCastingOpen}
-                        disabled={activeIsDraft}
-                      >
-                        {isVisuallyCast(active) ? "[ RECAST VISUAL ]" : "[ VISUAL CAST ]"}
-                      </button>
-                      <button
-                        className="btn ghost"
-                        type="button"
-                        onClick={handleExport}
-                        disabled={saving || loading || !active || activeIsDraft}
-                      >
-                        EXPORT MANUAL (MD)
-                      </button>
-                      <button className="btn ghost" onClick={() => guardedSetView("wire")} disabled={activeIsDraft}>
-                        Log an idea →
-                      </button>
-                    </div>
-                  )}
-                  {historyOpen && (
-                    <HistoryDrawer
-                      revisions={revisions}
-                      loading={revisionsLoading}
-                      error={revisionsError}
-                      previewingRevisionId={previewingRevisionId}
-                      focusTrapActive={!compareRevision}
-                      onClose={closeHistory}
-                      onRetry={() => {
-                        void fetchRevisions(active.id);
-                      }}
-                      onPreview={previewRevision}
-                      onRestore={requestRestore}
-                      onCompare={compareWithRevision}
-                      initialFocusRef={compareRestoreFocusRef}
-                      restoreFocusRef={historyRestoreFocusRef}
-                    />
-                  )}
-                  {compareRevision && (
-                    <CompareDialog
-                      current={active}
-                      revision={compareRevision}
-                      onClose={closeCompare}
-                      onRestore={requestRestoreFromCompare}
-                      restoreFocusRef={compareRestoreFocusRef}
-                    />
-                  )}
-                  {pendingRestore && (
-                    <RestoreDialog
-                      revision={pendingRestore}
-                      onCancel={cancelRestore}
-                      onConfirm={confirmRestore}
-                      restoreFocusRef={restoreDialogRestoreFocusRef}
-                    />
-                  )}
-                </section>
-              ) : (
-                <section className="dossier">
-                  {mobileRoster}
-                  <div className="empty">
-                    <Icon name="roster" />
-                    <h3>No characters yet</h3>
-                    <p>Create your first character to start building a field manual.</p>
-                    <button className="btn" onClick={guardedAddChar} disabled={adding}>
-                      {adding ? "Creating…" : "+ New character"}
-                    </button>
-                  </div>
-                </section>
-              )}
+              {renderDossierEditor(guardedAddChar)}
             </div>
           )}
 
@@ -3524,26 +3719,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           onClose={closeEnqueuePanel}
           onSubmit={enqueueJob}
           restoreFocusRef={enqueueRestoreFocusRef}
-        />
-      )}
-      {castingOpen && active && (
-        <CastingStudioPanel
-          character={active}
-          supabase={supabase}
-          onClose={() => setCastingOpen(false)}
-          onCharacterPatched={patchCharacter}
-          showFlash={showFlash}
-          restoreFocusRef={castingTriggerRef}
-        />
-      )}
-      {visualCastingOpen && active && (
-        <VisualIdentityPanel
-          character={active}
-          supabase={supabase}
-          onClose={closeVisualCasting}
-          onCharacterPatched={patchCharacter}
-          showFlash={showFlash}
-          restoreFocusRef={visualCastingTriggerRef}
         />
       )}
       {pendingQueueAction && (
