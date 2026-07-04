@@ -35,3 +35,6 @@ ratify-out/
 # TypeScript
 next-env.d.ts
 *.tsbuildinfo
+
+# Local UI/UX audit screenshot output (throwaway)
+scratchpad-audit/
