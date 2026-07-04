@@ -181,6 +181,7 @@ export function ChannelProfilesPanel({
 
     const suggestion = suggestPersonaForChannel({
       channel: form.channel,
+      description: form.description,
       display_name: form.displayName,
       voice_archetype: form.voiceArchetype,
       treatment: form.treatment,
@@ -193,6 +194,7 @@ export function ChannelProfilesPanel({
     return persona ? { ...suggestion, label: persona.label } : null;
   }, [
     form?.channel,
+    form?.description,
     form?.displayName,
     form?.voiceArchetype,
     form?.treatment,
