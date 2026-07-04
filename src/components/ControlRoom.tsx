@@ -552,6 +552,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const headerHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const castingTriggerRef = useRef<HTMLButtonElement | null>(null);
   const visualCastingTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const inlineCastingRestoreRef = useRef<HTMLButtonElement>(null);
   const savebarHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const lastHistoryTriggerRef = useRef<"header" | "savebar" | null>(null);
   const historyRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -1895,18 +1896,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       </div>
                       <div className="workspace-character-visual">
                         <VisualIdentityPanel
+                          key={castChar.id}
                           variant="inline"
                           character={castChar}
                           supabase={supabase}
                           onClose={noopClose}
                           onCharacterPatched={patchCharacter}
                           showFlash={showFlash}
-                          restoreFocusRef={visualCastingTriggerRef}
+                          restoreFocusRef={inlineCastingRestoreRef}
                         />
                       </div>
                     </div>
                     <div className="workspace-character-casting">
                       <CastingStudioPanel
+                        key={castChar.id}
                         variant="inline"
                         suggestedPersonaChipId={suggestPersonaForChannel(channelProfile ?? {})?.chipId ?? null}
                         character={castChar}
@@ -1914,7 +1917,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         onClose={noopClose}
                         onCharacterPatched={patchCharacter}
                         showFlash={showFlash}
-                        restoreFocusRef={castingTriggerRef}
+                        restoreFocusRef={inlineCastingRestoreRef}
                       />
                     </div>
                   </>

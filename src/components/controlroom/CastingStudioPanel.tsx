@@ -152,6 +152,7 @@ export function CastingStudioPanel({
   suggestedPersonaChipId = null,
 }: CastingStudioPanelProps) {
   const inline = variant === "inline";
+  const suggestedPersonaRef = useRef(suggestedPersonaChipId);
   const panelRef = useRef<HTMLElement>(null);
   const firstFieldRef = useRef<HTMLButtonElement>(null);
   const mainInitialFocusRef = useRef<HTMLElement | null>(null);
@@ -307,6 +308,10 @@ export function CastingStudioPanel({
     mainInitialFocusRef.current = firstFieldRef.current;
   }, [drawerOpen, saveDialogOpen, lockConfirmCandidate]);
 
+  useEffect(() => {
+    suggestedPersonaRef.current = suggestedPersonaChipId;
+  }, [suggestedPersonaChipId]);
+
   // Guard against setState after the panel is closed/unmounted mid-request
   // (Edge/ElevenLabs calls can be slow).
   const aliveRef = useRef(true);
@@ -323,7 +328,7 @@ export function CastingStudioPanel({
 
   useEffect(() => {
     const inputs = castingInputsFromRecipe(character.voice_recipe);
-    const nextBuilder = inputs?.builderState ?? withSuggestedPersona(DEFAULT_BUILDER_SELECTIONS, suggestedPersonaChipId);
+    const nextBuilder = inputs?.builderState ?? withSuggestedPersona(DEFAULT_BUILDER_SELECTIONS, suggestedPersonaRef.current);
     setBuilderSelections(nextBuilder);
     setBuilderDetached(inputs?.detached ?? false);
     setVoiceDescription(inputs?.voiceDescription ?? assembleKitDescription(nextBuilder));
@@ -346,7 +351,7 @@ export function CastingStudioPanel({
     }
     setAppliedTemplateName(null);
     setAppliedNotice(null);
-  }, [character.id, character.voice_recipe, character.codename, character.concept, suggestedPersonaChipId]);
+  }, [character.id, character.voice_recipe, character.codename, character.concept]);
 
   // Reconcile the local bracket against the canonical DB voice on mount and whenever
   // characters.voice_id changes underneath (e.g. a re-cast elsewhere once Realtime lands).
@@ -1438,6 +1443,9 @@ export function CastingStudioPanel({
   if (inline) {
     return (
       <section ref={panelRef} className="casting-inline" aria-labelledby="casting-panel-title">
+        {(drawerOpen || saveDialogOpen || lockConfirmCandidate) && (
+          <div className="casting-inline-backdrop" aria-hidden="true" />
+        )}
         {content}
       </section>
     );
