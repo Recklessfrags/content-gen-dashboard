@@ -839,7 +839,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, []);
 
   const navigate = useCallback((next: AppScope) => {
+    didInitScopeRef.current = true;
     setLegacyShellOpen(false);
+    setPendingQueueAction(null);
     setScope(next);
     if (typeof window !== "undefined") {
       window.history.pushState(
@@ -853,7 +855,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const openLegacyConsole = useCallback(
     (nextView: View = "roster") => {
       guardDirtyAction(() => {
+        didInitScopeRef.current = true;
         setLegacyShellOpen(true);
+        setPendingQueueAction(null);
         setView(nextView);
         if (typeof window !== "undefined") {
           window.history.pushState(null, "", viewUrl(nextView));
@@ -914,17 +918,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   useEffect(() => {
     if (didInitScopeRef.current) return;
 
-    const fromUrl = readViewFromUrl();
-    if (fromUrl !== null) {
-      didInitScopeRef.current = true;
-      if (fromUrl !== view) setView(fromUrl);
-      setLegacyShellOpen(true);
-      // Interim dual-shell lane: valid legacy ?view= links stay on the legacy
-      // console until every legacy surface has been re-parented into Aurora.
-      window.history.replaceState(null, "", viewUrl(fromUrl));
-      return;
-    }
-
     if (channelProfilesLoading) return;
 
     didInitScopeRef.current = true;
@@ -942,7 +935,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         scopeToUrl(nextScope, window.location.pathname, window.location.hash),
       );
     }
-  }, [channelProfilesError, channelProfilesLoading, knownChannels, view]);
+  }, [channelProfilesError, channelProfilesLoading, knownChannels]);
 
   useEffect(() => {
     if (
@@ -976,6 +969,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         if (legacyShellOpen && fromUrl === view) return;
         guardDirtyAction(
           () => {
+            setPendingQueueAction(null);
             setView(fromUrl);
             setLegacyShellOpen(true);
           },
@@ -994,6 +988,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       guardDirtyAction(
         () => {
           setLegacyShellOpen(false);
+          setPendingQueueAction(null);
           setScope(nextScope);
           if (canonicalize) {
             window.history.replaceState(
