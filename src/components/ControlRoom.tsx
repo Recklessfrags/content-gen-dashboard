@@ -839,6 +839,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, []);
 
   const navigate = useCallback((next: AppScope) => {
+    didInitScopeRef.current = true;
     setLegacyShellOpen(false);
     setPendingQueueAction(null);
     setScope(next);
@@ -854,6 +855,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const openLegacyConsole = useCallback(
     (nextView: View = "roster") => {
       guardDirtyAction(() => {
+        didInitScopeRef.current = true;
         setLegacyShellOpen(true);
         setPendingQueueAction(null);
         setView(nextView);
