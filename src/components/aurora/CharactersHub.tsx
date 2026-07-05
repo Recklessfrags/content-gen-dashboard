@@ -105,9 +105,14 @@ function LoadingGrid() {
 function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
     <div className="glass-panel au-empty" role="alert">
-      <p className="metric-label dim">Characters Error</p>
-      <p className="text-title">Character data could not load</p>
-      <p>{error}</p>
+      <p className="text-title">Couldn&apos;t load characters</p>
+      <p className="dim">Check your connection and try again.</p>
+      {error ? (
+        <details className="error-details">
+          <summary>Details</summary>
+          {error}
+        </details>
+      ) : null}
       <div style={{ marginTop: "1rem" }}>
         <button type="button" className="btn-secondary" onClick={onRetry}>
           Retry
