@@ -44,6 +44,7 @@ import {
   type Receipt,
 } from "@/lib/types";
 import { AuroraShell } from "./aurora/AuroraShell";
+import { useUiMode } from "./aurora/UiModeContext";
 import { ActionCenter } from "./aurora/ActionCenter";
 import { HubLanding } from "./aurora/HubLanding";
 import { CharactersHub } from "./aurora/CharactersHub";
@@ -446,6 +447,7 @@ function DiscardChangesDialog({
 
 export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const supabase = useMemo(() => createClient(), []);
+  const { advanced: uiAdvanced, setMode: setUiMode } = useUiMode();
   const {
     episodes,
     loading: episodesLoading,
@@ -1904,6 +1906,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const renderDossierEditor = (createHandler: () => void): ReactNode => {
     const mobileRosterNode = renderMobileRoster(createHandler);
+    // Basic mode keeps the high-leverage user seeds (name, concept, voice, gold-standard
+    // lines) and tucks the auto-drafted bible detail behind "Show advanced settings".
+    // The legacy `.cr` shell (legacyShellOpen) always shows everything.
+    const showAdvancedFields = uiAdvanced || legacyShellOpen;
 
     if (active && displayedActive) {
       return (
@@ -1994,36 +2000,40 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               readOnly={Boolean(previewingRevision)}
               locked={Boolean(previewingRevision)}
             />
-            <div className="grid2">
-              <Field
-                id={fieldControlId(activeId, "cadence")}
-                label="Cadence & delivery"
-                value={displayedActive.cadence}
-                onChange={(v) => set("cadence", v)}
-                rows={5}
-                readOnly={Boolean(previewingRevision)}
-                locked={Boolean(previewingRevision)}
-              />
-              <Field
-                id={fieldControlId(activeId, "vocab")}
-                label="Vocabulary & catchphrases"
-                value={displayedActive.vocab}
-                onChange={(v) => set("vocab", v)}
-                rows={5}
-                readOnly={Boolean(previewingRevision)}
-                locked={Boolean(previewingRevision)}
-              />
-            </div>
-            <Field
-              id={fieldControlId(activeId, "offlimits")}
-              label="Off-limits"
-              hint="Hard rules — what they never say (keeps you monetizable & on-brand)"
-              value={displayedActive.offlimits}
-              onChange={(v) => set("offlimits", v)}
-              rows={3}
-              readOnly={Boolean(previewingRevision)}
-              locked={Boolean(previewingRevision)}
-            />
+            {showAdvancedFields && (
+              <>
+                <div className="grid2">
+                  <Field
+                    id={fieldControlId(activeId, "cadence")}
+                    label="Cadence & delivery"
+                    value={displayedActive.cadence}
+                    onChange={(v) => set("cadence", v)}
+                    rows={5}
+                    readOnly={Boolean(previewingRevision)}
+                    locked={Boolean(previewingRevision)}
+                  />
+                  <Field
+                    id={fieldControlId(activeId, "vocab")}
+                    label="Vocabulary & catchphrases"
+                    value={displayedActive.vocab}
+                    onChange={(v) => set("vocab", v)}
+                    rows={5}
+                    readOnly={Boolean(previewingRevision)}
+                    locked={Boolean(previewingRevision)}
+                  />
+                </div>
+                <Field
+                  id={fieldControlId(activeId, "offlimits")}
+                  label="Off-limits"
+                  hint="Hard rules — what they never say (keeps you monetizable & on-brand)"
+                  value={displayedActive.offlimits}
+                  onChange={(v) => set("offlimits", v)}
+                  rows={3}
+                  readOnly={Boolean(previewingRevision)}
+                  locked={Boolean(previewingRevision)}
+                />
+              </>
+            )}
             <Field
               id={fieldControlId(activeId, "lines")}
               label="Gold-standard lines"
@@ -2035,29 +2045,40 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               readOnly={Boolean(previewingRevision)}
               locked={Boolean(previewingRevision)}
             />
-            <div className="grid2">
-              <Field
-                id={fieldControlId(activeId, "beats")}
-                label="Beat template"
-                value={displayedActive.beats}
-                onChange={(v) => set("beats", v)}
-                rows={6}
-                mono
-                readOnly={Boolean(previewingRevision)}
-                locked={Boolean(previewingRevision)}
-              />
-              <Field
-                id={fieldControlId(activeId, "runtime")}
-                label="Runtime target"
-                hint="Enforced at script + render"
-                value={displayedActive.runtime}
-                onChange={(v) => set("runtime", v)}
-                rows={2}
-                multiline={false}
-                readOnly={Boolean(previewingRevision)}
-                locked={Boolean(previewingRevision)}
-              />
-            </div>
+            {showAdvancedFields && (
+              <div className="grid2">
+                <Field
+                  id={fieldControlId(activeId, "beats")}
+                  label="Beat template"
+                  value={displayedActive.beats}
+                  onChange={(v) => set("beats", v)}
+                  rows={6}
+                  mono
+                  readOnly={Boolean(previewingRevision)}
+                  locked={Boolean(previewingRevision)}
+                />
+                <Field
+                  id={fieldControlId(activeId, "runtime")}
+                  label="Runtime target"
+                  hint="Enforced at script + render"
+                  value={displayedActive.runtime}
+                  onChange={(v) => set("runtime", v)}
+                  rows={2}
+                  multiline={false}
+                  readOnly={Boolean(previewingRevision)}
+                  locked={Boolean(previewingRevision)}
+                />
+              </div>
+            )}
+            {!showAdvancedFields && (
+              <button
+                type="button"
+                className="show-advanced-btn"
+                onClick={() => setUiMode("advanced")}
+              >
+                Show advanced settings
+              </button>
+            )}
           </div>
 
           {!previewingRevision && (
@@ -2250,6 +2271,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 error={channelProfilesError}
                 onRefetch={refetchChannelProfiles}
                 createOnly
+                basicMode={!uiAdvanced}
+                onShowAdvanced={() => setUiMode("advanced")}
                 onCreated={(channel) => {
                   setNewChannelOpen(false);
                   showFlash(`Channel "${channel}" created.`);
@@ -2889,6 +2912,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   error={channelProfilesError}
                   onRefetch={refetchChannelProfiles}
                   scopedChannel={scope.channel}
+                  basicMode={!uiAdvanced}
+                  onShowAdvanced={() => setUiMode("advanced")}
                   onDeleted={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
                 />
               </article>
