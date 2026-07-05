@@ -118,6 +118,13 @@ async function main() {
     const costBody = (await page.locator(".aurora-app").first().textContent().catch(() => "")) || "";
     check("F1 cost tab: no 'Phase 3'/'channel scope column', new plain deferral copy", costBody.length > 0 && none(costBody, ["Phase 3", "channel scope column"]).length === 0 && has(costBody, "coming soon"), "");
 
+    // ---- G: Channel profile dial labels (guidelines tab) — operator-approved S2 renames ----
+    await gotoHydrated(page, `${BASE}/?channel=default&tab=guidelines`, ".aurora-app");
+    const gl = (await page.locator(".aurora-app").first().textContent().catch(() => "")) || "";
+    const glLeak = none(gl, ["Treatment", "Claim discipline", "Arousal ceiling", "Source ladder", "Sources & packaging", "Sources &amp; packaging"]);
+    check("G1 dial form: no old jargon labels", gl.length > 0 && glLeak.length === 0, `leaked=${JSON.stringify(glLeak)}`);
+    check("G2 dial form: new plain labels present", ["Fact-check strictness", "Intensity limit", "Footage sources", "Footage & presentation"].every((s) => has(gl, s)), gl.slice(0, 60));
+
     // ---- 0: zero live writes + no app console errors ----
     check("Z1 ZERO live writes (navigate/read only)", writes.length === 0, JSON.stringify(writes.slice(0, 4)));
     const appErrors = consoleErrors.filter((e) => !/fonts\.googleapis|fonts\.gstatic|ERR_CONNECTION_RESET|ERR_CERT_AUTHORITY_INVALID|Failed to load resource.*login|net::ERR_ABORTED.*auth/i.test(e));
