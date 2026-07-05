@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-05 (DESIGN/COPY-QUALITY PASS — 5a channel-delete #105, then a Content style guide + audit rubric #106-108, a site-wide COPY AUDIT #109 + UNIFORMITY SWEEP #110, the S1 typography root-cause fix #111, and the FULL P0 copy remediation lane #112-114 (money-path confirmations, restore/discard/cost/hub errors, casting-lock consequence) — ALL P0 blockers now CLOSED. Legacy `.cr` intact, deletion still blocked pending 5b). Production tip = `438ca43` (#114)** by the Architect (Claude).
+_Last updated: **2026-07-05 (COPY AUDIT P1 SWEEP — #118: applied the S2 jargon→plain-English rename map to visible display text across all Aurora-surviving surfaces; deferred the 5 content-production dial labels to the operator; legacy `.cr` still intact pending 5b). Production tip = `c096531` (#118)** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,90 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-05) — DESIGN/COPY-QUALITY PASS: 5a channel-delete (#105) + a site-wide COPY AUDIT (#106-110) + the S1 typography root-cause fix (#111) + the FULL P0 copy remediation lane (#112-114). ALL P0 copy blockers CLOSED. Read this first + the NEXT section.
+## ⚡ LATEST (2026-07-05) — COPY AUDIT P1 SWEEP SHIPPED (#118, squash `c096531`): S2 jargon→plain-English rename across every Aurora-surviving surface. Read this first + the "NEXT / operator decision owed" below.
+
+**Production/default = `claude/new-session-3l99vs` @ `c096531` (#118).** This session picked task (a) from the prior
+handoff — the **copy-audit P1 tier** — because (b) 5b (The Wire) is a write/money path needing operator go-ahead and
+(c) 5g is blocked on 5b. Applied the audit's **S2 rename map to user-visible display text only** (DB columns / enums /
+props / CSS classes / pipeline-contract fields untouched — the operator's HARD rule), sentence-cased throughout,
+stripped implementation leaks, and added the P1 empty-state CTA. Branch for new work: **start fresh off production**
+(keep your harness-designated working-branch name).
+
+### Copy-paste KICKOFF for the next session (rule 41 — paste this to start)
+```
+You are the Architect for the Reels Content Control Room dashboard (Next.js 15 / React 19 / Supabase, plain-CSS
+"Aurora" design system; channel-first per D-6). You own judgment/specs/reviews/commits/merges.
+FIRST: read docs/SESSION-HANDOFF.md top-to-bottom, then governance.md + AGENTS.md, then do a FRESH HQ fetch
+(Notion 📮 Coordination Log, page 38fd346e-22d2-8133-bd2e-e5b7f97f7c2e — Open Cross-Team Items + Process Learnings
+Ledger) before planning/claiming anything blocked (rule L-1).
+BRANCH: start fresh off production `claude/new-session-3l99vs` (git fetch origin claude/new-session-3l99vs &&
+git checkout -B <your-working-branch> origin/claude/new-session-3l99vs); keep the harness-designated branch name.
+NOTE: cold container has NO node_modules — run `npm ci` first. QA creds (.env.local) are ephemeral per container —
+re-request from the operator. IMPORTANT ratify trap (this session): `next build` inlines NEXT_PUBLIC_* at BUILD time
+— write .env.local BEFORE `next build`, or the client Supabase client fails to init and the app renders a blank
+shell (text-absence then false-passes copy checks). Run ratify `set -a; . ./.env.local; set +a; node scripts/ratify-*.mjs`.
+TASK — pick one, per value:
+  (a) OPERATOR DECISION OWED (surface it first): the 5 content-production DIAL LABELS — Treatment, Packaging,
+      Source ladder, Arousal ceiling, Claim discipline — were DEFERRED this session (content-style-guide §8 flags
+      them as an open operator-vocabulary question). If the operator confirms the S2 renames (Style / Title &
+      thumbnail / Footage sources / Intensity limit / Fact-check strictness), apply them in ChannelProfilesPanel.tsx
+      (VISIBLE LABELS ONLY — the `treatment`/`packaging`/`source_ladder`/`engagement_posture.*` DB fields + enums stay).
+  (b) SUB-LANE 5b — The Wire (ideas) Aurora home + EnqueueIdeaPanel: last buildable reachability gap before the
+      legacy `.cr` shell can be deleted (5g). WRITE/MONEY path (enqueue-idea-as-run) → get operator go-ahead first.
+      Its rewrite is also copy-audit-spec'd → closes a structural blocker AND lands audit-clean copy in one pass.  ← RECOMMENDED.
+  (c) SUB-LANE 5g — delete the legacy `.cr` shell. Blocked on 5b landing (5c/5f data-blocked). Consensus review.
+Drive build→review (Gemini cross-vendor; +suerta on money/contract/migration)→ratify→squash-merge via GitHub MCP
+(owner recklessfrags, repo content-gen-dashboard) into claude/new-session-3l99vs. Keep chat terse (L-3).
+```
+
+### What shipped this session (merged to production, #118)
+- **Copy audit P1 sweep (#118, squash `c096531`)** — applied the S2 rename map to **visible display text only** across
+  every Aurora-surviving surface. 8 component files, copy-only (+ 2 audit-specified structural items):
+  - **CharactersHub** — subtitle de-themed (`Channel personas & field manuals` → `Recurring characters for your
+    channels`); screen-reader `dossier` → `character profile`; **P1 empty-state CTA** ("Create your first character",
+    reuses the header create handler).
+  - **OverviewDashboard** — `Roster Dossier`→Characters, `The Wire Queue`→Ideas, `Sentinel Pass Rate`→Fact-check pass
+    rate; all Title-case metric labels → sentence case.
+  - **Shared dossier editor** (renderDossierEditor/renderMobileRoster — renders in BOTH shells) — `SELECT DOSSIER` /
+    `FIELD MANUALS` / `Save dossier` / `Codename` / `EXPORT MANUAL` / `FILE ·` / `UNPERSISTED CHANGES IN BUFFER` → plain
+    (`Select character` / `Save character` / `Name` / `ID ·` / `Unsaved changes`).
+  - **Aurora workspace** (ControlRoom) — `Character Dossier (Bible)`→Character profile; `E1 Persona Advisory` /
+    `Persona engine`→Character guidelines; `Comms down`→plain error + raw string demoted into `<details>`; cost-deferral
+    + global-cost-center copy plain-languaged (dropped `channel scope column` / `Phase 3` / `// GLOBAL COST CENTER`).
+  - **ChannelsHub** — `Root Objects & Production Lines` + `Runs & cost - Phase 3` leaks removed.
+  - **ChannelProfilesPanel** — `ADR-005` / `Tier-1` / `Tier-2` / `fact_first` / `Primary key` implementation leaks
+    stripped (the enforcement hint rewritten to the style-guide §4 plain pattern). **Dial LABELS left unchanged (deferred).**
+  - **Compare / History / Visual overlays** — dossier/bible/manual → character profile; `Codename`→Name; de-alarmed the
+    Visual chip (`CORRUPTED`→`Missing`).
+- **Gates:** `tsc` + **148 tests** + `next build` clean. **Live ratify `scripts/ratify-copy-p1.mjs` 11/11, ZERO live
+  writes** (every write table intercept-and-aborted; new copy renders, old jargon gone on all 6 surface groups).
+  **Cross-vendor (Gemini) review APPROVE** (no identifier/semantic breakage; apostrophes escaped; the 2 structural
+  items verified in-spec + correct). Display-copy only (low-stakes rule 5) → single cross-vendor pass; no suerta needed.
+
+### NEXT / operator decision owed
+- **⚠️ OPERATOR DECISION OWED — the 5 content-production dial renames.** `content-style-guide.md §8` flags
+  `treatment` / `packaging` / `source ladder` / `arousal ceiling` / `claim discipline` as an **open operator-vocabulary
+  question** (are these words the operators actually use, or jargon to rename?). The **copy-audit S2 map proposes**:
+  Treatment→**Style**, Packaging/Title+Thumbnail style→**Title & thumbnail**, Source ladder→**Footage sources**,
+  Arousal ceiling→**Intensity limit**, Claim discipline→**Fact-check strictness**. This session **deferred** them (a
+  brand/vocabulary call = human-only, rule 20). **Ask the operator to confirm/adjust, then apply the visible LABELS in
+  `ChannelProfilesPanel.tsx` only** (the DB `treatment`/`packaging`/`source_ladder`/`engagement_posture.*` fields + enums
+  stay — HARD rule). Casting **"persona"** (voice concept, not the character) was intentionally kept.
+- **(b) 5b The Wire** (RECOMMENDED, needs go-ahead) and **(c) 5g delete `.cr`** (blocked on 5b) — unchanged from below.
+- **P2 theming** — mostly absorbed by the 5g `.cr` deletion; the surviving-into-Aurora dossier-editor/ActionCenter copy
+  is now done. **P3 nits** — placeholder-examples, `eps`→episodes, remaining literal Title-case buttons — low value, defer.
+
+### HQ / cross-team (per rule L-6 — wrap-up is HQ THEN handoff, #117)
+- **Coordination-Log tracker: NO cross-team update owed.** This session was **dashboard-internal display copy** — no
+  schema/contract/shared-surface data or behavior change (the DB columns/enums/pipeline-contract fields were the HARD-RULE
+  exclusion; the money-path gate logic was untouched). No tracker row, no heads-up.
+- **Process Learnings Ledger: appended 1 portable lesson (2026-07-05)** — a live Next.js ratify must `next build` with
+  `.env.local` present (NEXT_PUBLIC_* inline at build time, not `next start`), and a content-assertion gate must confirm
+  the app hydrated (wait for `.aurora-app`) or "text absent" false-passes as "jargon removed." (Cost a rebuild this session.)
+
+---
+
+## ⚡ EARLIER (2026-07-05) — DESIGN/COPY-QUALITY PASS: 5a channel-delete (#105) + a site-wide COPY AUDIT (#106-110) + the S1 typography root-cause fix (#111) + the FULL P0 copy remediation lane (#112-114). ALL P0 copy blockers CLOSED.
 
 **Production/default = `claude/new-session-3l99vs` @ `438ca43` (#114).** This session **pivoted** from the migration
 lane to a **design/copy-quality pass**: an unbiased external (Gemini) review of the New-Channel form flagged
