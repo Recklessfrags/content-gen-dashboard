@@ -356,6 +356,55 @@
 
 .aurora-app .theme-toggle:hover { background: var(--surface-2); transform: scale(1.05); }
 
+/* Basic / Advanced detail-level segmented toggle */
+.aurora-app .mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 2px;
+}
+.aurora-app .mode-toggle-option {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.aurora-app .mode-toggle-option:hover { color: var(--text-main); }
+.aurora-app .mode-toggle-option.is-active {
+  background: var(--accent);
+  color: #05050A;
+  font-weight: 600;
+}
+.aurora-app[data-theme="light"] .mode-toggle-option.is-active { color: #FFFFFF; }
+
+/* "Show advanced settings" reveal — subtle, discoverable */
+.aurora-app .show-advanced-btn {
+  appearance: none;
+  align-self: flex-start;
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.aurora-app .show-advanced-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* GLASS PANELS / BENTO */
 .aurora-app .glass-panel {
   background: var(--surface-1);

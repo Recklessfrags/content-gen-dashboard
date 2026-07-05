@@ -55,6 +55,12 @@ type ChannelProfilesPanelProps = {
   /** Fired after a successful delete (scoped workspace) so the parent can navigate
    *  away from the now-deleted channel. */
   onDeleted?: () => void;
+  /** Basic view: keep the high-leverage user seeds (channel, name, concept, character)
+   *  and hide the auto-drafted/defaulted detail behind "Show advanced settings".
+   *  Defaults to false (show everything) — the legacy shell never passes it. */
+  basicMode?: boolean;
+  /** Called by the "Show advanced settings" button in basic mode (flips global mode). */
+  onShowAdvanced?: () => void;
 };
 
 type CharacterOption = {
@@ -168,6 +174,8 @@ export function ChannelProfilesPanel({
   createOnly,
   onCreated,
   onDeleted,
+  basicMode = false,
+  onShowAdvanced,
 }: ChannelProfilesPanelProps) {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
@@ -809,31 +817,35 @@ export function ChannelProfilesPanel({
                       ))}
                     </select>
                   </div>
-                  <div className="field">
-                    <label htmlFor="channel-profile-voice-archetype">
-                      <span className="eyebrow">Voice archetype</span>
-                      <span className="field-label-side">
-                        <span className="hint">Optional, open vocabulary</span>
-                      </span>
-                    </label>
-                    <input
-                      id="channel-profile-voice-archetype"
-                      list="channel-profile-voice-suggestions"
-                      type="text"
-                      value={form.voiceArchetype}
-                      onChange={(event) =>
-                        updateForm("voiceArchetype", event.target.value)
-                      }
-                    />
-                    <datalist id="channel-profile-voice-suggestions">
-                      {VOICE_ARCHETYPE_SUGGESTIONS.map((suggestion) => (
-                        <option key={suggestion} value={suggestion} />
-                      ))}
-                    </datalist>
-                  </div>
+                  {!basicMode && (
+                    <div className="field">
+                      <label htmlFor="channel-profile-voice-archetype">
+                        <span className="eyebrow">Voice archetype</span>
+                        <span className="field-label-side">
+                          <span className="hint">Optional, open vocabulary</span>
+                        </span>
+                      </label>
+                      <input
+                        id="channel-profile-voice-archetype"
+                        list="channel-profile-voice-suggestions"
+                        type="text"
+                        value={form.voiceArchetype}
+                        onChange={(event) =>
+                          updateForm("voiceArchetype", event.target.value)
+                        }
+                      />
+                      <datalist id="channel-profile-voice-suggestions">
+                        {VOICE_ARCHETYPE_SUGGESTIONS.map((suggestion) => (
+                          <option key={suggestion} value={suggestion} />
+                        ))}
+                      </datalist>
+                    </div>
+                  )}
                 </div>
               </section>
 
+              {!basicMode && (
+              <>
               <section
                 className="channel-profile-section"
                 aria-labelledby="channel-profile-content-settings-heading"
@@ -1024,6 +1036,17 @@ export function ChannelProfilesPanel({
                   />
                 </div>
               </section>
+              </>
+              )}
+              {basicMode && (
+                <button
+                  type="button"
+                  className="show-advanced-btn"
+                  onClick={onShowAdvanced}
+                >
+                  Show advanced settings
+                </button>
+              )}
             </div>
 
             <div className="savebar channel-profile-actions">
