@@ -43,6 +43,21 @@ harness-designated branch name).
   (Production/Cost) / trim Overview; not done in v1 (operator lean was "just the forms"). Savebar actions (Visual cast,
   Export) aren't mode-gated yet. Re-tier any field: it's a one-line move in the two gated files + the rubric doc.
 
+### IN FLIGHT / NEXT UP (end of this session)
+- **⭐ Sub-lane 5b (The Wire → Aurora home) — OPERATOR-GREENLIT + BUILD-READY SPEC written.** The write/money-path
+  go-ahead is given. Complete spec: **`docs/slices/slice-5b-wire-aurora-home.md`** (exact files/lines, the money-path
+  writes to REUSE verbatim, the #1 wiring trap = render `EnqueueIdeaPanel` in the Aurora path, the copy fixes, the
+  3-table ratify intercept list `jobs`+`idea_job_map`+`ideas`, two-lens review requirement, and a copy-paste kickoff).
+  **Deliberately NOT built this session** — money path + heavy context (rule 30); run it FRESH using the spec's kickoff.
+  This is THE next build.
+- **Channels for missing characters — ASKED PIPELINE (in flight).** Operator lifted the channel-creation hold and wants
+  the FULL intended channel roster created. `channel_profiles` is dashboard-owned (WE insert; pipeline reads) → posted an
+  HQ ask + tracker row for the pipeline's roster values (Mad Dog id `8cf09da8…`, Grandma Pearl id `76eaeea4…`, the whole
+  roster, + which character `weird_food` [5 tagged jobs, no row] links to; flag any character not yet created). **Create
+  the rows via Supabase MCP once the pipeline replies** (HQ child page `🆕 channel-row configs NEEDED … (2026-07-05)`).
+- **THEN: Basic/Advanced polish** (operator sequenced it after 5b + channels): app-wide reach (hide Production/Cost tabs
+  in Basic, trim Overview) + mode-gate savebar actions.
+
 ### Also this session — content-retention + competitor RESEARCH (#124 `1475afa`), and a strategy Q
 - **Research shipped (#124):** `docs/research/content-retention-and-competitors-2026-07-05.md` — operator-commissioned,
   produced via the deep-research harness (107 agents, adversarial verification). **Part A** (what makes AI short-form
