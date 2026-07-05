@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-05 (Character bench SUB-LANE 3 SHIPPED #96 — Aurora re-skin of History/Compare/Restore; chrome only, legacy `.cr` intact). Production tip = `5cdcfb9` (#96)** by the Architect (Claude).
+_Last updated: **2026-07-05 (Character bench SUB-LANES 3 & 4 SHIPPED #96/#99 + sub-lane-3 ratify/polish #98 — Aurora History/Compare/Restore re-skin + Aurora New-channel create form; legacy `.cr` intact). Production tip = `f57a75b` (#99)** by the Architect (Claude).
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,90 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-05) — CHARACTER BENCH SUB-LANE 3 SHIPPED (#96, squash `5cdcfb9`): Aurora re-skin of History/Compare/Restore. NEXT = sub-lane 4 (new-channel Aurora form). Read this first.
+## ⚡ LATEST (2026-07-05) — CHARACTER BENCH SUB-LANE 4 SHIPPED (#99, squash `f57a75b`): Aurora New-channel create form. Sub-lane 3 ratify + polish also landed (#98). NEXT = sub-lane 5 (reachability sweep + DELETE the legacy `.cr` shell — the payoff). Read this first.
+
+**Production/default = `claude/new-session-3l99vs` @ `f57a75b` (#99).** The hub "+ New Channel" CTA now opens an
+Aurora-native create surface (no legacy console). Sub-lanes 1-4 of the character-bench lane are DONE; only the
+legacy-shell deletion (sub-lane 5) remains. Branch for new work: **start fresh off production** (keep your
+harness-designated working-branch name).
+
+### Copy-paste KICKOFF for the next session (rule 41 — paste this to start)
+```
+You are the Architect for the Reels Content Control Room dashboard (Next.js 15 / React 19 / Supabase, plain-CSS
+"Aurora" design system; channel-first per D-6). You own judgment/specs/reviews/commits/merges; you never write
+app code yourself — Codex builds, Fable-5 (cross-vendor) + suerta (same-vendor Opus, L-2) review, you squash-merge
+via the GitHub MCP (owner recklessfrags, repo content-gen-dashboard).
+FIRST: read docs/SESSION-HANDOFF.md top-to-bottom, then governance.md + AGENTS.md, then do a FRESH HQ fetch
+(Notion 📮 Coordination Log, page 38fd346e-22d2-8133-bd2e-e5b7f97f7c2e — read the Open Cross-Team Items tracker +
+Process Learnings Ledger) before planning or claiming anything blocked (rule L-1).
+BRANCH: start fresh off production `claude/new-session-3l99vs` (git fetch origin claude/new-session-3l99vs &&
+git checkout -B <your-working-branch> origin/claude/new-session-3l99vs); keep the harness-designated branch name.
+NOTE: a fresh container has NO node_modules — run `npm ci` first. QA creds (.env.local) are ephemeral per
+container — re-request; run ratify as `set -a; . ./.env.local; set +a; node scripts/ratify-*.mjs`.
+TASK: sub-lane 5 of docs/slices/slice-character-bench-retire-legacy.md — the PAYOFF. Sub-lanes 1-4 SHIPPED
+(#92/#94/#96/#99). Do the REACHABILITY SWEEP first (§3/Q2): enumerate EVERY legacy-`.cr`-only reachable action
+(roster character CRUD/bible/history/restore/casting, channel edit+DELETE, ideas/wire capture, queue drill-down,
+runs, global cost, export) and confirm each has an Aurora home BEFORE deleting anything. Known gaps to resolve or
+sub-lane: ideas/wire is still legacy (the Aurora editor's "Log an idea →" opens the legacy wire board); channel
+DELETE currently only in the legacy channels console (workspace Guidelines tab hides delete). Then delete the `.cr`
+return + openLegacyConsole + the legacyShellOpen interim + the dead channelsAutoNew state, and drop the `?view=`
+handling. CONSENSUS review (Fable+suerta) on the delete step — it's reachability-critical. Live-ratify no capability
+lost. Keep chat terse (L-3).
+```
+
+### What shipped this session (all merged to production)
+- **Sub-lane 4 (#99, squash `f57a75b`) — Aurora New-channel create form.** Hub "+ New Channel" now opens an
+  Aurora surface instead of `openLegacyConsole("channels")` (killed the overwrite-`default` footgun + the paradigm
+  switch — `slice-newcomer-journey-fixes.md` #1 durable tier). Reuses `ChannelProfilesPanel` in a new **`createOnly`**
+  mode (blank form via `creating=true`+`startNew`; hides master list/mobile picker/delete via
+  `isScopedLayout = scopedChannel || createOnly`; reuses the Lane-3a `.channel-profiles.scoped` re-skin + the
+  `upsert`/validation/persona wiring VERBATIM; `onCreated` closes+toasts). ControlRoom: `newChannelOpen` state +
+  a `[scope]` effect that closes it on leaving the hub. **Review: no blockers.** **Ratify
+  `scripts/ratify-newchannel-aurora.mjs` 20/20, ZERO live writes** (blank/editable codename, NEW ROW, no master
+  list, defer-to-save, exactly one write carrying the NEW codename & never `default`, abandon writes nothing).
+- **Sub-lane 3 ratify + polish (#98, squash `2685cfb`).** Closed #96's deferred live-ratify —
+  `scripts/ratify-character-bench-sublane3.mjs` **24/24, zero live writes** (Aurora skin confirmed on the real
+  build: frosted `blur(8px)` backdrops, translucent surfaces, de-militarised headings; AA latest badge 8.01 dark /
+  5.55 light, body 8.07 / 5.65; reduced-motion; scoping). Polish: light-theme accent-glow re-tint (cyan→#0066FF
+  under `[data-theme="light"]`) + trimmed the dead ≤880px bench-savebar `padding-bottom`.
+
+### Process notes (this session)
+- **QA creds were provided → the ratify harness is WARM this container** (`.env.local` = Supabase URL + anon +
+  `RATIFY_EMAIL`/`PASSWORD`). Both sub-lane-3 and sub-lane-4 ratified green. Creds are ephemeral — re-request next
+  container. Run pattern: `set -a; . ./.env.local; set +a; node scripts/ratify-*.mjs`.
+- **Fresh-container gotcha (re-confirmed):** `node_modules` absent on cold start → `npm ci` (~15s) before any
+  tsc/vitest/next-build, else every check false-fails "Cannot find module".
+- **createOnly reuse pattern worked cleanly** — a big legacy panel re-homed to an Aurora surface with a single
+  boolean prop + a derived layout flag, zero write-path change. The `isScopedLayout` seam (scopedChannel ‖
+  createOnly) generalised Lane-3a's scoped-workspace path to the create surface.
+
+### NEXT — sub-lane 5 (the payoff): reachability sweep + delete the legacy `.cr` shell
+- **Reachability sweep FIRST (the gate, §3/Q2).** Every legacy-only action needs a confirmed Aurora home before
+  deletion. **Known gaps:** (a) ideas/wire capture is still legacy (Aurora editor "Log an idea →" opens the legacy
+  wire board) — needs an Aurora ideas home or its own sub-lane; (b) channel **DELETE** is only in the legacy
+  channels console (the workspace Guidelines tab + the new create form both hide delete) — add delete to an Aurora
+  channel surface or accept legacy-until-then. Queue/runs/cost each already have Aurora/legacy-cost homes (verify).
+- **Then delete:** the `.cr` return + `openLegacyConsole` + the `legacyShellOpen` interim + **the now-dead
+  `channelsAutoNew` state** (sub-lane 4 orphaned it; `openLegacyConsole("channels")` has zero callers) + the
+  `?view=` handling Lane 5 already redirects. **Consensus review (Fable+suerta)** on the delete step.
+- **Also deferred (fold into 5 or a polish pass):** `DiscardChangesDialog` still renders legacy-dark over the
+  Aurora shell (it mounts in `globalOverlays` OUTSIDE the themed `.aurora-app` — a token skin would lock to dark in
+  light theme; the fix is to relocate the overlay into the shell, which sub-lane 5's deletion naturally forces).
+
+### Live data reality (re-checked live 2026-07-05, `execute_sql`)
+`channel_profiles` = **1** (`default` → Fine Print, `character_id` set). `characters` = **3** (Fine Print has 1
+`character_bible_revisions` row; the others 0). `jobs` = **52 total, 2 now carry a `channel`** (was 0/50) — but
+tagged **`weird_food`**, which matches NO `channel_profiles` codename (`default`); `ideas.channel` ∈ {Food, Dark
+history} (free-text). So the three channel identifiers still don't reconcile → **Lane 3b (Production tab) stays
+data-blocked** (for `default` there are 0 tagged jobs/ideas to drive the money-path live-ratify). `episodes` = **55,
+36 with `character_id`** (per-character cost already live — nothing to build) **, 12 with `correlation_key`**.
+**Phase-3 Lanes 2-3 stay data-blocked** (no channel-consistent thread). **HQ current (2026-07-05 fetch):** no new
+inbound asks; knob-contract = A (grouped jsonb), held on pipeline Gate-2 + hold-lift; per-character-cost row
+low-urgency (already satisfied by the 36 linked episodes).
+
+---
+
+## ⚡ EARLIER (2026-07-05) — CHARACTER BENCH SUB-LANE 3 SHIPPED (#96, squash `5cdcfb9`): Aurora re-skin of History/Compare/Restore.
 
 **Production/default = `claude/new-session-3l99vs` @ `5cdcfb9` (#96).** The version-history overlays (HistoryDrawer,
 CompareDialog, RestoreDialog confirm) now render in Aurora when opened from the `?hub=characters` editor. Branch for

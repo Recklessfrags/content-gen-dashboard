@@ -75,9 +75,15 @@ Reuse the **data/logic seams**, rebuild the **chrome** against Aurora (same disc
    `:focus-visible`). Components + handlers + refs + JSX reused verbatim; legacy `.cr` instances keep
    globals.css styling (deleted in sub-lane 5); `DiscardChangesDialog` deferred (shares `.restore-*`
    but mounts in `globalOverlays`, outside scope). `tsc` + 148 tests + `next build` clean; independent
-   AA/scoping review no blockers (latest badge 8.5:1 dark / 5.8:1 light); live-artifact ratify deferred
-   (ephemeral QA creds).
+   AA/scoping review no blockers (latest badge 8.5:1 dark / 5.8:1 light). **Live-artifact ratify closed
+   (#98, `2685cfb`)** — `scripts/ratify-character-bench-sublane3.mjs` 24/24, zero live writes (AA on the
+   real build 8.01 dark / 5.55 light).
 4. **New-channel Aurora form** — the durable tier of #1 (removes the legacy channels console for create).
+   **✅ SHIPPED (#99, squash `f57a75b`, 2026-07-05)** — hub "+ New Channel" now opens an Aurora create
+   surface (`ChannelProfilesPanel` `createOnly` mode: blank form, no master list/picker/delete, reuses the
+   Lane-3a `.channel-profiles.scoped` re-skin + the upsert/validation/persona wiring verbatim; defer-to-save,
+   never touches `default`). `tsc` + 148 tests + build clean; review no blockers; ratify
+   `scripts/ratify-newchannel-aurora.mjs` 20/20, zero live writes.
 5. **Reachability sweep + delete the legacy shell** — only after 1–4 + confirming ideas/queue/runs/cost
    each have an Aurora home. This is the payoff: `.cr` and the dual-shell interim are deleted.
 
