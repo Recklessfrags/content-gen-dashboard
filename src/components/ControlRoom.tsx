@@ -2315,22 +2315,33 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       <>
         {globalOverlays}
         <AuroraShell operatorInitials={operatorInitials}>
-          <section className="glass-panel au-empty" aria-labelledby="system-overview-title">
-            <p className="text-mono dim" style={{ fontSize: "0.875rem" }}>
-              {scopeToSearch({ kind: "hub", hub: "overview" })}
-            </p>
-            <h1 id="system-overview-title" className="text-display" style={{ fontSize: "2rem" }}>
-              System Overview
-            </h1>
-            <p>System Overview — next lane.</p>
-            <button
-              type="button"
-              className="action-button"
-              onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
-            >
-              Back to Channels
-            </button>
-          </section>
+          <div className="overview-hub scoped">
+            <div className="overview-hub__head">
+              <div>
+                <p className="text-mono dim" style={{ fontSize: "0.875rem", marginBottom: "0.5rem" }}>
+                  {scopeToSearch({ kind: "hub", hub: "overview" })}
+                </p>
+                <h1 id="system-overview-title" className="text-display" style={{ fontSize: "2.5rem" }}>
+                  System Overview
+                </h1>
+              </div>
+              <button
+                type="button"
+                className="action-button"
+                onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+              >
+                Back to Channels
+              </button>
+            </div>
+            <OverviewDashboard
+              chars={chars}
+              ideas={ideas}
+              episodes={episodes}
+              costStats={costStats}
+              costReceiptsLoading={costReceiptsLoading}
+              costReceiptsError={costReceiptsError}
+            />
+          </div>
         </AuroraShell>
       </>
     );
