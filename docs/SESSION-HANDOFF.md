@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-04 (Character bench SUB-LANES 1 & 2 SHIPPED #92/#94 — Aurora `?hub=characters` read bench + dossier-editor re-home; HQ current). Production tip = `b392a10` (#94)** by the Architect (Claude).
+_Last updated: **2026-07-05 (Character bench SUB-LANE 3 SHIPPED #96 — Aurora re-skin of History/Compare/Restore; chrome only, legacy `.cr` intact). Production tip = `5cdcfb9` (#96)** by the Architect (Claude).
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,85 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-04) — CHARACTER BENCH SUB-LANE 2 SHIPPED (#94, squash `b392a10`): Aurora dossier editor re-home. NEXT = sub-lane 3 (history/restore re-skin). Read this first.
+## ⚡ LATEST (2026-07-05) — CHARACTER BENCH SUB-LANE 3 SHIPPED (#96, squash `5cdcfb9`): Aurora re-skin of History/Compare/Restore. NEXT = sub-lane 4 (new-channel Aurora form). Read this first.
+
+**Production/default = `claude/new-session-3l99vs` @ `5cdcfb9` (#96).** The version-history overlays (HistoryDrawer,
+CompareDialog, RestoreDialog confirm) now render in Aurora when opened from the `?hub=characters` editor. Branch for
+new work: **start fresh off production** (keep your harness-designated working-branch name).
+
+### Copy-paste KICKOFF for the next session (rule 41 — paste this to start)
+```
+You are the Architect for the Reels Content Control Room dashboard (Next.js 15 / React 19 / Supabase, plain-CSS
+"Aurora" design system; channel-first per D-6). You own judgment/specs/reviews/commits/merges; you never write
+app code yourself — Codex builds, Fable-5 (cross-vendor) + suerta (same-vendor Opus, L-2) review, you squash-merge
+via the GitHub MCP (owner recklessfrags, repo content-gen-dashboard).
+FIRST: read docs/SESSION-HANDOFF.md top-to-bottom, then governance.md + AGENTS.md, then do a FRESH HQ fetch
+(Notion 📮 Coordination Log, page 38fd346e-22d2-8133-bd2e-e5b7f97f7c2e — read the Open Cross-Team Items tracker +
+Process Learnings Ledger) before planning or claiming anything blocked (rule L-1).
+BRANCH: start fresh off production `claude/new-session-3l99vs` (git fetch origin claude/new-session-3l99vs &&
+git checkout -B <your-working-branch> origin/claude/new-session-3l99vs); keep the harness-designated branch name.
+NOTE: a fresh container has NO node_modules — run `npm ci` before tsc/tests/build. QA creds (.env.local) are
+ephemeral per container — re-request from the operator before any live-artifact ratify.
+TASK: continue the Aurora character bench — docs/slices/slice-character-bench-retire-legacy.md. Sub-lanes 1 (read
+bench, #92) + 2 (dossier editor re-home, #94) + 3 (history/compare/restore re-skin, #96) SHIPPED. NEXT = sub-lane 4:
+the durable Aurora NEW-CHANNEL form (slice-newcomer-journey-fixes.md #1) so the hub "+ New Channel" no longer routes
+through the legacy console. Then sub-lane 5 (reachability sweep + delete the legacy `.cr` shell — consensus review;
+the payoff). Drive build→Fable+suerta→ratify→squash-merge. Ratify harness = scripts/ratify-*.mjs (prod build +
+Chromium + Supabase bridge, intercept-and-abort); run it `set -a; . ./.env.local; set +a; node scripts/ratify-*.mjs`
+(creds are process.env-scoped; password contains !). Keep chat terse (L-3).
+```
+
+### What shipped this session (merged to production)
+- **Sub-lane 3 (#96, squash `5cdcfb9`) — Aurora re-skin of History / Compare / Restore. CHROME ONLY.** The three
+  overlays (`HistoryDrawer`, `CompareDialog`, and the inline `RestoreDialog` confirm) are re-skinned to Aurora via a
+  single scoped block (+290 lines) in `src/app/aurora.css` — **components + handlers + refs + JSX reused VERBATIM**,
+  zero `.tsx` change. Frosted `blur(8px)` backdrops (legacy z-index 60/90/100 + click-to-close preserved);
+  `--surface-1` glass surfaces; sans headings (no terminal uppercase); revision cards on `--surface-1` with an accent
+  preview marker; semantic badges (latest → `--success`, archive → neutral); diff spans (`--text-main` over
+  success/danger tint + underline/strike); dialog buttons → accent primary + bordered ghost (sub-lane-2 savebar
+  treatment); `prefers-reduced-motion` zeroes the drawer animation + card transition; focus rings inherit the global
+  `.aurora-app :focus-visible`.
+  - **Strategy (sub-lane-2 precedent):** the dialogs render inside `.characters-bench.scoped .dossier` in the Aurora
+    editor, so every override is prefixed `.aurora-app .characters-bench.scoped …` → re-skins exactly the Aurora
+    instances. The SAME components mounted in the legacy `.cr` roster (also via `renderDossierEditor`) have neither
+    ancestor class, so their `globals.css` styling is **untouched** (sub-lane 5 deletes it). `DiscardChangesDialog`
+    shares `.restore-*` but mounts in `globalOverlays` (outside the scope) — **deferred, not re-skinned** (a visible
+    consistency gap: the dirty-guard confirm stays legacy-dark over the Aurora shell; fold into sub-lane 4/5 or a
+    polish pass).
+  - **Review (independent AA/scoping lens — no blockers):** scoping double-gated (legacy `.cr` + the out-of-scope
+    `DiscardChangesDialog` both provably unreachable by the new rules); AA both themes — latest badge **8.5:1 dark /
+    5.8:1 light**, diff spans ~14–15:1, dialog body text 8.3/5.7, accent `.btn` 13.2 dark / 4.59 light (token floor,
+    not introduced here); no behaviour/z-index/pointer-events change.
+  - **Gates:** `tsc` + **148 tests** + `next build` clean. **Live-artifact ratify DEFERRED** — the `scripts/ratify-*`
+    harness needs the ephemeral QA creds (`.env.local`), absent this container. It's a no-write CSS change (money-path
+    risk nil), but the Aurora render + on-artifact AA sample are unverified on the live build; re-request creds and run
+    `scripts/ratify-character-bench-sublane3.mjs` (to author) to close the gate.
+
+### Process notes (this session)
+- **A CSS-only, tightly-scoped sub-lane is genuinely low-risk** and closed in one build/verify/review pass — the
+  opposite of sub-lane 2's monolith thrash. The scoping discipline (`.characters-bench.scoped` ancestor gate) is what
+  makes "re-skin the Aurora instance, leave legacy intact" a one-file change instead of a fork.
+- **Fresh-container gotcha:** `node_modules` is absent on a cold container — `npm ci` (fast, ~15s) before any
+  tsc/vitest/next-build, or every check false-fails with "Cannot find module". Logged so the next session doesn't
+  misread it as a code break.
+
+### NEXT (remaining character-bench sub-lanes — §4 of the slice)
+4. **New-channel Aurora form** — the durable Aurora tier of `slice-newcomer-journey-fixes.md` #1: an Aurora surface for
+   creating a channel so the hub "+ New Channel" stops routing through the legacy console. **This is the next lane.**
+5. **Reachability sweep + delete the legacy `.cr` shell** — only after 4 + confirming ideas/queue/runs/cost each have
+   an Aurora home (ideas/wire is still legacy — the Aurora editor's "Log an idea →" opens the legacy wire board until
+   this lane). **Consensus review (Fable+suerta) on the delete step.** The payoff.
+- **Deferred cosmetic/consistency nits (non-blocking):** `DiscardChangesDialog` still legacy-dark over the Aurora
+  shell (sub-lane 3 scope excluded it); off-token cyan `rgba(0,229,255,…)` glows in light theme (aurora.css
+  ~1256/1478/1580); ≤880px `.dossier{padding-bottom:240px}` whitespace on the now-static bench savebar. Fold into
+  sub-lane 4 or a polish pass.
+- **Data-blocked (skip until `jobs.channel` populates):** Lane 3b Production runs, Phase-3 Lanes 2-3.
+- **HQ open ask (answered, awaiting pipeline):** `channel_profiles` per-channel knob contract = **A (grouped jsonb)**;
+  no build now (gated on pipeline Gate-2 + hold-lift).
+
+---
+
+## ⚡ EARLIER (2026-07-04) — CHARACTER BENCH SUB-LANE 2 SHIPPED (#94, squash `b392a10`): Aurora dossier editor re-home. NEXT = sub-lane 3 (history/restore re-skin).
 
 **Production/default = `claude/new-session-3l99vs` @ `b392a10` (#94).** The dossier editor now lives in the Aurora
 `?hub=characters` surface (grid|editor). Branch for new work: **start fresh off production** (keep your
