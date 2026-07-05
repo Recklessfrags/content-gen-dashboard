@@ -55,7 +55,7 @@ function changedFields(
   const changed = BIBLE_FIELDS.filter(
     (field) => (revision.bible?.[field] ?? "") !== (previousRevision.bible?.[field] ?? ""),
   ).map((field) => FIELD_LABELS[field]);
-  if (changed.length === 0) return "No bible text changes";
+  if (changed.length === 0) return "No profile text changes";
   if (changed.length <= 3) return `Changed: ${changed.join(", ")}`;
   return `+${changed.length} edits: ${changed.slice(0, 3).join(", ")}`;
 }
@@ -100,7 +100,7 @@ export function HistoryDrawer({
         className="history-drawer"
         role="dialog"
         aria-modal="true"
-        aria-label="Bible version history"
+        aria-label="Profile version history"
       >
         <div className="history-head">
           <button
@@ -140,10 +140,10 @@ export function HistoryDrawer({
             <div className="empty history-empty">
               <Icon name="clock" />
               <h3>No history logged</h3>
-              <p>Save this character dossier to create your first permanent manual revision snapshot.</p>
+              <p>Save this character profile to create your first saved version.</p>
             </div>
           ) : (
-            <div className="revision-list" aria-label="Saved bible revisions">
+            <div className="revision-list" aria-label="Saved profile versions">
               {revisions.map((revision, index) => {
                 const isLatest = index === 0;
                 const isPreviewing = revision.id === previewingRevisionId;
@@ -160,7 +160,7 @@ export function HistoryDrawer({
                       </span>
                     </div>
                     <div className="revision-identity">
-                      <span>Codename: {revision.codename || "Untitled"}</span>
+                      <span>Name: {revision.codename || "Untitled"}</span>
                       <span>Status: {revision.status === "active" ? "Active" : "Draft"}</span>
                     </div>
                     <p className="revision-diff">{changedFields(revision, previousRevision)}</p>
@@ -169,7 +169,7 @@ export function HistoryDrawer({
                         className="btn ghost"
                         type="button"
                         onClick={(event) => onCompare(revision, event.currentTarget)}
-                        aria-label={`Compare current bible to revision from ${formatRevisionDate(
+                        aria-label={`Compare the current profile to the version from ${formatRevisionDate(
                           revision.created_at,
                         )}`}
                       >

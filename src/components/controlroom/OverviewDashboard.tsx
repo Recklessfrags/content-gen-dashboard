@@ -169,7 +169,7 @@ export function OverviewDashboard({
       </div>
 
       <div className="cap">
-        <span className="eyebrow">Aggregate operational intelligence across active assets.</span>
+        <span className="eyebrow">A summary across your characters, ideas, and runs.</span>
       </div>
 
       <div className="overview-content">
@@ -177,7 +177,7 @@ export function OverviewDashboard({
           <section className="overview-column" aria-labelledby="overview-roster-title">
             <div className="overview-column-header">
               <span className="eyebrow">Domain 01</span>
-              <h3 id="overview-roster-title">Roster Dossier</h3>
+              <h3 id="overview-roster-title">Characters</h3>
             </div>
             <div className="overview-cards">
               <div
@@ -186,28 +186,28 @@ export function OverviewDashboard({
                 aria-label={`Total characters: ${rosterStats.total}. ${rosterStats.active} active, ${rosterStats.draft} draft.`}
               >
                 <div className="metric-meta">
-                  <span className="metric-eyebrow">Total Characters</span>
+                  <span className="metric-eyebrow">Total characters</span>
                   <span className="metric-indicator cleared" aria-hidden="true" />
                 </div>
                 <div className="metric-value">{rosterStats.total}</div>
                 <div className="metric-breakdown">
-                  <span className="accent-cleared">{rosterStats.active} Active</span>
+                  <span className="accent-cleared">{rosterStats.active} active</span>
                   <span className="divider">-</span>
-                  <span className="accent-dim">{rosterStats.draft} Drafts</span>
+                  <span className="accent-dim">{rosterStats.draft} drafts</span>
                 </div>
                 {rosterStats.total === 0 && (
-                  <p className="metric-empty">No character manuals are on file yet.</p>
+                  <p className="metric-empty">No characters yet.</p>
                 )}
               </div>
 
               <div
                 className={"metric-card" + (rosterStats.total === 0 ? " is-empty" : "")}
                 role="group"
-                aria-label={`Roster integrity: ${rosterStats.activeRatio} percent active characters.`}
+                aria-label={`Active characters: ${rosterStats.activeRatio} percent of the roster.`}
               >
                 <div className="metric-meta">
-                  <span className="metric-eyebrow">Roster Integrity</span>
-                  <span className="metric-badge">Active Ratio</span>
+                  <span className="metric-eyebrow">Active characters</span>
+                  <span className="metric-badge">Active ratio</span>
                 </div>
                 <div className="metric-value">{rosterStats.activeRatio}%</div>
                 <div className="metric-breakdown">
@@ -219,8 +219,8 @@ export function OverviewDashboard({
                   </div>
                   <span className="metric-subtext">
                     {rosterStats.total === 0
-                      ? "Waiting on the first dossier."
-                      : "Percentage of finalized dossier manuals."}
+                      ? "Waiting on your first character."
+                      : "Share of characters marked active."}
                   </span>
                 </div>
               </div>
@@ -230,7 +230,7 @@ export function OverviewDashboard({
           <section className="overview-column" aria-labelledby="overview-wire-title">
             <div className="overview-column-header">
               <span className="eyebrow">Domain 02</span>
-              <h3 id="overview-wire-title">The Wire Queue</h3>
+              <h3 id="overview-wire-title">Ideas</h3>
             </div>
             <div className="overview-cards">
               <div
@@ -239,30 +239,30 @@ export function OverviewDashboard({
                 aria-label={`Total logged ideas: ${wireStats.total}. ${wireStats.backlog} backlog, ${wireStats.active} active, ${wireStats.used} used.`}
               >
                 <div className="metric-meta">
-                  <span className="metric-eyebrow">Total Logged Ideas</span>
+                  <span className="metric-eyebrow">Total logged ideas</span>
                   <span className="metric-indicator brass" aria-hidden="true" />
                 </div>
                 <div className="metric-value">{wireStats.total}</div>
                 <div className="metric-breakdown">
-                  <span className="accent-dim">{wireStats.backlog} Backlog</span>
+                  <span className="accent-dim">{wireStats.backlog} backlog</span>
                   <span className="divider">-</span>
-                  <span className="accent-brass">{wireStats.active} Active</span>
+                  <span className="accent-brass">{wireStats.active} active</span>
                   <span className="divider">-</span>
-                  <span className="accent-cleared">{wireStats.used} Used</span>
+                  <span className="accent-cleared">{wireStats.used} used</span>
                 </div>
                 {wireStats.total === 0 && (
-                  <p className="metric-empty">No ideas have been logged into the queue.</p>
+                  <p className="metric-empty">No ideas logged yet.</p>
                 )}
               </div>
 
               <div
                 className={"metric-card" + (wireStats.total === 0 ? " is-empty" : "")}
                 role="group"
-                aria-label={`Inspiration conversion: ${wireStats.conversionRate} percent of ideas converted.`}
+                aria-label={`Idea conversion: ${wireStats.conversionRate} percent of ideas converted.`}
               >
                 <div className="metric-meta">
-                  <span className="metric-eyebrow">Inspiration Conversion</span>
-                  <span className="metric-badge">Used Rate</span>
+                  <span className="metric-eyebrow">Idea conversion</span>
+                  <span className="metric-badge">Used rate</span>
                 </div>
                 <div className="metric-value">{wireStats.conversionRate}%</div>
                 <div className="metric-breakdown">
@@ -283,25 +283,25 @@ export function OverviewDashboard({
           <section className="overview-column" aria-labelledby="overview-runs-title">
             <div className="overview-column-header">
               <span className="eyebrow">Domain 03</span>
-              <h3 id="overview-runs-title">Runs Pipeline</h3>
+              <h3 id="overview-runs-title">Runs</h3>
             </div>
             <div className="overview-cards">
               <div
                 className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
                 role="group"
-                aria-label={`Total pipeline runs: ${runsStats.total}. ${runsStats.cleared} cleared, ${runsStats.failed} failed, ${runsStats.active} active or other.`}
+                aria-label={`Total runs: ${runsStats.total}. ${runsStats.cleared} cleared, ${runsStats.failed} failed, ${runsStats.active} active or other.`}
               >
                 <div className="metric-meta">
-                  <span className="metric-eyebrow">Total Pipeline Runs</span>
+                  <span className="metric-eyebrow">Total runs</span>
                   <span className="metric-indicator stamp" aria-hidden="true" />
                 </div>
                 <div className="metric-value">{runsStats.total}</div>
                 <div className="metric-breakdown">
-                  <span className="accent-cleared">{runsStats.cleared} Cleared</span>
+                  <span className="accent-cleared">{runsStats.cleared} cleared</span>
                   <span className="divider">-</span>
-                  <span className={runsStats.failed > 0 ? "accent-failed" : "accent-dim"}>{runsStats.failed} Failed</span>
+                  <span className={runsStats.failed > 0 ? "accent-failed" : "accent-dim"}>{runsStats.failed} failed</span>
                   <span className="divider">-</span>
-                  <span className="accent-brass">{runsStats.active} Other</span>
+                  <span className="accent-brass">{runsStats.active} other</span>
                 </div>
                 {runsStats.statusCounts.length > 0 ? (
                   <div className="status-breakdown" aria-label="Episode status counts">
@@ -312,7 +312,7 @@ export function OverviewDashboard({
                     ))}
                   </div>
                 ) : (
-                  <p className="metric-empty">No pipeline output has landed yet.</p>
+                  <p className="metric-empty">No runs yet.</p>
                 )}
               </div>
 
@@ -321,14 +321,14 @@ export function OverviewDashboard({
                 role="group"
                 aria-label={
                   costReceiptsLoading
-                    ? "Total operational spend is loading from receipts."
+                    ? "Total spend is loading."
                     : costReceiptsError
-                      ? `Total operational spend is unavailable: ${costReceiptsError}.`
-                      : `Total operational spend: ${formatUsd(runsStats.totalSpend)}. Average cost per episode is ${formatUsd(runsStats.avgSpend)}.`
+                      ? `Total spend is unavailable: ${costReceiptsError}.`
+                      : `Total spend: ${formatUsd(runsStats.totalSpend)}. Average cost per episode is ${formatUsd(runsStats.avgSpend)}.`
                 }
               >
                 <div className="metric-meta">
-                  <span className="metric-eyebrow">Total Operational Spend</span>
+                  <span className="metric-eyebrow">Total spend</span>
                   <span className="metric-badge">Cost</span>
                 </div>
                 <div className="metric-row">
@@ -342,10 +342,10 @@ export function OverviewDashboard({
                 <div className="metric-breakdown">
                   <span className="metric-subtext">
                     {costReceiptsLoading
-                      ? "Reading the live receipts spend source."
+                      ? "Reading the latest spend."
                       : costReceiptsError
-                        ? "Receipt spend source could not be read."
-                        : <>Avg. Cost: <b>{formatMoney(runsStats.avgSpend)}</b> / episode</>}
+                        ? "Couldn't read the spend source."
+                        : <>Avg. cost: <b>{formatMoney(runsStats.avgSpend)}</b> / episode</>}
                   </span>
                 </div>
               </div>
@@ -353,11 +353,11 @@ export function OverviewDashboard({
               <div
                 className={"metric-card" + (runsStats.total === 0 ? " is-empty" : "")}
                 role="group"
-                aria-label={`Sentinel pass rate: ${runsStats.passRate} percent. ${runsStats.passedSentinels} of ${runsStats.total} episodes passed.`}
+                aria-label={`Fact-check pass rate: ${runsStats.passRate} percent. ${runsStats.passedSentinels} of ${runsStats.total} episodes passed.`}
               >
                 <div className="metric-meta">
-                  <span className="metric-eyebrow">Sentinel Pass Rate</span>
-                  <span className="metric-badge">Quality Gate</span>
+                  <span className="metric-eyebrow">Fact-check pass rate</span>
+                  <span className="metric-badge">Quality gate</span>
                 </div>
                 <div className="metric-value">{runsStats.passRate}%</div>
                 <div className="metric-breakdown">
@@ -383,7 +383,7 @@ export function OverviewDashboard({
                 }
               >
                 <div className="metric-meta">
-                  <span className="metric-eyebrow">Last Run Operated</span>
+                  <span className="metric-eyebrow">Last run</span>
                   <span className="metric-badge">Freshness</span>
                 </div>
                 {runsStats.lastEpisode ? (
@@ -401,7 +401,7 @@ export function OverviewDashboard({
                   </>
                 ) : (
                   <>
-                    <div className="metric-value-date">No Runs</div>
+                    <div className="metric-value-date">No runs</div>
                     <div className="metric-breakdown">
                       <span className="metric-subtext">No recent pipeline activity.</span>
                     </div>

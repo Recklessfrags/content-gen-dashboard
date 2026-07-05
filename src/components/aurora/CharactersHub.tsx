@@ -43,8 +43,8 @@ export function CharactersHub({
           <h3 id="characters-hub-title" className="text-display" style={{ fontSize: "2rem" }}>
             Characters
           </h3>
-          <p className="dim text-mono" style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}>
-            Channel personas &amp; field manuals
+          <p className="dim" style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}>
+            Recurring characters for your channels
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
@@ -59,7 +59,7 @@ export function CharactersHub({
 
       {loading ? <LoadingGrid /> : null}
       {error !== null ? <ErrorState error={error} onRetry={onRetry} /> : null}
-      {showEmpty ? <EmptyState /> : null}
+      {showEmpty ? <EmptyState onCreateCharacter={onCreateCharacter} /> : null}
 
       {showCards ? (
         <div className="channels-grid" aria-label="Characters">
@@ -122,11 +122,16 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
   );
 }
 
-function EmptyState() {
+function EmptyState({ onCreateCharacter }: { onCreateCharacter: () => void }) {
   return (
     <div className="glass-panel au-empty">
       <p className="text-title">No characters yet</p>
-      <p>Add the first persona to begin casting.</p>
+      <p>Create your first character to start casting voices.</p>
+      <div style={{ marginTop: "1rem" }}>
+        <button type="button" className="btn btn-primary" onClick={onCreateCharacter}>
+          Create your first character
+        </button>
+      </div>
     </div>
   );
 }
@@ -138,7 +143,7 @@ function CharacterCard({
   card: CharacterCardVM;
   onOpenCharacter: CharactersHubProps["onOpenCharacter"];
 }) {
-  const codename = card.codename.trim() === "" ? "Untitled Character" : card.codename;
+  const codename = card.codename.trim() === "" ? "Untitled character" : card.codename;
   const concept = card.concept?.trim() || "No concept logged yet.";
   const avatarClass = card.isVoiceCast ? "avatar avatar--cast" : "avatar avatar-uncast";
   const cardClass =
@@ -157,7 +162,7 @@ function CharacterCard({
       className={cardClass}
       role="button"
       tabIndex={0}
-      aria-label={`Open ${codename} character dossier`}
+      aria-label={`Open ${codename} character profile`}
       aria-current={card.isSelected ? "true" : undefined}
       onClick={() => onOpenCharacter(card.id)}
       onKeyDown={handleKeyDown}

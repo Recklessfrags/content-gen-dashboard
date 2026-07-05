@@ -199,7 +199,7 @@ export function VisualIdentityPanel({
   const handleRemove = async () => {
     if (loading) return;
     const confirmed = window.confirm(
-      "Remove this visual identity from the dossier? Stored files are retained for audit.",
+      "Remove this visual identity from the character profile? Stored files are kept for your records.",
     );
     if (!confirmed) return;
     setLoading(true);
@@ -254,9 +254,9 @@ export function VisualIdentityPanel({
 
         <div className="visual-studio-body" aria-busy={loading || signing}>
           <div className="visual-studio-file">
-            <span className="eyebrow">DOSSIER · {character.codename || "Untitled"}</span>
+            <span className="eyebrow">Profile · {character.codename || "Untitled"}</span>
             <span className={"chip " + (lockedPath && !missing ? "active" : "draft")}>
-              {lockedPath && !missing ? "LOCKED" : missing ? "CORRUPTED" : "NO VISUAL ID"}
+              {lockedPath && !missing ? "Locked" : missing ? "Missing" : "No visual yet"}
             </span>
           </div>
 
