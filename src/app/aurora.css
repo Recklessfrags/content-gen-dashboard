@@ -1967,6 +1967,118 @@
   gap: 1.5rem;
 }
 
+/* --------------------------------------------------------------------------
+   Sub-lane 5e — Aurora "System Overview" home. Re-homes the legacy
+   OverviewDashboard into ?hub=overview, CHROME ONLY: the component/JSX/data
+   are reused verbatim; these scoped overrides re-skin the parchment metric
+   cards / sparklines / progress bars to Aurora tokens. The same component in
+   the legacy `.cr` shell keeps its globals.css styling. Series colors are
+   categorical (spend=accent, runs=status-running); status = success/danger.
+   -------------------------------------------------------------------------- */
+.aurora-app .overview-hub.scoped {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  --spark-spend: var(--accent);
+  --spark-runs: var(--status-running);
+}
+.aurora-app .overview-hub__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+/* the legacy component's own terminal header/cap are redundant under the Aurora head */
+.aurora-app .overview-hub.scoped .overview > .col-head,
+.aurora-app .overview-hub.scoped .overview > .cap {
+  display: none;
+}
+.aurora-app .overview-hub.scoped .overview { background: transparent; }
+.aurora-app .overview-hub.scoped .overview-content { padding: 0; overflow: visible; }
+.aurora-app .overview-hub.scoped .overview-column {
+  background: var(--surface-0);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-ambient);
+}
+.aurora-app .overview-hub.scoped .overview-column-header {
+  border-bottom: 1px solid var(--border-soft);
+}
+.aurora-app .overview-hub.scoped .overview-column-header h3 {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-main);
+}
+.aurora-app .overview-hub.scoped .eyebrow,
+.aurora-app .overview-hub.scoped .metric-eyebrow {
+  color: var(--text-muted);
+}
+.aurora-app .overview-hub.scoped .metric-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+.aurora-app .overview-hub.scoped .metric-card:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.aurora-app .overview-hub.scoped .metric-card.is-empty {
+  border-style: dashed;
+  background: var(--surface-0);
+}
+.aurora-app .overview-hub.scoped .metric-badge {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+}
+.aurora-app .overview-hub.scoped .metric-value,
+.aurora-app .overview-hub.scoped .metric-value-date {
+  font-family: var(--font-sans);
+  color: var(--text-main);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.aurora-app .overview-hub.scoped .metric-breakdown,
+.aurora-app .overview-hub.scoped .metric-subtext,
+.aurora-app .overview-hub.scoped .metric-empty {
+  color: var(--text-dim);
+}
+.aurora-app .overview-hub.scoped .metric-subtext b { color: var(--text-main); }
+.aurora-app .overview-hub.scoped .divider { color: var(--text-muted); }
+
+/* reserved status hues (dots + progress fills); text uses on-tint-safe tokens */
+.aurora-app .overview-hub.scoped .metric-indicator.cleared,
+.aurora-app .overview-hub.scoped .progress-bar.cleared { background: var(--success); }
+.aurora-app .overview-hub.scoped .metric-indicator.stamp,
+.aurora-app .overview-hub.scoped .progress-bar.stamp { background: var(--danger); }
+.aurora-app .overview-hub.scoped .metric-indicator.brass,
+.aurora-app .overview-hub.scoped .progress-bar.brass { background: var(--accent); }
+.aurora-app .overview-hub.scoped .accent-cleared { color: var(--success); }
+.aurora-app .overview-hub.scoped .accent-failed { color: var(--danger-fg); }
+.aurora-app .overview-hub.scoped .accent-brass { color: var(--accent); }
+.aurora-app .overview-hub.scoped .accent-dim { color: var(--text-muted); }
+.aurora-app .overview-hub.scoped .progress-container {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+}
+.aurora-app .overview-hub.scoped .status-pill {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+}
+
+/* sparkline series — categorical: spend=accent, runs=status-running */
+.aurora-app .overview-hub.scoped .sparkline-stroke.s-spend { stroke: var(--accent); }
+.aurora-app .overview-hub.scoped .sparkline-stroke.s-runs { stroke: var(--status-running); }
+.aurora-app .overview-hub.scoped .sparkline-dot.s-spend { fill: var(--accent); stroke: var(--bg-base); }
+.aurora-app .overview-hub.scoped .sparkline-dot.s-runs { fill: var(--status-running); stroke: var(--bg-base); }
+
+@media (max-width: 600px) {
+  .aurora-app .overview-hub__head { flex-direction: column; }
+}
+
 /* ==========================================================================
    FEEDBACK & STATES
    ========================================================================== */

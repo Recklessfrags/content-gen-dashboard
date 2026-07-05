@@ -47,7 +47,12 @@ function Sparkline({ values, variant }: { values: number[]; variant: "spend" | "
   const line = pts.map(([x, y]) => `${x} ${y}`).join(" L ");
   const [lastX, lastY] = pts[n - 1];
   const area = `M ${pts[0][0]} 34 L ${line} L ${lastX} 34 Z`;
-  const color = variant === "spend" ? "var(--brass)" : "var(--stamp)";
+  // Theme-swappable series colors: the Aurora overview scope redefines --spark-*;
+  // the legacy .cr overview falls back to the parchment brass/stamp.
+  const color =
+    variant === "spend"
+      ? "var(--spark-spend, var(--brass))"
+      : "var(--spark-runs, var(--stamp))";
   const gradId = `spark-${variant}-grad`;
   return (
     <svg className="sparkline-svg" viewBox="0 0 120 34" aria-hidden="true" focusable="false">
