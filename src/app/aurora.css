@@ -2079,6 +2079,152 @@
   .aurora-app .overview-hub__head { flex-direction: column; }
 }
 
+/* --------------------------------------------------------------------------
+   Sub-lane 5d — Aurora "Global Cost Center" home. Re-homes the legacy
+   CostBoxDashboard into an in-Aurora surface (reached from the workspace Cost
+   tab's "View Global Cost Center →"), CHROME ONLY. Read-only (the budget
+   target is browser localStorage, not a DB write). The same component in the
+   legacy `.cr` shell keeps its globals.css styling.
+   -------------------------------------------------------------------------- */
+.aurora-app .cost-center.scoped {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.aurora-app .cost-center.scoped .cost > .col-head,
+.aurora-app .cost-center.scoped .cost > .cap { display: none; }
+.aurora-app .cost-center.scoped .cost { background: transparent; }
+.aurora-app .cost-center.scoped .cost-content { padding: 0; overflow: visible; }
+
+/* shared metric / text mappings */
+.aurora-app .cost-center.scoped .eyebrow,
+.aurora-app .cost-center.scoped .metric-eyebrow,
+.aurora-app .cost-center.scoped .budget-target-label,
+.aurora-app .cost-center.scoped .provider-share { color: var(--text-muted); }
+.aurora-app .cost-center.scoped .count { color: var(--text-dim); }
+.aurora-app .cost-center.scoped .metric-card,
+.aurora-app .cost-center.scoped .cost-audit {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+.aurora-app .cost-center.scoped .metric-card:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.aurora-app .cost-center.scoped .metric-card.is-empty { border-style: dashed; }
+.aurora-app .cost-center.scoped .metric-badge {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+}
+.aurora-app .cost-center.scoped .metric-value,
+.aurora-app .cost-center.scoped .metric-value-date,
+.aurora-app .cost-center.scoped .hero-value {
+  font-family: var(--font-sans);
+  color: var(--text-main);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.aurora-app .cost-center.scoped .metric-breakdown,
+.aurora-app .cost-center.scoped .metric-subtext { color: var(--text-dim); }
+/* error / empty states: re-skin the panel OFF the legacy dark --ink-2 bg, else
+   --text-dim body copy is illegible on a dark card in light theme. */
+.aurora-app .cost-center.scoped .cost-state {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  color: var(--text-dim);
+}
+.aurora-app .cost-center.scoped .cost-state h3 { color: var(--text-main); }
+.aurora-app .cost-center.scoped .cost-state p { color: var(--text-dim); }
+
+/* hero spend card + budget breach state (status) */
+.aurora-app .cost-center.scoped .metric-card.hero-card { background: var(--surface-0); }
+.aurora-app .cost-center.scoped .metric-card.hero-card.breached { border-color: var(--danger); }
+.aurora-app .cost-center.scoped .metric-badge.alert-badge {
+  background: var(--danger-bg);
+  border-color: rgba(255, 23, 68, 0.3);
+  color: var(--danger-fg);
+}
+.aurora-app .cost-center.scoped .budget-warning-text { color: var(--danger-fg); }
+.aurora-app .cost-center.scoped .pulse-dot { background: var(--success); }
+.aurora-app .cost-center.scoped .pulse-dot.breached { background: var(--danger); }
+
+/* budget target input (localStorage) */
+.aurora-app .cost-center.scoped .budget-target-controls input {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+  border-radius: var(--radius-sm);
+}
+.aurora-app .cost-center.scoped .budget-target-controls input:focus {
+  border-color: var(--border-glow);
+  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.15);
+  background: var(--surface-2);
+  outline: none;
+}
+.aurora-app[data-theme="light"] .cost-center.scoped .budget-target-controls input:focus {
+  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.18);
+}
+.aurora-app .cost-center.scoped .budget-target-controls input::placeholder { color: var(--text-dim); }
+
+/* ghost buttons in the cost surface */
+.aurora-app .cost-center.scoped .btn.ghost {
+  background: transparent;
+  color: var(--text-main);
+  border: 1px solid var(--border-soft);
+}
+.aurora-app .cost-center.scoped .btn.ghost:hover:not(:disabled) {
+  border-color: var(--border-glow);
+  color: var(--accent);
+}
+
+/* pipeline disclosure note */
+.aurora-app .cost-center.scoped .cost-disclosure {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+.aurora-app .cost-center.scoped .disclosure-mark { color: var(--warn); }
+.aurora-app .cost-center.scoped .disclosure-tag { color: var(--text-main); }
+.aurora-app .cost-center.scoped .cost-disclosure p { color: var(--text-dim); }
+
+/* provider / per-character breakdown */
+.aurora-app .cost-center.scoped .provider-name,
+.aurora-app .cost-center.scoped .provider-amount { color: var(--text-main); }
+.aurora-app .cost-center.scoped .progress-container {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+}
+/* share bars = magnitude → one hue (accent), regardless of the rotating legacy class */
+.aurora-app .cost-center.scoped .provider-list .progress-bar { background: var(--accent); }
+/* budget status bars = under/over (reserved status hues) */
+.aurora-app .cost-center.scoped .budget-target-status .progress-bar.cleared { background: var(--success); }
+.aurora-app .cost-center.scoped .budget-target-status .progress-bar.stamp { background: var(--danger); }
+
+/* per-episode audit log */
+.aurora-app .cost-center.scoped .cost-panel-head h3 {
+  font-family: var(--font-sans);
+  color: var(--text-main);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.aurora-app .cost-center.scoped .audit-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+.aurora-app .cost-center.scoped .audit-card.in-flight { border-color: var(--border-glow); }
+.aurora-app .cost-center.scoped .audit-title h4,
+.aurora-app .cost-center.scoped .audit-spend { color: var(--text-main); }
+.aurora-app .cost-center.scoped .run-id { color: var(--accent); }
+.aurora-app .cost-center.scoped .rmeta { color: var(--text-dim); }
+.aurora-app .cost-center.scoped .flight-badge { background: var(--accent); color: var(--bg-base); }
+
+/* loading skeletons */
+.aurora-app .cost-center.scoped .skeleton { background: var(--surface-2); }
+
 /* ==========================================================================
    FEEDBACK & STATES
    ========================================================================== */
