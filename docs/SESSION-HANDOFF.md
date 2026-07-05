@@ -11,15 +11,44 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-05) — COPY AUDIT P1 SWEEP + DIAL RENAMES SHIPPED (#118 `c096531`, handoff #119, dials #120 `073409e`): the full S2 jargon→plain-English rename across every Aurora-surviving surface, dial decision now CLOSED. Read this first.
+## ⚡ LATEST (2026-07-05) — BASIC/ADVANCED MODE TOGGLE SHIPPED (#122 `8d73a5d`), on top of the COPY AUDIT P1 SWEEP + DIAL RENAMES (#118/#120). Read this first.
 
-**Production/default = `claude/new-session-3l99vs` @ `073409e` (#120).** This session ran task (a) from the prior
-handoff — the **copy-audit P1 tier** — because (b) 5b (The Wire) is a write/money path needing operator go-ahead and
-(c) 5g is blocked on 5b. Applied the audit's **S2 rename map to user-visible display text only** (DB columns / enums /
-props / CSS classes / pipeline-contract fields untouched — the operator's HARD rule), sentence-cased throughout,
-stripped implementation leaks, and added the P1 empty-state CTA (#118). Then the operator **confirmed the 5
-content-production dial labels are jargon**, so the deferred renames were applied too (#120) — **that decision is now
-CLOSED, no longer owed.** Branch for new work: **start fresh off production** (keep your harness-designated branch name).
+**Production/default = `claude/new-session-3l99vs` @ `8d73a5d` (#122).** Two operator-directed pieces of work shipped
+this session: **(1) the copy-audit P1 sweep + dial renames** (below), and **(2) a Basic/Advanced detail-level view
+toggle** — a consumer-friendly default-Basic mode that shows only the high-leverage fields the USER seeds and tucks the
+auto-drafted detail behind "Show advanced settings". Branch for new work: **start fresh off production** (keep your
+harness-designated branch name).
+
+### Basic/Advanced toggle (#122, squash `8d73a5d`)
+- **What + why:** operator asked for a consumer-friendly Basic/Advanced toggle, Basic = default, "holds the few things
+  that make the biggest impact." **Key operator ruling — the split must be called by TRUTH, not a judgement call:**
+  impact = *what the USER fills in that shapes the output* (the auto-gen drafts the rest), and **do NOT tier by what's
+  currently wired** (product in active development). The truth-derived split is documented + cited in
+  **`docs/design/basic-mode-field-impact-2026-07-05.md`** (user-seed vs auto-drafted). _An earlier wiring-based split
+  ("channel_profiles is inert today → Advanced") was WRONG and the operator corrected it — see the doc + the Ledger._
+- **Split:** Character dossier Basic = Name · One-line concept · Voice & identity · Gold-standard lines (Advanced adds
+  Cadence, Vocabulary, Off-limits, Beat template, Runtime). Channel form Basic = Channel · Display name · Concept ·
+  Character (Advanced adds Voice archetype + the Content-settings & Footage-&-presentation sections).
+- **Mechanism (mirrors the theme toggle):** `src/lib/uiMode.ts` (localStorage, default `basic`); `UiModeProvider`/
+  `useUiMode` (`src/components/aurora/UiModeContext.tsx`) mounted at `page.tsx` **above** `ControlRoom` so both
+  `ControlRoom` + `AuroraShell` read it; **fails open (advanced) outside the provider → legacy `.cr` shell unaffected**;
+  segmented control in the `AuroraShell` header. Gating: `showAdvancedFields = uiAdvanced || legacyShellOpen`; only the
+  two AURORA `ChannelProfilesPanel` instances get the new `basicMode`/`onShowAdvanced` props (legacy defaults `false` =
+  show all). **Fields are HIDDEN, never destroyed** — state preserved, every field still saves.
+- **Gates:** tsc + 148 tests + build clean. **Live ratify `scripts/ratify-basic-advanced-mode.mjs` 12/12, ZERO live
+  writes** (default Basic; both forms hide/reveal; persists across reload; legacy fail-open). **Gemini APPROVE**
+  (context placement, fail-open, hidden-not-destroyed, JSX, no dead button, a11y, spec match). UI feature → single
+  cross-vendor pass (no suerta).
+- **Follow-ups (deferred, non-blocking):** app-wide reach — Basic could also hide the advanced workspace tabs
+  (Production/Cost) / trim Overview; not done in v1 (operator lean was "just the forms"). Savebar actions (Visual cast,
+  Export) aren't mode-gated yet. Re-tier any field: it's a one-line move in the two gated files + the rubric doc.
+
+### Copy audit P1 sweep + dial renames (#118 `c096531`, handoff #119, dials #120 `073409e`)
+Applied the audit's **S2 rename map to user-visible display text only** (DB columns / enums / props / CSS classes /
+pipeline-contract fields untouched — the operator's HARD rule) across every Aurora-surviving surface, sentence-cased
+throughout, stripped implementation leaks, added the P1 empty-state CTA. Then the operator **confirmed the 5
+content-production dial labels are jargon**, so the deferred dial renames landed too (#120). **Copy audit P0+P1 is now
+fully CLOSED.** Full per-surface detail in "What shipped this session" below.
 
 ### Copy-paste KICKOFF for the next session (rule 41 — paste this to start)
 ```
@@ -82,12 +111,15 @@ Drive build→review (Gemini cross-vendor; +suerta on money/contract/migration)�
   landing; 5c/5f data-blocked) — the migration's remaining lanes. See the sections below for detail.
 
 ### HQ / cross-team (per rule L-6 — wrap-up is HQ THEN handoff, #117)
-- **Coordination-Log tracker: NO cross-team update owed.** This session was **dashboard-internal display copy** — no
-  schema/contract/shared-surface data or behavior change (the DB columns/enums/pipeline-contract fields were the HARD-RULE
-  exclusion; the money-path gate logic was untouched). No tracker row, no heads-up.
-- **Process Learnings Ledger: appended 1 portable lesson (2026-07-05)** — a live Next.js ratify must `next build` with
-  `.env.local` present (NEXT_PUBLIC_* inline at build time, not `next start`), and a content-assertion gate must confirm
-  the app hydrated (wait for `.aurora-app`) or "text absent" false-passes as "jargon removed." (Cost a rebuild this session.)
+- **Coordination-Log tracker: NO cross-team update owed.** This session was **dashboard-internal** — display-copy renames
+  + a client-only UI view toggle (`localStorage`); no schema/contract/shared-surface data or behavior change (DB
+  columns/enums/pipeline-contract fields were the HARD-RULE exclusion; money-path gate logic untouched). No tracker row.
+- **Process Learnings Ledger: appended 2 portable lessons (2026-07-05)** — (1) a live Next.js ratify must `next build`
+  with `.env.local` present (NEXT_PUBLIC_* inline at build time, not `next start`), and a content-assertion gate must
+  confirm the app hydrated (wait for `.aurora-app`) or "text absent" false-passes as "jargon removed"; (2) a "which
+  fields matter most / defaults / what to surface" curation split must be called by **truth** (what the system consumes
+  + craft docs + the user's role as author of seeds), written down + cited — **not** the orchestrator's taste, and
+  **not** tiered by what's currently wired for an in-development product (operator corrected a wiring-based split).
 
 ---
 
