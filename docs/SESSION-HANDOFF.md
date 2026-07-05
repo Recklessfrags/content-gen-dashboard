@@ -114,7 +114,7 @@ bridge, intercept-and-abort = zero live writes). Keep chat terse (L-3).
   the merge artifact on production, NOT a local commit to rewrite; do not `--reset-author` a merged commit (it
   forks your branch from canonical history). Every prior `#1xx` merge carries the same committer.
 
-### HQ / cross-team (per new rule L-6 — wrap-up is handoff THEN HQ)
+### HQ / cross-team (per new rule L-6 — wrap-up is HQ THEN handoff)
 - **Coordination-Log tracker: NO cross-team update owed.** Everything this session was **dashboard-internal** — 5a
   re-homed an existing affordance (no new data/behavior to the worker), and the copy/typography work is
   display-copy + CSS only (money-path gate logic byte-identical, no schema/contract/shared-surface change). No

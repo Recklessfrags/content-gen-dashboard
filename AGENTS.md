@@ -85,17 +85,22 @@ never override it):
   shared-surface work); builder seat = **Codex**; cross-vendor reviewer =
   **Gemini** (`scripts/gemini.sh`, prompt on STDIN, first arg = model;
   `gemini-3.1-pro-preview` default, flash for light passes).
-- **L-6 · Wrap-up is handoff THEN HQ (2026-07-05)** — the session-END bookend to
-  L-1 (which fetches HQ at the START). After updating the handoff docs
-  (`docs/SESSION-HANDOFF.md`, per governance rule 41), **before ending the
-  session** re-fetch HQ (governance rule 22) and **update it if this session
-  changed anything another team builds on**: a shipped cross-team capability, a
-  schema/contract/behavior change flowing through a shared surface (governance
-  rule 21 — the tracker), a new blocker (rule 23), or a reusable lesson (rule 24
-  — the Process Learnings Ledger). The handoff doc is for the *next dashboard
+- **L-6 · Wrap-up is HQ THEN handoff (2026-07-05)** — the session-END bookend to
+  L-1 (which fetches HQ at the START). Order matters, do it in this order:
+  **(1) re-fetch HQ** (governance rule 22 — the other team ships between our
+  fetches) and **update it if this session changed anything another team builds
+  on**: a shipped cross-team capability, a schema/contract/behavior change
+  flowing through a shared surface (rule 21 — the tracker), a new blocker
+  (rule 23), or a portable lesson (rule 24 — the Process Learnings Ledger).
+  **(2) THEN write the handoff LAST** (`docs/SESSION-HANDOFF.md`, per governance
+  rule 41) as the authoritative final snapshot, and **record the HQ outcome in
+  it** — which tracker row / lesson you updated, or "HQ checked, no cross-team
+  update owed." The handoff comes last because it's the terminal artifact the
+  next session reads first, so it must reflect the end state *including* your HQ
+  edits (handoff-first forces a rework pass — 2026-07-05 lived exactly that);
+  and making the HQ-outcome line mandatory means the handoff can't be completed
+  without the HQ step actually running. The handoff is for the *next dashboard
   session*; HQ is for *other teams* — updating one is not updating the other.
-  **If the HQ check finds nothing to record, say so in the handoff** ("HQ
-  checked, no cross-team update owed") so the next session knows the check ran.
   Purely dashboard-internal work (display copy, CSS, UI re-homes with no
   data/behavior crossing a shared surface) legitimately owes no tracker row — but
   a portable *lesson* still goes to the Ledger.
