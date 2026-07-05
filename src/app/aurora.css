@@ -1639,6 +1639,296 @@
   }
 }
 
+/* --------------------------------------------------------------------------
+   Sub-lane 3 — Aurora re-skin: History drawer / Compare dialog / Restore
+   confirm. CHROME ONLY: the components (HistoryDrawer, CompareDialog,
+   RestoreDialog) render inside .characters-bench.scoped .dossier, so these
+   overrides re-skin exactly the Aurora-mounted instances. The same components
+   mounted in the legacy .cr roster keep their globals.css styling until
+   sub-lane 5 deletes the shell. Handlers/state/JSX reused verbatim.
+   Not in scope: DiscardChangesDialog (dirty-guard) — it shares .restore-*
+   classes but mounts in globalOverlays, outside this scope.
+   -------------------------------------------------------------------------- */
+
+/* Frosted Aurora backdrops (legacy z-index / click-to-close preserved) */
+.aurora-app .characters-bench.scoped .history-layer,
+.aurora-app .characters-bench.scoped .compare-layer,
+.aurora-app .characters-bench.scoped .restore-layer {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── History drawer ── */
+.aurora-app .characters-bench.scoped .history-drawer {
+  background: var(--surface-1);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border-left: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-ambient);
+  width: min(400px, 100%);
+}
+
+.aurora-app .characters-bench.scoped .history-head {
+  background: transparent;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.aurora-app .characters-bench.scoped .history-head h2 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 1.5rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-main);
+}
+
+.aurora-app .characters-bench.scoped .history-head .count {
+  color: var(--text-dim);
+}
+
+.aurora-app .characters-bench.scoped .history-x {
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+}
+
+.aurora-app .characters-bench.scoped .history-x:hover {
+  background: var(--surface-2);
+  border-color: var(--border-glow);
+  color: var(--text-main);
+}
+
+/* Revision cards */
+.aurora-app .characters-bench.scoped .revision-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+
+.aurora-app .characters-bench.scoped .revision-card:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  border-left-color: var(--border-strong);
+  transform: translateX(2px);
+}
+
+.aurora-app .characters-bench.scoped .revision-card.preview-on {
+  background: var(--surface-2);
+  border-left-color: var(--accent);
+}
+
+.aurora-app .characters-bench.scoped .revision-time {
+  font-family: var(--font-mono);
+  color: var(--text-main);
+}
+
+.aurora-app .characters-bench.scoped .revision-identity {
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+}
+
+.aurora-app .characters-bench.scoped .revision-diff {
+  color: var(--text-dim);
+}
+
+/* Revision badges — semantic, token-driven, AA-safe in both themes */
+.aurora-app .characters-bench.scoped .chip.latest-badge {
+  background: var(--success-bg);
+  border: 1px solid transparent;
+  color: var(--success);
+  font-weight: 600;
+}
+
+.aurora-app .characters-bench.scoped .chip.archive-badge {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+}
+
+/* History error / empty states */
+.aurora-app .characters-bench.scoped .history-error {
+  background: var(--danger-bg);
+  border: 1px solid rgba(255, 23, 68, 0.3);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radius-sm);
+}
+
+.aurora-app .characters-bench.scoped .history-error h3,
+.aurora-app .characters-bench.scoped .history-empty h3 {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-main);
+}
+
+.aurora-app .characters-bench.scoped .history-error p,
+.aurora-app .characters-bench.scoped .history-empty p {
+  color: var(--text-dim);
+}
+
+.aurora-app .characters-bench.scoped .history-empty svg {
+  color: var(--text-muted);
+}
+
+/* ── Compare dialog ── */
+.aurora-app .characters-bench.scoped .compare-dialog {
+  background: var(--surface-1);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid var(--border-soft);
+  border-top: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-ambient);
+}
+
+.aurora-app .characters-bench.scoped .compare-head {
+  background: transparent;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.aurora-app .characters-bench.scoped .compare-head h2 {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-main);
+}
+
+.aurora-app .characters-bench.scoped .compare-head p {
+  color: var(--text-dim);
+}
+
+.aurora-app .characters-bench.scoped .compare-toolbar {
+  background: transparent;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.aurora-app .characters-bench.scoped .compare-toolbar .count {
+  color: var(--text-dim);
+}
+
+.aurora-app .characters-bench.scoped .compare-toolbar .btn.ghost[aria-selected="true"] {
+  background: var(--surface-2);
+  border-color: var(--border-glow);
+  color: var(--accent);
+}
+
+.aurora-app .characters-bench.scoped .compare-field {
+  background: var(--surface-0);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+
+.aurora-app .characters-bench.scoped .compare-field-header {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.aurora-app .characters-bench.scoped .compare-field-header label {
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+}
+
+.aurora-app .characters-bench.scoped .compare-split {
+  background: var(--border-soft);
+}
+
+.aurora-app .characters-bench.scoped .compare-column {
+  background: var(--surface-1);
+  color: var(--text-main);
+}
+
+.aurora-app .characters-bench.scoped .compare-column strong {
+  color: var(--text-dim);
+}
+
+.aurora-app .characters-bench.scoped .compare-column.added {
+  background: var(--success-bg);
+}
+
+.aurora-app .characters-bench.scoped .compare-column.removed {
+  background: var(--danger-bg);
+}
+
+/* Diff spans — text stays --text-main over the tint for guaranteed AA;
+   add/remove signalled by tint + underline / line-through. */
+.aurora-app .characters-bench.scoped .diff-ins {
+  background: var(--success-bg);
+  color: var(--text-main);
+  text-decoration: underline;
+}
+
+.aurora-app .characters-bench.scoped .diff-del {
+  background: var(--danger-bg);
+  color: var(--text-main);
+  text-decoration: line-through;
+}
+
+.aurora-app .characters-bench.scoped .compare-foot {
+  background: transparent;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* ── Restore confirm dialog ── */
+.aurora-app .characters-bench.scoped .restore-dialog {
+  background: var(--surface-1);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-ambient), inset 0 1px 1px var(--surface-highlight);
+}
+
+.aurora-app .characters-bench.scoped .restore-dialog h2 {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-main);
+}
+
+.aurora-app .characters-bench.scoped .restore-dialog p {
+  color: var(--text-dim);
+}
+
+/* ── Buttons in the three dialogs (JSX uses legacy .btn / .btn.ghost) ── */
+.aurora-app .characters-bench.scoped .history-drawer .btn,
+.aurora-app .characters-bench.scoped .compare-dialog .btn,
+.aurora-app .characters-bench.scoped .restore-dialog .btn {
+  background: var(--accent);
+  color: var(--bg-base);
+  border: 1px solid transparent;
+}
+
+.aurora-app .characters-bench.scoped .history-drawer .btn:hover:not(:disabled),
+.aurora-app .characters-bench.scoped .compare-dialog .btn:hover:not(:disabled),
+.aurora-app .characters-bench.scoped .restore-dialog .btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.aurora-app .characters-bench.scoped .history-drawer .btn.ghost,
+.aurora-app .characters-bench.scoped .compare-dialog .btn.ghost,
+.aurora-app .characters-bench.scoped .restore-dialog .btn.ghost {
+  background: transparent;
+  color: var(--text-main);
+  border: 1px solid var(--border-soft);
+}
+
+.aurora-app .characters-bench.scoped .history-drawer .btn.ghost:hover:not(:disabled),
+.aurora-app .characters-bench.scoped .compare-dialog .btn.ghost:hover:not(:disabled),
+.aurora-app .characters-bench.scoped .restore-dialog .btn.ghost:hover:not(:disabled) {
+  border-color: var(--border-glow);
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-app .characters-bench.scoped .history-drawer { animation: none; }
+  .aurora-app .characters-bench.scoped .revision-card { transition: none; }
+}
+
 /* ==========================================================================
    FEEDBACK & STATES
    ========================================================================== */
