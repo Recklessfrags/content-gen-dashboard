@@ -2655,6 +2655,18 @@
   color: rgba(255, 255, 255, 0.82) !important;
 }
 
+/* Casting-lock consequence callout — light text on the dark overlay. */
+.casting-inline .casting-lock-consequence {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Sentence-case the lock heading in the Aurora overlay (globals forces
+   .ccr-tpl-dialog h4 uppercase; the legacy .cr shell keeps that until 5g). */
+.casting-inline .casting-lock-dialog h4 {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .casting-inline textarea,
 .casting-inline input,
 .casting-inline select,
