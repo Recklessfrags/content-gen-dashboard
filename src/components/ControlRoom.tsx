@@ -2884,6 +2884,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   error={channelProfilesError}
                   onRefetch={refetchChannelProfiles}
                   scopedChannel={scope.channel}
+                  onDeleted={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
                 />
               </article>
             )}
