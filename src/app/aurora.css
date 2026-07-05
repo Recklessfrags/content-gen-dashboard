@@ -1955,6 +1955,18 @@
   .aurora-app .characters-bench.scoped .dossier { padding-bottom: 2rem; }
 }
 
+/* --------------------------------------------------------------------------
+   Sub-lane 4 — Aurora "New channel" create surface. Reuses ChannelProfilesPanel
+   in createOnly mode (blank form, no master list / picker / delete) under the
+   Lane-3a `.channel-profiles.scoped` re-skin; this wrapper just stacks the
+   breadcrumb above the panel.
+   -------------------------------------------------------------------------- */
+.aurora-app .channel-create-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 /* ==========================================================================
    FEEDBACK & STATES
    ========================================================================== */
