@@ -2225,6 +2225,30 @@
 /* loading skeletons */
 .aurora-app .cost-center.scoped .skeleton { background: var(--surface-2); }
 
+/* --------------------------------------------------------------------------
+   S1 — Typography uniformity (uniformity sweep 2026-07-05). The re-homed
+   surfaces reuse legacy label classes (.eyebrow / .filecode / .metric-eyebrow
+   / .count / .col-head h2 / *-label / field label) that globals.css hard-sets
+   to monospace + UPPERCASE + tracking. Reset them to the Aurora type system
+   INSIDE .aurora-app only — the legacy `.cr` shell keeps its terminal look
+   until it's deleted (5g). Colour is left to the per-surface scoped skins;
+   this normalises font + casing only, so sentence-case source labels finally
+   render as written. (Source-UPPERCASE strings like "CHANNEL PROFILE" still
+   need the copy edits — this fixes the CSS-forced casing.)
+   -------------------------------------------------------------------------- */
+.aurora-app .eyebrow,
+.aurora-app .filecode,
+.aurora-app .metric-eyebrow,
+.aurora-app .visual-style-label,
+.aurora-app .budget-target-label,
+.aurora-app .count,
+.aurora-app .col-head h2,
+.aurora-app .field label {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 /* ==========================================================================
    FEEDBACK & STATES
    ========================================================================== */
