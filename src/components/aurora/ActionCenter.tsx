@@ -246,38 +246,36 @@ function InlineConfirm({
       {isFact ? (
         <div className="au-inline-confirm-copy">
           <p>
-            You are about to approve regulated-YELLOW claims for topic:{" "}
-            <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
-            re-enqueue a fresh row with fact_approved=true. The parked row stays as the audit
-            record.
+            Approve the flagged claims for{" "}
+            <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This starts a
+            fresh run marked fact-approved; the paused version is kept as an audit record.
           </p>
           {job.spend_approved ? (
             <p className="restore-warning">
-              ⚠ this job is already spend-approved - approving facts starts a run that will NOT
-              park again before spending.
+              Heads up: spend is already approved, so approving facts starts a paid run without
+              pausing again.
             </p>
           ) : (
-            <p>The run may still park later at the spend gate.</p>
+            <p>The run may still pause later for spend approval.</p>
           )}
         </div>
       ) : isSpend ? (
         <p className="au-inline-confirm-copy">
-          You are about to authorize extra-budgetary spend for topic:{" "}
-          <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
-          re-enqueue the job with spend_approved=true. A hard-cap check still protects against
-          runaway loops. This re-runs the script live; you are approving the plan type, not a
-          byte-identical render.
+          Approve extra spend for{" "}
+          <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This re-runs the
+          script live and will incur cost — you&apos;re approving the plan, not a saved render. A
+          spending cap still applies.
         </p>
       ) : isPublish ? (
         <p className="au-inline-confirm-copy">
-          You are about to approve publishing for topic:{" "}
-          <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will resume
-          distribution from the exact reviewed render with no re-render and no double-spend.
-          Publishing is still double-gated: with no Buffer token wired, nothing posts.
+          Publish{" "}
+          <span className="spend-approval-topic">&quot;{job.food}&quot;</span> from the exact
+          render you reviewed — no re-render and no extra cost. Publishing isn&apos;t connected
+          yet, so nothing will actually post.
         </p>
       ) : (
         <p className="au-inline-confirm-copy">
-          This stranded job will be re-queued as a fresh pipeline job for topic:{" "}
+          Re-queue this stalled job as a fresh run for{" "}
           <span className="spend-approval-topic">&quot;{job.food}&quot;</span>.
         </p>
       )}
@@ -308,45 +306,45 @@ function InlineConfirm({
 
 function parkLine(job: QueueJob, park: ActionCenterPark | undefined) {
   if (job.status?.trim().toLowerCase() === "stale") {
-    return "stranded - needs attention";
+    return "This run stalled and needs a re-run";
   }
 
   if (park?.loading) {
-    return "Classifying parked gate...";
+    return "Checking why this run paused…";
   }
 
   if (park?.kind === "fact") {
-    return "Regulated-YELLOW claims awaiting sign-off";
+    return "Flagged claims need your sign-off";
   }
 
   if (park?.kind === "spend") {
-    return `Parked to prevent runaway credit usage${park.stage ? ` - ${park.stage}` : ""}`;
+    return `Paused to avoid unexpected cost${park.stage ? ` — ${park.stage}` : ""}`;
   }
 
   if (park?.kind === "publish") {
-    return "Distribution awaiting approval - posts the exact reviewed render, no re-render/double-spend; no Buffer wired so nothing posts";
+    return "Waiting to publish — posts the exact reviewed render (no re-render, no extra cost); publishing isn't connected yet, so nothing posts";
   }
 
-  return `The review gate could not be classified from the job or latest receipt. Spend approval is only correct for a spend park; check the run drill-down first if this might be a fact or publish park.${
-    park?.error ? ` Receipt read failed: ${park.error}` : ""
+  return `We couldn't tell which approval this run needs. Open the run to check before approving — approving spend is only right for a spend hold.${
+    park?.error ? " (Couldn't read the run details.)" : ""
   }`;
 }
 
 function confirmLabel(action: QueueAction, submitting: boolean) {
   if (submitting) {
     return action === "fact"
-      ? "Transmitting fact approval..."
+      ? "Approving…"
       : action === "spend"
-        ? "Transmitting approval..."
+        ? "Approving spend…"
         : action === "publish"
-          ? "Transmitting publish approval..."
-          : "Transmitting re-run...";
+          ? "Publishing…"
+          : "Re-running…";
   }
 
   return action === "fact"
     ? "Approve facts"
     : action === "spend"
-      ? "Authorize & continue"
+      ? "Approve spend"
       : action === "publish"
         ? "Approve & publish"
         : "Re-run job";

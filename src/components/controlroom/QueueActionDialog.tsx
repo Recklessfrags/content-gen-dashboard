@@ -26,12 +26,12 @@ export function QueueActionDialog({
   const isSpend = action === "spend";
   const isPublish = action === "publish";
   const title = isFact
-    ? "APPROVE REGULATED CLAIMS"
+    ? "Approve flagged claims"
     : isSpend
-      ? "APPROVE SPEND LIMITS"
+      ? "Approve extra spend"
       : isPublish
-        ? "APPROVE PUBLISH"
-        : "RE-RUN STRANDED JOB";
+        ? "Publish this run"
+        : "Re-run stalled job";
   const descriptionId = isFact
     ? "fact-approval-desc"
     : isSpend
@@ -66,41 +66,38 @@ export function QueueActionDialog({
         {isFact ? (
           <div id={descriptionId} className="queue-action-desc">
             <p className="spend-approval-copy">
-              You are about to approve regulated-YELLOW claims for topic:{" "}
-              <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
-              re-enqueue a fresh row with fact_approved=true. The parked row stays as the
-              audit record.
+              Approve the flagged claims for{" "}
+              <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This starts a
+              fresh run marked fact-approved; the paused version is kept as an audit record.
             </p>
             {job.spend_approved ? (
               <p className="restore-warning">
-                ⚠ this job is already spend-approved — approving facts starts a run that
-                will NOT park again before spending.
+                Heads up: spend is already approved, so approving facts starts a paid run
+                without pausing again.
               </p>
             ) : (
               <p className="spend-approval-copy">
-                The run may still park later at the spend gate.
+                The run may still pause later for spend approval.
               </p>
             )}
           </div>
         ) : isSpend ? (
           <p id={descriptionId} className="spend-approval-copy">
-            You are about to authorize extra-budgetary spend for topic:{" "}
-            <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
-            re-enqueue the job with spend_approved=true. A hard-cap check still protects
-            against runaway loops. This re-runs the script live; you are approving the
-            plan type, not a byte-identical render.
+            Approve extra spend for{" "}
+            <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This re-runs
+            the script live and will incur cost — you&apos;re approving the plan, not a saved
+            render. A spending cap still applies.
           </p>
         ) : isPublish ? (
           <p id={descriptionId} className="spend-approval-copy">
-            You are about to approve publishing for topic:{" "}
-            <span className="spend-approval-topic">&quot;{job.food}&quot;</span>. This will
-            resume distribution from the exact reviewed render with no re-render and no
-            double-spend. Publishing is still double-gated: with no Buffer token wired,
-            nothing posts.
+            Publish{" "}
+            <span className="spend-approval-topic">&quot;{job.food}&quot;</span> from the exact
+            render you reviewed — no re-render and no extra cost. Publishing isn&apos;t connected
+            yet, so nothing will actually post.
           </p>
         ) : (
           <p id={descriptionId} className="spend-approval-copy">
-            This stranded job will be re-queued as a fresh pipeline job for topic:{" "}
+            Re-queue this stalled job as a fresh run for{" "}
             <span className="spend-approval-topic">&quot;{job.food}&quot;</span>.
           </p>
         )}
@@ -112,24 +109,24 @@ export function QueueActionDialog({
             disabled={submitting}
             ref={cancelButtonRef}
           >
-            CANCEL
+            Cancel
           </button>
           <button className="btn" type="button" onClick={onConfirm} disabled={submitting}>
             {submitting
               ? isFact
-                ? "TRANSMITTING FACT APPROVAL..."
+                ? "Approving…"
                 : isSpend
-                ? "TRANSMITTING APPROVAL..."
+                ? "Approving spend…"
                 : isPublish
-                  ? "TRANSMITTING PUBLISH APPROVAL..."
-                  : "TRANSMITTING RE-RUN..."
+                  ? "Publishing…"
+                  : "Re-running…"
               : isFact
-                ? "APPROVE FACTS"
+                ? "Approve facts"
                 : isSpend
-                ? "AUTHORIZE & CONTINUE"
+                ? "Approve spend"
                 : isPublish
-                  ? "APPROVE & PUBLISH"
-                  : "RE-RUN JOB"}
+                  ? "Approve & publish"
+                  : "Re-run job"}
           </button>
         </div>
       </div>
