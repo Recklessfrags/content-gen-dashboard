@@ -1929,6 +1929,32 @@
   .aurora-app .characters-bench.scoped .revision-card { transition: none; }
 }
 
+/* --------------------------------------------------------------------------
+   Polish pass (deferred nits from #94/#96 review).
+   -------------------------------------------------------------------------- */
+
+/* (1) Off-token cyan accent glows are correct in dark (accent IS cyan) but wrong
+   in light (accent = #0066FF blue). Re-tint the hardcoded rgba(0,229,255,…) focus
+   rings / active tints to the light accent. Light-theme-only; dark unchanged. */
+.aurora-app[data-theme="light"] .channel-card.channel-card--selected {
+  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.22);
+}
+.aurora-app[data-theme="light"] .characters-bench.scoped .field input:focus,
+.aurora-app[data-theme="light"] .characters-bench.scoped .field textarea:focus,
+.aurora-app[data-theme="light"] .characters-bench.scoped .field select:focus {
+  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.18);
+}
+.aurora-app[data-theme="light"] .characters-bench.scoped .chip.active {
+  background: rgba(0, 102, 255, 0.10);
+}
+
+/* (2) The global `.dossier{padding-bottom:240px}` (=<880px) reserves space for the
+   legacy FIXED savebar; in the Aurora bench the savebar is position:static, so that
+   padding is dead whitespace. Higher specificity trims it for the scoped bench only. */
+@media (max-width: 880px) {
+  .aurora-app .characters-bench.scoped .dossier { padding-bottom: 2rem; }
+}
+
 /* ==========================================================================
    FEEDBACK & STATES
    ========================================================================== */
