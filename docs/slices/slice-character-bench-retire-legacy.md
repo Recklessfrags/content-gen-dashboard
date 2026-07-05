@@ -84,8 +84,28 @@ Reuse the **data/logic seams**, rebuild the **chrome** against Aurora (same disc
    Lane-3a `.channel-profiles.scoped` re-skin + the upsert/validation/persona wiring verbatim; defer-to-save,
    never touches `default`). `tsc` + 148 tests + build clean; review no blockers; ratify
    `scripts/ratify-newchannel-aurora.mjs` 20/20, zero live writes.
-5. **Reachability sweep + delete the legacy shell** — only after 1–4 + confirming ideas/queue/runs/cost
-   each have an Aurora home. This is the payoff: `.cr` and the dual-shell interim are deleted.
+5. **Reachability sweep + delete the legacy shell** — the payoff.
+   **⛔ SWEEP DONE (2026-07-05) → DELETION BLOCKED.** The mandatory reachability walk (independent audit +
+   Architect cross-read) found the characters bench fully retires `roster`, and `ActionCenter` covers the
+   queue's approve/park/re-run — but **six capabilities have NO Aurora home**, so deleting `.cr` now would
+   lose capability (violates the #1 non-negotiable). Each is a prerequisite sub-lane:
+   - **5a — Channel DELETE.** `deleteProfile` renders only when `!isScopedLayout`; both Aurora channel entries
+     (createOnly form, scoped Guidelines tab) suppress it. Small. (`ChannelProfilesPanel.tsx:1037`.)
+   - **5b — The Wire (ideas).** Ideas capture + status + channel/character tagging + **enqueue-idea-as-run**
+     (`EnqueueIdeaPanel`) — all legacy-only; "Log an idea →" just re-opens `.cr`. Big (write/money path).
+   - **5c — Runs.** Run history + episode `DrillDownPanel`; Aurora Production/Runs tabs are deferred
+     placeholders. **Data-blocked** (jobs.channel mismatch) — defer.
+   - **5d — Global Cost Box.** `CostBoxDashboard` is legacy-only; the Aurora Cost tab only
+     `openLegacyConsole("cost")`. Candidate for a chrome-only Aurora re-skin (sub-lane-3 pattern).
+   - **5e — System Overview.** Legacy `OverviewDashboard` is real; Aurora `?hub=overview` is a "next lane"
+     stub. Chrome-only Aurora re-skin candidate.
+   - **5f — Full queue browse + run-detail-from-queue.** `ActionCenter` sees only `actionableJobs`; the legacy
+     queue adds `QUEUE_FILTERS`, all-jobs browse, and the drill-down. Partly **data-blocked**.
+   - **then 5g — DELETE** the `.cr` return + `openLegacyConsole` + `legacyShellOpen` + dead `channelsAutoNew`
+     + `?view=` handling. **Consensus review (Fable+suerta)** + live-ratify no-capability-lost.
+   Sweep entry points into `.cr` today: `openLegacyConsole` has exactly 3 Aurora callers — `roster`
+   (HubLanding "Legacy console"), `wire` (editor "Log an idea →"), `cost` (workspace "View Global Cost →");
+   `channels`/`queue`/`runs`/`overview` are reachable only via the `.cr` rail once inside.
 
 ## 5. Non-negotiables / gates
 
