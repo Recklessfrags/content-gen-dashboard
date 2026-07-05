@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-05 (Character bench SUB-LANES 3, 4, 5e, 5d SHIPPED #96/#99/#102/#103 + ratify/polish #98 + sweep #101 — Aurora History/Compare/Restore + New-channel form + System Overview + Global Cost Center; legacy `.cr` intact, deletion blocked pending 5b). Production tip = `6b2f7b7` (#103)** by the Architect (Claude).
+_Last updated: **2026-07-05 (DESIGN/COPY-QUALITY PASS — 5a channel-delete #105, then a Content style guide + audit rubric #106-108, a site-wide COPY AUDIT #109 + UNIFORMITY SWEEP #110, the S1 typography root-cause fix #111, and the FULL P0 copy remediation lane #112-114 (money-path confirmations, restore/discard/cost/hub errors, casting-lock consequence) — ALL P0 blockers now CLOSED. Legacy `.cr` intact, deletion still blocked pending 5b). Production tip = `438ca43` (#114)** by the Architect (Claude).
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,112 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-05) — SUB-LANES 5e + 5d SHIPPED (#102 `f192f5c` / #103 `6b2f7b7`): Aurora System Overview + Global Cost Center re-skins. Earlier this session: sub-lanes 3 (#96) + 4 (#99) + ratify/polish (#98) + the sub-lane-5 sweep (#101). Legacy `.cr` deletion still BLOCKED — 2 of 6 gaps closed; only 5b (The Wire, write-path, needs go-ahead) remains buildable before 5g delete. Read this first + the NEXT section.
+## ⚡ LATEST (2026-07-05) — DESIGN/COPY-QUALITY PASS: 5a channel-delete (#105) + a site-wide COPY AUDIT (#106-110) + the S1 typography root-cause fix (#111) + the FULL P0 copy remediation lane (#112-114). ALL P0 copy blockers CLOSED. Read this first + the NEXT section.
+
+**Production/default = `claude/new-session-3l99vs` @ `438ca43` (#114).** This session **pivoted** from the migration
+lane to a **design/copy-quality pass**: an unbiased external (Gemini) review of the New-Channel form flagged
+half-migrated **monospace/terminal typography** + **jargon-heavy copy** app-wide. The operator's directive:
+research copy standards → write guidelines → audit the whole site for copy + uniformity → fix. That produced a
+reusable **Content style guide + scorable audit rubric**, a **site-wide copy audit** and **typography-uniformity
+sweep**, the **S1 root-cause CSS fix**, and the **entire P0 (blocker-tier) copy remediation** — now complete.
+Branch for new work: **start fresh off production** (keep your harness-designated working-branch name).
+
+### Copy-paste KICKOFF for the next session (rule 41 — paste this to start)
+```
+You are the Architect for the Reels Content Control Room dashboard (Next.js 15 / React 19 / Supabase, plain-CSS
+"Aurora" design system; channel-first per D-6). You own judgment/specs/reviews/commits/merges.
+FIRST: read docs/SESSION-HANDOFF.md top-to-bottom, then governance.md + AGENTS.md, then do a FRESH HQ fetch
+(Notion 📮 Coordination Log, page 38fd346e-22d2-8133-bd2e-e5b7f97f7c2e) before planning/claiming anything blocked (L-1).
+BRANCH: start fresh off production `claude/new-session-3l99vs` (git fetch origin claude/new-session-3l99vs &&
+git checkout -B <your-working-branch> origin/claude/new-session-3l99vs); keep the harness-designated branch name.
+NOTE: a fresh container has NO node_modules — run `npm ci` first. QA creds (.env.local) are ephemeral per
+container — re-request; run ratify as `set -a; . ./.env.local; set +a; node scripts/ratify-*.mjs` (password has !).
+CONTEXT: the site copy/typography audit is in docs/design/ — content-style-guide.md (the rubric + guidelines),
+copy-audit-2026-07-05.md (per-surface A–D grades + S1/S2 systemic fixes + P0/P1/P2/P3 tiers), and
+uniformity-sweep-2026-07-05.md (the two-type-system finding). ALL P0 blockers are SHIPPED (#111-114).
+TASK — pick one, per value:
+  (a) COPY AUDIT P1 tier — apply the jargon→plain-English rename map to the REST of the display copy site-wide
+      (VISIBLE TEXT ONLY — never DB columns/enums/pipeline-contract fields), per copy-audit-2026-07-05.md §S2.
+  (b) SUB-LANE 5b — The Wire (ideas) Aurora home + EnqueueIdeaPanel: the LAST buildable reachability gap before
+      the legacy `.cr` shell can be deleted (5g). Write/money path — get operator go-ahead first. Its rewrite is
+      now ALSO spec'd by the copy audit, so it closes a structural blocker AND lands audit-clean copy in one pass.
+  (c) SUB-LANE 5g — delete the legacy `.cr` shell (5b must land first; 5c/5f data-blocked). Consensus review.
+RECOMMENDED: 5b — it unblocks the migration's north star (retire the dual shell) and is audit-spec'd.
+Drive build→review→ratify→squash-merge. Ratify = bespoke scripts/ratify-*.mjs (prod build + Chromium + Supabase
+bridge, intercept-and-abort = zero live writes). Keep chat terse (L-3).
+```
+
+### What shipped this session (all merged to production, #105 → #114)
+- **5a Channel DELETE (#105, `5835337`)** — channel delete re-homed into the Aurora workspace (was legacy-console
+  only). Closes the one write-path reachability gap that was buildable-and-ratifiable. (5b remains; 5c/5f data-blocked.)
+- **Content style guide + audit rubric (#106 `2755860`, template #107 `efc63be`, renamed #108 `7dc27b0`)** —
+  `docs/design/content-style-guide.md`: an evidence-based copy style guide + a **scorable 3-dimension / 9-category
+  (I.1–III.3) 1–4→A–D audit rubric** (cites NN/g, Microsoft, Mailchimp, Polaris, GOV.UK, WCAG, plainlanguage.gov).
+  `docs/design/content-style-guide-template.md`: a reusable **blank-canvas** version (`<PLACEHOLDER>` fill-ins) for
+  other projects.
+- **Site-wide COPY AUDIT (#109, `c5a6a2d`)** — `docs/design/copy-audit-2026-07-05.md`: per-surface **A–D grades**
+  (all landed C/low-B), the two **systemic root-cause fixes** (S1 = CSS-forced uppercase/mono; S2 = jargon→plain
+  rename map), and the **P0/P1/P2/P3 backlog** with before→after strings.
+- **UNIFORMITY SWEEP (#110, `0a775dc`)** — `docs/design/uniformity-sweep-2026-07-05.md`: the **two-type-system**
+  finding — legacy `globals.css` (Oswald/JetBrains-Mono, UPPERCASE labels) vs Aurora `aurora.css` (system
+  sans/mono, sentence case) — and where legacy label classes leak into re-homed Aurora surfaces.
+- **S1 typography root-cause fix (#111, `16b6fe7`)** — the single highest-leverage fix: reset the legacy label
+  classes (`.eyebrow`/`.filecode`/`.metric-eyebrow`/`.count`/`.col-head h2`/`*-label`/`.field label`) off
+  monospace+UPPERCASE+tracking, **scoped to `.aurora-app` only** so the legacy `.cr` shell keeps its terminal look
+  until 5g deletes it. Native Aurora `.text-mono` unaffected. Ratify 10/10, zero live writes.
+- **P0 money-path copy (#112, `f8a0646`)** — `QueueActionDialog` + `ActionCenter` fact/spend/publish confirmation
+  strings plain-languaged (dropped `fact_approved=true`/`spend_approved=true`/"regulated-YELLOW"/"byte-identical"/
+  "TRANSMITTING"; sentence-cased titles/buttons). **Copy only — the confirm/gate/`voice_recipe` logic is untouched.**
+- **P0 restore/discard/cost/hub (#113, `44aeec8`)** — RestoreDialog + DiscardChangesDialog + `CostBoxDashboard`
+  (~13 strings; `[LIMIT EXCEEDED]`→"Over target", raw error demoted into a `<details>`) + Channels/CharactersHub
+  error states (plain + retry + raw error in `<details>`).
+- **P0 casting-lock consequence (#114, `438ca43`)** — the last P0 blocker. Lock dialog: "CONFIRM AUDITIONED
+  WINNER"→"Cast this voice?", jargon eyebrows→sentence case, "[ CONFIRM LOCK ]"→"Cast & lock voice"; **added an
+  explicit consequence line** (locking permanently deletes the current voice); `generationSummary` no longer leaks
+  raw `model_id`/`guidance_scale`/`seed` to the UI (still written to `voice_recipe` unchanged). Ratify 6/6.
+
+### NEXT — P0 done; three tracks remain (all now audit-spec'd)
+- **(a) Copy audit P1/P2/P3 tiers** — apply the S2 jargon→plain rename map across the REST of the display copy,
+  plus theming cleanup + sentence-casing. **Rule (operator-set): rename VISIBLE TEXT ONLY — never DB
+  columns/enums/pipeline-contract fields.** Broad but non-blocking; best as a sweep once there's one type system.
+- **(b) Sub-lane 5b — The Wire (ideas) Aurora home + `EnqueueIdeaPanel`** — the **last buildable reachability gap**
+  before the legacy `.cr` shell can be deleted. **Write/money path → needs operator go-ahead** (not autonomous).
+  Its rewrite is now spec'd by the copy audit → closes a structural blocker AND lands clean copy in one pass.
+  **← RECOMMENDED next.**
+- **(c) Sub-lane 5g — delete the legacy `.cr` shell** — blocked on 5b (5c Runs / 5f full-queue are data-blocked on
+  the `jobs.channel` mismatch). Consensus review + live-ratify no-capability-lost. `DiscardChangesDialog`'s
+  out-of-scope `globalOverlays` mount folds in here.
+- **By-design residual (NOT a bug):** the legacy modal casting path (`.drilldown-panel.casting-panel`, rendered
+  OUTSIDE `.aurora-app`) still shows the terminal uppercase lock heading — S1 deliberately left the legacy `.cr`
+  shell untouched until 5g. The Aurora inline mount (`.casting-inline`) gets the sentence-case override. The P0
+  **copy substance** (consequence line, no raw tokens) lands in both paths.
+
+### Process notes (this session)
+- **Unbiased external review as a lens.** A Gemini vision review of one screenshot surfaced the app-wide
+  typography/copy debt that internal iteration had normalised. (Vision via direct REST to `gemini-3.1-pro-preview`
+  — `gemini.sh` is text-only; pass base64 via `jq --rawfile` from a file, NOT `--arg`: "Argument list too long".)
+- **Research-before-audit paid off.** Writing the evidence-based rubric FIRST gave the audit falsifiable A–D
+  criteria instead of taste, and produced a reusable artifact (the template) for other projects.
+- **S1 was the highest-leverage single fix** — one scoped CSS block cleared the biggest casing cluster app-wide
+  without touching a single component or the legacy shell. Find the CSS root cause before rewriting copy per-surface.
+- **Ratify a money-gated surface at the BUILD-BUNDLE level when opening it live would cost money.** The casting
+  lock dialog only opens after paid voice generation, so #114's ratify asserts the new copy ships / old jargon is
+  gone by grepping `.next/static/chunks`, plus a read-only runtime check (panel renders, zero writes).
+- **Intercept EVERY table an action writes, not just the obvious one.** The #112 money-copy ratify first leaked one
+  real `idea_job_map` provenance row live because the Supabase bridge intercepted `jobs` but not `idea_job_map` —
+  deleted it via MCP + tightened the intercept regex to `/rest/v1/(jobs|idea_job_map)/`. Zero-live-writes is only
+  as true as the intercept list is complete.
+- **5a needed a deletable channel to ratify** (only `default` exists, undeletable) → seeded a throwaway
+  `dash_ratify_del` via Supabase MCP, intercept-aborted the DELETE, cleaned up after.
+- **Fresh-container gotcha (re-confirmed):** `node_modules` absent on cold start → `npm ci` before any check.
+- **Commit-identity gotcha:** set `git config user.email noreply@anthropic.com && user.name Claude` before
+  committing. The stop-hook also flags GitHub's own squash-merge commit (committer `noreply@github.com`) — that's
+  the merge artifact on production, NOT a local commit to rewrite; do not `--reset-author` a merged commit (it
+  forks your branch from canonical history). Every prior `#1xx` merge carries the same committer.
+
+---
+
+## ⚡ EARLIER (2026-07-05) — SUB-LANES 5e + 5d SHIPPED (#102 `f192f5c` / #103 `6b2f7b7`): Aurora System Overview + Global Cost Center re-skins. Earlier that session: sub-lanes 3 (#96) + 4 (#99) + ratify/polish (#98) + the sub-lane-5 sweep (#101). Legacy `.cr` deletion still BLOCKED — 2 of 6 gaps closed; only 5b (The Wire, write-path, needs go-ahead) remains buildable before 5g delete.
 
 **Production/default = `claude/new-session-3l99vs` @ `f57a75b` (#99).** The hub "+ New Channel" CTA now opens an
 Aurora-native create surface (no legacy console). Sub-lanes 1-4 of the character-bench lane are DONE; only the
