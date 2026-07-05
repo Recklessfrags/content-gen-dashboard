@@ -52,6 +52,9 @@ type ChannelProfilesPanelProps = {
    *  hides the master list / mobile picker / delete, and fires onCreated on save. */
   createOnly?: boolean;
   onCreated?: (channel: string) => void;
+  /** Fired after a successful delete (scoped workspace) so the parent can navigate
+   *  away from the now-deleted channel. */
+  onDeleted?: () => void;
 };
 
 type CharacterOption = {
@@ -164,6 +167,7 @@ export function ChannelProfilesPanel({
   onAutoStartNewConsumed,
   createOnly,
   onCreated,
+  onDeleted,
 }: ChannelProfilesPanelProps) {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
@@ -517,6 +521,7 @@ export function ChannelProfilesPanel({
       setForm(nextProfile ? profileToForm(nextProfile, characters) : null);
       await onRefetch();
       setNotice({ message: "Channel profile deleted." });
+      onDeleted?.();
     } finally {
       setDeleting(false);
     }
@@ -1034,7 +1039,7 @@ export function ChannelProfilesPanel({
               >
                 {saving ? "Saving..." : "Save channel"}
               </button>
-              {!isScopedLayout && (
+              {!createOnly && (
                 <button
                   className="btn ghost"
                   type="button"
@@ -1044,7 +1049,7 @@ export function ChannelProfilesPanel({
                   {deleting ? "Deleting..." : "Delete"}
                 </button>
               )}
-              {!isScopedLayout && isDefaultProfile && (
+              {!createOnly && isDefaultProfile && (
                 <span className="hint">
                   fallback profile, can&apos;t delete
                 </span>
