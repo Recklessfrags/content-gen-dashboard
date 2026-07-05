@@ -524,6 +524,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [charactersBenchMode, setCharactersBenchMode] = useState<"grid" | "editor">("grid");
   const [channelsAutoNew, setChannelsAutoNew] = useState(false);
   const [newChannelOpen, setNewChannelOpen] = useState(false);
+  const [costCenterOpen, setCostCenterOpen] = useState(false);
   const [draftIdea, setDraftIdea] = useState("");
   const [draftIdeaNote, setDraftIdeaNote] = useState("");
   const [draftIdeaCharacterId, setDraftIdeaCharacterId] = useState<string | null>(null);
@@ -543,6 +544,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     // Close the Aurora "New channel" surface whenever we leave the Channels hub,
     // so returning to it never re-shows a stale create form.
     if (scope.kind !== "hub" || scope.hub !== DEFAULT_HUB) setNewChannelOpen(false);
+    // Any real navigation closes the global Cost Center overlay surface.
+    setCostCenterOpen(false);
   }, [scope]);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2189,6 +2192,39 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   };
 
   // ── render ─────────────────────────────────────────────────────────────────
+  if (!legacyShellOpen && costCenterOpen) {
+    return (
+      <>
+        {globalOverlays}
+        <AuroraShell operatorInitials={operatorInitials}>
+          <div className="cost-center scoped">
+            <div className="overview-hub__head">
+              <div>
+                <p className="text-mono dim" style={{ fontSize: "0.875rem", marginBottom: "0.5rem" }}>
+                  // GLOBAL COST CENTER
+                </p>
+                <h1 className="text-display" style={{ fontSize: "2.5rem" }}>
+                  Global Cost Center
+                </h1>
+              </div>
+              <button type="button" className="action-button" onClick={() => setCostCenterOpen(false)}>
+                Back
+              </button>
+            </div>
+            <CostBoxDashboard
+              episodes={episodes}
+              costStats={costStats}
+              loading={costReceiptsLoading}
+              error={costReceiptsError}
+              receiptsLoaded={costReceiptsLoaded}
+              onRetry={() => void fetchCostReceipts()}
+            />
+          </div>
+        </AuroraShell>
+      </>
+    );
+  }
+
   if (!legacyShellOpen && scope.kind === "hub" && scope.hub === DEFAULT_HUB) {
     if (newChannelOpen) {
       return (
@@ -2879,7 +2915,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   >
                     Job costs arrive globally via character pipelines without a distinct channel scope column. Honest per-channel spend rollups will be available in Phase 3.
                   </p>
-                  <button className="btn" type="button" onClick={() => openLegacyConsole("cost")}>
+                  <button className="btn" type="button" onClick={() => setCostCenterOpen(true)}>
                     View Global Cost Center →
                   </button>
                 </div>
