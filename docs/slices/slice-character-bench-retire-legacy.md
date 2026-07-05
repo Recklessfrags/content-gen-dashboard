@@ -95,10 +95,12 @@ Reuse the **data/logic seams**, rebuild the **chrome** against Aurora (same disc
      (`EnqueueIdeaPanel`) — all legacy-only; "Log an idea →" just re-opens `.cr`. Big (write/money path).
    - **5c — Runs.** Run history + episode `DrillDownPanel`; Aurora Production/Runs tabs are deferred
      placeholders. **Data-blocked** (jobs.channel mismatch) — defer.
-   - **5d — Global Cost Box.** `CostBoxDashboard` is legacy-only; the Aurora Cost tab only
-     `openLegacyConsole("cost")`. Candidate for a chrome-only Aurora re-skin (sub-lane-3 pattern).
-   - **5e — System Overview.** Legacy `OverviewDashboard` is real; Aurora `?hub=overview` is a "next lane"
-     stub. Chrome-only Aurora re-skin candidate.
+   - **5d — Global Cost Box.** ✅ **SHIPPED (#103, `6b2f7b7`, 2026-07-05)** — `CostBoxDashboard` re-homed into an
+     in-Aurora `.cost-center.scoped` surface (from the workspace Cost tab CTA; `costCenterOpen`). Chrome only,
+     read-only (budget target = localStorage). Ratify `scripts/ratify-cost-center-aurora.mjs` 21/21, zero writes.
+   - **5e — System Overview.** ✅ **SHIPPED (#102, `f192f5c`, 2026-07-05)** — `OverviewDashboard` re-homed into
+     `?hub=overview` under `.overview-hub.scoped` (was a stub). Chrome only. Ratify
+     `scripts/ratify-overview-aurora.mjs` 21/21, zero writes.
    - **5f — Full queue browse + run-detail-from-queue.** `ActionCenter` sees only `actionableJobs`; the legacy
      queue adds `QUEUE_FILTERS`, all-jobs browse, and the drill-down. Partly **data-blocked**.
    - **then 5g — DELETE** the `.cr` return + `openLegacyConsole` + `legacyShellOpen` + dead `channelsAutoNew`

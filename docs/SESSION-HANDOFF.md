@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-05 (Character bench SUB-LANES 3 & 4 SHIPPED #96/#99 + sub-lane-3 ratify/polish #98 — Aurora History/Compare/Restore re-skin + Aurora New-channel create form; legacy `.cr` intact). Production tip = `f57a75b` (#99)** by the Architect (Claude).
+_Last updated: **2026-07-05 (Character bench SUB-LANES 3, 4, 5e, 5d SHIPPED #96/#99/#102/#103 + ratify/polish #98 + sweep #101 — Aurora History/Compare/Restore + New-channel form + System Overview + Global Cost Center; legacy `.cr` intact, deletion blocked pending 5b). Production tip = `6b2f7b7` (#103)** by the Architect (Claude).
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,7 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-05) — CHARACTER BENCH SUB-LANE 4 SHIPPED (#99, squash `f57a75b`): Aurora New-channel create form. Sub-lane 3 ratify + polish also landed (#98). SUB-LANE 5 REACHABILITY SWEEP DONE → **deletion BLOCKED** by 6 unhomed legacy capabilities (see NEXT). Read this first.
+## ⚡ LATEST (2026-07-05) — SUB-LANES 5e + 5d SHIPPED (#102 `f192f5c` / #103 `6b2f7b7`): Aurora System Overview + Global Cost Center re-skins. Earlier this session: sub-lanes 3 (#96) + 4 (#99) + ratify/polish (#98) + the sub-lane-5 sweep (#101). Legacy `.cr` deletion still BLOCKED — 2 of 6 gaps closed; only 5b (The Wire, write-path, needs go-ahead) remains buildable before 5g delete. Read this first + the NEXT section.
 
 **Production/default = `claude/new-session-3l99vs` @ `f57a75b` (#99).** The hub "+ New Channel" CTA now opens an
 Aurora-native create surface (no legacy console). Sub-lanes 1-4 of the character-bench lane are DONE; only the
@@ -68,21 +68,22 @@ lost. Keep chat terse (L-3).
   boolean prop + a derived layout flag, zero write-path change. The `isScopedLayout` seam (scopedChannel ‖
   createOnly) generalised Lane-3a's scoped-workspace path to the create surface.
 
-### NEXT — sub-lane 5: ⛔ SWEEP DONE → DELETION BLOCKED (6 prerequisite sub-lanes)
-- **The reachability sweep ran (2026-07-05, independent audit + Architect cross-read) and BLOCKS the delete.**
-  The characters bench fully retires `roster`; `ActionCenter` covers the queue's approve/park/re-run. But **six
-  capabilities have NO Aurora home** — deleting `.cr` now loses capability (violates gate #1). Prerequisite
-  sub-lanes (see slice §4.5 for the full matrix + evidence):
-  - **5a Channel DELETE** — small; both Aurora channel entries suppress `deleteProfile`.
-  - **5b The Wire (ideas)** — capture + tagging + **enqueue-idea-as-run** (`EnqueueIdeaPanel`); big, write/money path.
-  - **5c Runs** — history + `DrillDownPanel`; **data-blocked** (jobs.channel) — defer.
-  - **5d Global Cost Box** — `CostBoxDashboard`; chrome-only Aurora re-skin candidate (sub-lane-3 pattern).
-  - **5e System Overview** — real `OverviewDashboard` vs Aurora stub; chrome-only re-skin candidate.
-  - **5f Full queue browse + run-detail-from-queue** — ActionCenter sees only `actionableJobs`; partly data-blocked.
+### NEXT — sub-lane 5: sweep BLOCKED the delete; 2 of 6 gaps now closed (5d + 5e SHIPPED)
+- **The reachability sweep (2026-07-05) BLOCKS the delete** — six capabilities had no Aurora home. Progress:
+  - **5d Global Cost Box** — ✅ **SHIPPED (#103, `6b2f7b7`)** — `CostBoxDashboard` → in-Aurora `.cost-center.scoped`
+    surface (from the workspace Cost tab CTA). Ratify 21/21, zero writes.
+  - **5e System Overview** — ✅ **SHIPPED (#102, `f192f5c`)** — `OverviewDashboard` → `?hub=overview`
+    `.overview-hub.scoped` (was a stub). Ratify 21/21, zero writes.
+  - **5a Channel DELETE** — small, but **not ratifiable today** (only `default` exists, undeletable; ratify
+    intercepts writes so nothing is deletable). Hold until a 2nd channel exists.
+  - **5b The Wire (ideas)** — capture + tagging + **enqueue-idea-as-run** (`EnqueueIdeaPanel`); big **write/money
+    path**. **Needs operator go-ahead before building** (not an autonomous pick).
+  - **5c Runs** / **5f Full queue browse + run-detail** — **data-blocked** (jobs.channel mismatch) — defer.
   - **then 5g DELETE** the `.cr` return + `openLegacyConsole` + `legacyShellOpen` + dead `channelsAutoNew` +
     `?view=` handling. **Consensus review (Fable+suerta)** + live-ratify no-capability-lost.
-- **Recommended buildable order** (5c/5f are data-blocked; skip): **5a (trivial) → 5d + 5e (low-risk chrome-only
-  Aurora re-skins of the two read dashboards, sub-lane-3 pattern) → 5b (the big write-path Wire lane) → 5g delete.**
+- **Remaining buildable before 5g: only 5b (The Wire) — and it's a write-path lane awaiting go-ahead.** 5a is
+  untestable now; 5c/5f are data-blocked. So the shell can't be deleted until 5b lands (and 5c/5f un-block or are
+  ruled acceptable-to-drop). The two low-risk read-dashboard re-skins (5d/5e) are done.
 - **`DiscardChangesDialog`** relocation folds into 5g (its `globalOverlays` mount is outside the themed shell; the
   delete forces the fix).
 
