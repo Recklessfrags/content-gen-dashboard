@@ -114,6 +114,19 @@ bridge, intercept-and-abort = zero live writes). Keep chat terse (L-3).
   the merge artifact on production, NOT a local commit to rewrite; do not `--reset-author` a merged commit (it
   forks your branch from canonical history). Every prior `#1xx` merge carries the same committer.
 
+### HQ / cross-team (per new rule L-6 — wrap-up is handoff THEN HQ)
+- **Coordination-Log tracker: NO cross-team update owed.** Everything this session was **dashboard-internal** — 5a
+  re-homed an existing affordance (no new data/behavior to the worker), and the copy/typography work is
+  display-copy + CSS only (money-path gate logic byte-identical, no schema/contract/shared-surface change). No
+  tracker row, no heads-up.
+- **Process Learnings Ledger: appended 2 portable lessons (2026-07-05)** — (1) a "zero live writes" ratify is only
+  as true as its intercept list is complete (a real `idea_job_map` row leaked to prod when the bridge intercepted
+  `jobs` but not `idea_job_map`; audit the recorded write-log, don't trust the green); (2) ratify a money-gated
+  surface at the build-artifact level when opening it live would spend (the #114 casting-lock bundle-grep pattern).
+- **New rules added this session:** `AGENTS.md` **L-6** (this wrap-up ritual). `governance.md` was intentionally
+  NOT edited — it's the verbatim cross-team canonical mirror (rules 1–41); a portable version of L-6 would need the
+  propose→pipeline-encode→re-mirror loop, not a unilateral dashboard fork.
+
 ---
 
 ## ⚡ EARLIER (2026-07-05) — SUB-LANES 5e + 5d SHIPPED (#102 `f192f5c` / #103 `6b2f7b7`): Aurora System Overview + Global Cost Center re-skins. Earlier that session: sub-lanes 3 (#96) + 4 (#99) + ratify/polish (#98) + the sub-lane-5 sweep (#101). Legacy `.cr` deletion still BLOCKED — 2 of 6 gaps closed; only 5b (The Wire, write-path, needs go-ahead) remains buildable before 5g delete.

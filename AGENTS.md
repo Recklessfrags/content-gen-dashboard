@@ -85,6 +85,20 @@ never override it):
   shared-surface work); builder seat = **Codex**; cross-vendor reviewer =
   **Gemini** (`scripts/gemini.sh`, prompt on STDIN, first arg = model;
   `gemini-3.1-pro-preview` default, flash for light passes).
+- **L-6 · Wrap-up is handoff THEN HQ (2026-07-05)** — the session-END bookend to
+  L-1 (which fetches HQ at the START). After updating the handoff docs
+  (`docs/SESSION-HANDOFF.md`, per governance rule 41), **before ending the
+  session** re-fetch HQ (governance rule 22) and **update it if this session
+  changed anything another team builds on**: a shipped cross-team capability, a
+  schema/contract/behavior change flowing through a shared surface (governance
+  rule 21 — the tracker), a new blocker (rule 23), or a reusable lesson (rule 24
+  — the Process Learnings Ledger). The handoff doc is for the *next dashboard
+  session*; HQ is for *other teams* — updating one is not updating the other.
+  **If the HQ check finds nothing to record, say so in the handoff** ("HQ
+  checked, no cross-team update owed") so the next session knows the check ran.
+  Purely dashboard-internal work (display copy, CSS, UI re-homes with no
+  data/behavior crossing a shared surface) legitimately owes no tracker row — but
+  a portable *lesson* still goes to the Ledger.
 
 ## Git policy (critical)
 
