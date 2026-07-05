@@ -894,8 +894,8 @@ export function CastingStudioPanel({
           )}
           {cast && (
             <span className="chip" role="status">
-              Currently cast — this character has a live locked voice. Locking a new winner replaces it (the old
-              voice is deleted).
+              Currently cast — this character has a locked voice. Casting a new one replaces it (the old voice is
+              permanently deleted).
             </span>
           )}
         </div>
@@ -1281,25 +1281,36 @@ export function CastingStudioPanel({
               aria-modal="true"
               aria-labelledby="casting-lock-title"
             >
-              <h4 id="casting-lock-title">CONFIRM AUDITIONED WINNER</h4>
+              <h4 id="casting-lock-title">Cast this voice?</h4>
               <div className="casting-lock-summary">
                 <div>
-                  <span className="eyebrow">TARGET</span>
+                  <span className="eyebrow">Character</span>
                   <p>{character.codename || "Untitled character"}</p>
                 </div>
                 <div>
-                  <span className="eyebrow">DESCRIPTION</span>
+                  <span className="eyebrow">Description</span>
                   <pre>{candidateDescription(lockConfirmCandidate)}</pre>
                 </div>
                 <div>
-                  <span className="eyebrow">AUDITION SCRIPT</span>
+                  <span className="eyebrow">Audition script</span>
                   <pre>{candidatePreviewText(lockConfirmCandidate)}</pre>
                 </div>
                 <div>
-                  <span className="eyebrow">GENERATION</span>
+                  <span className="eyebrow">Voice settings</span>
                   <p>{generationSummary(candidateGeneration(lockConfirmCandidate))}</p>
                 </div>
               </div>
+              {cast ? (
+                <p className="casting-lock-consequence" role="status">
+                  This saves the voice to {character.codename || "this character"} and replaces its current
+                  voice. The old voice is permanently deleted and can&apos;t be recovered.
+                </p>
+              ) : (
+                <p className="casting-lock-consequence" role="status">
+                  This saves the voice to {character.codename || "this character"} so it&apos;s used for every
+                  future script.
+                </p>
+              )}
               <label className="casting-toggle casting-ack">
                 <input
                   ref={lockAckRef}
@@ -1316,7 +1327,7 @@ export function CastingStudioPanel({
                   disabled={locking !== null}
                   onClick={closeLockDialog}
                 >
-                  [ CANCEL ]
+                  Cancel
                 </button>
                 <button
                   className="btn compact ccr-btn-stamp"
@@ -1325,7 +1336,7 @@ export function CastingStudioPanel({
                   aria-busy={locking === lockConfirmCandidate.generated_voice_id}
                   onClick={() => void handleLock(lockConfirmCandidate)}
                 >
-                  {locking === lockConfirmCandidate.generated_voice_id ? "[ LOCKING... ]" : "[ CONFIRM LOCK ]"}
+                  {locking === lockConfirmCandidate.generated_voice_id ? "Casting…" : "Cast & lock voice"}
                 </button>
               </div>
             </div>
@@ -1484,12 +1495,9 @@ function candidateGeneration(candidate: AuditionCandidate): VoiceGeneration {
 }
 
 function generationSummary(generation: VoiceGeneration): string {
-  return [
-    `model_id: ${generation.model_id}`,
-    `guidance_scale: ${generation.guidance_scale}`,
-    `seed: ${generation.seed ?? "random"}`,
-    `quality: ${generation.quality ?? "default"}`,
-  ].join(" · ");
+  const quality = generation.quality ?? "standard";
+  const result = generation.seed != null ? "repeatable result" : "randomized result";
+  return `${quality} quality · ${result}`;
 }
 
 function jsonRecord(value: unknown): Record<string, unknown> {

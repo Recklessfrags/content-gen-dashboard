@@ -2342,6 +2342,8 @@ body{font-family:var(--body)}
   font-size:13px;line-height:1.45;color:var(--ink)}
 .casting-ack{color:var(--ink);margin:0}
 .casting-ack input{width:18px;height:18px}
+.casting-lock-consequence{margin:0;padding:10px 12px;font-size:13px;line-height:1.5;color:var(--ink);
+  background:rgba(201,162,75,.14);border-left:3px solid var(--brass)}
 
 .ccr-tpl-trigger{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;
   color:var(--paper-dim);background:transparent;border:0;padding:7px 0;cursor:pointer}
