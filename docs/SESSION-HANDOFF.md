@@ -43,6 +43,25 @@ harness-designated branch name).
   (Production/Cost) / trim Overview; not done in v1 (operator lean was "just the forms"). Savebar actions (Visual cast,
   Export) aren't mode-gated yet. Re-tier any field: it's a one-line move in the two gated files + the rubric doc.
 
+### Also this session — content-retention + competitor RESEARCH (#124 `1475afa`), and a strategy Q
+- **Research shipped (#124):** `docs/research/content-retention-and-competitors-2026-07-05.md` — operator-commissioned,
+  produced via the deep-research harness (107 agents, adversarial verification). **Part A** (what makes AI short-form
+  HOLD attention, pipeline-facing) + **Part B** (competitor teardown → Control Room feature ideas). Every claim
+  confidence-tagged (VERIFIED / SOURCE-ATTESTED-UNVERIFIED / refuted-do-not-cite). **Mirrored to HQ** (Coordination Log
+  child page `🎬 content-retention CRAFT research (2026-07-05)` + a tracker row) so the pipeline team can build on Part A
+  (rule 40). Key verified levers: ElevenLabs v3 prosody (kill flat TTS); optimize completion + retention-curve not AVD;
+  an "added-value" gate vs YouTube's "inauthentic content" demonetization; AI-disclosure (own-voice clone EXEMPT). The
+  generation-failure-mode fixes (shorter clips / one focal subject / composite in post) are TEST-don't-cite (unverified).
+- **DEFERRED next build (operator-directed):** a **retention feedback loop** — pull per-video performance (views, avg
+  view duration, completion, retention curve) onto the existing cost + `correlation_key` (idea→job→episode) thread,
+  attributed to character/channel/hook/format → "cost per retained-view." No competitor closes this loop; it's the
+  strongest own-the-stack feature and turns Part A's levers into measured signal. **Blocked on the pipeline surfacing
+  per-episode retention/performance metrics** (asked in the HQ tracker row above). Operator said defer the spec — pick
+  it up when the pipeline dependency is ready or the operator greenlights.
+- **Build-vs-buy read (for context):** the individual capabilities (faceless generators, AI-actor/UGC tools, voice,
+  schedulers) are commoditized — even reusable "AI influencer as a durable asset" (The Influencer AI). The Control Room's
+  real edge is the governance + owned-pipeline + per-run economics layer, not any single capability.
+
 ### Copy audit P1 sweep + dial renames (#118 `c096531`, handoff #119, dials #120 `073409e`)
 Applied the audit's **S2 rename map to user-visible display text only** (DB columns / enums / props / CSS classes /
 pipeline-contract fields untouched — the operator's HARD rule) across every Aurora-surviving surface, sentence-cased
