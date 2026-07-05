@@ -523,6 +523,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [legacyShellOpen, setLegacyShellOpen] = useState(false);
   const [charactersBenchMode, setCharactersBenchMode] = useState<"grid" | "editor">("grid");
   const [channelsAutoNew, setChannelsAutoNew] = useState(false);
+  const [newChannelOpen, setNewChannelOpen] = useState(false);
   const [draftIdea, setDraftIdea] = useState("");
   const [draftIdeaNote, setDraftIdeaNote] = useState("");
   const [draftIdeaCharacterId, setDraftIdeaCharacterId] = useState<string | null>(null);
@@ -539,6 +540,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [queueActionSubmitting, setQueueActionSubmitting] = useState(false);
   useEffect(() => {
     setPendingQueueAction(null);
+    // Close the Aurora "New channel" surface whenever we leave the Channels hub,
+    // so returning to it never re-shows a stale create form.
+    if (scope.kind !== "hub" || scope.hub !== DEFAULT_HUB) setNewChannelOpen(false);
   }, [scope]);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1751,8 +1755,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       onOpenChannel: (channel: string) =>
         navigate({ kind: "workspace", channel, tab: DEFAULT_TAB }),
       onNewChannel: () => {
-        setChannelsAutoNew(true);
-        openLegacyConsole("channels");
+        // Durable tier (slice-newcomer-journey-fixes #1): the Aurora "New channel"
+        // create surface — never routes through the legacy console, never pre-selects
+        // an existing channel (the overwrite-the-default footgun).
+        setNewChannelOpen(true);
       },
       onOpenCharacters: handleCharactersHubNav,
     },
@@ -2184,6 +2190,41 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   // ── render ─────────────────────────────────────────────────────────────────
   if (!legacyShellOpen && scope.kind === "hub" && scope.hub === DEFAULT_HUB) {
+    if (newChannelOpen) {
+      return (
+        <>
+          {globalOverlays}
+          <AuroraShell operatorInitials={operatorInitials}>
+            <div className="channel-create-surface">
+              <nav className="breadcrumb" aria-label="Breadcrumb">
+                <button
+                  type="button"
+                  className="breadcrumb-button"
+                  onClick={() => setNewChannelOpen(false)}
+                >
+                  Channels
+                </button>
+                <span className="breadcrumb-sep">/</span>
+                <span className="text-main" aria-current="page">New channel</span>
+              </nav>
+              <ChannelProfilesPanel
+                supabase={supabase}
+                profiles={channelProfiles}
+                characters={channelCharacterOptions}
+                loading={channelProfilesLoading}
+                error={channelProfilesError}
+                onRefetch={refetchChannelProfiles}
+                createOnly
+                onCreated={(channel) => {
+                  setNewChannelOpen(false);
+                  showFlash(`Channel "${channel}" created.`);
+                }}
+              />
+            </div>
+          </AuroraShell>
+        </>
+      );
+    }
     return (
       <>
         {globalOverlays}

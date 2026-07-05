@@ -48,6 +48,10 @@ type ChannelProfilesPanelProps = {
   scopedChannel?: string;
   autoStartNew?: boolean;
   onAutoStartNewConsumed?: () => void;
+  /** Create-only surface (Aurora hub "New channel"): forces a blank create form,
+   *  hides the master list / mobile picker / delete, and fires onCreated on save. */
+  createOnly?: boolean;
+  onCreated?: (channel: string) => void;
 };
 
 type CharacterOption = {
@@ -158,10 +162,12 @@ export function ChannelProfilesPanel({
   scopedChannel,
   autoStartNew,
   onAutoStartNewConsumed,
+  createOnly,
+  onCreated,
 }: ChannelProfilesPanelProps) {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
-  const [creating, setCreating] = useState<boolean>(Boolean(autoStartNew));
+  const [creating, setCreating] = useState<boolean>(Boolean(autoStartNew) || Boolean(createOnly));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState<{
@@ -180,6 +186,9 @@ export function ChannelProfilesPanel({
     [profiles, selectedChannel],
   );
   const isDefaultProfile = !creating && form?.channel === "default";
+  // Scoped layout = single-column form chrome (workspace Guidelines tab OR the Aurora
+  // "New channel" create surface): hide the master list / mobile picker / delete.
+  const isScopedLayout = Boolean(scopedChannel) || Boolean(createOnly);
   const personaSuggestion = useMemo(() => {
     if (!form) return null;
 
@@ -380,6 +389,12 @@ export function ChannelProfilesPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when the create intent arrives
   }, [autoStartNew]);
 
+  useEffect(() => {
+    if (!createOnly) return;
+    startNew();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once to seed the blank create form
+  }, [createOnly]);
+
   const formToInput = (current: FormState): ChannelProfileUpsertInput => {
     const shortSeconds = current.shortSeconds.trim();
     const lengthTarget =
@@ -459,6 +474,7 @@ export function ChannelProfilesPanel({
       setProposal(null);
       setLastApplied(null);
       setAiFlagged(new Set());
+      if (createOnly) onCreated?.(built.channel);
     } catch (saveError) {
       setNotice({
         message:
@@ -551,8 +567,8 @@ export function ChannelProfilesPanel({
   }
 
   return (
-    <div className={"main channel-profiles" + (scopedChannel ? " scoped" : "")}>
-      {!scopedChannel && (
+    <div className={"main channel-profiles" + (isScopedLayout ? " scoped" : "")}>
+      {!isScopedLayout && (
         <aside className="roster">
           <div className="col-head">
             <h2>Channels</h2>
@@ -588,7 +604,7 @@ export function ChannelProfilesPanel({
       )}
 
       <section className="dossier" aria-labelledby="channel-profile-title">
-        {!scopedChannel && (
+        {!isScopedLayout && (
           <div className="mobile-roster">
             <label className="eyebrow" htmlFor="mobile-channel-roster-select">
               SELECT CHANNEL
@@ -1018,7 +1034,7 @@ export function ChannelProfilesPanel({
               >
                 {saving ? "Saving..." : "Save channel"}
               </button>
-              {!scopedChannel && (
+              {!isScopedLayout && (
                 <button
                   className="btn ghost"
                   type="button"
@@ -1028,7 +1044,7 @@ export function ChannelProfilesPanel({
                   {deleting ? "Deleting..." : "Delete"}
                 </button>
               )}
-              {!scopedChannel && isDefaultProfile && (
+              {!isScopedLayout && isDefaultProfile && (
                 <span className="hint">
                   fallback profile, can&apos;t delete
                 </span>
