@@ -371,15 +371,14 @@ function RestoreDialog({ revision, onCancel, onConfirm, restoreFocusRef }: Resto
         aria-labelledby="restore-title"
         aria-describedby="restore-desc"
       >
-        <h2 id="restore-title">Confirm Restore</h2>
+        <h2 id="restore-title">Restore this version?</h2>
         <p id="restore-desc">
-          Are you sure you want to restore the revision from {formatRevisionDate(revision.created_at)}?
-          This will replace all current unsaved edits in your editor. You must click Save dossier to
-          write this restored version back to your live manual.
+          Restore the version from {formatRevisionDate(revision.created_at)}? This replaces your
+          current unsaved edits — you&apos;ll still need to save to keep it.
         </p>
         <div className="restore-actions">
           <button className="btn restore-confirm" type="button" onClick={onConfirm}>
-            Yes, Restore Draft
+            Restore version
           </button>
           <button ref={cancelButtonRef} className="btn ghost" type="button" onClick={onCancel}>
             Cancel
@@ -426,17 +425,16 @@ function DiscardChangesDialog({
         aria-labelledby="discard-title"
         aria-describedby="discard-desc"
       >
-        <h2 id="discard-title">UNSAVED CHANGES IN BUFFER</h2>
+        <h2 id="discard-title">Discard unsaved changes?</h2>
         <p id="discard-desc">
-          You have uncommitted modifications in the field manual for {codename}.
-          Leaving this screen will erase these changes permanently.
+          You have unsaved changes to {codename}. Leaving this screen deletes them permanently.
         </p>
         <div className="restore-actions">
           <button className="btn ghost" type="button" onClick={onConfirm}>
-            DISCARD CHANGES
+            Discard changes
           </button>
           <button ref={keepButtonRef} className="btn" type="button" onClick={onCancel}>
-            KEEP EDITING
+            Keep editing
           </button>
         </div>
       </div>
@@ -1764,6 +1762,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         setNewChannelOpen(true);
       },
       onOpenCharacters: handleCharactersHubNav,
+      onRetry: () => void refetchChannelProfiles(),
     },
     glance: {
       activeChannels: channelProfiles.length,

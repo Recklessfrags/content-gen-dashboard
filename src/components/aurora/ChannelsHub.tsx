@@ -19,6 +19,7 @@ export type ChannelsHubProps = {
   onNewChannel: () => void;
   creating?: boolean;
   onOpenCharacters?: () => void;
+  onRetry?: () => void;
 };
 
 export function getChannelLabel(card: Pick<ChannelCardVM, "channel" | "displayName">): string {
@@ -44,6 +45,7 @@ export function ChannelsHub({
   onNewChannel,
   creating = false,
   onOpenCharacters,
+  onRetry,
 }: ChannelsHubProps) {
   const showEmpty = !loading && error === null && cards.length === 0;
   const showCards = !loading && error === null && cards.length > 0;
@@ -79,7 +81,7 @@ export function ChannelsHub({
       </div>
 
       {loading ? <LoadingGrid /> : null}
-      {error !== null ? <ErrorState error={error} /> : null}
+      {error !== null ? <ErrorState error={error} onRetry={onRetry} /> : null}
       {showEmpty ? <EmptyState creating={creating} onNewChannel={onNewChannel} /> : null}
 
       {showCards ? (
@@ -122,12 +124,24 @@ function LoadingGrid() {
   );
 }
 
-function ErrorState({ error }: { error: string }) {
+function ErrorState({ error, onRetry }: { error: string; onRetry?: () => void }) {
   return (
     <div className="glass-panel au-empty" role="alert">
-      <p className="metric-label dim">Channels Error</p>
-      <p className="text-title">Channel data could not load</p>
-      <p>{error}</p>
+      <p className="text-title">Couldn&apos;t load channels</p>
+      <p className="dim">Check your connection and try again.</p>
+      {error ? (
+        <details className="error-details">
+          <summary>Details</summary>
+          {error}
+        </details>
+      ) : null}
+      {onRetry ? (
+        <div style={{ marginTop: "1rem" }}>
+          <button type="button" className="btn-secondary" onClick={onRetry}>
+            Retry
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

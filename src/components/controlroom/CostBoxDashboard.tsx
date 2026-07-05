@@ -154,10 +154,16 @@ export function CostBoxDashboard({
         </div>
         <div className="cost-content">
           <div className="cost-state">
-            <h3>Cost Box Unavailable</h3>
-            <p>Couldn&apos;t read the pipeline receipts source: {error}</p>
+            <h3>Spend data unavailable</h3>
+            <p>Couldn&apos;t load spend data. Check your connection and retry.</p>
+            {error ? (
+              <details className="error-details">
+                <summary>Details</summary>
+                {error}
+              </details>
+            ) : null}
             <button className="btn" type="button" onClick={onRetry}>
-              Retry Connection
+              Retry
             </button>
           </div>
         </div>
@@ -209,7 +215,7 @@ export function CostBoxDashboard({
       </div>
 
       <div className="cap">
-        <span className="eyebrow">Running spend from max(spend_so_far) per episode.</span>
+        <span className="eyebrow">Running spend, highest recorded per episode.</span>
       </div>
 
       <div className="cost-content">
@@ -236,9 +242,9 @@ export function CostBoxDashboard({
               }
             >
               <div className="metric-meta">
-                <span className="metric-eyebrow">Running Total Operational Spend</span>
+                <span className="metric-eyebrow">Total spend</span>
                 <span className={currentBudgetStatus.over ? "metric-badge alert-badge" : "metric-badge"}>
-                  {currentBudgetStatus.over ? "[LIMIT EXCEEDED]" : "USD"}
+                  {currentBudgetStatus.over ? "Over target" : "USD"}
                 </span>
               </div>
               <div className="metric-value hero-value">{formatUsd(costStats.grandTotal)}</div>
@@ -247,7 +253,7 @@ export function CostBoxDashboard({
                   className={"pulse-dot" + (currentBudgetStatus.over ? " breached" : "")}
                   aria-hidden="true"
                 />
-                Live &amp; In-Flight Aware · Includes running pipeline operations
+                Includes runs still in progress
               </div>
               {budgetTarget !== null && (
                 <div className="budget-target-status">
@@ -268,11 +274,11 @@ export function CostBoxDashboard({
 
             <div className="metric-card budget-target-card" role="group" aria-labelledby="budget-target-title">
               <div className="metric-meta">
-                <span className="metric-eyebrow">LOCAL SPEND GOVERNANCE</span>
+                <span className="metric-eyebrow">Budget target</span>
                 <span className="metric-badge">Browser Local</span>
               </div>
               <label className="budget-target-label" htmlFor="budget-target-input" id="budget-target-title">
-                SET TARGET GOAL (USD)
+                Target budget (USD)
               </label>
               <div className="budget-target-controls">
                 <input
@@ -282,7 +288,7 @@ export function CostBoxDashboard({
                   step="0.01"
                   inputMode="decimal"
                   value={budgetInput}
-                  placeholder="No local target set..."
+                  placeholder="e.g. 50.00"
                   onChange={(event) => updateBudgetTarget(event.target.value)}
                   onBlur={(event) => handleBudgetTargetBlur(event.target.value)}
                 />
@@ -299,10 +305,10 @@ export function CostBoxDashboard({
 
             <div className="metric-card parked-card redesigned" role="note">
               <div className="metric-meta">
-                <span className="metric-eyebrow">SYSTEM REGULATION</span>
-                <span className="metric-badge">[AWAITING PIPELINE UPGRADE]</span>
+                <span className="metric-eyebrow">Budget enforcement</span>
+                <span className="metric-badge">Coming soon</span>
               </div>
-              <div className="metric-value-date">BUDGET CAP ENFORCEMENT</div>
+              <div className="metric-value-date">Budget cap enforcement</div>
               <p className="metric-subtext">
                 Spend capping is enforced directly at the content pipeline level
                 (research → assembly). Live dashboard threshold monitoring is currently
@@ -313,7 +319,7 @@ export function CostBoxDashboard({
 
             <div className="metric-card provider-card" role="group" aria-label="API provider breakdown">
               <div className="metric-meta provider-head">
-                <span className="metric-eyebrow">API PROVIDER BREAKDOWN</span>
+                <span className="metric-eyebrow">Spend by provider</span>
                 <span className="metric-badge">Providers</span>
               </div>
 
@@ -339,7 +345,7 @@ export function CostBoxDashboard({
             {costStats.characterSplit.length > 0 && (
               <div className="metric-card provider-card" role="group" aria-label="Per-character cost breakdown">
                 <div className="metric-meta provider-head">
-                  <span className="metric-eyebrow">PER-CHARACTER COST</span>
+                  <span className="metric-eyebrow">Spend by character</span>
                   <span className="metric-badge">Characters</span>
                 </div>
 
@@ -389,7 +395,7 @@ export function CostBoxDashboard({
                   </div>
                   <div className="audit-meta">
                     <span className="rmeta stat">{episode.status}</span>
-                    {isInFlight && <span className="flight-badge">IN-FLIGHT</span>}
+                    {isInFlight && <span className="flight-badge">Running</span>}
                     {episode.final_stage && <span className="rmeta">stage · {episode.final_stage}</span>}
                     <span className="rmeta">{new Date(episode.created_at).toLocaleDateString()}</span>
                   </div>

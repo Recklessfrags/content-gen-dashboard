@@ -2249,6 +2249,19 @@
   letter-spacing: normal;
 }
 
+/* Error "Details" disclosure (raw error text demoted off the primary message). */
+.aurora-app .error-details {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  max-width: 40rem;
+}
+.aurora-app .error-details summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  list-style: revert;
+}
+
 /* ==========================================================================
    FEEDBACK & STATES
    ========================================================================== */
