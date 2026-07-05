@@ -29,7 +29,7 @@ type FieldComparison = {
 };
 
 const COMPARE_FIELDS: CompareFieldDefinition[] = [
-  { key: "codename", label: "Codename" },
+  { key: "codename", label: "Name" },
   { key: "concept", label: "One-line concept" },
   { key: "status", label: "Status" },
   ...BIBLE_FIELDS.map((field) => ({ key: field, label: FIELD_LABELS[field] })),
@@ -190,13 +190,13 @@ export function CompareDialog({
         className="compare-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="Dossier Revision Comparison"
+        aria-label="Compare character profile versions"
       >
         <div className="compare-head">
-          <h2>Dossier Revision Comparison</h2>
+          <h2>Compare versions</h2>
           <p>
-            Comparing live manual draft of {current.codename || "Untitled"} against archive
-            snapshot from {formattedDate}
+            Comparing the current profile for {current.codename || "Untitled"} against the
+            saved version from {formattedDate}
           </p>
         </div>
 
@@ -236,7 +236,7 @@ export function CompareDialog({
                 <span className="chip">[ UNCHANGED ]</span>
               </div>
               <div className="compare-column">
-                Current live manual draft matches this archive snapshot across every compared field.
+                The current profile matches this saved version across every compared field.
               </div>
             </div>
           )}

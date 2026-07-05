@@ -1857,7 +1857,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const renderMobileRoster = (onCreate: () => void) => (
     <div className="mobile-roster">
       <label className="eyebrow" htmlFor="mobile-roster-select">
-        SELECT DOSSIER
+        Select character
       </label>
       <select
         id="mobile-roster-select"
@@ -1867,20 +1867,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           if (event.target.value) guardedSetActiveId(event.target.value);
         }}
         disabled={chars.length === 0 || saving}
-        aria-label="Select dossier"
+        aria-label="Select character"
       >
         {chars.length === 0 ? (
-          <option value="">NO DOSSIERS ON FILE</option>
+          <option value="">No characters yet</option>
         ) : (
           <>
-            <optgroup label="ACTIVE FIELD MANUALS">
+            <optgroup label="Active characters">
               {mobileActiveManuals.map((c) => (
                 <option key={c.id} value={c.id}>
                   ● {c.codename || "Untitled"}
                 </option>
               ))}
             </optgroup>
-            <optgroup label="DRAFT FIELD MANUALS">
+            <optgroup label="Draft characters">
               {mobileDraftManuals.map((c) => (
                 <option key={c.id} value={c.id}>
                   ○ {c.codename || "Untitled"}
@@ -1897,7 +1897,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         disabled={adding || saving}
         aria-label="Create new character"
       >
-        {adding ? "CREATING..." : "+ NEW"}
+        {adding ? "Creating…" : "+ New"}
       </button>
     </div>
   );
@@ -1924,10 +1924,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   type="button"
                   onClick={() => requestRestore(previewingRevision)}
                 >
-                  Restore this Version
+                  Restore this version
                 </button>
                 <button className="btn dark-ghost" type="button" onClick={exitPreview}>
-                  Exit Preview
+                  Exit preview
                 </button>
               </div>
             </div>
@@ -1935,7 +1935,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           <header className="dossier-head">
             <DossierVisualAttachment character={active} supabase={supabase} />
             <div className="filecode">
-              <span>FILE · {displayedActive.id.slice(0, 8).toUpperCase()}</span>
+              <span>ID · {displayedActive.id.slice(0, 8).toUpperCase()}</span>
               <button
                 ref={headerHistoryButtonRef}
                 className="history-trigger"
@@ -1949,7 +1949,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 <span>History</span>
               </button>
               <span className="live">
-                ● {displayedActive.status === "active" ? "ACTIVE FIELD MANUAL" : "DRAFT FIELD MANUAL"}
+                ● {displayedActive.status === "active" ? "Active" : "Draft"}
               </span>
             </div>
             <h1>{displayedActive.codename || "Untitled"}</h1>
@@ -1965,7 +1965,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           <div className={"sheet" + (previewingRevision ? " preview-active" : "")}>
             <Field
               id={fieldControlId(activeId, "codename")}
-              label="Codename"
+              label="Name"
               value={displayedActive.codename}
               onChange={(v) => set("codename", v)}
               rows={1}
@@ -2064,13 +2064,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             <div className="savebar">
               {isRestoredDraft && (
                 <div className="restore-warning">
-                  ⚠ UNSAVED RESTORED DRAFT — You are viewing a restored manual. Click
-                  Save dossier to make these changes live.
+                  ⚠ Unsaved restored draft — you&apos;re viewing a restored version. Save to
+                  make these changes live.
                 </div>
               )}
               {dirty && (
                 <span className="savebar-dirty-label chip draft" role="status">
-                  • UNPERSISTED CHANGES IN BUFFER
+                  • Unsaved changes
                 </span>
               )}
               <button
@@ -2078,7 +2078,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 onClick={save}
                 disabled={saving || !dirty}
               >
-                {saving ? "Saving…" : "Save dossier"}
+                {saving ? "Saving…" : "Save character"}
               </button>
               <button className="btn ghost" onClick={toggleStatus}>
                 {active.status === "active" ? "● Active" : "○ Draft"}
@@ -2091,7 +2091,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 aria-haspopup="dialog"
                 aria-expanded={historyOpen}
               >
-                View History
+                View history
               </button>
               <button
                 ref={castingTriggerRef}
@@ -2102,7 +2102,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 aria-expanded={castingOpen}
                 disabled={activeIsDraft}
               >
-                {isCast(active) ? "🎙 Casting Studio" : "🎙 Cast a voice"}
+                {isCast(active) ? "🎙 Casting studio" : "🎙 Cast a voice"}
               </button>
               <button
                 ref={visualCastingTriggerRef}
@@ -2115,7 +2115,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 aria-expanded={visualCastingOpen}
                 disabled={activeIsDraft}
               >
-                {isVisuallyCast(active) ? "[ RECAST VISUAL ]" : "[ VISUAL CAST ]"}
+                {isVisuallyCast(active) ? "Recast visual" : "Cast visual"}
               </button>
               <button
                 className="btn ghost"
@@ -2123,7 +2123,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 onClick={handleExport}
                 disabled={saving || loading || !active || activeIsDraft}
               >
-                EXPORT MANUAL (MD)
+                Export profile (MD)
               </button>
               {/* Legacy ideas capture stays on the wire console until its Aurora home ships. */}
               <button
@@ -2181,7 +2181,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         <div className="empty">
           <Icon name="roster" />
           <h3>No characters yet</h3>
-          <p>Create your first character to start building a field manual.</p>
+          <p>Create your first character to get started.</p>
           <button className="btn btn-primary" onClick={createHandler} disabled={adding}>
             {adding ? "Creating…" : "+ New character"}
           </button>
@@ -2199,11 +2199,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           <div className="cost-center scoped">
             <div className="overview-hub__head">
               <div>
-                <p className="text-mono dim" style={{ fontSize: "0.875rem", marginBottom: "0.5rem" }}>
-                  // GLOBAL COST CENTER
+                <p className="dim" style={{ fontSize: "0.875rem", marginBottom: "0.5rem" }}>
+                  Spend across every channel
                 </p>
                 <h1 className="text-display" style={{ fontSize: "2.5rem" }}>
-                  Global Cost Center
+                  Global cost center
                 </h1>
               </div>
               <button type="button" className="action-button" onClick={() => setCostCenterOpen(false)}>
@@ -2298,7 +2298,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             <div className="characters-bench scoped">
               <div className="characters-bench__content">
                 <div className="loading">
-                  <span className="spin" /> Loading field manuals…
+                  <span className="spin" /> Loading characters…
                 </div>
               </div>
             </div>
@@ -2306,14 +2306,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             <div className="characters-bench scoped">
               <div className="characters-bench__content">
                 <div className="empty">
-                  <h3>Comms down</h3>
-                  <p>Couldn&apos;t reach the database: {loadError}</p>
+                  <h3>Couldn&apos;t load characters</h3>
+                  <p>Check your connection and try again.</p>
+                  {loadError ? (
+                    <details className="error-details">
+                      <summary>Details</summary>
+                      {loadError}
+                    </details>
+                  ) : null}
                   <button
                     className="btn btn-secondary"
                     type="button"
                     onClick={() => void refetchCharacters()}
                   >
-                    Retry Roster
+                    Retry
                   </button>
                 </div>
               </div>
@@ -2670,7 +2676,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       Cast unavailable
                     </h3>
                     <p className="dim text-body" style={{ marginBottom: "1rem" }}>
-                      Couldn&apos;t reach the character roster: {loadError}
+                      Couldn&apos;t load your characters: {loadError}
                     </p>
                     <button className="btn" type="button" onClick={() => void fetchCharacters()}>
                       Retry
@@ -2681,7 +2687,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 <article className="glass-panel">
                   <div className="panel-header">
                     <h2 className="text-title" style={{ fontSize: "1.25rem" }}>
-                      Active Cast
+                      Active cast
                     </h2>
                     <button
                       type="button"
@@ -2724,7 +2730,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         </div>
 
                         <div className="form-group" style={{ maxWidth: "none" }}>
-                          <span className="form-label">Character Dossier (Bible)</span>
+                          <span className="form-label">Character profile</span>
                           <div
                             className="form-input"
                             style={{
@@ -2734,7 +2740,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                               whiteSpace: "pre-wrap",
                             }}
                           >
-                            {castChar.voice || "No dossier logged yet."}
+                            {castChar.voice || "No profile logged yet."}
                           </div>
                         </div>
                       </div>
@@ -2770,7 +2776,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 <article className="glass-panel">
                   <div className="panel-header">
                     <h2 className="text-title" style={{ fontSize: "1.25rem" }}>
-                      Active Cast
+                      Active cast
                     </h2>
                   </div>
 
@@ -2867,10 +2873,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                       className="text-title"
                       style={{ color: "var(--accent)", fontSize: "0.875rem", marginBottom: "0.25rem" }}
                     >
-                      E1 Persona Advisory
+                      Character guidelines
                     </h3>
                     <p className="text-body dim" style={{ fontSize: "0.875rem" }}>
-                      These guidelines act as soft prompt boundaries for the underlying Persona engine.
+                      These guidelines act as soft boundaries for how the character is written.
                     </p>
                   </div>
                 </div>
@@ -2907,16 +2913,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 </svg>
                 <div>
                   <h3 className="text-title" style={{ marginBottom: "0.5rem" }}>
-                    Per-Channel Costing is Deferred
+                    Per-channel costs aren&apos;t available yet
                   </h3>
                   <p
                     className="dim text-body"
                     style={{ maxWidth: "500px", margin: "0 auto 1.5rem" }}
                   >
-                    Job costs arrive globally via character pipelines without a distinct channel scope column. Honest per-channel spend rollups will be available in Phase 3.
+                    Costs are tracked globally right now, not per channel. Per-channel spend breakdowns are coming soon.
                   </p>
                   <button className="btn" type="button" onClick={() => setCostCenterOpen(true)}>
-                    View Global Cost Center →
+                    View global cost center →
                   </button>
                 </div>
               </div>

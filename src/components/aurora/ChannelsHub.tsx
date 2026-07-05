@@ -57,8 +57,8 @@ export function ChannelsHub({
           <h3 id="channels-hub-title" className="text-display" style={{ fontSize: "2rem" }}>
             Channels
           </h3>
-          <p className="dim text-mono" style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}>
-            Root Objects &amp; Production Lines
+          <p className="dim" style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}>
+            Your content streams and their characters
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
@@ -214,7 +214,7 @@ function ChannelCard({
           </span>
         </div>
         <div className="metric-group" style={{ textAlign: "right" }}>
-          <span className="metric-label dim">Runs &amp; cost - Phase 3</span>
+          <span className="metric-label dim">Runs &amp; cost — coming soon</span>
         </div>
       </div>
     </article>

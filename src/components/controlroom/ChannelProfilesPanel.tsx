@@ -561,8 +561,7 @@ export function ChannelProfilesPanel({
       <div className="empty">
         <h3>No channels yet</h3>
         <p>
-          Create a channel profile to store operator intent for script treatment
-          and engagement posture.
+          Create a channel profile to store its content and engagement settings.
         </p>
         <button className="btn" type="button" onClick={startNew}>
           + New channel
@@ -664,8 +663,7 @@ export function ChannelProfilesPanel({
             </h1>
           )}
           <p className="sub">
-            Store channel-level treatment, source, packaging, and ADR-005
-            intent.
+            Settings that apply to every run on this channel.
           </p>
         </header>
 
@@ -762,7 +760,7 @@ export function ChannelProfilesPanel({
                   <Field
                     id="channel-profile-channel"
                     label="Channel"
-                    hint={creating ? "Primary key" : "Primary key - read-only"}
+                    hint={creating ? "Unique channel ID, set once" : "Unique channel ID (read-only)"}
                     value={form.channel}
                     onChange={(value) => updateForm("channel", value)}
                     rows={1}
@@ -905,10 +903,8 @@ export function ChannelProfilesPanel({
                     </span>
                   </legend>
                   <p className="hint">
-                    Enforced by the worker at job start (ADR-005): claim
-                    discipline gates Tier-1 levers, arousal ceiling gates
-                    Tier-2. Missing or invalid values fail safe to fact_first /
-                    conservative.
+                    Enforced by the pipeline when a job starts. If a value is
+                    missing or invalid, the safest setting is used.
                   </p>
                   <div className="grid2">
                     <div className="field">
