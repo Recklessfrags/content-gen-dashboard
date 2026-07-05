@@ -1,4 +1,4 @@
-# Copy style guide + audit rubric — Reels Content Control Room
+# Content style guide + audit rubric — Reels Content Control Room
 
 _Status: **v1 — evidence-based draft**, 2026-07-05. Built from a deep-research synthesis of
 established content-design authorities (adversarially verified: 25 claims, 25 confirmed, 0 refuted).

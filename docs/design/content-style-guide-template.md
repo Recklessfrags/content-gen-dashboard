@@ -1,4 +1,4 @@
-# Copy style guide + audit rubric — TEMPLATE (blank canvas)
+# Content style guide + audit rubric — TEMPLATE (blank canvas)
 
 _Reusable, project-agnostic template. Copy this file into any project, then **fill every `<PLACEHOLDER>`**
 and the fill-in tables (§7–§9). The **principles (§1–§5) and the scoring rubric (§6) are portable — keep
