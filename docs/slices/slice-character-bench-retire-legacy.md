@@ -69,6 +69,14 @@ Reuse the **data/logic seams**, rebuild the **chrome** against Aurora (same disc
    reachable on the Aurora editor; legacy `.cr` roster intact. Build spec `build-character-bench-sublane2.md`;
    ratify `scripts/ratify-character-bench-sublane2.mjs` 26/26, zero live writes.
 3. **History/restore re-skin** — Aurora HistoryDrawer/Compare/Restore.
+   **✅ SHIPPED (#96, squash `5cdcfb9`, 2026-07-05)** — scoped Aurora chrome re-skin under
+   `.aurora-app .characters-bench.scoped` (frosted backdrops, `--surface-1` glass, revision cards,
+   semantic latest/archive badges, diff spans, accent/ghost dialog buttons; reduced-motion + inherited
+   `:focus-visible`). Components + handlers + refs + JSX reused verbatim; legacy `.cr` instances keep
+   globals.css styling (deleted in sub-lane 5); `DiscardChangesDialog` deferred (shares `.restore-*`
+   but mounts in `globalOverlays`, outside scope). `tsc` + 148 tests + `next build` clean; independent
+   AA/scoping review no blockers (latest badge 8.5:1 dark / 5.8:1 light); live-artifact ratify deferred
+   (ephemeral QA creds).
 4. **New-channel Aurora form** — the durable tier of #1 (removes the legacy channels console for create).
 5. **Reachability sweep + delete the legacy shell** — only after 1–4 + confirming ideas/queue/runs/cost
    each have an Aurora home. This is the payoff: `.cr` and the dual-shell interim are deleted.
