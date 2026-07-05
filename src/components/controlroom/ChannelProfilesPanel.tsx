@@ -317,10 +317,10 @@ export function ChannelProfilesPanel({
         mk("displayName", "Display name", s.display_name, false),
         mk("voiceArchetype", "Voice archetype", s.voice_archetype, false),
         mk("factAnchor", "Fact anchor", s.fact_anchor, false),
-        mk("treatment", "Treatment", s.treatment, false),
-        mk("claimDiscipline", "Claim discipline", s.engagement_posture.claim_discipline, true),
-        mk("arousalCeiling", "Arousal ceiling", s.engagement_posture.arousal_ceiling, true),
-        mk("sourceLadder", "Source ladder", joinListInput(s.source_ladder), false),
+        mk("treatment", "Style", s.treatment, false),
+        mk("claimDiscipline", "Fact-check strictness", s.engagement_posture.claim_discipline, true),
+        mk("arousalCeiling", "Intensity limit", s.engagement_posture.arousal_ceiling, true),
+        mk("sourceLadder", "Footage sources", joinListInput(s.source_ladder), false),
         mk("platforms", "Platforms", joinListInput(s.platforms), false),
         mk("titleStyle", "Title style", s.packaging.title_style, false),
         mk("thumbnailStyle", "Thumbnail style", s.packaging.thumbnail_style, false),
@@ -865,7 +865,7 @@ export function ChannelProfilesPanel({
                   </div>
                   <div className="field">
                     <label htmlFor="channel-profile-treatment">
-                      <span className="eyebrow">Treatment</span>
+                      <span className="eyebrow">Style</span>
                     </label>
                     <select
                       id="channel-profile-treatment"
@@ -909,7 +909,7 @@ export function ChannelProfilesPanel({
                   <div className="grid2">
                     <div className="field">
                       <label htmlFor="channel-profile-claim-discipline">
-                        <span className="eyebrow">Claim discipline</span>
+                        <span className="eyebrow">Fact-check strictness</span>
                         {aiFlagged.has("claimDiscipline") && (
                           <span className="badge">AI-suggested · enforced · review</span>
                         )}
@@ -931,7 +931,7 @@ export function ChannelProfilesPanel({
                     </div>
                     <div className="field">
                       <label htmlFor="channel-profile-arousal-ceiling">
-                        <span className="eyebrow">Arousal ceiling</span>
+                        <span className="eyebrow">Intensity limit</span>
                         {aiFlagged.has("arousalCeiling") && (
                           <span className="badge">AI-suggested · enforced · review</span>
                         )}
@@ -963,12 +963,12 @@ export function ChannelProfilesPanel({
                   id="channel-profile-sources-packaging-heading"
                   className="text-title channel-profile-section-title"
                 >
-                  Sources &amp; packaging
+                  Footage &amp; presentation
                 </h3>
                 <div className="grid2">
                   <Field
                     id="channel-profile-source-ladder"
-                    label="Source ladder"
+                    label="Footage sources"
                     hint="Newline or comma list"
                     value={form.sourceLadder}
                     onChange={(value) => updateForm("sourceLadder", value)}
