@@ -11,7 +11,7 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-05) — CHARACTER BENCH SUB-LANE 4 SHIPPED (#99, squash `f57a75b`): Aurora New-channel create form. Sub-lane 3 ratify + polish also landed (#98). NEXT = sub-lane 5 (reachability sweep + DELETE the legacy `.cr` shell — the payoff). Read this first.
+## ⚡ LATEST (2026-07-05) — CHARACTER BENCH SUB-LANE 4 SHIPPED (#99, squash `f57a75b`): Aurora New-channel create form. Sub-lane 3 ratify + polish also landed (#98). SUB-LANE 5 REACHABILITY SWEEP DONE → **deletion BLOCKED** by 6 unhomed legacy capabilities (see NEXT). Read this first.
 
 **Production/default = `claude/new-session-3l99vs` @ `f57a75b` (#99).** The hub "+ New Channel" CTA now opens an
 Aurora-native create surface (no legacy console). Sub-lanes 1-4 of the character-bench lane are DONE; only the
@@ -68,18 +68,23 @@ lost. Keep chat terse (L-3).
   boolean prop + a derived layout flag, zero write-path change. The `isScopedLayout` seam (scopedChannel ‖
   createOnly) generalised Lane-3a's scoped-workspace path to the create surface.
 
-### NEXT — sub-lane 5 (the payoff): reachability sweep + delete the legacy `.cr` shell
-- **Reachability sweep FIRST (the gate, §3/Q2).** Every legacy-only action needs a confirmed Aurora home before
-  deletion. **Known gaps:** (a) ideas/wire capture is still legacy (Aurora editor "Log an idea →" opens the legacy
-  wire board) — needs an Aurora ideas home or its own sub-lane; (b) channel **DELETE** is only in the legacy
-  channels console (the workspace Guidelines tab + the new create form both hide delete) — add delete to an Aurora
-  channel surface or accept legacy-until-then. Queue/runs/cost each already have Aurora/legacy-cost homes (verify).
-- **Then delete:** the `.cr` return + `openLegacyConsole` + the `legacyShellOpen` interim + **the now-dead
-  `channelsAutoNew` state** (sub-lane 4 orphaned it; `openLegacyConsole("channels")` has zero callers) + the
-  `?view=` handling Lane 5 already redirects. **Consensus review (Fable+suerta)** on the delete step.
-- **Also deferred (fold into 5 or a polish pass):** `DiscardChangesDialog` still renders legacy-dark over the
-  Aurora shell (it mounts in `globalOverlays` OUTSIDE the themed `.aurora-app` — a token skin would lock to dark in
-  light theme; the fix is to relocate the overlay into the shell, which sub-lane 5's deletion naturally forces).
+### NEXT — sub-lane 5: ⛔ SWEEP DONE → DELETION BLOCKED (6 prerequisite sub-lanes)
+- **The reachability sweep ran (2026-07-05, independent audit + Architect cross-read) and BLOCKS the delete.**
+  The characters bench fully retires `roster`; `ActionCenter` covers the queue's approve/park/re-run. But **six
+  capabilities have NO Aurora home** — deleting `.cr` now loses capability (violates gate #1). Prerequisite
+  sub-lanes (see slice §4.5 for the full matrix + evidence):
+  - **5a Channel DELETE** — small; both Aurora channel entries suppress `deleteProfile`.
+  - **5b The Wire (ideas)** — capture + tagging + **enqueue-idea-as-run** (`EnqueueIdeaPanel`); big, write/money path.
+  - **5c Runs** — history + `DrillDownPanel`; **data-blocked** (jobs.channel) — defer.
+  - **5d Global Cost Box** — `CostBoxDashboard`; chrome-only Aurora re-skin candidate (sub-lane-3 pattern).
+  - **5e System Overview** — real `OverviewDashboard` vs Aurora stub; chrome-only re-skin candidate.
+  - **5f Full queue browse + run-detail-from-queue** — ActionCenter sees only `actionableJobs`; partly data-blocked.
+  - **then 5g DELETE** the `.cr` return + `openLegacyConsole` + `legacyShellOpen` + dead `channelsAutoNew` +
+    `?view=` handling. **Consensus review (Fable+suerta)** + live-ratify no-capability-lost.
+- **Recommended buildable order** (5c/5f are data-blocked; skip): **5a (trivial) → 5d + 5e (low-risk chrome-only
+  Aurora re-skins of the two read dashboards, sub-lane-3 pattern) → 5b (the big write-path Wire lane) → 5g delete.**
+- **`DiscardChangesDialog`** relocation folds into 5g (its `globalOverlays` mount is outside the themed shell; the
+  delete forces the fix).
 
 ### Live data reality (re-checked live 2026-07-05, `execute_sql`)
 `channel_profiles` = **1** (`default` → Fine Print, `character_id` set). `characters` = **3** (Fine Print has 1
