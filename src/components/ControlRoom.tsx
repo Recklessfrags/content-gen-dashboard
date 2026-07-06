@@ -53,6 +53,8 @@ import type {
   CharacterCardVM as CharactersHubCardVM,
   CharactersHubProps,
 } from "./aurora/CharactersHub";
+import { IdeasHub } from "./aurora/IdeasHub";
+import type { IdeasHubProps } from "./aurora/IdeasHub";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
@@ -1750,6 +1752,54 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       refetchCharacters,
     ],
   );
+  const ideasHubCharacters = useMemo<IdeasHubProps["characters"]>(
+    () => chars.map((character) => ({
+      id: character.id,
+      codename: character.codename,
+      status: character.status,
+    })),
+    [chars],
+  );
+  const ideasHubProps = useMemo<IdeasHubProps>(
+    () => ({
+      ideas,
+      loading: ideasLoading,
+      error: ideasError,
+      characters: ideasHubCharacters,
+      submitting: Boolean(ideaSubmittingTitle),
+      activeEnqueueIdeaId,
+      onAddIdea: addIdea,
+      onSetIdeaStatus: setIdeaStatus,
+      onSetIdeaField: setIdeaField,
+      onRetryIdea: retryIdea,
+      onDismissIdea: dismissIdea,
+      onQueueAsRun: openEnqueuePanel,
+      onEnqueueButtonRef: (id, node) => {
+        if (node) enqueueButtonRefs.current.set(id, node);
+        else enqueueButtonRefs.current.delete(id);
+      },
+      onRetry: () => {
+        void fetchIdeas();
+      },
+      onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
+    }),
+    [
+      activeEnqueueIdeaId,
+      addIdea,
+      dismissIdea,
+      fetchIdeas,
+      ideaSubmittingTitle,
+      ideas,
+      ideasError,
+      ideasHubCharacters,
+      ideasLoading,
+      navigate,
+      openEnqueuePanel,
+      retryIdea,
+      setIdeaField,
+      setIdeaStatus,
+    ],
+  );
   const hubLandingProps = {
     channels: {
       cards: hubChannelCards,
@@ -1764,6 +1814,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         setNewChannelOpen(true);
       },
       onOpenCharacters: handleCharactersHubNav,
+      onOpenIdeas: () => navigate({ kind: "hub", hub: "ideas" }),
       onRetry: () => void refetchChannelProfiles(),
     },
     glance: {
@@ -1851,6 +1902,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           onCharacterPatched={patchCharacter}
           showFlash={showFlash}
           restoreFocusRef={visualCastingTriggerRef}
+        />
+      )}
+      {/* Enqueue-idea-as-run (money path). Mounted in globalOverlays so
+          "Queue as run" works from BOTH the Aurora Ideas hub and the legacy
+          wire board (which renders globalOverlays too). */}
+      {activeEnqueueIdea && (
+        <EnqueueIdeaPanel
+          idea={activeEnqueueIdea}
+          character={activeEnqueueCharacter}
+          characters={chars}
+          channelProfiles={channelProfiles}
+          onClose={closeEnqueuePanel}
+          onSubmit={enqueueJob}
+          restoreFocusRef={enqueueRestoreFocusRef}
         />
       )}
     </>
@@ -2146,11 +2211,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               >
                 Export profile (MD)
               </button>
-              {/* Legacy ideas capture stays on the wire console until its Aurora home ships. */}
               <button
                 className="btn ghost"
                 type="button"
-                onClick={() => openLegacyConsole("wire")}
+                onClick={() => guardDirtyAction(() => navigate({ kind: "hub", hub: "ideas" }))}
                 disabled={activeIsDraft}
               >
                 Log an idea →
@@ -2369,6 +2433,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         {globalOverlays}
         <AuroraShell operatorInitials={operatorInitials}>
           {charactersBenchContent}
+        </AuroraShell>
+      </>
+    );
+  }
+
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "ideas") {
+    return (
+      <>
+        {globalOverlays}
+        <AuroraShell operatorInitials={operatorInitials}>
+          <IdeasHub {...ideasHubProps} />
         </AuroraShell>
       </>
     );
@@ -3829,17 +3904,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           </>
         )}
       </main>
-      {activeEnqueueIdea && (
-        <EnqueueIdeaPanel
-          idea={activeEnqueueIdea}
-          character={activeEnqueueCharacter}
-          characters={chars}
-          channelProfiles={channelProfiles}
-          onClose={closeEnqueuePanel}
-          onSubmit={enqueueJob}
-          restoreFocusRef={enqueueRestoreFocusRef}
-        />
-      )}
       {pendingQueueAction && (
         <QueueActionDialog
           job={pendingQueueAction.job}

@@ -230,7 +230,7 @@ export function EnqueueIdeaPanel({
     setSubmitting(false);
 
     if (result.kind === "error") {
-      setFormError(`TRANSMISSION FAILURE: ${result.message}`);
+      setFormError(`Couldn't queue this run: ${result.message}`);
       return;
     }
 
@@ -264,7 +264,7 @@ export function EnqueueIdeaPanel({
 
         <div className="detail-cap">
           <div>
-            <span className="eyebrow">TOPIC / FOOD</span>
+            <span className="eyebrow">Topic</span>
             <div className="topic-title">{idea.title}</div>
           </div>
           <span className="chip">{idea.channel}</span>
@@ -273,9 +273,9 @@ export function EnqueueIdeaPanel({
         <form className="drilldown-content enqueue-form" onSubmit={handleSubmit} aria-busy={submitting}>
           <div className="field">
             <label htmlFor="enqueue-food">
-              <span className="eyebrow">TOPIC / FOOD</span>
+              <span className="eyebrow">Topic</span>
               <span className="field-label-side">
-                <span className="hint">Read-only from The Wire</span>
+                <span className="hint">Read-only from the idea</span>
               </span>
             </label>
             <input id="enqueue-food" type="text" value={idea.title} readOnly disabled />
@@ -457,9 +457,9 @@ export function EnqueueIdeaPanel({
 
           {showBrandWarning && (
             <div className="brand-warning-banner" role="note">
-              BRAND ALIGNMENT WARNING: Operator &apos;Mad Dog&apos; is registered under the
-              &apos;Dark history&apos; channel, but this idea is routed to &apos;{idea.channel}&apos;.
-              Proceed only if declassifying operations.
+              Heads up: the character &apos;Mad Dog&apos; is set up for the &apos;Dark history&apos;
+              channel, but this idea is tagged &apos;{idea.channel}&apos;. Double-check the channel
+              before you queue this run.
             </div>
           )}
 
@@ -479,10 +479,10 @@ export function EnqueueIdeaPanel({
             <button className="btn" type="submit" disabled={!canSubmit}>
               {submitting ? (
                 <>
-                  <span className="spin" /> TRANSMITTING ENQUEUE SIGNAL...
+                  <span className="spin" /> Queuing…
                 </>
               ) : (
-                "TRANSMIT ENQUEUE SIGNAL"
+                "Queue as run"
               )}
             </button>
           </div>
