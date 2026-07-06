@@ -64,12 +64,21 @@ off production** (keep your harness-designated branch name).
   the Aurora shell today via globalOverlays — same known cosmetic gap as `DiscardChangesDialog`; functional, not a blocker).
 - **Channels for missing characters — STILL BLOCKED (pipeline replied PARTIAL 2026-07-05d).** Pipeline will draft the
   *mechanical* roster values (source_ladder / voice_archetype / packaging / length / platforms) but the `engagement_posture`
-  dials (`claim_discipline` / `arousal_ceiling`) for Mad Dog / Grandma Pearl **dark-history** channels are an operator
-  brand/legal call (governance rule 20 — GREEN/YELLOW/RED posture, human-only), NOT pipeline-derivable. **Sequence:** pipeline
-  produces a draft roster → **operator signs off on the posture dials** → pipeline hands final values → **THEN dashboard
-  creates the `channel_profiles` rows via Supabase MCP.** Also still pending: which character `weird_food` (5 tagged jobs,
-  no row) links to. Tracker row `Channel-row configs NEEDED …` stays 🟡 OPEN. Nothing for the dashboard to build until the
-  operator rules + pipeline delivers.
+  dials (`claim_discipline` / `arousal_ceiling`) are an operator brand/legal call (governance rule 20 — GREEN/YELLOW/RED
+  posture, human-only), NOT pipeline-derivable, for each non-`fact_first` channel. **Sequence:** pipeline produces a draft
+  roster → **operator signs off on the posture dials** → pipeline hands final values → **THEN dashboard creates the
+  `channel_profiles` rows via Supabase MCP.** Also still pending: which character `weird_food` (5 tagged jobs, no row) links
+  to. Tracker row `Channel-row configs NEEDED …` stays 🟡 OPEN. **Roster correction (2026-07-06, operator):** Grandma Pearl
+  is a **daily-Bible-verse grandmother** (reads a verse + gives insight / asks reflective questions) — NOT dark history; her
+  posture is wholesome/`fact_first`-leaning. Mad Dog dark-history stands. Relayed to pipeline in HQ. Nothing for the
+  dashboard to build until the operator rules + pipeline delivers.
+- **NEW operator directives (2026-07-06) — recorded in `docs/roadmap-dashboard.md` "Operator directives — 2026-07-06".**
+  Queued, none started: (1) **render-quality tier selector** cheap/medium/high (needs research; pipeline owns the knob→cost→
+  quality quantifiers — routed to HQ); (2) **per-channel video-idea generator** panel with keep/discard/edit (needs
+  workshop+research; depends on the open "sanctioned dashboard generation path" decision; feeds sub-lane 5b's `ideas`);
+  (3) **niche channel idea workflow** (needs workshop+research; overlaps onboarding E2 + channel-researcher); (4) **deferred
+  future suite** — analytics + monetization panels, social-posting integrations, performance ranking + improvement insights +
+  A/B testing (all blocked on the pipeline surfacing per-episode retention/performance metrics — the retention feedback loop).
 - **THEN: Basic/Advanced polish** (app-wide reach: hide Production/Cost tabs in Basic, trim Overview; mode-gate savebar
   actions) and the **retention feedback loop** spec (deferred — blocked on the pipeline surfacing per-episode retention
   metrics; content-retention research at `docs/research/content-retention-and-competitors-2026-07-05.md` is 🟢 being
@@ -92,7 +101,8 @@ You are the Architect for the Reels Content Control Room dashboard (Next.js 15 /
 FIRST: read docs/SESSION-HANDOFF.md top-to-bottom, then governance.md + AGENTS.md, then do a FRESH HQ fetch
 (Notion 📮 Coordination Log, page 38fd346e-22d2-8133-bd2e-e5b7f97f7c2e — Open Cross-Team Items + Process Learnings
 Ledger) before planning/claiming anything blocked (rule L-1). NOTE the channel-roster item may have a fuller pipeline
-reply by now (it was PARTIAL, blocked on an operator posture ruling for the Mad Dog/Grandma Pearl dark-history dials).
+reply by now (it was PARTIAL, blocked on an operator posture ruling for the non-fact_first channel dials; note the
+2026-07-06 correction that Grandma Pearl is a Bible-verse grandmother, not dark history).
 BRANCH: start fresh off production `claude/new-session-3l99vs` @ b5c24c3 (#127) (git fetch origin claude/new-session-3l99vs
 && git checkout -B <your-working-branch> origin/claude/new-session-3l99vs); keep the harness-designated branch name.
 NOTE: cold container has NO node_modules — run `npm ci` first. QA creds (.env.local) are ephemeral per container —
