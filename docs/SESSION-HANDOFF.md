@@ -39,10 +39,15 @@ no writes, no pipeline dependency), built in parallel in one branch on top of su
   forwarded): `?hub=runs` renders in AuroraShell with 60 run cards; an errored run shows its error + expands to a 9-stage
   per-worker log with verdict badges; the estimate renders a $ range and reacts to the input; zero writes, no console errors.
 
-### NEXT / still queued (unchanged priorities, see `docs/roadmap-dashboard.md`)
-- **Follow-on increments on the same telemetry (buildable-now):** per-worker/model **reliability + retry-cost** rollup (retry
-  rate, block rate, $ wasted on retries per stage/model — feeds the cost estimator); filter the cost estimate by
-  recipe/character/channel; an inline cost hint in the enqueue flow.
+### Also shipped this session (follow-on increments, same telemetry)
+- **Worker reliability rollup** — a collapsible "Worker reliability" table in the Runs hub: `computeWorkerReliability()`
+  (`src/lib/workerReliability.ts`, 6 tests) rolls up `receipts` by stage → attempts, pass/retry/blocked, retry rate, and
+  **retry-cost** (wasted spend on retried attempts). Query bounded (30-day window + 5000-row cap — Gemini blocker folded).
+  Live ratify: 10 stages, 458 attempts, ~$3.59 retry-cost. **Cost estimate now filters by character.** Ratify 13/13, zero writes.
+
+### NEXT / still queued (see `docs/roadmap-dashboard.md`)
+- **Buildable-now follow-ups:** a per-MODEL (not just per-stage) reliability cut; join retry-cost into the estimate; an
+  inline cost hint in the enqueue flow; channel filter on the estimate (waits on the `jobs.channel` tagging gap).
 - **⭐ Sub-lane 5g** (delete the legacy `.cr` shell) is still the migration payoff. **Roster INCOMING** — pipeline is
   delivering the corrected 6-channel roster (Grandma = Bible-verse grandmother); create the `channel_profiles` rows via
   Supabase MCP once values + the operator's posture-dial sign-off land. **Render-quality tier selector** + **video-idea

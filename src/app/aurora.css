@@ -3370,3 +3370,75 @@
 @media (max-width: 640px) {
   .aurora-app .run-cost-estimate__head { flex-direction: column; }
 }
+
+/* Worker reliability rollup (Runs hub) + cost-estimate controls row. */
+.aurora-app .runs-hub__reliability { padding: 1rem 1.25rem; }
+.aurora-app .runs-hub__reliability-head {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  text-align: left;
+}
+.aurora-app .runs-hub__reliability-body {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.aurora-app .runs-hub__reliability-scroll { overflow-x: auto; }
+.aurora-app .reliability-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.aurora-app .reliability-table th,
+.aurora-app .reliability-table td {
+  text-align: right;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+}
+.aurora-app .reliability-table thead th {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+.aurora-app .reliability-table tbody th[scope="row"] {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.aurora-app .reliability-stage { color: var(--text-main); font-weight: 600; }
+.aurora-app .reliability-models { font-size: 0.7rem; }
+.aurora-app .reliability-row--warn td,
+.aurora-app .reliability-row--warn th { color: var(--text-main); }
+.aurora-app .reliability-row--warn { background: var(--warn-bg); }
+.aurora-app .runs-hub__reliability-note { font-size: 0.8125rem; }
+
+.aurora-app .run-cost-estimate__controls {
+  display: flex;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.aurora-app .run-cost-estimate__cap select {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  color: var(--text-main);
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.6rem;
+  min-width: 10rem;
+}

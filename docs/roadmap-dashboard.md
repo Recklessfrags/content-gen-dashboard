@@ -95,9 +95,14 @@ and/or a pipeline dependency. **None are started.** Priority is the operator's t
      **"why did it fail / which worker" drill-down** — ✅ **SHIPPED (2026-07-06, #TBD)** as the **Runs hub** (`?hub=runs`,
      `RunsHub.tsx`): lists runs, each errored/stale/parked one shows `jobs.error` + expands to a lazily-loaded per-worker
      breakdown from `receipts` (stage · verdict · reason · model). Live ratify loaded a 9-stage per-worker log for an errored
-     run. (ii) **per-worker/model/tier reliability** in the analytics layer — retry rate, block rate, and **retry-cost** per
-     stage/model (a "cheap" model that retries 3× isn't cheap → feeds the cost-vs-quality estimator, item 1) — NOT yet built;
-     the aggregate/rollup view is the next increment on the same telemetry.
+     run. (ii) **per-worker/model/tier reliability** — ✅ **SHIPPED (2026-07-06, #TBD).** `computeWorkerReliability()`
+     (`src/lib/workerReliability.ts`, 6 unit tests) rolls up `receipts` by stage → attempts, pass/retry/blocked/approval,
+     retry rate, and **retry-cost** (wasted spend = the incremental `spend_so_far` delta on retried attempts). Collapsible
+     "Worker reliability" table in the Runs hub (lazily loaded; query bounded to a rolling 30-day window + a 5000-row cap so
+     it can't silently truncate or OOM as telemetry grows). Live: 10 stages, 458 attempts, ~$3.59 wasted on retries. Feeds
+     the cost-vs-quality view (item 1). Follow-up: a per-MODEL (not just per-stage) cut, and joining retry-cost into the
+     estimate. Also this session: **the cost estimate (item 1c) now filters by character** (channel filter still waits on the
+     `jobs.channel` tagging gap).
 
 ### Roster correction (2026-07-06) — affects the channel_profiles roster ask
 - **Grandma Pearl is NOT a dark-history channel.** Operator's definition: **a grandmother who reads daily Bible verses and
