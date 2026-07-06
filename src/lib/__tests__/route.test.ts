@@ -44,6 +44,10 @@ describe("parseScope", () => {
       scope: { kind: "hub", hub: "ideas" },
       canonicalize: false,
     });
+    expect(parseScope("?hub=runs")).toEqual({
+      scope: { kind: "hub", hub: "runs" },
+      canonicalize: false,
+    });
     expect(parseScope("?hub=bogus")).toEqual({ scope: defaultHubScope, canonicalize: true });
   });
 

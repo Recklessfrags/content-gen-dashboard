@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-06 (SUB-LANE 5b SHIPPED — #127: The Wire → Aurora-native "Ideas" home (`?hub=ideas`) + the enqueue-idea-as-run money path wired into the Aurora path via globalOverlays; money path reused VERBATIM; legacy `.cr` wire board still intact pending 5g). Production tip = `b5c24c3` (#127)** by the Architect (Claude)._
+_Last updated: **2026-07-06 (RUNS HUB + RUN-COST ESTIMATE shipped — two buildable-now read surfaces over jobs/receipts: `?hub=runs` per-worker failure attribution + a `RunCostEstimate` card in the Cost center. On top of SUB-LANE 5b (#127, Aurora Ideas home + enqueue money path). Legacy `.cr` still intact pending 5g). Production tip = latest squash on `claude/new-session-3l99vs`** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,52 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-06) — SUB-LANE 5b SHIPPED (#127 `b5c24c3`): The Wire → Aurora-native "Ideas" home + the enqueue money path wired into the Aurora path. Read this first.
+## ⚡ LATEST (2026-07-06) — RUNS HUB (per-worker failure attribution) + EMPIRICAL RUN-COST ESTIMATE shipped. Read this first.
+
+**Two operator-requested buildable-now read surfaces shipped** (both read-only over existing `jobs`/`receipts` telemetry —
+no writes, no pipeline dependency), built in parallel in one branch on top of sub-lane 5b (#127). Branch for new work:
+**start fresh off production** (keep your harness-designated branch name).
+
+### What shipped
+- **Runs hub (`?hub=runs`, `src/components/aurora/RunsHub.tsx`)** — lists runs (from the already-fetched `jobs`), newest-first,
+  with an "All / Needs attention" filter. Each errored/stale/parked run shows its `jobs.error` at a glance and expands to a
+  **lazily-loaded per-worker breakdown from `receipts`** (stage · verdict · reason · model/provider) — the "why did it fail /
+  which worker" view. New `"runs"` hub key (`route.ts` + test), **"Runs →"** entry on the Channels hub, scoped `.runs-hub` CSS.
+  Diagnostics loader = a read-only `receipts` select wrapped in `loadRunDiagnostics` (ControlRoom).
+- **Run-cost estimate (`RunCostEstimate.tsx` in the Cost center)** — pure **`estimateRunCost()`** (`src/lib/costEstimate.ts`,
+  **10 unit tests**) over historical per-episode spend (`costStats.episodeCosts[].liveSpend`) → a **$ range per run**
+  (median..p90 × episodes-per-run), with a reactive episodes-per-run input. Live: **$0.54–$2.15 (typical $0.82)** for a
+  5-episode run. The early **decision lever** ahead of the render-quality tier selector. Reached via the workspace Cost tab →
+  "View global cost center →".
+- **Both recorded in `docs/roadmap-dashboard.md`** (items 1c + 4a marked ✅ SHIPPED).
+
+### Gates + review + ratify
+- **`tsc` + 158 tests (+10 costEstimate) + `next build` clean.**
+- **Cross-vendor (Gemini) review APPROVE** — read-only surfaces (rule 4 single-lens; no money path → no suerta). Folded its
+  one blocker (raw-string cap input so backspace doesn't force "1") + nits (hoisted run error above the disclosure,
+  `aria-controls`, double-fire ref guard, tiny-USD 3-dp precision).
+- **Live ratify `scripts/ratify-runs-cost.mjs` 10/10, ZERO live writes** (every `/rest/v1` write intercept-and-aborted; reads
+  forwarded): `?hub=runs` renders in AuroraShell with 60 run cards; an errored run shows its error + expands to a 9-stage
+  per-worker log with verdict badges; the estimate renders a $ range and reacts to the input; zero writes, no console errors.
+
+### NEXT / still queued (unchanged priorities, see `docs/roadmap-dashboard.md`)
+- **Follow-on increments on the same telemetry (buildable-now):** per-worker/model **reliability + retry-cost** rollup (retry
+  rate, block rate, $ wasted on retries per stage/model — feeds the cost estimator); filter the cost estimate by
+  recipe/character/channel; an inline cost hint in the enqueue flow.
+- **⭐ Sub-lane 5g** (delete the legacy `.cr` shell) is still the migration payoff. **Roster INCOMING** — pipeline is
+  delivering the corrected 6-channel roster (Grandma = Bible-verse grandmother); create the `channel_profiles` rows via
+  Supabase MCP once values + the operator's posture-dial sign-off land. **Render-quality tier selector** + **video-idea
+  generator** + **niche workflow** + the **deferred analytics/monetization/social/ranking/A-B suite** remain queued (the
+  generation path = isolated `script` + `generation` capabilities per the operator; analytics gated on per-episode metrics).
+
+### HQ / cross-team (rule L-6)
+- **No tracker row owed** — both surfaces are dashboard-internal reads of existing shared tables (no schema/contract/behavior
+  change, no new write). No portable lesson this increment. (HQ was updated earlier this session for the render-quality
+  research ask + Grandma correction + cost-estimation dependencies.)
+
+---
+
+## ⚡ EARLIER (2026-07-06) — SUB-LANE 5b SHIPPED (#127 `b5c24c3`): The Wire → Aurora-native "Ideas" home + the enqueue money path wired into the Aurora path.
 
 **Production/default = `claude/new-session-3l99vs` @ `b5c24c3` (#127).** Ideas now have an Aurora-native home at `?hub=ideas`
 (no `.cr` shell), and "Queue as run" fires the enqueue-idea-as-run money path from the Aurora surface. This was the

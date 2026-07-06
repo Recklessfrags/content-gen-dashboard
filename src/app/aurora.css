@@ -3176,3 +3176,197 @@
 @media (prefers-reduced-motion: reduce) {
   .aurora-app .ideas-hub__segment { transition: none; }
 }
+
+/* ==========================================================================
+   RUNS HUB (buildable-now: per-worker failure attribution / "why did it fail")
+   + RUN COST ESTIMATE card. Read-only surfaces over existing jobs/receipts.
+   ========================================================================== */
+.aurora-app .runs-hub.scoped {
+  margin-top: 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.aurora-app .runs-hub__filters {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.aurora-app .runs-hub__filter {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  background: transparent;
+  border: 0;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+.aurora-app .runs-hub__filter + .runs-hub__filter { border-left: 1px solid var(--border-soft); }
+.aurora-app .runs-hub__filter:hover:not(:disabled) { color: var(--text-main); }
+.aurora-app .runs-hub__filter:disabled { opacity: 0.5; cursor: not-allowed; }
+.aurora-app .runs-hub__filter.is-active { background: var(--accent); color: #05050A; font-weight: 600; }
+.aurora-app[data-theme="light"] .runs-hub__filter.is-active { color: #FFFFFF; }
+
+.aurora-app .runs-hub__list { display: flex; flex-direction: column; gap: 0.85rem; }
+
+.aurora-app .run-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.1rem 1.35rem;
+  border-left: 3px solid var(--border-soft);
+}
+.aurora-app .run-card--attention { border-left-color: var(--warn); }
+
+.aurora-app .run-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+.aurora-app .run-card__main { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.aurora-app .run-card__title { font-size: 1rem; }
+.aurora-app .run-card__meta { display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.8125rem; }
+
+.aurora-app .runs-hub__status--error { background: var(--danger-bg); color: var(--danger-fg); }
+.aurora-app .runs-hub__status--warn { background: var(--warn-bg); color: var(--warn); }
+.aurora-app .runs-hub__status--review { background: var(--surface-2); color: var(--text-main); }
+
+.aurora-app .runs-hub__disclosure {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--accent);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.aurora-app .runs-hub__disclosure:hover { text-decoration: underline; }
+
+.aurora-app .run-card__diagnostics-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.aurora-app .run-card__error {
+  background: var(--danger-bg);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+}
+.aurora-app .run-card__error-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--danger-fg);
+  margin-bottom: 0.2rem;
+}
+.aurora-app .run-card__error p { color: var(--text-main); font-size: 0.875rem; word-break: break-word; }
+
+.aurora-app .run-worker-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.aurora-app .run-worker-row {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.75rem;
+}
+.aurora-app .run-worker-row__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+.aurora-app .run-worker-stage { font-weight: 600; color: var(--text-main); font-size: 0.875rem; }
+.aurora-app .run-worker-reason {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  word-break: break-word;
+}
+.aurora-app .run-worker-model { margin-top: 0.2rem; font-size: 0.75rem; }
+
+.aurora-app .run-verdict {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--surface-3);
+  color: var(--text-dim);
+}
+.aurora-app .run-verdict--pass { background: var(--success-bg); color: var(--success); }
+.aurora-app .run-verdict--retry { background: var(--warn-bg); color: var(--warn); }
+.aurora-app .run-verdict--blocked { background: var(--danger-bg); color: var(--danger-fg); }
+.aurora-app .run-verdict--approval { background: var(--surface-3); color: var(--text-main); }
+
+/* Run cost estimate card (in the Cost center). */
+.aurora-app .run-cost-estimate {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.aurora-app .run-cost-estimate__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.aurora-app .run-cost-estimate__cap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+.aurora-app .run-cost-estimate__cap input {
+  width: 6rem;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  color: var(--text-main);
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.6rem;
+}
+.aurora-app .run-cost-estimate__headline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.aurora-app .run-cost-estimate__range {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.aurora-app .run-cost-estimate__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.85rem;
+  margin: 0;
+}
+.aurora-app .run-cost-estimate__grid dt { font-size: 0.75rem; margin-bottom: 0.2rem; }
+.aurora-app .run-cost-estimate__grid dd { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-main); }
+.aurora-app .run-cost-estimate__note { font-size: 0.8125rem; }
+
+@media (max-width: 640px) {
+  .aurora-app .run-cost-estimate__head { flex-direction: column; }
+}
