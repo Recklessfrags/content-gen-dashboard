@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-05 (COPY AUDIT P1 SWEEP — #118: applied the S2 jargon→plain-English rename map to visible display text across all Aurora-surviving surfaces; deferred the 5 content-production dial labels to the operator; legacy `.cr` still intact pending 5b). Production tip = `c096531` (#118)** by the Architect (Claude)._
+_Last updated: **2026-07-06 (SUB-LANE 5b SHIPPED — #127: The Wire → Aurora-native "Ideas" home (`?hub=ideas`) + the enqueue-idea-as-run money path wired into the Aurora path via globalOverlays; money path reused VERBATIM; legacy `.cr` wire board still intact pending 5g). Production tip = `b5c24c3` (#127)** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,106 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-05) — BASIC/ADVANCED MODE TOGGLE SHIPPED (#122 `8d73a5d`), on top of the COPY AUDIT P1 SWEEP + DIAL RENAMES (#118/#120). Read this first.
+## ⚡ LATEST (2026-07-06) — SUB-LANE 5b SHIPPED (#127 `b5c24c3`): The Wire → Aurora-native "Ideas" home + the enqueue money path wired into the Aurora path. Read this first.
+
+**Production/default = `claude/new-session-3l99vs` @ `b5c24c3` (#127).** Ideas now have an Aurora-native home at `?hub=ideas`
+(no `.cr` shell), and "Queue as run" fires the enqueue-idea-as-run money path from the Aurora surface. This was the
+**last buildable reachability gap** before the legacy `.cr` shell can be deleted (5g). Branch for new work: **start fresh
+off production** (keep your harness-designated branch name).
+
+### What shipped (#127, squash `b5c24c3`)
+- **New `src/components/aurora/IdeasHub.tsx`** (mirrors `CharactersHub`) — idea capture form (title / note / character /
+  channel + submit) + idea list (per-card: status segmented control, "Queue as run" hidden when `used`, character/channel
+  tag selects, failed-write retry/dismiss) + loading/error/empty states. Presentational; all handlers injected as props
+  (`ideasHubProps` memo in `ControlRoom`). Statuses use canonical `STATUS_LABEL` (Backlog / In progress / Used). Copy is
+  **audit-clean** (sentence case, no spy/terminal theming).
+- **Route:** new `"ideas"` hub key (`src/lib/route.ts` + `route.test.ts`). URL = `?hub=ideas`.
+- **ControlRoom:** `ideasHubProps` + `ideasHubCharacters` memos; `?hub=ideas` dispatch branch (models the `characters`
+  branch); re-pointed **"Log an idea →"** (dossier editor) to `guardDirtyAction(() => navigate({hub:"ideas"}))` (dirty-guard
+  preserved — the old `openLegacyConsole("wire")` had none); added an **"Ideas →"** entry on the Channels hub header.
+- **⚠ THE #1 TRAP — fixed:** `EnqueueIdeaPanel` was legacy-`.cr`-only. Relocated it into **`globalOverlays`** (which every
+  Aurora branch AND the legacy shell render), removed the old legacy-only mount → single mount, no double-render, and
+  "Queue as run" now opens the panel from BOTH the Aurora Ideas hub and the legacy wire board.
+- **`EnqueueIdeaPanel.tsx`:** visible-text copy edits only — `TRANSMIT ENQUEUE SIGNAL`→**Queue as run**, `TOPIC / FOOD`→
+  **Topic**, `Read-only from The Wire`→**Read-only from the idea**, plain error + de-jargoned Mad Dog brand note. No DB
+  columns / `CHANNELS` enum / `status` enum / contract fields touched.
+- **`aurora.css`:** scoped `.ideas-hub` block (form + list + segmented control; AA active-segment mirrors the mode-toggle
+  precedent; light-theme + reduced-motion). Bespoke `scripts/ratify-5b-wire.mjs`.
+- **The money path is REUSED VERBATIM** — `enqueueJob` (jobs insert) / `writeIdeaJobMap` (idea_job_map insert) /
+  `buildJobInsert` / `idempotencyKeyFor` (`src/lib/jobs.ts`) / the `useIdeas` hook (ideas writes) are all unchanged.
+  Casting gate stays warn-only (`ENFORCE_CASTING=false`). Duplicate handling (`23505`→"Already queued") intact.
+
+### Gates + review + ratify
+- **`tsc` + 148 tests + `next build` clean.**
+- **Two-lens review (money path, L-2/L-4): Gemini (cross-vendor) + suerta (Opus) both APPROVE, no blockers.** suerta's
+  3 nits are non-blocking/out-of-scope: (1) `ideasHubProps` memo depends on the non-memoized `openEnqueuePanel` so it
+  recomputes each render (harmless — a `useCallback` on `openEnqueuePanel` would fix it); (2) capture-form character
+  select uses a flat list while the per-card select uses optgroups (cosmetic); (3) focus-restore drops to body if an idea
+  flips to `used` and its trigger unmounts (matches legacy).
+- **Live ratify `scripts/ratify-5b-wire.mjs` 19/19, ZERO live writes forwarded** — intercept-and-abort on `jobs` +
+  `idea_job_map` + `ideas`: exactly one `ideas` insert per log (payload = typed title/note/character/channel, status
+  `backlog`); one `jobs` + one `idea_job_map` per queue sharing the idempotency_key; duplicate → "Already queued" (no
+  second map row); EnqueueIdeaPanel confirmed rendering in the Aurora path; "Log an idea →" navigates to `?hub=ideas`.
+  (The script rebuilds with `.env.local` present first — NEXT_PUBLIC_* inline-at-build trap; `RATIFY_SKIP_BUILD=1` to reuse.)
+
+### IN FLIGHT / NEXT UP
+- **⭐ Sub-lane 5g — DELETE the legacy `.cr` shell.** 5b was the last buildable reachability gap; with it landed, the
+  remaining blockers are: **5a channel DELETE** (small; only ratifiable once a 2nd deletable channel exists) and
+  **5c Runs / 5f full-queue browse** (data-blocked on the `jobs.channel` mismatch — may be ruled acceptable-to-drop for
+  the delete). Do the **reachability sweep** first (confirm every legacy-`.cr`-only action now has an Aurora home), then
+  delete the `.cr` return + `openLegacyConsole` + `legacyShellOpen` + dead `channelsAutoNew` + `?view=` handling.
+  **CONSENSUS review (Gemini + suerta)** on the delete step — it's reachability-critical. Fold in the `DiscardChangesDialog`
+  `globalOverlays` relocation. Also re-skin `EnqueueIdeaPanel` chrome to Aurora at this point (it renders legacy-dark over
+  the Aurora shell today via globalOverlays — same known cosmetic gap as `DiscardChangesDialog`; functional, not a blocker).
+- **Channels for missing characters — STILL BLOCKED (pipeline replied PARTIAL 2026-07-05d).** Pipeline will draft the
+  *mechanical* roster values (source_ladder / voice_archetype / packaging / length / platforms) but the `engagement_posture`
+  dials (`claim_discipline` / `arousal_ceiling`) for Mad Dog / Grandma Pearl **dark-history** channels are an operator
+  brand/legal call (governance rule 20 — GREEN/YELLOW/RED posture, human-only), NOT pipeline-derivable. **Sequence:** pipeline
+  produces a draft roster → **operator signs off on the posture dials** → pipeline hands final values → **THEN dashboard
+  creates the `channel_profiles` rows via Supabase MCP.** Also still pending: which character `weird_food` (5 tagged jobs,
+  no row) links to. Tracker row `Channel-row configs NEEDED …` stays 🟡 OPEN. Nothing for the dashboard to build until the
+  operator rules + pipeline delivers.
+- **THEN: Basic/Advanced polish** (app-wide reach: hide Production/Cost tabs in Basic, trim Overview; mode-gate savebar
+  actions) and the **retention feedback loop** spec (deferred — blocked on the pipeline surfacing per-episode retention
+  metrics; content-retention research at `docs/research/content-retention-and-competitors-2026-07-05.md` is 🟢 being
+  consumed by pipeline for the visual-relevance fix).
+
+### HQ / cross-team (rule L-6 — HQ THEN handoff)
+- **Coordination-Log tracker: NO cross-team update owed.** 5b is **dashboard-internal** — the enqueue money path was
+  reused VERBATIM (no schema / contract / behavior change through a shared surface; `jobs` / `idea_job_map` / `ideas` writes
+  are byte-identical to before). No new capability crossed a shared surface. No tracker row.
+- **Process Learnings Ledger: appended 1 portable lesson (2026-07-06)** — a live-ratify "no console errors" gate must
+  exclude the error responses the harness INTENTIONALLY induces to exercise a branch (the 5b ratify's simulated `409`/`23505`
+  duplicate-key tripped the gate on its own test); filter induced statuses alongside env/proxy noise.
+- **Checked the two open pipeline replies:** (a) channel-roster = PARTIAL (blocked on operator posture ruling, above);
+  (b) content-retention research = 🟢 pipeline consuming. Neither actionable by the dashboard this session.
+
+### Copy-paste KICKOFF for the next session (rule 41 — paste this to start)
+```
+You are the Architect for the Reels Content Control Room dashboard (Next.js 15 / React 19 / Supabase, plain-CSS
+"Aurora" design system; channel-first per D-6). You own judgment/specs/reviews/commits/merges.
+FIRST: read docs/SESSION-HANDOFF.md top-to-bottom, then governance.md + AGENTS.md, then do a FRESH HQ fetch
+(Notion 📮 Coordination Log, page 38fd346e-22d2-8133-bd2e-e5b7f97f7c2e — Open Cross-Team Items + Process Learnings
+Ledger) before planning/claiming anything blocked (rule L-1). NOTE the channel-roster item may have a fuller pipeline
+reply by now (it was PARTIAL, blocked on an operator posture ruling for the Mad Dog/Grandma Pearl dark-history dials).
+BRANCH: start fresh off production `claude/new-session-3l99vs` @ b5c24c3 (#127) (git fetch origin claude/new-session-3l99vs
+&& git checkout -B <your-working-branch> origin/claude/new-session-3l99vs); keep the harness-designated branch name.
+NOTE: cold container has NO node_modules — run `npm ci` first. QA creds (.env.local) are ephemeral per container —
+re-request from the operator (or pull NEXT_PUBLIC_SUPABASE_URL/ANON_KEY via the Supabase MCP; RATIFY_EMAIL/PASSWORD
+from the operator). Ratify trap: `next build` inlines NEXT_PUBLIC_* at BUILD time — write .env.local BEFORE build.
+Run ratify: `set -a; . ./.env.local; set +a; node scripts/ratify-*.mjs` (password has !).
+TASK — SUB-LANE 5g: delete the legacy `.cr` shell (the payoff — 5b landed, so the last buildable reachability gap is
+closed). Do the reachability sweep FIRST (confirm every legacy-`.cr`-only action has an Aurora home), decide whether the
+data-blocked 5c Runs / 5f full-queue gaps are acceptable-to-drop for the delete, then delete the `.cr` return +
+openLegacyConsole + legacyShellOpen + dead channelsAutoNew + `?view=` handling; fold in the DiscardChangesDialog
+globalOverlays relocation + re-skin EnqueueIdeaPanel chrome to Aurora. CONSENSUS review (Gemini + suerta) on the delete —
+it's reachability-critical. Live-ratify no-capability-lost. Squash-merge via GitHub MCP (owner recklessfrags, repo
+content-gen-dashboard) into claude/new-session-3l99vs. Keep chat terse (L-3 — the operator asked for reduced narration).
+```
+
+---
+
+## ⚡ EARLIER (2026-07-05) — BASIC/ADVANCED MODE TOGGLE SHIPPED (#122 `8d73a5d`), on top of the COPY AUDIT P1 SWEEP + DIAL RENAMES (#118/#120).
 
 **Production/default = `claude/new-session-3l99vs` @ `8d73a5d` (#122).** Two operator-directed pieces of work shipped
 this session: **(1) the copy-audit P1 sweep + dial renames** (below), and **(2) a Basic/Advanced detail-level view
