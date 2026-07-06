@@ -23,6 +23,31 @@ and/or a pipeline dependency. **None are started.** Priority is the operator's t
    need a new one (shared-seam → coordinate)? **Purpose/UX still fuzzy — the operator flagged "I'm missing key details about
    how it functions and its purpose."** → Route as an HQ research ask to pipeline for the knob→cost→quality mapping, THEN
    spec the dashboard selector. Do NOT invent quantifiers dashboard-side.
+   - **1a. Cost estimation + self-calibrating estimator (operator refinement 2026-07-06).** The selector should show an
+     estimated **$ range per run** as a decision lever, keyed **per channel** (generation intensity is a channel property —
+     `channel_profiles.source_ladder`/sourcing = stock vs generated → "all-gen / some-gen / no-gen" channels have different
+     cost curves). **Telemetry already exists:** `receipts` logs, per run stage, the `model` · `provider` ·
+     `effort_requested`/`effort_used` · `spend_so_far` (cumulative) · token counts — i.e. a running per-worker model log is
+     already emitted (verified live 2026-07-06: `script_writer`/`researcher`/`fact_check` = `claude-sonnet-4-6`,
+     `visual_router` = `claude-haiku-4-5`/`gemini-2.5-flash`, `assembly` = provider `assembly`/model `adapters`). Empirical
+     baseline today: median ~$0.11/episode, avg ~$0.17, max ~$0.45; render (`assembly`) ~$0.19/item is the dominant lever,
+     LLM script/voice ~$0.018 is near-noise. **The build (dashboard-side, on top of that telemetry) is a calibration loop:**
+     (1) a per-(channel, tier) cost model = expected stages × model × unit cost; (2) **store the estimate at enqueue** (new —
+     nothing records an estimate today); (3) reconcile estimate vs actual from `receipts` after the run; (4) a **periodic
+     audit** (every N runs) recomputes each channel×tier coefficient from recent actuals so the range tightens as variance
+     data accumulates. **Recommended-default rule:** now (no perf data) = cheapest tier whose historical quality-gate pass
+     rate ≥ threshold ("cheapest that doesn't fail"); later = best **cost-per-retained-view** per channel (needs the deferred
+     retention-metrics loop). Always show *why* a default is recommended; default is per-channel + overridable.
+   - **1b. Two pipeline dependencies for accurate per-channel cost (HQ ask extended 2026-07-06):** (i) **channel
+     attribution** — `receipts`→`episodes` carry no reliable channel (the standing `jobs.channel` mismatch: ~2/52 tagged, as
+     `weird_food`); per-channel cost is untrustworthy until runs are consistently channel-tagged — this gates the whole
+     channel-keyed estimator. (ii) **generation-cost granularity** — the expensive `assembly` stage logs a generic model
+     `adapters`, not *which* generator (Higgsfield/Pixabay/stock) or per-clip unit cost; ask pipeline to break the adapter
+     receipts out so gen spend is attributable. (iii) a **unit-cost/price list** per model/generator so a tier can be priced
+     BEFORE it has run history (LLM $/token is partly derivable from receipt deltas + token counts; gen/render needs pipeline).
+   - **1c. Buildable-now slice (no pipeline dependency):** an **empirical estimator** — "runs like this have historically
+     cost $X–$Y" from your own `receipts` history (filtered by recipe/character; channel once tagging lands) + a live actual
+     accruing during the run (`spend_so_far`). Can ship ahead of the full tier selector as an early decision-lever.
 2. **Per-channel video-idea generator panel — keep / discard / edit** _(NEEDS WORKSHOP + RESEARCH · dashboard surface with a
    generation-path dependency)._ A panel, scoped per channel, that generates candidate video ideas the operator triages
    (keep → seeds an `ideas` row / discard / edit-then-keep). **Ties directly to sub-lane 5b's Ideas hub** (kept ideas land
