@@ -55,6 +55,9 @@ import type {
 } from "./aurora/CharactersHub";
 import { IdeasHub } from "./aurora/IdeasHub";
 import type { IdeasHubProps } from "./aurora/IdeasHub";
+import { RunsHub } from "./aurora/RunsHub";
+import type { RunCardVM, RunDiagnosticsResult, RunsHubProps } from "./aurora/RunsHub";
+import { RunCostEstimate } from "./aurora/RunCostEstimate";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
@@ -1800,6 +1803,59 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       setIdeaStatus,
     ],
   );
+  const loadRunDiagnostics = useCallback(
+    async (episodeId: string): Promise<RunDiagnosticsResult> => {
+      const { data, error } = await supabase
+        .from("receipts")
+        .select("seq, stage, verdict, reason, model, provider")
+        .eq("episode_id", episodeId)
+        .order("seq", { ascending: true });
+      if (error) return { receipts: [], error: error.message };
+      const receipts = (data ?? []).map((row) => ({
+        seq: typeof row.seq === "number" ? row.seq : 0,
+        stage: row.stage ?? "",
+        verdict: row.verdict ?? "",
+        reason: row.reason ?? "",
+        model: row.model ?? "",
+        provider: row.provider ?? "",
+      }));
+      return { receipts, error: null };
+    },
+    [supabase],
+  );
+  const runsHubCards = useMemo<RunCardVM[]>(
+    () =>
+      jobs.map((job) => {
+        const status = classifyJobStatus(job.status);
+        return {
+          id: String(job.id),
+          episodeId: job.episode_id ?? null,
+          title: job.food,
+          channel: job.channel ?? null,
+          status,
+          statusLabel: JOB_STATUS_LABELS[status],
+          createdAt: job.created_at,
+          spend: typeof job.spend === "number" ? job.spend : null,
+          error: job.error ?? null,
+          needsAttention:
+            status === "error" || status === "stale" || status === "ready_for_review",
+        };
+      }),
+    [jobs],
+  );
+  const runsHubProps = useMemo<RunsHubProps>(
+    () => ({
+      cards: runsHubCards,
+      loading: jobsLoading,
+      error: jobsError,
+      onRetry: () => {
+        void fetchJobs();
+      },
+      onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
+      loadDiagnostics: loadRunDiagnostics,
+    }),
+    [fetchJobs, jobsError, jobsLoading, loadRunDiagnostics, navigate, runsHubCards],
+  );
   const hubLandingProps = {
     channels: {
       cards: hubChannelCards,
@@ -1815,6 +1871,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       },
       onOpenCharacters: handleCharactersHubNav,
       onOpenIdeas: () => navigate({ kind: "hub", hub: "ideas" }),
+      onOpenRuns: () => navigate({ kind: "hub", hub: "runs" }),
       onRetry: () => void refetchChannelProfiles(),
     },
     glance: {
@@ -2295,6 +2352,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 Back
               </button>
             </div>
+            <RunCostEstimate
+              perEpisodeCosts={costStats.episodeCosts.map((entry) => entry.liveSpend)}
+            />
             <CostBoxDashboard
               episodes={episodes}
               costStats={costStats}
@@ -2444,6 +2504,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         {globalOverlays}
         <AuroraShell operatorInitials={operatorInitials}>
           <IdeasHub {...ideasHubProps} />
+        </AuroraShell>
+      </>
+    );
+  }
+
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "runs") {
+    return (
+      <>
+        {globalOverlays}
+        <AuroraShell operatorInitials={operatorInitials}>
+          <RunsHub {...runsHubProps} />
         </AuroraShell>
       </>
     );

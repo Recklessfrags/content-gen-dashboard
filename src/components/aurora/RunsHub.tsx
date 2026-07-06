@@ -1,0 +1,305 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import type { JobStatus } from "@/lib/jobs";
+
+export type RunCardVM = {
+  id: string;
+  episodeId: string | null;
+  title: string;
+  channel: string | null;
+  status: JobStatus;
+  statusLabel: string;
+  createdAt: string;
+  spend: number | null;
+  error: string | null;
+  needsAttention: boolean;
+};
+
+export type RunReceiptRow = {
+  seq: number;
+  stage: string;
+  verdict: string;
+  reason: string;
+  model: string;
+  provider: string;
+};
+
+export type RunDiagnosticsResult = { receipts: RunReceiptRow[]; error: string | null };
+
+export type RunsHubProps = {
+  cards: RunCardVM[];
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onBack: () => void;
+  loadDiagnostics: (episodeId: string) => Promise<RunDiagnosticsResult>;
+};
+
+type RunFilter = "attention" | "all";
+
+type DiagnosticsState = {
+  loading: boolean;
+  error: string | null;
+  receipts: RunReceiptRow[] | null;
+};
+
+export function RunsHub({ cards, loading, error, onRetry, onBack, loadDiagnostics }: RunsHubProps) {
+  const attentionCount = cards.filter((card) => card.needsAttention).length;
+  const [filter, setFilter] = useState<RunFilter>("all");
+  const visible = filter === "attention" ? cards.filter((card) => card.needsAttention) : cards;
+
+  const showEmpty = !loading && error === null && cards.length === 0;
+  const showList = !loading && error === null && cards.length > 0;
+
+  return (
+    <section className="runs-hub scoped" aria-labelledby="runs-hub-title">
+      <div className="section-header">
+        <div>
+          <h3 id="runs-hub-title" className="text-display" style={{ fontSize: "2rem" }}>
+            Runs
+          </h3>
+          <p className="dim" style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}>
+            {cards.length} run{cards.length === 1 ? "" : "s"}
+            {attentionCount > 0 ? ` · ${attentionCount} need${attentionCount === 1 ? "s" : ""} attention` : ""}
+          </p>
+        </div>
+        <button type="button" className="btn-secondary" onClick={onBack}>
+          Back to Channels
+        </button>
+      </div>
+
+      {showList ? (
+        <div className="runs-hub__filters" role="group" aria-label="Filter runs">
+          <button
+            type="button"
+            className={"runs-hub__filter" + (filter === "all" ? " is-active" : "")}
+            aria-pressed={filter === "all"}
+            onClick={() => setFilter("all")}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className={"runs-hub__filter" + (filter === "attention" ? " is-active" : "")}
+            aria-pressed={filter === "attention"}
+            onClick={() => setFilter("attention")}
+            disabled={attentionCount === 0}
+          >
+            Needs attention{attentionCount > 0 ? ` (${attentionCount})` : ""}
+          </button>
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="glass-panel au-empty" aria-busy="true">
+          <span className="spin" aria-hidden="true" /> Loading runs…
+        </div>
+      ) : null}
+
+      {error !== null ? (
+        <div className="glass-panel au-empty" role="alert">
+          <p className="text-title">Couldn&apos;t load runs</p>
+          <p className="dim">Check your connection and try again.</p>
+          {error ? (
+            <details className="error-details">
+              <summary>Details</summary>
+              {error}
+            </details>
+          ) : null}
+          <div style={{ marginTop: "1rem" }}>
+            <button type="button" className="btn-secondary" onClick={onRetry}>
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showEmpty ? (
+        <div className="glass-panel au-empty">
+          <p className="text-title">No runs yet</p>
+          <p>Runs appear here once the pipeline picks up queued jobs.</p>
+        </div>
+      ) : null}
+
+      {showList ? (
+        <div className="runs-hub__list" aria-label="Runs">
+          {visible.map((card) => (
+            <RunCard key={card.id} card={card} loadDiagnostics={loadDiagnostics} />
+          ))}
+          {visible.length === 0 ? (
+            <div className="glass-panel au-empty">
+              <p>No runs need attention right now.</p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function statusChipClass(status: JobStatus): string {
+  if (status === "error") return "status-chip runs-hub__status runs-hub__status--error";
+  if (status === "stale") return "status-chip runs-hub__status runs-hub__status--warn";
+  if (status === "ready_for_review") return "status-chip runs-hub__status runs-hub__status--review";
+  if (status === "done") return "status-chip status-cast";
+  return "status-chip runs-hub__status";
+}
+
+function RunCard({
+  card,
+  loadDiagnostics,
+}: {
+  card: RunCardVM;
+  loadDiagnostics: RunsHubProps["loadDiagnostics"];
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, setState] = useState<DiagnosticsState>({ loading: false, error: null, receipts: null });
+  const inFlightRef = useRef(false);
+  const bodyId = `run-diagnostics-${card.id}`;
+
+  const canDiagnose = card.episodeId !== null;
+
+  const runDiagnostics = useCallback(async () => {
+    if (card.episodeId === null || inFlightRef.current) return;
+    inFlightRef.current = true;
+    setState({ loading: true, error: null, receipts: null });
+    const result = await loadDiagnostics(card.episodeId);
+    inFlightRef.current = false;
+    setState({ loading: false, error: result.error, receipts: result.receipts });
+  }, [card.episodeId, loadDiagnostics]);
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next && canDiagnose && state.receipts === null && !inFlightRef.current) {
+      void runDiagnostics();
+    }
+  };
+
+  const cardClass =
+    "glass-panel run-card" + (card.needsAttention ? " run-card--attention" : "");
+
+  return (
+    <article className={cardClass}>
+      <div className="run-card__head">
+        <div className="run-card__main">
+          <span className={statusChipClass(card.status)}>{card.statusLabel}</span>
+          <h4 className="text-title run-card__title">{card.title}</h4>
+        </div>
+        <div className="run-card__meta">
+          {card.channel ? <span className="dim">{card.channel}</span> : null}
+          {card.spend !== null ? <span className="dim">{formatUsd(card.spend)}</span> : null}
+          <span className="dim">{formatCreatedAt(card.createdAt)}</span>
+        </div>
+      </div>
+
+      {card.error ? (
+        <div className="run-card__error" role="note">
+          <span className="run-card__error-label">Run error</span>
+          <p>{card.error}</p>
+        </div>
+      ) : null}
+
+      {canDiagnose ? (
+        <div className="run-card__diagnostics">
+          <button
+            type="button"
+            className="runs-hub__disclosure"
+            aria-expanded={open}
+            aria-controls={bodyId}
+            onClick={toggle}
+          >
+            {open ? "▾" : "▸"} Why{card.needsAttention ? " did this need attention" : " / which worker"}?
+          </button>
+
+          {open ? (
+            <div className="run-card__diagnostics-body" id={bodyId}>
+              {state.loading ? (
+                <p className="dim" aria-busy="true">
+                  <span className="spin" aria-hidden="true" /> Loading per-worker log…
+                </p>
+              ) : null}
+
+              {state.error ? (
+                <div className="dim" role="alert">
+                  <p>Couldn&apos;t load the per-worker log.</p>
+                  <details className="error-details">
+                    <summary>Details</summary>
+                    {state.error}
+                  </details>
+                  <button type="button" className="btn-secondary" onClick={() => void runDiagnostics()}>
+                    Retry
+                  </button>
+                </div>
+              ) : null}
+
+              {state.receipts !== null && !state.loading && state.error === null ? (
+                state.receipts.length === 0 ? (
+                  <p className="dim">No per-worker log recorded for this run.</p>
+                ) : (
+                  <ol className="run-worker-log">
+                    {state.receipts.map((row, index) => (
+                      <li key={`${row.seq}-${index}`} className="run-worker-row">
+                        <div className="run-worker-row__top">
+                          <span className="run-worker-stage">{row.stage || "(stage)"}</span>
+                          <span className={verdictBadgeClass(row.verdict)}>
+                            {verdictLabel(row.verdict)}
+                          </span>
+                        </div>
+                        {row.reason ? <p className="run-worker-reason">{row.reason}</p> : null}
+                        {row.model || row.provider ? (
+                          <p className="run-worker-model dim">
+                            {[row.provider, row.model].filter(Boolean).join(" · ")}
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ol>
+                )
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function verdictLabel(verdict: string): string {
+  const v = verdict.trim().toLowerCase();
+  if (v === "pass") return "Pass";
+  if (v === "retry") return "Retry";
+  if (v === "blocked") return "Blocked";
+  if (v === "approval_required") return "Needs approval";
+  return verdict.trim() === "" ? "—" : verdict;
+}
+
+function verdictBadgeClass(verdict: string): string {
+  const v = verdict.trim().toLowerCase();
+  const base = "run-verdict";
+  if (v === "pass") return `${base} run-verdict--pass`;
+  if (v === "retry") return `${base} run-verdict--retry`;
+  if (v === "blocked") return `${base} run-verdict--blocked`;
+  if (v === "approval_required") return `${base} run-verdict--approval`;
+  return base;
+}
+
+function formatCreatedAt(createdAt: string): string {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatUsd(value: number): string {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
