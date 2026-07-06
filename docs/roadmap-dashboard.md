@@ -1,11 +1,56 @@
 # Dashboard roadmap — scoped upcoming work
 
-_Author: Architect (Claude). Last updated **2026-07-01**. The durable, maintained scope of
+_Author: Architect (Claude). Last updated **2026-07-06**. The durable, maintained scope of
 what's coming for the dashboard (the "Character Control Room"), so it isn't only living in HQ
 threads. Pairs with `DIRECTION.md` (product ground truth: focused control tool, not a kanban)
 and `docs/SESSION-HANDOFF.md` §4 (near-term "what's left"). Cross-contract items are the ones
 that touch the shared Supabase seam the pipeline reads/writes; flag those early. Reviewed via
 the Rule-9 cross-vendor gate (2026-07-01 architecture review — 4 gaps below folded in)._
+
+## Operator directives — 2026-07-06 (queued; recorded per operator "this all needs recorded somewhere")
+
+These are captured for durability, not yet specced/built. Each names its open questions + whether it needs research
+and/or a pipeline dependency. **None are started.** Priority is the operator's to set; near-term build is still 5g.
+
+1. **Render-quality tier selector — cheap / medium / high** _(NEEDS RESEARCH · cross-team — pipeline owns the quantifiers)._
+   Operator wants a simple 3-way quality/cost toggle on a run. **The mechanic exists in embryo:** enqueue already carries
+   `episode_cap` + a recipe (`provenRender` = `stub_upstream:true`/cap 2 vs `fullEpisode` = full/cap 5) — but "cheap/medium/
+   high" is a NEW, richer axis. **Open questions the research must answer (mostly pipeline knowledge):** what worker knobs
+   actually move cost×quality (model tier per stage — script LLM, voice model e.g. `eleven_ttv_v3` vs default, image/video
+   gen tier, render resolution/fps, stub-vs-full, episode_cap, retry/escalation budget)? what are the concrete quantifier
+   values for each of the 3 tiers? what does each tier COST (so the UI can show it) and what quality delta does the operator
+   actually get? is this per-run, per-channel default, or both? does it map to existing `channel_profiles`/`jobs` fields or
+   need a new one (shared-seam → coordinate)? **Purpose/UX still fuzzy — the operator flagged "I'm missing key details about
+   how it functions and its purpose."** → Route as an HQ research ask to pipeline for the knob→cost→quality mapping, THEN
+   spec the dashboard selector. Do NOT invent quantifiers dashboard-side.
+2. **Per-channel video-idea generator panel — keep / discard / edit** _(NEEDS WORKSHOP + RESEARCH · dashboard surface with a
+   generation-path dependency)._ A panel, scoped per channel, that generates candidate video ideas the operator triages
+   (keep → seeds an `ideas` row / discard / edit-then-keep). **Ties directly to sub-lane 5b's Ideas hub** (kept ideas land
+   in the same `ideas` table + enqueue path). **Open questions:** what seeds generation (channel concept + character +
+   the content-retention craft research + past performance)? how many candidates per batch? **Depends on the still-open
+   "sanctioned dashboard generation path" decision** (edge-proxy vs pipeline endpoint — same family as bible-autogen / E2
+   guideline-fill / 2b visual-gen; see the Ledger + `slice-bible-autogen.md`). → Workshop the UX + decide the generation
+   path (one decision unblocks the whole autogen family), then spec.
+3. **Niche channel idea workflow** _(NEEDS WORKSHOP + RESEARCH)._ A guided flow for taking a niche/sub-niche and working it
+   into a viable channel (concept → character → guidelines → first ideas). Overlaps the deferred **channel-onboarding E2**
+   (guideline auto-fill) + the operator-invoked **channel-researcher** (item 5 below) + item 2's idea generator. → Workshop
+   how these compose into one coherent "start a channel from a niche" journey before specc­ing; likely research per
+   sub-niche + archetype (per the frozen onboarding decision — research narrow, not broad genre).
+4. **Deferred future suite — analytics · monetization · social posting · performance ranking + A/B** _(DEFERRED per operator)._
+   The envisioned end-state: per-channel **analytics** + **monetization** panels; **social-media posting integrations**;
+   channels **ranked on performance** with **insights on how to improve poor performers**, plus **A/B testing**. All deferred
+   for now. **Hard dependency (already an open HQ ask):** every performance/analytics/ranking/A-B feature is blocked on the
+   **pipeline surfacing per-episode retention/performance metrics** (views, avg view duration, completion, retention curve) —
+   this is the "retention feedback loop" already tracked (`docs/research/content-retention-and-competitors-2026-07-05.md`,
+   HQ tracker). Posting integrations = OAuth sync, which the roadmap deliberately keeps OUT of the app until data exists
+   (low-ops stopgap = no-code dump to a sheet — see "Tier-3 ROI table" below). Record only; no build.
+
+### Roster correction (2026-07-06) — affects the channel_profiles roster ask
+- **Grandma Pearl is NOT a dark-history channel.** Operator's definition: **a grandmother who reads daily Bible verses and
+  gives insight / asks reflective questions about them.** This corrects the earlier HQ roster-ask framing (which lumped her
+  with Mad Dog's dark-history posture). Her `engagement_posture` dials are therefore wholesome/`fact_first`-leaning, NOT the
+  dark-history posture — but the exact GREEN/YELLOW/RED posture is still an **operator brand/legal call** (rule 20). Relayed
+  to pipeline in HQ so the drafted roster values for Grandma Pearl reflect the correct concept. (Mad Dog dark-history stands.)
 
 ## Cross-contract items (touch the shared seam — coordinate before building)
 
