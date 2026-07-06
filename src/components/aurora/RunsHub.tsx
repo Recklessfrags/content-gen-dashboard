@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { JobStatus } from "@/lib/jobs";
+import type { WorkerReliability } from "@/lib/workerReliability";
 
 export type RunCardVM = {
   id: string;
@@ -27,6 +28,12 @@ export type RunReceiptRow = {
 
 export type RunDiagnosticsResult = { receipts: RunReceiptRow[]; error: string | null };
 
+export type ReliabilityResult = {
+  reliability: WorkerReliability | null;
+  error: string | null;
+  windowDays?: number;
+};
+
 export type RunsHubProps = {
   cards: RunCardVM[];
   loading: boolean;
@@ -34,6 +41,7 @@ export type RunsHubProps = {
   onRetry: () => void;
   onBack: () => void;
   loadDiagnostics: (episodeId: string) => Promise<RunDiagnosticsResult>;
+  loadReliability: () => Promise<ReliabilityResult>;
 };
 
 type RunFilter = "attention" | "all";
@@ -44,7 +52,15 @@ type DiagnosticsState = {
   receipts: RunReceiptRow[] | null;
 };
 
-export function RunsHub({ cards, loading, error, onRetry, onBack, loadDiagnostics }: RunsHubProps) {
+export function RunsHub({
+  cards,
+  loading,
+  error,
+  onRetry,
+  onBack,
+  loadDiagnostics,
+  loadReliability,
+}: RunsHubProps) {
   const attentionCount = cards.filter((card) => card.needsAttention).length;
   const [filter, setFilter] = useState<RunFilter>("all");
   const visible = filter === "attention" ? cards.filter((card) => card.needsAttention) : cards;
@@ -68,6 +84,8 @@ export function RunsHub({ cards, loading, error, onRetry, onBack, loadDiagnostic
           Back to Channels
         </button>
       </div>
+
+      <WorkerReliabilityPanel loadReliability={loadReliability} />
 
       {showList ? (
         <div className="runs-hub__filters" role="group" aria-label="Filter runs">
@@ -135,6 +153,130 @@ export function RunsHub({ cards, loading, error, onRetry, onBack, loadDiagnostic
         </div>
       ) : null}
     </section>
+  );
+}
+
+function formatPct(ratio: number): string {
+  return `${Math.round(ratio * 100)}%`;
+}
+
+function WorkerReliabilityPanel({
+  loadReliability,
+}: {
+  loadReliability: RunsHubProps["loadReliability"];
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<WorkerReliability | null>(null);
+  const [windowDays, setWindowDays] = useState<number | undefined>(undefined);
+  const inFlightRef = useRef(false);
+
+  const load = useCallback(async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    setLoading(true);
+    setError(null);
+    const result = await loadReliability();
+    inFlightRef.current = false;
+    setLoading(false);
+    setError(result.error);
+    setData(result.reliability);
+    setWindowDays(result.windowDays);
+  }, [loadReliability]);
+
+  const windowLabel = windowDays ? `last ${windowDays} days` : "recent runs";
+
+  useEffect(() => {
+    if (open && data === null && !inFlightRef.current) void load();
+  }, [open, data, load]);
+
+  const rows = data?.rows.filter((row) => row.attempts > 0) ?? [];
+
+  return (
+    <div className="glass-panel runs-hub__reliability">
+      <button
+        type="button"
+        className="runs-hub__reliability-head"
+        aria-expanded={open}
+        aria-controls="worker-reliability-body"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="text-title">{open ? "▾" : "▸"} Worker reliability</span>
+        {data ? (
+          <span className="dim">
+            {data.totalAttempts} attempts · {formatUsd(data.totalRetryCost, 3)} on retries · {windowLabel}
+          </span>
+        ) : (
+          <span className="dim">retry / block rates + wasted spend per worker</span>
+        )}
+      </button>
+
+      {open ? (
+        <div id="worker-reliability-body" className="runs-hub__reliability-body">
+          {loading ? (
+            <p className="dim" aria-busy="true">
+              <span className="spin" aria-hidden="true" /> Loading reliability…
+            </p>
+          ) : null}
+
+          {error ? (
+            <div className="dim" role="alert">
+              <p>Couldn&apos;t load reliability.</p>
+              <details className="error-details">
+                <summary>Details</summary>
+                {error}
+              </details>
+              <button type="button" className="btn-secondary" onClick={() => void load()}>
+                Retry
+              </button>
+            </div>
+          ) : null}
+
+          {data && !loading && !error ? (
+            rows.length === 0 ? (
+              <p className="dim">No per-worker telemetry recorded yet.</p>
+            ) : (
+              <div className="runs-hub__reliability-scroll">
+                <table className="reliability-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Worker</th>
+                      <th scope="col">Attempts</th>
+                      <th scope="col">Retry</th>
+                      <th scope="col">Blocked</th>
+                      <th scope="col">Retry rate</th>
+                      <th scope="col">Wasted $</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => (
+                      <tr key={row.stage} className={row.retry > 0 ? "reliability-row--warn" : ""}>
+                        <th scope="row">
+                          <span className="reliability-stage">{row.stage}</span>
+                          {row.models.length > 0 ? (
+                            <span className="reliability-models dim">{row.models.join(" · ")}</span>
+                          ) : null}
+                        </th>
+                        <td>{row.attempts}</td>
+                        <td>{row.retry}</td>
+                        <td>{row.blocked}</td>
+                        <td>{formatPct(row.retryRate)}</td>
+                        <td>{formatUsd(row.retryCost, 3)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : null}
+          <p className="dim runs-hub__reliability-note">
+            Wasted $ = spend on attempts the pipeline had to retry — a cheap worker that retries a lot
+            isn&apos;t cheap. Based on the {windowLabel}.
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -296,10 +438,10 @@ function formatCreatedAt(createdAt: string): string {
   });
 }
 
-function formatUsd(value: number): string {
+function formatUsd(value: number, maxFractionDigits = 2): string {
   return new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 2,
+    maximumFractionDigits: maxFractionDigits,
   }).format(value);
 }

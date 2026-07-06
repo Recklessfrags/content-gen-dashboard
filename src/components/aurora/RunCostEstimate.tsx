@@ -13,18 +13,51 @@ function formatUsd(value: number, maxFractionDigits = 2): string {
   }).format(value);
 }
 
+export type EstimateEpisode = { cost: number; characterId: string | null };
+
 /**
  * Empirical run-cost estimate ("runs like this cost $X–$Y") derived purely from
  * the dashboard's own historical per-episode spend. Read-only decision lever;
- * no pipeline dependency. Ships ahead of the render-quality tier selector.
+ * no pipeline dependency. Optionally filter the history by character (channel
+ * filtering waits on the jobs.channel tagging gap).
  */
-export function RunCostEstimate({ perEpisodeCosts }: { perEpisodeCosts: number[] }) {
+export function RunCostEstimate({
+  episodeCosts,
+  characters,
+}: {
+  episodeCosts: EstimateEpisode[];
+  characters: { id: string; label: string }[];
+}) {
   // Raw string so the user can clear/retype the field; estimateRunCost() safely
   // falls back to a cap of 1 for empty/invalid input, so no forced clamp needed.
   const [capInput, setCapInput] = useState(String(DEFAULT_CAP));
+  const [characterId, setCharacterId] = useState("");
+
+  const availableCharacters = useMemo(() => {
+    const present = new Set(
+      episodeCosts.map((entry) => entry.characterId).filter((id): id is string => id !== null),
+    );
+    return characters.filter((character) => present.has(character.id));
+  }, [characters, episodeCosts]);
+
+  // If a previously-selected character no longer has any episodes, fall back to All.
+  const activeCharacterId =
+    characterId !== "" && availableCharacters.some((character) => character.id === characterId)
+      ? characterId
+      : "";
+
+  const filteredCosts = useMemo(
+    () =>
+      (activeCharacterId === ""
+        ? episodeCosts
+        : episodeCosts.filter((entry) => entry.characterId === activeCharacterId)
+      ).map((entry) => entry.cost),
+    [episodeCosts, activeCharacterId],
+  );
+
   const estimate = useMemo(
-    () => estimateRunCost(perEpisodeCosts, Number(capInput)),
-    [perEpisodeCosts, capInput],
+    () => estimateRunCost(filteredCosts, Number(capInput)),
+    [filteredCosts, capInput],
   );
 
   return (
@@ -38,18 +71,36 @@ export function RunCostEstimate({ perEpisodeCosts }: { perEpisodeCosts: number[]
             From your own history — an estimate, not a quote.
           </p>
         </div>
-        <label className="run-cost-estimate__cap">
-          Episodes per run
-          <input
-            type="number"
-            min={1}
-            max={50}
-            step={1}
-            inputMode="numeric"
-            value={capInput}
-            onChange={(event) => setCapInput(event.target.value)}
-          />
-        </label>
+        <div className="run-cost-estimate__controls">
+          {availableCharacters.length > 0 ? (
+            <label className="run-cost-estimate__cap">
+              Character
+              <select
+                value={activeCharacterId}
+                onChange={(event) => setCharacterId(event.target.value)}
+              >
+                <option value="">All characters</option>
+                {availableCharacters.map((character) => (
+                  <option key={character.id} value={character.id}>
+                    {character.label || "Untitled"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <label className="run-cost-estimate__cap">
+            Episodes per run
+            <input
+              type="number"
+              min={1}
+              max={50}
+              step={1}
+              inputMode="numeric"
+              value={capInput}
+              onChange={(event) => setCapInput(event.target.value)}
+            />
+          </label>
+        </div>
       </div>
 
       {estimate.perEpisode === null || estimate.run === null ? (

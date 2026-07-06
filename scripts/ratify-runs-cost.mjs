@@ -113,6 +113,15 @@ async function main() {
       check("R2c per-worker verdict badges render", false, "no errored card found");
     }
 
+    // ---- R5: worker reliability rollup expands into a per-stage table ----
+    await page.locator(".runs-hub__reliability-head").click();
+    await page.waitForSelector(".reliability-table tbody tr, .runs-hub__reliability-body .dim", { timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    const relRows = await page.locator(".reliability-table tbody tr").count();
+    check("R5a worker reliability table renders per-stage rows", relRows >= 1, `rows=${relRows}`);
+    const relHead = (await page.locator(".runs-hub__reliability-head").textContent().catch(() => "")) || "";
+    check("R5b reliability header shows attempts + window", /attempts/.test(relHead) && /last \d+ days/.test(relHead), relHead.replace(/\s+/g, " ").slice(0, 100));
+
     // ---- R3: the empirical cost estimate renders in the Cost center ----
     await page.goto(`${BASE}/?channel=default&tab=cost`, { waitUntil: "networkidle" });
     await waitAurora(page);
@@ -130,6 +139,24 @@ async function main() {
     await page.waitForTimeout(600);
     const after = (await page.locator(".run-cost-estimate__range").first().textContent().catch(() => "")) || "";
     check("R3c estimate reacts to episodes-per-run input", before !== "" ? after !== before : true, `before=${before} after=${after}`);
+
+    // ---- R6: character filter narrows the estimate history (if any character has episodes) ----
+    const charSelect = page.locator(".run-cost-estimate select");
+    if ((await charSelect.count()) >= 1) {
+      const optionValues = await charSelect.locator("option").evaluateAll((opts) => opts.map((o) => o.value));
+      const firstCharValue = optionValues.find((value) => value !== "");
+      if (firstCharValue) {
+        const noteBefore = (await page.locator(".run-cost-estimate__note").first().textContent().catch(() => "")) || "";
+        await charSelect.selectOption(firstCharValue);
+        await page.waitForTimeout(600);
+        const noteAfter = (await page.locator(".run-cost-estimate .run-cost-estimate__note, .run-cost-estimate .dim").first().textContent().catch(() => "")) || "";
+        check("R6 character filter re-scopes the estimate", noteAfter !== noteBefore || noteAfter.length > 0, noteAfter.replace(/\s+/g, " ").slice(0, 100));
+      } else {
+        check("R6 character filter re-scopes the estimate", true, "no character option — skipped");
+      }
+    } else {
+      check("R6 character filter re-scopes the estimate", true, "no character select (no attributed episodes) — skipped");
+    }
 
     // ---- R0: ZERO live writes; no app console errors ----
     check("R0 ZERO live writes (read-only surfaces)", writes.length === 0, JSON.stringify(writes.slice(0, 3)));

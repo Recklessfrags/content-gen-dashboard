@@ -56,8 +56,14 @@ import type {
 import { IdeasHub } from "./aurora/IdeasHub";
 import type { IdeasHubProps } from "./aurora/IdeasHub";
 import { RunsHub } from "./aurora/RunsHub";
-import type { RunCardVM, RunDiagnosticsResult, RunsHubProps } from "./aurora/RunsHub";
+import type {
+  ReliabilityResult,
+  RunCardVM,
+  RunDiagnosticsResult,
+  RunsHubProps,
+} from "./aurora/RunsHub";
 import { RunCostEstimate } from "./aurora/RunCostEstimate";
+import { computeWorkerReliability } from "@/lib/workerReliability";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
@@ -1823,6 +1829,31 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     },
     [supabase],
   );
+  const loadWorkerReliability = useCallback(async (): Promise<ReliabilityResult> => {
+    // Bound the telemetry scan: a rolling window (episodes complete in minutes, so
+    // the window keeps each episode's receipts intact for the spend diff) + an
+    // explicit row cap that overrides PostgREST's silent 1000-row default.
+    const windowDays = 30;
+    const rowCap = 5000;
+    const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("receipts")
+      .select("episode_id, seq, stage, model, provider, verdict, spend_so_far")
+      .gte("ts", cutoff)
+      .order("ts", { ascending: false })
+      .limit(rowCap);
+    if (error) return { reliability: null, error: error.message, windowDays };
+    const raw = (data ?? []).map((row) => ({
+      episodeId: row.episode_id ?? "",
+      seq: typeof row.seq === "number" ? row.seq : 0,
+      stage: row.stage ?? "",
+      model: row.model ?? "",
+      provider: row.provider ?? "",
+      verdict: row.verdict ?? "",
+      spendSoFar: typeof row.spend_so_far === "number" ? row.spend_so_far : 0,
+    }));
+    return { reliability: computeWorkerReliability(raw), error: null, windowDays };
+  }, [supabase]);
   const runsHubCards = useMemo<RunCardVM[]>(
     () =>
       jobs.map((job) => {
@@ -1853,8 +1884,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       },
       onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
       loadDiagnostics: loadRunDiagnostics,
+      loadReliability: loadWorkerReliability,
     }),
-    [fetchJobs, jobsError, jobsLoading, loadRunDiagnostics, navigate, runsHubCards],
+    [
+      fetchJobs,
+      jobsError,
+      jobsLoading,
+      loadRunDiagnostics,
+      loadWorkerReliability,
+      navigate,
+      runsHubCards,
+    ],
   );
   const hubLandingProps = {
     channels: {
@@ -2353,7 +2393,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               </button>
             </div>
             <RunCostEstimate
-              perEpisodeCosts={costStats.episodeCosts.map((entry) => entry.liveSpend)}
+              episodeCosts={costStats.episodeCosts.map((entry) => ({
+                cost: entry.liveSpend,
+                characterId: entry.episode.character_id ?? null,
+              }))}
+              characters={chars.map((character) => ({ id: character.id, label: character.codename }))}
             />
             <CostBoxDashboard
               episodes={episodes}
