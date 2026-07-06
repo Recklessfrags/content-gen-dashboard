@@ -45,9 +45,11 @@ and/or a pipeline dependency. **None are started.** Priority is the operator's t
      `adapters`, not *which* generator (Higgsfield/Pixabay/stock) or per-clip unit cost; ask pipeline to break the adapter
      receipts out so gen spend is attributable. (iii) a **unit-cost/price list** per model/generator so a tier can be priced
      BEFORE it has run history (LLM $/token is partly derivable from receipt deltas + token counts; gen/render needs pipeline).
-   - **1c. Buildable-now slice (no pipeline dependency):** an **empirical estimator** — "runs like this have historically
-     cost $X–$Y" from your own `receipts` history (filtered by recipe/character; channel once tagging lands) + a live actual
-     accruing during the run (`spend_so_far`). Can ship ahead of the full tier selector as an early decision-lever.
+   - **1c. Empirical estimator — ✅ SHIPPED (2026-07-06, #TBD).** `RunCostEstimate` card in the Cost center: pure
+     `estimateRunCost()` (`src/lib/costEstimate.ts`, 10 unit tests) over historical per-episode spend
+     (`costStats.episodeCosts[].liveSpend`) → a $ range per run (median..p90 × episodes-per-run), reactive cap input. Live
+     ratify: $0.54–$2.15 (typical $0.82) for a 5-episode run. Shipped ahead of the full tier selector as the early decision
+     lever. Follow-ups: filter by recipe/character/channel (channel once tagging lands); an inline hint in the enqueue flow.
 2. **Per-channel video-idea generator panel — keep / discard / edit** _(NEEDS WORKSHOP + RESEARCH · dashboard surface with a
    generation-path dependency)._ A panel, scoped per channel, that generates candidate video ideas the operator triages
    (keep → seeds an `ideas` row / discard / edit-then-keep). **Ties directly to sub-lane 5b's Ideas hub** (kept ideas land
@@ -90,11 +92,12 @@ and/or a pipeline dependency. **None are started.** Priority is the operator's t
      **provider schema** — `visual_router`/`script_writer` Gemini output failed ShotList/Script schema; **approval parks (not
      failures)** — `fact_check` YELLOW sign-off, `distribution` publish approval, `assembly` cost-guard pre-spend. → **Two
      buildable-now surfaces on this existing telemetry** (like the empirical cost estimator, no pipeline dependency): (i) a
-     **"why did it fail / which worker" drill-down** on an errored/parked run (surface `receipts.stage`+`reason` + `jobs.error`
-     — today the UI shows job status + approval reasons in the Action Center but not the per-worker failure reason); (ii)
-     **per-worker/model/tier reliability** in the analytics layer — retry rate, block rate, and **retry-cost** per stage/model
-     (a "cheap" model that retries 3× isn't cheap → feeds the cost-vs-quality estimator, item 1). These two can ship ahead of
-     the full deferred suite.
+     **"why did it fail / which worker" drill-down** — ✅ **SHIPPED (2026-07-06, #TBD)** as the **Runs hub** (`?hub=runs`,
+     `RunsHub.tsx`): lists runs, each errored/stale/parked one shows `jobs.error` + expands to a lazily-loaded per-worker
+     breakdown from `receipts` (stage · verdict · reason · model). Live ratify loaded a 9-stage per-worker log for an errored
+     run. (ii) **per-worker/model/tier reliability** in the analytics layer — retry rate, block rate, and **retry-cost** per
+     stage/model (a "cheap" model that retries 3× isn't cheap → feeds the cost-vs-quality estimator, item 1) — NOT yet built;
+     the aggregate/rollup view is the next increment on the same telemetry.
 
 ### Roster correction (2026-07-06) — affects the channel_profiles roster ask
 - **Grandma Pearl is NOT a dark-history channel.** Operator's definition: **a grandmother who reads daily Bible verses and
