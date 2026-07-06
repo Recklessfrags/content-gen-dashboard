@@ -70,8 +70,11 @@ off production** (keep your harness-designated branch name).
   `channel_profiles` rows via Supabase MCP.** Also still pending: which character `weird_food` (5 tagged jobs, no row) links
   to. Tracker row `Channel-row configs NEEDED …` stays 🟡 OPEN. **Roster correction (2026-07-06, operator):** Grandma Pearl
   is a **daily-Bible-verse grandmother** (reads a verse + gives insight / asks reflective questions) — NOT dark history; her
-  posture is wholesome/`fact_first`-leaning. Mad Dog dark-history stands. Relayed to pipeline in HQ. Nothing for the
-  dashboard to build until the operator rules + pipeline delivers.
+  posture is wholesome/`fact_first`-leaning. Mad Dog dark-history stands. Relayed to pipeline in HQ. **UNBLOCK IMMINENT
+  (2026-07-06, pipeline session):** pipeline is delivering the **full corrected roster for all six §5 channels** (with the
+  Grandma correction). When it hands over final per-channel values (three non-`fact_first` posture dials still need the
+  operator's GREEN/YELLOW/RED sign-off — confirmed up front or flagged "pending operator"), **the dashboard creates the
+  `channel_profiles` rows via Supabase MCP.** Next session: check HQ for the delivered roster and create the rows.
 - **NEW operator directives (2026-07-06) — recorded in `docs/roadmap-dashboard.md` "Operator directives — 2026-07-06".**
   Queued, none started: (1) **render-quality tier selector** cheap/medium/high (needs research; pipeline owns the knob→cost→
   quality quantifiers — routed to HQ); (2) **per-channel video-idea generator** panel with keep/discard/edit (needs
@@ -79,6 +82,17 @@ off production** (keep your harness-designated branch name).
   (3) **niche channel idea workflow** (needs workshop+research; overlaps onboarding E2 + channel-researcher); (4) **deferred
   future suite** — analytics + monetization panels, social-posting integrations, performance ranking + improvement insights +
   A/B testing (all blocked on the pipeline surfacing per-episode retention/performance metrics — the retention feedback loop).
+  **Refinements this session (all in the roadmap doc):** (1a) **cost-estimation + self-calibrating estimator** — per-channel
+  $ range as a decision lever on `receipts` telemetry (already logs per-worker model/spend); estimate→actual→audit→tighten;
+  **empirical estimator is buildable-now** (no pipeline dep). (2a) **generation-path direction (operator, from the pipeline
+  session):** the sanctioned dashboard generation path = **isolated pipeline leaf-capabilities** — voice already isolated
+  (Character Studio), so the sandbox is just **script** (generate/lock a script for an idea) + **generation** (test clips);
+  pipeline will spec those two. Resolves item 2's generation dep + gives item 1 a "test clip" preview. (4a) **per-worker
+  reliability + failure attribution — BUILDABLE NOW:** `receipts` logs `verdict`/`reason` per stage + `jobs.error`/`status`
+  (42 errored; failures are mostly credential/config — ElevenLabs 401 / Higgsfield key format — plus by-design quality-gate
+  retries). Two buildable-now surfaces: a "why did it fail / which worker" drill-down + per-worker/model retry-cost (feeds 1a).
+  **Buildable-now candidates that need NO pipeline dep (good next slices):** the empirical cost estimator, the failure-attribution
+  drill-down.
 - **THEN: Basic/Advanced polish** (app-wide reach: hide Production/Cost tabs in Basic, trim Overview; mode-gate savebar
   actions) and the **retention feedback loop** spec (deferred — blocked on the pipeline surfacing per-episode retention
   metrics; content-retention research at `docs/research/content-retention-and-competitors-2026-07-05.md` is 🟢 being

@@ -56,6 +56,16 @@ and/or a pipeline dependency. **None are started.** Priority is the operator's t
    "sanctioned dashboard generation path" decision** (edge-proxy vs pipeline endpoint — same family as bible-autogen / E2
    guideline-fill / 2b visual-gen; see the Ledger + `slice-bible-autogen.md`). → Workshop the UX + decide the generation
    path (one decision unblocks the whole autogen family), then spec.
+   - **2a. Generation-path direction — operator scoping (2026-07-06, from the pipeline session).** The "sanctioned dashboard
+     generation path" is being answered as **isolated pipeline leaf-capabilities the dashboard can invoke**, NOT a from-scratch
+     dashboard generator. Operator ruling + pipeline agreement: **voice is already isolated** (the dashboard Character Studio
+     casts it), so the dashboard sandbox is just **two** capabilities — **script** (generate/lock a script for an idea) and
+     **generation** (produce test clips). The rest of the pipeline spine has heavy upstream deps and is **not** worth isolating
+     ("not every worker"). **Pipeline will spec those two isolated capabilities** when it gets there. Impact on the dashboard:
+     item 2's idea-generator gets its generation dependency resolved (call the isolated `script` capability to draft/lock an
+     idea's script; call `generation` for a preview clip), and the render-quality tier selector (item 1) gets a natural
+     **"test clip" preview** mechanism via the isolated `generation` capability. Blocked only on pipeline delivering the two
+     sandboxed endpoints/contract; watch HQ.
 3. **Niche channel idea workflow** _(NEEDS WORKSHOP + RESEARCH)._ A guided flow for taking a niche/sub-niche and working it
    into a viable channel (concept → character → guidelines → first ideas). Overlaps the deferred **channel-onboarding E2**
    (guideline auto-fill) + the operator-invoked **channel-researcher** (item 5 below) + item 2's idea generator. → Workshop
@@ -69,6 +79,22 @@ and/or a pipeline dependency. **None are started.** Priority is the operator's t
    this is the "retention feedback loop" already tracked (`docs/research/content-retention-and-competitors-2026-07-05.md`,
    HQ tracker). Posting integrations = OAuth sync, which the roadmap deliberately keeps OUT of the app until data exists
    (low-ops stopgap = no-code dump to a sheet — see "Tier-3 ROI table" below). Record only; no build.
+   - **4a. Per-worker reliability + failure attribution (operator-confirmed 2026-07-06) — BUILDABLE NOW, no pipeline dependency.**
+     The pipeline already records rich error telemetry the dashboard reads: **`jobs.status`** (live: 42 `error`, 12
+     `ready_for_review`, 2 `stale`, 2 `done`) + a **`jobs.error`** text column + **`jobs.park_kind`**; and per worker,
+     **`receipts.verdict`** (`pass` 336 · `retry` 86 · `approval_required` 13 · `blocked` 9) + a **`receipts.reason`** that
+     names the stage and cause. Real failure buckets (live 2026-07-06): **credential/config** — `voice_direction`/`assembly`
+     → ElevenLabs `401 Unauthorized`, `assembly` → Higgsfield `KEY_ID:KEY_SECRET` malformed / `521` (the worker-config issues
+     pipeline flagged as blocking a proven render — env fixes, not model failures); **quality-gate retries (by design)** —
+     `script_writer` word_count out of range / "YELLOW claim used without its on-screen receipt" / "new claims introduced";
+     **provider schema** — `visual_router`/`script_writer` Gemini output failed ShotList/Script schema; **approval parks (not
+     failures)** — `fact_check` YELLOW sign-off, `distribution` publish approval, `assembly` cost-guard pre-spend. → **Two
+     buildable-now surfaces on this existing telemetry** (like the empirical cost estimator, no pipeline dependency): (i) a
+     **"why did it fail / which worker" drill-down** on an errored/parked run (surface `receipts.stage`+`reason` + `jobs.error`
+     — today the UI shows job status + approval reasons in the Action Center but not the per-worker failure reason); (ii)
+     **per-worker/model/tier reliability** in the analytics layer — retry rate, block rate, and **retry-cost** per stage/model
+     (a "cheap" model that retries 3× isn't cheap → feeds the cost-vs-quality estimator, item 1). These two can ship ahead of
+     the full deferred suite.
 
 ### Roster correction (2026-07-06) — affects the channel_profiles roster ask
 - **Grandma Pearl is NOT a dark-history channel.** Operator's definition: **a grandmother who reads daily Bible verses and
@@ -76,6 +102,12 @@ and/or a pipeline dependency. **None are started.** Priority is the operator's t
   with Mad Dog's dark-history posture). Her `engagement_posture` dials are therefore wholesome/`fact_first`-leaning, NOT the
   dark-history posture — but the exact GREEN/YELLOW/RED posture is still an **operator brand/legal call** (rule 20). Relayed
   to pipeline in HQ so the drafted roster values for Grandma Pearl reflect the correct concept. (Mad Dog dark-history stands.)
+- **Roster INCOMING (2026-07-06, from the pipeline session).** Pipeline is executing the "deliver the full corrected roster"
+  option — expanding its roster doc to **all six §5 channels with the Grandma correction**. So the `channel_profiles`
+  row-creation blocker is about to lift: when pipeline hands over the final per-channel values (the three non-`fact_first`
+  posture dials still need the operator's GREEN/YELLOW/RED sign-off, either confirmed up front or flagged "pending operator"),
+  **the dashboard creates the rows via Supabase MCP** (WE insert; pipeline reads). Next dashboard session: check HQ for the
+  delivered roster and create the rows once the posture dials are signed off.
 
 ## Cross-contract items (touch the shared seam — coordinate before building)
 
