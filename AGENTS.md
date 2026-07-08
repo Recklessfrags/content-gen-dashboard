@@ -104,6 +104,11 @@ never override it):
   Purely dashboard-internal work (display copy, CSS, UI re-homes with no
   data/behavior crossing a shared surface) legitimately owes no tracker row — but
   a portable *lesson* still goes to the Ledger.
+  **Keep the handoff a fast-path snapshot (2026-07-07):** when writing it, prepend the
+  new entry and **rotate entries older than the two most recent, verbatim, into
+  `docs/handoff-archive/`** (rule 34 — relocate, never delete or summarize); the §0–§6
+  reference manual stays. This stops the read-first file re-bloating one rule-41 entry
+  per session — it had reached ~1,700 lines / ~37K tokens before the 2026-07-07 rotation.
 
 ## Git policy (critical)
 
