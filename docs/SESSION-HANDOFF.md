@@ -65,6 +65,8 @@ no writes, no pipeline dependency), built in parallel in one branch on top of su
 > [`docs/handoff-archive/SESSION-HANDOFF-archive-2026H1.md`](handoff-archive/SESSION-HANDOFF-archive-2026H1.md)
 > — rotated out 2026-07-07 to keep this file a fast-path snapshot (rules 41 + 34; nothing
 > deleted). Below the current snapshot: the **evergreen reference manual** every session still needs.
+> **Maintenance (AGENTS L-6):** when you add a new ⚡ entry, move entries older than the two
+> most recent into that archive, verbatim — so this file never re-bloats.
 
 ---
 
