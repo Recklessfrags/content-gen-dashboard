@@ -28,9 +28,15 @@ export const TREATMENT = [
 ] as const;
 export type Treatment = (typeof TREATMENT)[number];
 
+// Suggestion hints for the (free-text, open-vocabulary) voice_archetype field.
+// The PIPELINE is the authority on accepted archetypes; this list is a
+// hand-maintained convenience copy and can drift — the durable fix is to
+// generate it from the pipeline's shared vocabulary contract
+// (docs/contracts/vocabularies.json, incoming) instead of editing here.
 export const VOICE_ARCHETYPE_SUGGESTIONS = [
   "drill_instructor",
   "calm_explainer",
+  "warm_storyteller",
   "npr_explainer",
   "hype_announcer",
 ] as const;
