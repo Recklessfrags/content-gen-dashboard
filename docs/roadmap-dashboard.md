@@ -116,6 +116,27 @@ and/or a pipeline dependency. **None are started.** Priority is the operator's t
   posture dials still need the operator's GREEN/YELLOW/RED sign-off, either confirmed up front or flagged "pending operator"),
   **the dashboard creates the rows via Supabase MCP** (WE insert; pipeline reads). Next dashboard session: check HQ for the
   delivered roster and create the rows once the posture dials are signed off.
+- **Roster CREATED (2026-07-09) — ✅.** All four `channel_profiles` rows are live: `dark_history`→Mad Dog (fact_first/standard),
+  `grandma`→Grandma Pearl (operator ruled none/aggressive + a Bible-verse description), `weird_food`→Fine Print (food, from the
+  pipeline food design-brief values — fda_standard_of_identity / calm_explainer / fact_first-conservative), and `default`→Animal
+  channel **de-linked from Fine Print** (operator: Fine Print isn't the animal character; Animal stays character-unfinished).
+  `weird_food` codename matches the `jobs.channel` tag, so food runs resolve by name not fallback. Mad Dog `voice_settings` also
+  set (drill-sergeant register) so `dark_history` is no longer voice-cast-blocked; a re-audition of his (pre-playbook) voice is
+  a later operator/brand call. Ref images for Mad Dog + Grandma trail (pipeline says non-blocking).
+- **⚠️ Channel-vocabulary drift — hardening plan (2026-07-09, agreed with pipeline).** Row *creation* is self-serve (the
+  New-Channel form covers every field, incl. a `fact_anchor` select that already holds the pipeline's values). The real
+  ongoing risk is **value-vocabulary drift**: the dashboard hand-maintains its own copies of the accepted-value lists
+  (`FACT_ANCHOR`, `TREATMENT`, `VOICE_ARCHETYPE_SUGGESTIONS`, `CLAIM_DISCIPLINE`, `AROUSAL_CEILING`, packaging styles) while the
+  **worker is the authority**; nothing enforces sync, and a typo'd/unrecognized value **fails safe silently** (pipeline: a
+  bad `anchor_type` falls back to default FDA prompts → a dark-history channel would quietly research like a food channel with
+  zero error). **Plan:** **(a) now** — added `warm_storyteller` to the archetype suggestions (a live drift example; the field
+  is free-text so it never blocked, but it flags the pattern) + this note. **(b) when we invest in the seam** — pipeline will
+  ship a machine-readable **vocabulary contract** (`docs/contracts/vocabularies.json`, pipeline-authoritative: anchor types /
+  artifact types / voice archetypes / escalation tiers / park kinds) + **loud-drift receipts** (worker receipts an
+  *unrecognized* enum loudly, like `channel_character_mismatch`); the dashboard then **generates its dropdowns from that
+  contract** (not hand-copies) and the `pg_jsonschema` CHECKs (seam hardening below) reference the same lists — so the CHECK
+  isn't a third hand-copy. **Bonus alignment:** the loud-drift receipts surface automatically in the **Runs hub** per-worker
+  log we shipped 2026-07-06. Dashboard action is gated on pipeline shipping the contract file.
 
 ## Cross-contract items (touch the shared seam — coordinate before building)
 
