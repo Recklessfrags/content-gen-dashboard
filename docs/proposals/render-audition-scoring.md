@@ -49,6 +49,12 @@ Both sides score **identical axes on identical beats** — the calibration preco
 - **Axes:** the six pipeline `DIMS` — `script, vo_delivery, beat_pacing, visual_relevance,
   editing, rendering` — **plus `hook`** as a distinct first-3s axis (matches retention research;
   the pipeline already scores `hook:{first_3s_grade}` separately). Identical rubric both sides.
+- **Engagement axis (distinct, whole-video — problem-solver #139 gate-review, owner-approved):**
+  add **`engagement` / "earns-the-watch"** as its own axis, NOT folded into hook or pacing. Rationale:
+  hook is only the *opening*; ~55% skip before the end; and the research (Track C) shows the four
+  craft dims are *unproven* performance predictors — so we need one axis that is explicitly about
+  *performance* ("worth watching to the end / would you post it"), not craft. Whole-video scope
+  (not per-beat). Reconciled into both rubrics.
 - **Anchors (GAP, owner ratifies):** the judge scores 0–10 with only "default to critical" as
   calibration — no per-dimension definition of 0 vs 5 vs 10. @pipeline drafts a 0/3/7/10 anchor
   strawman → dashboard reconciles → **owner ratifies** as standing precedent. Gated behind
@@ -60,6 +66,12 @@ Both sides score **identical axes on identical beats** — the calibration preco
 - **Advisory-only, always, until calibrated:** the machine judge never auto-gates until an
   on-our-renders study clears the human-likeness bar (r ≥ 0.80 + |z|<1 vs the owner's own
   test-retest). Every threshold in the literature is text-domain; a vision/video judge is unproven.
+- **Calibration has a real owner-time cost (problem-solver #139 gate-review — surface it, don't
+  hide it):** the two-step trust test requires the owner to score a batch of *gate-passing* renders
+  **twice** (test-retest) to establish his own per-dimension baseline *before* the judge can be
+  trusted on that dimension. This is a deliberate scoring study, not free. Minimum N is unresolved —
+  set empirically from where owner↔owner self-agreement stabilizes. Owner attention is spent only on
+  gate-passing renders (ADR-003: spent last and least), never on the pre-gate tier.
 - **Sequencing:** `source=owner` capture lands first (advisory). The pipeline **machine-score
   emission** is quality-wave: `render_qa_video.py` is an out-of-band CLI today (prints JSON, nothing
   persisted, nothing in `src/` imports it) — store `source=owner` rows now, `source=machine` when
