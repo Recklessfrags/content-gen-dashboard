@@ -1,4 +1,5 @@
 import React, { useRef } from "react";
+import { isSafeHttpUrl, type FactClaim } from "@/lib/factClaims";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import { useScrollLock } from "@/lib/hooks/useScrollLock";
 import type { QueueJob } from "./shared";
@@ -10,6 +11,9 @@ type QueueActionDialogProps = {
   onCancel: () => void;
   onConfirm: () => void;
   restoreFocusRef: React.RefObject<HTMLElement | null>;
+  factClaims?: FactClaim[] | null;
+  factClaimsLoading?: boolean;
+  factClaimsError?: string | null;
 };
 
 export function QueueActionDialog({
@@ -19,6 +23,9 @@ export function QueueActionDialog({
   onCancel,
   onConfirm,
   restoreFocusRef,
+  factClaims,
+  factClaimsLoading = false,
+  factClaimsError = null,
 }: QueueActionDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -101,6 +108,13 @@ export function QueueActionDialog({
             <span className="spend-approval-topic">&quot;{job.food}&quot;</span>.
           </p>
         )}
+        {isFact ? (
+          <FactClaimsReviewSection
+            claims={factClaims}
+            loading={factClaimsLoading}
+            error={factClaimsError}
+          />
+        ) : null}
         <div className="restore-actions">
           <button
             className="btn ghost"
@@ -131,5 +145,61 @@ export function QueueActionDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+export function FactClaimsReviewSection({
+  claims,
+  loading = false,
+  error = null,
+}: {
+  claims?: FactClaim[] | null;
+  loading?: boolean;
+  error?: string | null;
+}) {
+  if (!loading && !error && (!claims || claims.length === 0)) {
+    return null;
+  }
+
+  return (
+    <section className="queue-fact-claims" aria-labelledby="queue-fact-claims-title">
+      <h3 id="queue-fact-claims-title">Claims flagged for your review</h3>
+      {loading ? (
+        <div className="queue-fact-claims-loading" role="status">
+          <span className="queue-fact-spinner" aria-hidden="true" />
+          Loading claims…
+        </div>
+      ) : error ? (
+        <p className="queue-fact-claims-error" role="alert">
+          Couldn&apos;t load claim details: {error}
+        </p>
+      ) : (
+        claims?.map((claim) => (
+          <article className="queue-fact-claim" key={claim.id}>
+            <div className="queue-fact-claim-header">
+              <p className="queue-fact-claim-text">{claim.claim}</p>
+              {claim.regulated ? <span className="badge badge-warn">regulated</span> : null}
+            </div>
+            <p className="queue-fact-grounding">
+              <span>Grounding: </span>
+              {claim.source.citation || "No citation provided"}
+              {isSafeHttpUrl(claim.source.url) ? (
+                <>
+                  {" "}
+                  <a href={claim.source.url ?? undefined} target="_blank" rel="noopener noreferrer">
+                    Source
+                  </a>
+                </>
+              ) : null}
+            </p>
+            <div className="fact-claim-safe">
+              <span>Safe phrasing</span>
+              <p>{claim.safePhrasing || "No safe phrasing provided."}</p>
+            </div>
+            {claim.reason ? <p className="queue-fact-reason">{claim.reason}</p> : null}
+          </article>
+        ))
+      )}
+    </section>
   );
 }
