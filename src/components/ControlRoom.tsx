@@ -57,6 +57,7 @@ import type {
 } from "./aurora/CharactersHub";
 import { IdeasHub } from "./aurora/IdeasHub";
 import type { IdeasHubProps } from "./aurora/IdeasHub";
+import { ReviewHub } from "./aurora/ReviewHub";
 import { RunsHub } from "./aurora/RunsHub";
 import type {
   ReliabilityResult,
@@ -66,6 +67,7 @@ import type {
 } from "./aurora/RunsHub";
 import { RunCostEstimate } from "./aurora/RunCostEstimate";
 import { computeWorkerReliability } from "@/lib/workerReliability";
+import { MOCK_REVIEW_FIXTURES } from "@/lib/renderReview";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
@@ -746,6 +748,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const active = chars.find((c) => c.id === activeId) ?? null;
   const activeIsDraft = isDraftCharacterId(active?.id);
+  const castingDisabledHelpId = activeIsDraft ? "character-casting-disabled-help" : undefined;
   const previewingRevision =
     revisions.find((revision) => revision.id === previewingRevisionId) ?? null;
   const displayedActive =
@@ -1999,6 +2002,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       onOpenCharacters: handleCharactersHubNav,
       onOpenIdeas: () => navigate({ kind: "hub", hub: "ideas" }),
       onOpenRuns: () => navigate({ kind: "hub", hub: "runs" }),
+      onOpenReview: () => navigate({ kind: "hub", hub: "review" }),
       onRetry: () => void refetchChannelProfiles(),
     },
     glance: {
@@ -2274,7 +2278,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 <Field
                   id={fieldControlId(activeId, "offlimits")}
                   label="Off-limits"
-                  hint="Hard rules — what they never say (keeps you monetizable & on-brand)"
+                  hint="What this character never says."
                   value={displayedActive.offlimits}
                   onChange={(v) => set("offlimits", v)}
                   rows={3}
@@ -2286,11 +2290,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             <Field
               id={fieldControlId(activeId, "lines")}
               label="Gold-standard lines"
-              hint="2–4 example lines — the writer imitates these more than any instruction"
+              hint="Add 2–4 lines for the writer to emulate."
               value={displayedActive.lines}
               onChange={(v) => set("lines", v)}
               rows={5}
-              mono
               readOnly={Boolean(previewingRevision)}
               locked={Boolean(previewingRevision)}
             />
@@ -2370,6 +2373,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 onClick={() => setCastingOpen(true)}
                 aria-haspopup="dialog"
                 aria-expanded={castingOpen}
+                aria-describedby={castingDisabledHelpId}
                 disabled={activeIsDraft}
               >
                 {isCast(active) ? "🎙 Casting studio" : "🎙 Cast a voice"}
@@ -2383,10 +2387,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 onClick={() => setVisualCastingOpen(true)}
                 aria-haspopup="dialog"
                 aria-expanded={visualCastingOpen}
+                aria-describedby={castingDisabledHelpId}
                 disabled={activeIsDraft}
               >
                 {isVisuallyCast(active) ? "Recast visual" : "Cast visual"}
               </button>
+              {activeIsDraft && (
+                <p id="character-casting-disabled-help" className="savebar-helper">
+                  Save this character before casting a voice or visual.
+                </p>
+              )}
               <button
                 className="btn ghost"
                 type="button"
@@ -2649,6 +2659,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         {globalOverlays}
         <AuroraShell operatorInitials={operatorInitials}>
           <RunsHub {...runsHubProps} />
+        </AuroraShell>
+      </>
+    );
+  }
+
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "review") {
+    return (
+      <>
+        {globalOverlays}
+        <AuroraShell operatorInitials={operatorInitials}>
+          <ReviewHub
+            fixtures={MOCK_REVIEW_FIXTURES}
+            onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+          />
         </AuroraShell>
       </>
     );

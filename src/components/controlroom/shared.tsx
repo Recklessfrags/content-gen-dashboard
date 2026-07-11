@@ -190,19 +190,22 @@ export function Field({
   locked?: boolean;
 }) {
   const controlStyle = mono ? { fontFamily: "var(--mono)", fontSize: "12.5px" } : undefined;
+  const hintId = hint ? `${id}-hint` : undefined;
 
   return (
     <div className="field">
       <label htmlFor={id}>
         <span className="eyebrow">{label}</span>
-        <span className="field-label-side">
-          {locked && <span className="badge lock-badge">LOCKED - PREVIEW</span>}
-          {hint && <span className="hint">{hint}</span>}
-        </span>
+        {locked && (
+          <span className="field-label-side">
+            <span className="badge lock-badge">LOCKED - PREVIEW</span>
+          </span>
+        )}
       </label>
       {multiline ? (
         <textarea
           id={id}
+          aria-describedby={hintId}
           rows={rows}
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -213,6 +216,7 @@ export function Field({
       ) : (
         <input
           id={id}
+          aria-describedby={hintId}
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -220,6 +224,11 @@ export function Field({
           aria-readonly={readOnly}
           style={controlStyle}
         />
+      )}
+      {hint && (
+        <p id={hintId} className="hint field-helper">
+          {hint}
+        </p>
       )}
     </div>
   );

@@ -202,6 +202,19 @@
 .aurora-app .text-body { font-weight: 400; }
 .aurora-app .text-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
+.aurora-app .hint,
+.aurora-app .helper,
+.aurora-app .field-helper,
+.aurora-app .recommendation,
+.aurora-app .persona-recommendation,
+.aurora-app .persona-recommendation p,
+.aurora-app .field-label-side {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
 .aurora-app .dim { color: var(--text-dim); }
 .aurora-app .accent { color: var(--accent); }
 .aurora-app .danger { color: var(--danger-fg); }
@@ -1392,6 +1405,37 @@
   color: var(--text-dim);
 }
 
+.aurora-app .channel-profiles.scoped .persona-recommendation {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  padding: 0.85rem 1rem;
+  margin: 0 0 1.25rem;
+}
+
+.aurora-app .channel-profiles.scoped .persona-recommendation > strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text-main);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.aurora-app .channel-profiles.scoped .persona-recommendation p {
+  margin: 0.45rem 0 0;
+}
+
+.aurora-app .channel-profiles.scoped .persona-recommendation details {
+  margin-top: 0.55rem;
+}
+
+.aurora-app .channel-profiles.scoped .persona-recommendation summary {
+  cursor: pointer;
+  color: var(--text-main);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
 .aurora-app .channel-profiles.scoped .dials-inert {
   background: var(--surface-1);
   border: 1px solid var(--border-soft);
@@ -1581,6 +1625,15 @@
 .aurora-app .characters-bench.scoped .savebar .btn.ghost:hover:not(:disabled) {
   border-color: var(--border-glow);
   color: var(--accent);
+}
+
+.aurora-app .characters-bench.scoped .savebar-helper {
+  width: 100%;
+  margin: -0.15rem 0 0;
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.45;
 }
 
 .aurora-app .characters-bench.scoped .savebar .btn.dark {
@@ -3343,6 +3396,216 @@
   margin-top: 0.5rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border-soft);
+}
+
+/* ==========================================================================
+   REVIEW HUB (slice #3 mock-only scoring capture)
+   Local-state led questionnaire against synthetic render fixtures.
+   ========================================================================== */
+.aurora-app .review-hub.scoped {
+  margin-top: 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.aurora-app .review-hub__title {
+  font-size: 2rem;
+}
+
+.aurora-app .review-hub__mock-banner {
+  padding: 1rem 1.25rem;
+  border-left: 3px solid var(--warn);
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.aurora-app .review-hub__fixtures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.aurora-app .review-hub__fixture-card,
+.aurora-app .review-hub__fixture-panel,
+.aurora-app .review-hub__question-card,
+.aurora-app .review-hub__summary {
+  padding: 1.25rem;
+}
+
+.aurora-app .review-hub__fixture-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.aurora-app .review-hub__fixture-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1 1 auto;
+}
+
+.aurora-app .review-hub__video-placeholder {
+  min-height: 12rem;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.aurora-app .review-hub__score-layout {
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 1.2fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.aurora-app .review-hub__fixture-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.aurora-app .review-hub__question-card,
+.aurora-app .review-hub__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.aurora-app .review-hub__progress {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 0.875rem;
+}
+
+.aurora-app .review-hub__question {
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.aurora-app .review-hub__options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.aurora-app .review-hub__option {
+  min-height: 5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.aurora-app .review-hub__option:hover {
+  border-color: var(--border-strong);
+}
+
+.aurora-app .review-hub__option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.aurora-app .review-hub__option.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #05050A;
+  font-weight: 700;
+}
+
+.aurora-app[data-theme="light"] .review-hub__option.is-selected {
+  color: #FFFFFF;
+}
+
+.aurora-app .review-hub__why {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.aurora-app .review-hub__why textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+}
+
+.aurora-app .review-hub__why textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.aurora-app .review-hub__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.aurora-app .review-hub__summary-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.aurora-app .review-hub__summary-row {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.aurora-app .review-hub__summary-row h4 {
+  margin: 0.25rem 0;
+}
+
+@media (max-width: 900px) {
+  .aurora-app .review-hub__fixtures,
+  .aurora-app .review-hub__score-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .aurora-app .review-hub__options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .aurora-app .review-hub__question {
+    font-size: 1.5rem;
+  }
+
+  .aurora-app .review-hub__options {
+    grid-template-columns: 1fr;
+  }
 }
 
 .aurora-app .run-card__error {
