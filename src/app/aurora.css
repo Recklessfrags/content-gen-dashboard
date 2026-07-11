@@ -3336,6 +3336,14 @@
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
+.aurora-app .runs-hub__filters.runs-hub__filter--channel {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.aurora-app .runs-hub__filter--channel .runs-hub__filter {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 .aurora-app .runs-hub__filter {
   font-family: var(--font-sans);
   font-size: 0.8125rem;
