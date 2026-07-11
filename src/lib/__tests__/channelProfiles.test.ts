@@ -4,6 +4,8 @@ import {
   defaultChannelProfile,
   joinListInput,
   parseEngagementPosture,
+  parseResearchProfile,
+  parseSourcing,
   splitListInput,
   validateChannelProfile,
   type ChannelProfileUpsertInput,
@@ -59,6 +61,84 @@ describe("parseEngagementPosture", () => {
       claim_discipline: "fact_first",
       arousal_ceiling: "conservative",
     });
+  });
+});
+
+describe("parseResearchProfile", () => {
+  const defaults = {
+    anchor_type: "fda_standard_of_identity",
+    source_hierarchy: [],
+    thesis: null,
+  };
+
+  it("round-trips a full valid object", () => {
+    expect(
+      parseResearchProfile({
+        anchor_type: "scripture",
+        source_hierarchy: [" primary ", 12, "secondary"],
+        thesis: "Receipts before rhetoric",
+      }),
+    ).toEqual({
+      anchor_type: "scripture",
+      source_hierarchy: ["primary", "secondary"],
+      thesis: "Receipts before rhetoric",
+    });
+  });
+
+  it("defaults unknown or absent anchor_type fail-closed", () => {
+    expect(parseResearchProfile({ anchor_type: "rumor" }).anchor_type).toBe(
+      "fda_standard_of_identity",
+    );
+    expect(parseResearchProfile({}).anchor_type).toBe(
+      "fda_standard_of_identity",
+    );
+  });
+
+  it("defaults missing source_hierarchy and thesis", () => {
+    expect(parseResearchProfile({ anchor_type: "none" })).toEqual({
+      anchor_type: "none",
+      source_hierarchy: [],
+      thesis: null,
+    });
+  });
+
+  it("defaults null, array, and string inputs", () => {
+    expect(parseResearchProfile(null)).toEqual(defaults);
+    expect(parseResearchProfile(["bad"])).toEqual(defaults);
+    expect(parseResearchProfile("bad")).toEqual(defaults);
+  });
+});
+
+describe("parseSourcing", () => {
+  const defaults = {
+    artifact_types: [],
+    stock_vision_gate: false,
+    max_generated_clips: null,
+    generation_budget_usd: null,
+  };
+
+  it("returns a valid object with all keys", () => {
+    expect(
+      parseSourcing({
+        artifact_types: [" stock ", 4, "generated"],
+        stock_vision_gate: true,
+        max_generated_clips: 3,
+        generation_budget_usd: 12.5,
+      }),
+    ).toEqual({
+      artifact_types: ["stock", "generated"],
+      stock_vision_gate: true,
+      max_generated_clips: 3,
+      generation_budget_usd: 12.5,
+    });
+  });
+
+  it("defaults missing keys", () => {
+    expect(parseSourcing({})).toEqual(defaults);
+  });
+
+  it("defaults null input", () => {
+    expect(parseSourcing(null)).toEqual(defaults);
   });
 });
 
@@ -205,5 +285,27 @@ describe("buildChannelProfileUpsert", () => {
         profileInput({ channel: "", fact_anchor: "bad" }),
       ),
     ).toThrow("channel is required; fact_anchor is invalid");
+  });
+
+  it("never emits research_profile/sourcing (preserve-on-update safety)", () => {
+    const result = buildChannelProfileUpsert({
+      ...profileInput(),
+      research_profile: {
+        anchor_type: "scripture",
+        source_hierarchy: ["primary"],
+        thesis: "pipeline-owned",
+      },
+      sourcing: {
+        artifact_types: ["stock"],
+        stock_vision_gate: true,
+        max_generated_clips: 2,
+        generation_budget_usd: 9,
+      },
+    });
+
+    expect(
+      Object.prototype.hasOwnProperty.call(result, "research_profile"),
+    ).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(result, "sourcing")).toBe(false);
   });
 });

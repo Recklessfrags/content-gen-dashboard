@@ -128,7 +128,9 @@ export type Database = {
           length_target: Json
           packaging: Json
           platforms: Json
+          research_profile: Json | null
           source_ladder: Json
+          sourcing: Json | null
           treatment: string
           updated_at: string
           voice_archetype: string | null
@@ -145,7 +147,9 @@ export type Database = {
           length_target?: Json
           packaging?: Json
           platforms?: Json
+          research_profile?: Json | null
           source_ladder?: Json
+          sourcing?: Json | null
           treatment?: string
           updated_at?: string
           voice_archetype?: string | null
@@ -162,7 +166,9 @@ export type Database = {
           length_target?: Json
           packaging?: Json
           platforms?: Json
+          research_profile?: Json | null
           source_ladder?: Json
+          sourcing?: Json | null
           treatment?: string
           updated_at?: string
           voice_archetype?: string | null

@@ -33,6 +33,7 @@ import {
   resolveParkKind,
   type JobEnqueueInput,
 } from "@/lib/jobs";
+import { parseBelowFloorCuts } from "@/lib/parkReason";
 import { isCast } from "@/lib/casting";
 import { isVisuallyCast, signedRefImageUrl } from "@/lib/castingVisual";
 import { createClient } from "@/lib/supabase/client";
@@ -1854,10 +1855,27 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }));
     return { reliability: computeWorkerReliability(raw), error: null, windowDays };
   }, [supabase]);
+  const episodeParkReasonById = useMemo(
+    () =>
+      new Map(
+        episodes.map((episode) => [
+          episode.episode_id,
+          {
+            finalStage: episode.final_stage ?? null,
+            message: episode.message ?? null,
+          },
+        ]),
+      ),
+    [episodes],
+  );
   const runsHubCards = useMemo<RunCardVM[]>(
     () =>
       jobs.map((job) => {
         const status = classifyJobStatus(job.status);
+        const isParked = status === "ready_for_review" || (status === "error" && job.park_kind != null);
+        const episodeParkReason = job.episode_id
+          ? (episodeParkReasonById.get(job.episode_id) ?? null)
+          : null;
         return {
           id: String(job.id),
           episodeId: job.episode_id ?? null,
@@ -1870,9 +1888,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           error: job.error ?? null,
           needsAttention:
             status === "error" || status === "stale" || status === "ready_for_review",
+          parkKind: isParked ? resolveParkKind(job.park_kind, null) : null,
+          parkKindColumn: isParked ? (job.park_kind ?? null) : null,
+          finalStage: isParked ? (episodeParkReason?.finalStage ?? null) : null,
+          parkReason: isParked ? (episodeParkReason?.message ?? null) : null,
+          belowFloorCuts: isParked
+            ? parseBelowFloorCuts(episodeParkReason?.message ?? null)
+            : [],
         };
       }),
-    [jobs],
+    [episodeParkReasonById, jobs],
   );
   const runsHubProps = useMemo<RunsHubProps>(
     () => ({

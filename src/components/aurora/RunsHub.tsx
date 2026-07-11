@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JobStatus } from "@/lib/jobs";
+import { parkKindLabel, type ParkKind } from "@/lib/parkReason";
 import type { WorkerReliability } from "@/lib/workerReliability";
 
 export type RunCardVM = {
@@ -15,6 +16,11 @@ export type RunCardVM = {
   spend: number | null;
   error: string | null;
   needsAttention: boolean;
+  parkKind?: ParkKind | null;
+  parkKindColumn?: string | null;
+  finalStage?: string | null;
+  parkReason?: string | null;
+  belowFloorCuts?: string[];
 };
 
 export type RunReceiptRow = {
@@ -301,6 +307,9 @@ function RunCard({
   const bodyId = `run-diagnostics-${card.id}`;
 
   const canDiagnose = card.episodeId !== null;
+  const parkKind = card.parkKind ?? null;
+  const showParkReason = parkKind !== null;
+  const belowFloorCuts = card.belowFloorCuts ?? [];
 
   const runDiagnostics = useCallback(async () => {
     if (card.episodeId === null || inFlightRef.current) return;
@@ -340,6 +349,30 @@ function RunCard({
         <div className="run-card__error" role="note">
           <span className="run-card__error-label">Run error</span>
           <p>{card.error}</p>
+        </div>
+      ) : null}
+
+      {showParkReason ? (
+        <div className="run-card__park">
+          <div className="run-card__park-head">
+            <span className="run-card__park-title">Why it parked</span>
+            <span className="status-chip run-card__park-kind">
+              {parkKindLabel(parkKind, card.parkKindColumn)}
+            </span>
+          </div>
+          {card.finalStage ? (
+            <p className="dim run-card__park-stage">stopped at · {card.finalStage}</p>
+          ) : null}
+          {belowFloorCuts.length > 0 ? (
+            <div className="run-card__park-cuts" role="group" aria-label="Below-floor cuts">
+              {belowFloorCuts.map((cut) => (
+                <span key={cut} className="run-card__park-cut">
+                  {cut}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {card.parkReason ? <p className="dim run-card__park-reason">{card.parkReason}</p> : null}
         </div>
       ) : null}
 

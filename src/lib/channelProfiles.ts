@@ -20,6 +20,14 @@ export const FACT_ANCHOR = [
 ] as const;
 export type FactAnchor = (typeof FACT_ANCHOR)[number];
 
+export const RESEARCH_ANCHOR_TYPE = [
+  "fda_standard_of_identity",
+  "declassified_primary_doc",
+  "scripture",
+  "none",
+] as const;
+export type ResearchAnchorType = (typeof RESEARCH_ANCHOR_TYPE)[number];
+
 export const TREATMENT = [
   "archival_documentary",
   "motion_graphic",
@@ -55,6 +63,19 @@ export type Packaging = {
 
 export type LengthTarget = {
   short_s?: number;
+};
+
+export type ResearchProfile = {
+  anchor_type: ResearchAnchorType;
+  source_hierarchy: string[];
+  thesis: string | null;
+};
+
+export type Sourcing = {
+  artifact_types: string[];
+  stock_vision_gate: boolean;
+  max_generated_clips: number | null;
+  generation_budget_usd: number | null;
 };
 
 export const DEFAULT_ENGAGEMENT_POSTURE: EngagementPosture = {
@@ -132,6 +153,58 @@ export function parseSourceLadder(json: Json): string[] {
 
 export function parsePlatforms(json: Json): string[] {
   return parseStringArray(json);
+}
+
+export function parseResearchProfile(json: Json): ResearchProfile {
+  if (!isJsonRecord(json)) {
+    return {
+      anchor_type: "fda_standard_of_identity",
+      source_hierarchy: [],
+      thesis: null,
+    };
+  }
+
+  const anchorType = stringField(json, "anchor_type");
+  const thesis = stringField(json, "thesis") ?? null;
+
+  return {
+    anchor_type: isCatalogValue(anchorType, RESEARCH_ANCHOR_TYPE)
+      ? anchorType
+      : "fda_standard_of_identity",
+    source_hierarchy: parseStringArray(json.source_hierarchy ?? []),
+    thesis,
+  };
+}
+
+export function parseSourcing(json: Json): Sourcing {
+  if (!isJsonRecord(json)) {
+    return {
+      artifact_types: [],
+      stock_vision_gate: false,
+      max_generated_clips: null,
+      generation_budget_usd: null,
+    };
+  }
+
+  const maxGeneratedClips = json.max_generated_clips;
+  const generationBudgetUsd = json.generation_budget_usd;
+
+  return {
+    artifact_types: parseStringArray(json.artifact_types ?? []),
+    stock_vision_gate:
+      typeof json.stock_vision_gate === "boolean"
+        ? json.stock_vision_gate
+        : false,
+    max_generated_clips:
+      typeof maxGeneratedClips === "number" && Number.isFinite(maxGeneratedClips)
+        ? maxGeneratedClips
+        : null,
+    generation_budget_usd:
+      typeof generationBudgetUsd === "number" &&
+      Number.isFinite(generationBudgetUsd)
+        ? generationBudgetUsd
+        : null,
+  };
 }
 
 export function parsePackaging(json: Json): Packaging {
@@ -232,6 +305,9 @@ export function validateChannelProfile(
   return errors;
 }
 
+// research_profile and sourcing are pipeline-owned; the dashboard intentionally
+// omits them from the upsert so an on-conflict update never clobbers them. A UI
+// to edit them is a future, separately-gated build.
 export function buildChannelProfileUpsert(
   input: ChannelProfileUpsertInput,
 ): TablesInsert<"channel_profiles"> {
