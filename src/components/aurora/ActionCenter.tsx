@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { FactClaim } from "@/lib/factClaims";
+import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
 import type { QueueJob } from "../controlroom/shared";
 
 type QueueAction = "fact" | "spend" | "publish" | "stale";
@@ -23,6 +25,9 @@ type ActionCenterProps = {
   canPublish: (job: QueueJob) => boolean;
   onBack: () => void;
   statusLabel: (job: QueueJob) => string;
+  factClaims?: FactClaim[] | null;
+  factClaimsLoading?: boolean;
+  factClaimsError?: string | null;
 };
 
 export function ActionCenter({
@@ -36,6 +41,9 @@ export function ActionCenter({
   canPublish,
   onBack,
   statusLabel,
+  factClaims,
+  factClaimsLoading = false,
+  factClaimsError = null,
 }: ActionCenterProps) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const previousPendingRef = useRef<typeof pending>(pending);
@@ -118,6 +126,9 @@ export function ActionCenter({
                     submitting={submitting}
                     onCancel={onCancel}
                     onConfirm={onConfirm}
+                    factClaims={factClaims}
+                    factClaimsLoading={factClaimsLoading}
+                    factClaimsError={factClaimsError}
                   />
                 ) : null}
               </article>
@@ -214,12 +225,18 @@ function InlineConfirm({
   submitting,
   onCancel,
   onConfirm,
+  factClaims,
+  factClaimsLoading = false,
+  factClaimsError = null,
 }: {
   job: QueueJob;
   action: QueueAction;
   submitting: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  factClaims?: FactClaim[] | null;
+  factClaimsLoading?: boolean;
+  factClaimsError?: string | null;
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const isFact = action === "fact";
@@ -258,6 +275,11 @@ function InlineConfirm({
           ) : (
             <p>The run may still pause later for spend approval.</p>
           )}
+          <FactClaimsReviewSection
+            claims={factClaims}
+            loading={factClaimsLoading}
+            error={factClaimsError}
+          />
         </div>
       ) : isSpend ? (
         <p className="au-inline-confirm-copy">

@@ -34,6 +34,7 @@ import {
   type JobEnqueueInput,
 } from "@/lib/jobs";
 import { parseBelowFloorCuts } from "@/lib/parkReason";
+import { parseFactClaims, type FactClaim } from "@/lib/factClaims";
 import { isCast } from "@/lib/casting";
 import { isVisuallyCast, signedRefImageUrl } from "@/lib/castingVisual";
 import { createClient } from "@/lib/supabase/client";
@@ -159,6 +160,7 @@ const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
 
 type QueueFilter = "all" | "review" | "errors" | "running" | "done";
 type RunsFilter = "all" | "success" | "running" | "failed";
+type FactClaimsResult = { claims: FactClaim[]; error: string | null };
 
 const QUEUE_FILTERS: ReadonlyArray<{ key: QueueFilter; label: string }> = [
   { key: "all", label: "All" },
@@ -551,6 +553,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     action: "fact" | "spend" | "publish" | "stale";
   } | null>(null);
   const [queueActionSubmitting, setQueueActionSubmitting] = useState(false);
+  const [factClaimsState, setFactClaimsState] = useState<{
+    claims: FactClaim[] | null;
+    loading: boolean;
+    error: string | null;
+  }>({ claims: null, loading: false, error: null });
   useEffect(() => {
     setPendingQueueAction(null);
     // Close the Aurora "New channel" surface whenever we leave the Channels hub,
@@ -1830,6 +1837,61 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     },
     [supabase],
   );
+  const loadFactClaims = useCallback(
+    async (episodeId: string): Promise<FactClaimsResult> => {
+      const { data, error } = await supabase
+        .from("receipts")
+        .select("result, evidence")
+        .eq("episode_id", episodeId)
+        .eq("stage", "fact_check")
+        .order("seq", { ascending: false })
+        .limit(1)
+        .returns<Array<Pick<Receipt, "result" | "evidence">>>();
+
+      if (error) return { claims: [], error: error.message };
+
+      const row = data?.[0];
+      if (!row) return { claims: [], error: null };
+
+      return {
+        claims: parseFactClaims(row.result, row.evidence),
+        error: null,
+      };
+    },
+    [supabase],
+  );
+  useEffect(() => {
+    if (pendingQueueAction?.action !== "fact") {
+      setFactClaimsState({ claims: null, loading: false, error: null });
+      return;
+    }
+
+    const episodeId = pendingQueueAction.job.episode_id;
+    if (!episodeId) {
+      setFactClaimsState({
+        claims: [],
+        loading: false,
+        error: "This job has no source episode yet.",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setFactClaimsState({ claims: null, loading: true, error: null });
+    void loadFactClaims(episodeId).then((result) => {
+      if (!cancelled) {
+        setFactClaimsState({
+          claims: result.claims,
+          loading: false,
+          error: result.error,
+        });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadFactClaims, pendingQueueAction?.action, pendingQueueAction?.job.episode_id]);
   const loadWorkerReliability = useCallback(async (): Promise<ReliabilityResult> => {
     // Bound the telemetry scan: a rolling window (episodes complete in minutes, so
     // the window keeps each episode's receipts intact for the spend diff) + an
@@ -2500,6 +2562,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             canPublish={(job) => publishSourceEpisodeId(job) !== null}
             onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
             statusLabel={(job) => JOB_STATUS_LABELS[classifyJobStatus(job.status)]}
+            factClaims={factClaimsState.claims}
+            factClaimsLoading={factClaimsState.loading}
+            factClaimsError={factClaimsState.error}
           />
         </AuroraShell>
       </>
@@ -4054,6 +4119,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             void confirmQueueAction();
           }}
           restoreFocusRef={queueActionRestoreFocusRef}
+          factClaims={factClaimsState.claims}
+          factClaimsLoading={factClaimsState.loading}
+          factClaimsError={factClaimsState.error}
         />
       )}
     </div>
