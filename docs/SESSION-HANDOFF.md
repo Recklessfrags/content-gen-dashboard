@@ -354,6 +354,23 @@ are in the pipeline's FOOD brief (§2 of their page), create when the operator w
 - **Tier-3 ROI table** — furthest out (needs publishing + analytics ingestion).
 - **CI checks are not merge-blocking** — unchanged.
 
+### H. Deferred OWNER decisions — food-channel thesis (operator: "leave for now, note for later," 2026-07-11)
+The `weird_food` `channel_profiles` row now **EXISTS and resolves live** (created 2026-07-09;
+`research_profile.thesis` set; supersedes the "create the row" note in §4.E/§4.F.4). Two owner
+calls are parked — **do NOT raise them until their trigger fires** (owner explicitly deferred):
+1. **Thesis WORDING reconcile.** The live thesis reads softer than the owner's ratified framing —
+   it opens *"One legal name, very different foods… difference, not deception; the regulation is the
+   proof, never an accusation,"* whereas the owner's framing is more exposé: *"natural vs. engineered
+   — how they engineer food to legally pass as the real thing, and how to spot it."* Editorial
+   preference, owner-owned. **Trigger:** when the pipeline's researcher **extraction-retarget**
+   (quality-wave) is being worked, or the first gate-passing food render is up for the owner's eye —
+   whichever first. Until then the wording change has no effect (researcher only shifts tone today).
+2. **Per-episode FORMULA as a pipeline-read field.** Whether *"real → engineered + tricks → cost/
+   shelf-life motive → legal loophole → how to spot it"* should live in its own structured field the
+   researcher is forced to follow (vs. only implied by the thesis string). This is a **@pipeline
+   design question** first (new `research_profile` sub-key vs. fold into thesis), then owner ratifies.
+   **Trigger:** raise with @pipeline when the researcher-retarget lands; gated behind render-completion.
+
 ---
 
 ## 5. Decisions already locked (don't reopen without new info)
