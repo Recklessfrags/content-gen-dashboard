@@ -57,6 +57,7 @@ import type {
 } from "./aurora/CharactersHub";
 import { IdeasHub } from "./aurora/IdeasHub";
 import type { IdeasHubProps } from "./aurora/IdeasHub";
+import { ReviewHub } from "./aurora/ReviewHub";
 import { RunsHub } from "./aurora/RunsHub";
 import type {
   ReliabilityResult,
@@ -66,6 +67,7 @@ import type {
 } from "./aurora/RunsHub";
 import { RunCostEstimate } from "./aurora/RunCostEstimate";
 import { computeWorkerReliability } from "@/lib/workerReliability";
+import { MOCK_REVIEW_FIXTURES } from "@/lib/renderReview";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
@@ -1999,6 +2001,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       onOpenCharacters: handleCharactersHubNav,
       onOpenIdeas: () => navigate({ kind: "hub", hub: "ideas" }),
       onOpenRuns: () => navigate({ kind: "hub", hub: "runs" }),
+      onOpenReview: () => navigate({ kind: "hub", hub: "review" }),
       onRetry: () => void refetchChannelProfiles(),
     },
     glance: {
@@ -2649,6 +2652,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         {globalOverlays}
         <AuroraShell operatorInitials={operatorInitials}>
           <RunsHub {...runsHubProps} />
+        </AuroraShell>
+      </>
+    );
+  }
+
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "review") {
+    return (
+      <>
+        {globalOverlays}
+        <AuroraShell operatorInitials={operatorInitials}>
+          <ReviewHub
+            fixtures={MOCK_REVIEW_FIXTURES}
+            onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+          />
         </AuroraShell>
       </>
     );

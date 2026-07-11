@@ -21,6 +21,7 @@ export type ChannelsHubProps = {
   onOpenCharacters?: () => void;
   onOpenIdeas?: () => void;
   onOpenRuns?: () => void;
+  onOpenReview?: () => void;
   onRetry?: () => void;
 };
 
@@ -49,6 +50,7 @@ export function ChannelsHub({
   onOpenCharacters,
   onOpenIdeas,
   onOpenRuns,
+  onOpenReview,
   onRetry,
 }: ChannelsHubProps) {
   const showEmpty = !loading && error === null && cards.length === 0;
@@ -79,6 +81,11 @@ export function ChannelsHub({
           {onOpenRuns ? (
             <button type="button" className="btn-secondary" onClick={onOpenRuns}>
               Runs {"\u2192"}
+            </button>
+          ) : null}
+          {onOpenReview ? (
+            <button type="button" className="btn-secondary" onClick={onOpenReview}>
+              Review {"\u2192"}
             </button>
           ) : null}
           <button

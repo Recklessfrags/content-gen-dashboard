@@ -48,6 +48,10 @@ describe("parseScope", () => {
       scope: { kind: "hub", hub: "runs" },
       canonicalize: false,
     });
+    expect(parseScope("?hub=review")).toEqual({
+      scope: { kind: "hub", hub: "review" },
+      canonicalize: false,
+    });
     expect(parseScope("?hub=bogus")).toEqual({ scope: defaultHubScope, canonicalize: true });
   });
 
@@ -100,6 +104,7 @@ describe("scope serialization", () => {
   it("is idempotent for canonical hub and workspace scopes", () => {
     const scopes: AppScope[] = [
       { kind: "hub", hub: "overview" },
+      { kind: "hub", hub: "review" },
       { kind: "workspace", channel: "weird_food", tab: "character" },
     ];
 
