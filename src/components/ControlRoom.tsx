@@ -748,6 +748,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const active = chars.find((c) => c.id === activeId) ?? null;
   const activeIsDraft = isDraftCharacterId(active?.id);
+  const castingDisabledHelpId = activeIsDraft ? "character-casting-disabled-help" : undefined;
   const previewingRevision =
     revisions.find((revision) => revision.id === previewingRevisionId) ?? null;
   const displayedActive =
@@ -2277,7 +2278,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 <Field
                   id={fieldControlId(activeId, "offlimits")}
                   label="Off-limits"
-                  hint="Hard rules — what they never say (keeps you monetizable & on-brand)"
+                  hint="What this character never says."
                   value={displayedActive.offlimits}
                   onChange={(v) => set("offlimits", v)}
                   rows={3}
@@ -2289,11 +2290,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             <Field
               id={fieldControlId(activeId, "lines")}
               label="Gold-standard lines"
-              hint="2–4 example lines — the writer imitates these more than any instruction"
+              hint="Add 2–4 lines for the writer to emulate."
               value={displayedActive.lines}
               onChange={(v) => set("lines", v)}
               rows={5}
-              mono
               readOnly={Boolean(previewingRevision)}
               locked={Boolean(previewingRevision)}
             />
@@ -2373,6 +2373,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 onClick={() => setCastingOpen(true)}
                 aria-haspopup="dialog"
                 aria-expanded={castingOpen}
+                aria-describedby={castingDisabledHelpId}
                 disabled={activeIsDraft}
               >
                 {isCast(active) ? "🎙 Casting studio" : "🎙 Cast a voice"}
@@ -2386,10 +2387,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 onClick={() => setVisualCastingOpen(true)}
                 aria-haspopup="dialog"
                 aria-expanded={visualCastingOpen}
+                aria-describedby={castingDisabledHelpId}
                 disabled={activeIsDraft}
               >
                 {isVisuallyCast(active) ? "Recast visual" : "Cast visual"}
               </button>
+              {activeIsDraft && (
+                <p id="character-casting-disabled-help" className="savebar-helper">
+                  Save this character before casting a voice or visual.
+                </p>
+              )}
               <button
                 className="btn ghost"
                 type="button"

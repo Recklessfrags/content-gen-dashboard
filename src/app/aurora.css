@@ -202,6 +202,19 @@
 .aurora-app .text-body { font-weight: 400; }
 .aurora-app .text-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
+.aurora-app .hint,
+.aurora-app .helper,
+.aurora-app .field-helper,
+.aurora-app .recommendation,
+.aurora-app .persona-recommendation,
+.aurora-app .persona-recommendation p,
+.aurora-app .field-label-side {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
 .aurora-app .dim { color: var(--text-dim); }
 .aurora-app .accent { color: var(--accent); }
 .aurora-app .danger { color: var(--danger-fg); }
@@ -1392,6 +1405,37 @@
   color: var(--text-dim);
 }
 
+.aurora-app .channel-profiles.scoped .persona-recommendation {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  padding: 0.85rem 1rem;
+  margin: 0 0 1.25rem;
+}
+
+.aurora-app .channel-profiles.scoped .persona-recommendation > strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text-main);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.aurora-app .channel-profiles.scoped .persona-recommendation p {
+  margin: 0.45rem 0 0;
+}
+
+.aurora-app .channel-profiles.scoped .persona-recommendation details {
+  margin-top: 0.55rem;
+}
+
+.aurora-app .channel-profiles.scoped .persona-recommendation summary {
+  cursor: pointer;
+  color: var(--text-main);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
 .aurora-app .channel-profiles.scoped .dials-inert {
   background: var(--surface-1);
   border: 1px solid var(--border-soft);
@@ -1581,6 +1625,15 @@
 .aurora-app .characters-bench.scoped .savebar .btn.ghost:hover:not(:disabled) {
   border-color: var(--border-glow);
   color: var(--accent);
+}
+
+.aurora-app .characters-bench.scoped .savebar-helper {
+  width: 100%;
+  margin: -0.15rem 0 0;
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.45;
 }
 
 .aurora-app .characters-bench.scoped .savebar .btn.dark {

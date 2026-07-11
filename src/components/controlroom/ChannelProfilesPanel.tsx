@@ -691,7 +691,7 @@ export function ChannelProfilesPanel({
                 <Field
                   id="channel-profile-description"
                   label="Channel concept"
-                  hint="What is this channel about? Plain language — this seeds guideline auto-generation."
+                  hint="Describe the channel in plain language."
                   value={form.description}
                   onChange={(value) => updateForm("description", value)}
                   rows={4}
@@ -706,7 +706,7 @@ export function ChannelProfilesPanel({
                     {generating ? "Generating…" : "Generate from concept"}
                   </button>
                   <span className="hint">
-                    Drafts editable guideline fields from the concept. Non-binding — review and Save. Enforced dials are flagged.
+                    Creates an editable draft. Non-binding — review and Save.
                   </span>
                 </div>
                 {proposal && (
@@ -773,6 +773,7 @@ export function ChannelProfilesPanel({
                     onChange={(value) => updateForm("channel", value)}
                     rows={1}
                     multiline={false}
+                    mono
                     readOnly={!creating}
                   />
                   <Field
@@ -822,7 +823,7 @@ export function ChannelProfilesPanel({
                       <label htmlFor="channel-profile-voice-archetype">
                         <span className="eyebrow">Voice archetype</span>
                         <span className="field-label-side">
-                          <span className="hint">Optional, open vocabulary</span>
+                          <span className="hint">Optional</span>
                         </span>
                       </label>
                       <input
@@ -896,28 +897,24 @@ export function ChannelProfilesPanel({
                 </div>
 
                 {personaSuggestion && (
-                  <div className="field" aria-live="polite">
-                    <p className="hint">
-                      <span aria-hidden="true">💡 </span>
-                      Suggested casting persona:{" "}
-                      <strong>{personaSuggestion.label}</strong> - seeds the
-                      Casting Card when you cast this channel&apos;s character.{" "}
-                      {personaSuggestion.reason}
-                    </p>
+                  <div className="persona-recommendation" aria-live="polite">
+                    <span className="eyebrow">Recommended persona</span>
+                    <strong>{personaSuggestion.label}</strong>
+                    {!form.character_id && (
+                      <p>Assign a character to use this recommendation.</p>
+                    )}
+                    <details>
+                      <summary>Why this?</summary>
+                      <p>{personaSuggestion.reason}</p>
+                    </details>
                   </div>
                 )}
 
                 <fieldset className="dials-inert">
                   <legend>
                     <span className="eyebrow">Engagement dials</span>
-                    <span className="badge">
-                      Active — enforced pipeline-side
-                    </span>
+                    <span className="badge">Pipeline enforced</span>
                   </legend>
-                  <p className="hint">
-                    Enforced by the pipeline when a job starts. If a value is
-                    missing or invalid, the safest setting is used.
-                  </p>
                   <div className="grid2">
                     <div className="field">
                       <label htmlFor="channel-profile-claim-discipline">
