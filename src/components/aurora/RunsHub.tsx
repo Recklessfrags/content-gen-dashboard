@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobStatus } from "@/lib/jobs";
 import { parkKindLabel, type ParkKind } from "@/lib/parkReason";
+import { ALL_CHANNELS_KEY, cardMatchesChannel, channelFacets } from "@/lib/runsChannelFilter";
 import type { WorkerReliability } from "@/lib/workerReliability";
 
 export type RunCardVM = {
@@ -69,7 +70,13 @@ export function RunsHub({
 }: RunsHubProps) {
   const attentionCount = cards.filter((card) => card.needsAttention).length;
   const [filter, setFilter] = useState<RunFilter>("all");
-  const visible = filter === "attention" ? cards.filter((card) => card.needsAttention) : cards;
+  const [channelKey, setChannelKey] = useState<string>(ALL_CHANNELS_KEY);
+  const facets = useMemo(() => channelFacets(cards), [cards]);
+  const effectiveChannelKey = facets.some((facet) => facet.key === channelKey) ? channelKey : ALL_CHANNELS_KEY;
+  const visible = cards.filter(
+    (card) =>
+      (filter === "all" || card.needsAttention) && cardMatchesChannel(card, effectiveChannelKey),
+  );
 
   const showEmpty = !loading && error === null && cards.length === 0;
   const showList = !loading && error === null && cards.length > 0;
@@ -115,6 +122,22 @@ export function RunsHub({
         </div>
       ) : null}
 
+      {showList && facets.length > 2 ? (
+        <div className="runs-hub__filters runs-hub__filter--channel" role="group" aria-label="Filter by channel">
+          {facets.map((facet) => (
+            <button
+              key={facet.key}
+              type="button"
+              className={"runs-hub__filter" + (effectiveChannelKey === facet.key ? " is-active" : "")}
+              aria-pressed={effectiveChannelKey === facet.key}
+              onClick={() => setChannelKey(facet.key)}
+            >
+              {facet.label} ({facet.count})
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {loading ? (
         <div className="glass-panel au-empty" aria-busy="true">
           <span className="spin" aria-hidden="true" /> Loading runs…
@@ -153,7 +176,11 @@ export function RunsHub({
           ))}
           {visible.length === 0 ? (
             <div className="glass-panel au-empty">
-              <p>No runs need attention right now.</p>
+              <p>
+                {effectiveChannelKey !== ALL_CHANNELS_KEY
+                  ? "No runs in this channel need attention right now."
+                  : "No runs need attention right now."}
+              </p>
             </div>
           ) : null}
         </div>
