@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-06 (RUNS HUB + RUN-COST ESTIMATE shipped — two buildable-now read surfaces over jobs/receipts: `?hub=runs` per-worker failure attribution + a `RunCostEstimate` card in the Cost center. On top of SUB-LANE 5b (#127, Aurora Ideas home + enqueue money path). Legacy `.cr` still intact pending 5g). Production tip = latest squash on `claude/new-session-3l99vs`** by the Architect (Claude)._
+_Last updated: **2026-07-12 (SIX read-only slices shipped since — #1a park view, channel_profiles schema reconcile, #2-display fact-claim display, #3 scoring UI (`?hub=review`, mock), UX declutter, #4 RunsHub channel filter, and #5 design-system pass (bottom mobile nav bar + button-color language + duplicate-H1 kill). Prod tip = `75c52e4` on `claude/new-session-3l99vs`; branch `claude/wire-aurora-home-5b-lleyyg` restarted fresh off it.** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,37 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-06) — RUNS HUB (per-worker failure attribution) + EMPIRICAL RUN-COST ESTIMATE shipped. Read this first.
+## ⚡ LATEST (2026-07-12) — SIX read-only slices shipped to prod (`75c52e4`). Read this first.
+
+All merged to `claude/new-session-3l99vs` via squash PRs; branch `claude/wire-aurora-home-5b-lleyyg`
+is restarted fresh off the prod tip after each. All read-only/design-system class (no money/brand
+path), each: Codex build → tsc/vitest/next-build gates → Gemini cross-vendor review → merge nod
+(problem-solver or direct owner ratification).
+
+1. **#1a park view** + **`channel_profiles` schema reconcile** (PR #141) — `src/lib/parkReason.ts`,
+   ResearchProfile/Sourcing parsers (fail-closed, preserve-on-update).
+2. **#2-display** (PR #142) — `src/lib/factClaims.ts`; read-only flagged-claim + grounding display in
+   the fact-approval dialog (Gemini caught a `javascript:`-URI XSS → `isSafeHttpUrl` allowlist).
+3. **#3 scoring UI** (`?hub=review`, PR #143) — `src/lib/renderReview.ts` + `ReviewHub.tsx`, led
+   questionnaire vs MOCK fixtures, **no DB writes** (flips mock→real only when a gate-passing MP4
+   lands + owner ratify). Shipped with the **UX declutter** (helper text below controls, cast-button
+   helper, compact persona card).
+4. **#4 RunsHub channel filter** (PR #144) — `src/lib/runsChannelFilter.ts`; filter Runs by channel,
+   empty/`default`/legacy-null → explicit "Unassigned" facet. Diagnosis: enqueue path fixed ~07-04
+   (~97% tagged since); legacy nulls predate it; lane-2 backfill is the pipeline's `jobs` write,
+   lane-3 enqueue guard held → C3.
+5. **#5 design-system pass** (PR #145) — persistent bottom **mobile nav bar** in `AuroraShell`
+   (Channels/Characters/Ideas/Runs/Review), **button-color language** fix (`.aurora-app .btn` default
+   so bare `.btn` isn't red; Legacy console → secondary), **duplicate channel H2 removed** on the
+   Guidelines tab. From the Sol design audit (local-render, 8 surfaces).
+
+**Owner-pending (chat, not HQ):** project domain name — parked; owner concluded a fancy brand name is
+premature (ship first, name later). **Next dashboard work unassigned** — deferred candidates: RunsHub
+group-by-state collapse (Sol audit), Advanced progressive-disclosure regroup, wire persona "Use in
+casting". **#1b repair-trigger** (money-path) still HELD until the pipeline's visual-sourcing fix lands
+a repair-to-COMPLETE.
+
+## ⚡ (2026-07-06) — RUNS HUB (per-worker failure attribution) + EMPIRICAL RUN-COST ESTIMATE shipped.
 
 **Two operator-requested buildable-now read surfaces shipped** (both read-only over existing `jobs`/`receipts` telemetry —
 no writes, no pipeline dependency), built in parallel in one branch on top of sub-lane 5b (#127). Branch for new work:
