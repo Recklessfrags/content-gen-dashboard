@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-12 (SIX read-only slices shipped since — #1a park view, channel_profiles schema reconcile, #2-display fact-claim display, #3 scoring UI (`?hub=review`, mock), UX declutter, #4 RunsHub channel filter, and #5 design-system pass (bottom mobile nav bar + button-color language + duplicate-H1 kill). Prod tip = `75c52e4` on `claude/new-session-3l99vs`; branch `claude/wire-aurora-home-5b-lleyyg` restarted fresh off it.** by the Architect (Claude)._
+_Last updated: **2026-07-12 (EIGHT dashboard slices shipped — #1a park view, channel_profiles schema reconcile, #2-display fact-claim display, #3 scoring UI (`?hub=review`, mock), UX declutter, #4 RunsHub channel filter, #5 design-system pass (nav bar + button colors + duplicate-H1 kill), #6 RunsHub group-by-state, #7 persona "Use in casting". The entire Sol design audit is shipped. Prod tip = `98804c3` on `claude/new-session-3l99vs`; branch `claude/wire-aurora-home-5b-lleyyg` restarted fresh off it.** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,12 +11,12 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-12) — SIX read-only slices shipped to prod (`75c52e4`). Read this first.
+## ⚡ LATEST (2026-07-12) — EIGHT dashboard slices shipped to prod (`98804c3`). Read this first.
 
 All merged to `claude/new-session-3l99vs` via squash PRs; branch `claude/wire-aurora-home-5b-lleyyg`
-is restarted fresh off the prod tip after each. All read-only/design-system class (no money/brand
-path), each: Codex build → tsc/vitest/next-build gates → Gemini cross-vendor review → merge nod
-(problem-solver or direct owner ratification).
+is restarted fresh off the prod tip after each. All read-only/design class (no money/brand path),
+each: Codex build → tsc/vitest/next-build gates → Gemini cross-vendor review → merge nod
+(problem-solver or direct owner ratification). **The full Sol design audit is now shipped.**
 
 1. **#1a park view** + **`channel_profiles` schema reconcile** (PR #141) — `src/lib/parkReason.ts`,
    ResearchProfile/Sourcing parsers (fail-closed, preserve-on-update).
@@ -34,12 +34,26 @@ path), each: Codex build → tsc/vitest/next-build gates → Gemini cross-vendor
    (Channels/Characters/Ideas/Runs/Review), **button-color language** fix (`.aurora-app .btn` default
    so bare `.btn` isn't red; Legacy console → secondary), **duplicate channel H2 removed** on the
    Guidelines tab. From the Sol design audit (local-render, 8 surfaces).
+6. **#6 RunsHub group-by-state** (PR #147) — `src/lib/runsGrouping.ts`; the Runs flat list + attention
+   toggle → collapsible sections (Needs attention / In progress / Done, Done collapsed), composing with
+   the #4 channel filter. Every `JobStatus` maps to exactly one group (test-asserted). The last Sol-audit item.
+7. **#7 persona "Use in casting"** (PR #147) — the deferred E1.b: a "Use in casting →" button on the
+   channel's Recommended-persona card opens the Casting Studio with the persona pre-selected in the
+   *design* step (`ControlRoom` `castingSuggestedPersona` state → modal `suggestedPersonaChipId`, cleared
+   on close). **No spend** — pre-fill is in-memory; the Generate-previews/Cast-&-lock ElevenLabs gate is
+   untouched (Gemini-verified). Also fixed a dangling default persona id (`deadpan-demystifier` →
+   `deadpan-absurdist`, + guard test).
 
 **Owner-pending (chat, not HQ):** project domain name — parked; owner concluded a fancy brand name is
-premature (ship first, name later). **Next dashboard work unassigned** — deferred candidates: RunsHub
-group-by-state collapse (Sol audit), Advanced progressive-disclosure regroup, wire persona "Use in
-casting". **#1b repair-trigger** (money-path) still HELD until the pipeline's visual-sourcing fix lands
-a repair-to-COMPLETE.
+premature (ship first, name later). **No actionable dashboard work remains** — the Sol audit + deferred
+persona-casting are all shipped. Remaining candidates need an owner/problem-solver priority call before
+building (don't auto-pick — rule 15): Advanced-mode progressive-disclosure regroup, mobile "More" action
+menu, final home for Cast voice/visual. **#1b repair-trigger** (money-path) still HELD until the
+pipeline's visual-sourcing fix lands a repair-to-COMPLETE; **#3 mock→real** waits on the first
+gate-passing MP4 (none post-07-10 yet).
+
+> **Maintenance note:** this ⚡ entry supersedes the 07-06 one below; when adding the next entry, rotate
+> entries older than the two most recent into `docs/handoff-archive/` verbatim (per the maintenance rule).
 
 ## ⚡ (2026-07-06) — RUNS HUB (per-worker failure attribution) + EMPIRICAL RUN-COST ESTIMATE shipped.
 
