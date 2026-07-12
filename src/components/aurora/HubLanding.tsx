@@ -1,5 +1,7 @@
 "use client";
 
+import type { ComponentProps } from "react";
+
 import { AuroraShell } from "@/components/aurora/AuroraShell";
 import { ChannelsHub } from "@/components/aurora/ChannelsHub";
 import type { ChannelsHubProps } from "@/components/aurora/ChannelsHub";
@@ -18,6 +20,7 @@ export type HubLandingProps = {
     onOpenLegacyConsole: () => void;
   };
   operatorInitials?: string;
+  nav: ComponentProps<typeof AuroraShell>["nav"];
 };
 
 export function HubLanding({
@@ -25,9 +28,10 @@ export function HubLanding({
   glance,
   actions,
   operatorInitials,
+  nav,
 }: HubLandingProps) {
   return (
-    <AuroraShell operatorInitials={operatorInitials}>
+    <AuroraShell operatorInitials={operatorInitials} nav={nav}>
       <section className="hero-grid" aria-label="System Overview">
         <article className="glass-panel action-center">
           <div className="action-header">
@@ -55,7 +59,7 @@ export function HubLanding({
               <button type="button" className="action-button" onClick={actions.onReviewAll}>
                 Review All
               </button>
-              <button type="button" className="action-button" onClick={actions.onOpenLegacyConsole}>
+              <button type="button" className="btn-secondary" onClick={actions.onOpenLegacyConsole}>
                 Legacy console
               </button>
             </div>
