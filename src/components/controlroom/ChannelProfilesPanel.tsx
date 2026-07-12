@@ -61,6 +61,7 @@ type ChannelProfilesPanelProps = {
   basicMode?: boolean;
   /** Called by the "Show advanced settings" button in basic mode (flips global mode). */
   onShowAdvanced?: () => void;
+  onUseInCasting?: (characterId: string, chipId: string) => void;
 };
 
 type CharacterOption = {
@@ -176,6 +177,7 @@ export function ChannelProfilesPanel({
   onDeleted,
   basicMode = false,
   onShowAdvanced,
+  onUseInCasting,
 }: ChannelProfilesPanelProps) {
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
@@ -902,6 +904,15 @@ export function ChannelProfilesPanel({
                     <strong>{personaSuggestion.label}</strong>
                     {!form.character_id && (
                       <p>Assign a character to use this recommendation.</p>
+                    )}
+                    {form.character_id && onUseInCasting && (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => onUseInCasting(form.character_id!, personaSuggestion.chipId)}
+                      >
+                        Use in casting →
+                      </button>
                     )}
                     <details>
                       <summary>Why this?</summary>

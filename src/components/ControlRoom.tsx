@@ -522,6 +522,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [activeEnqueueIdeaId, setActiveEnqueueIdeaId] = useState<string | null>(null);
   const [castingOpen, setCastingOpen] = useState(false);
+  const [castingSuggestedPersona, setCastingSuggestedPersona] = useState<string | null>(null);
   const [visualCastingOpen, setVisualCastingOpen] = useState(false);
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -747,6 +748,18 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, [jobParkById, jobs, supabase]);
 
   const active = chars.find((c) => c.id === activeId) ?? null;
+  const activeChannelProfile = active
+    ? (channelProfiles.find((profile) => profile.character_id === active.id) ??
+      channelProfiles.find(
+        (profile) =>
+          profile.character?.trim().toLowerCase() === active.codename?.trim().toLowerCase(),
+      ) ??
+      null)
+    : null;
+  const modalSuggestedPersonaChipId =
+    castingSuggestedPersona ??
+    suggestPersonaForChannel(activeChannelProfile ?? {})?.chipId ??
+    null;
   const activeIsDraft = isDraftCharacterId(active?.id);
   const castingDisabledHelpId = activeIsDraft ? "character-casting-disabled-help" : undefined;
   const previewingRevision =
@@ -966,6 +979,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     },
     [activeId, discardDraftCharacter, guardDirtyAction],
   );
+
+  const handleUseInCasting = useCallback((characterId: string, chipId: string) => {
+    setActiveId(characterId);
+    setCastingSuggestedPersona(chipId);
+    setCastingOpen(true);
+  }, []);
+
+  const closeCasting = useCallback(() => {
+    setCastingOpen(false);
+    setCastingSuggestedPersona(null);
+  }, []);
 
   const handleCharactersBenchBack = useCallback(() => {
     guardDirtyAction(() => {
@@ -2081,10 +2105,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         <CastingStudioPanel
           character={active}
           supabase={supabase}
-          onClose={() => setCastingOpen(false)}
+          onClose={closeCasting}
           onCharacterPatched={patchCharacter}
           showFlash={showFlash}
           restoreFocusRef={castingTriggerRef}
+          suggestedPersonaChipId={modalSuggestedPersonaChipId}
         />
       )}
       {visualCastingOpen && active && (
@@ -2543,6 +2568,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 createOnly
                 basicMode={!uiAdvanced}
                 onShowAdvanced={() => setUiMode("advanced")}
+                onUseInCasting={handleUseInCasting}
                 onCreated={(channel) => {
                   setNewChannelOpen(false);
                   showFlash(`Channel "${channel}" created.`);
@@ -3223,6 +3249,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   scopedChannel={scope.channel}
                   basicMode={!uiAdvanced}
                   onShowAdvanced={() => setUiMode("advanced")}
+                  onUseInCasting={handleUseInCasting}
                   onDeleted={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
                 />
               </article>
@@ -3428,6 +3455,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               onRefetch={refetchChannelProfiles}
               autoStartNew={channelsAutoNew}
               onAutoStartNewConsumed={() => setChannelsAutoNew(false)}
+              onUseInCasting={handleUseInCasting}
             />
           )}
 

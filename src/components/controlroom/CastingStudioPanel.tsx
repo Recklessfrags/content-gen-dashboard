@@ -99,14 +99,14 @@ const SYNTH_SLIDERS: ReadonlyArray<{
   { key: "speed", label: "Speed", hint: "Narration pace (0.7–1.2)." },
 ];
 
-const DEFAULT_BUILDER_SELECTIONS: BuilderSelections = {
+export const DEFAULT_BUILDER_SELECTIONS: BuilderSelections = {
   gender: "female",
   ageBand: "40s",
   accent: "general-american",
   timbre: "warm-smooth",
   pitch: "downward-authority",
   pace: "measured-unhurried",
-  persona: "deadpan-demystifier",
+  persona: "deadpan-absurdist",
   emotion: "dry-amused",
 };
 

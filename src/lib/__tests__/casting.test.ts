@@ -23,7 +23,11 @@ import {
   type BracketState,
   type VoiceRecipe,
 } from "@/lib/casting";
-import { purgeCreatedVoiceId } from "@/components/controlroom/CastingStudioPanel";
+import {
+  DEFAULT_BUILDER_SELECTIONS,
+  purgeCreatedVoiceId,
+} from "@/components/controlroom/CastingStudioPanel";
+import { PERSONA_BANK } from "@/lib/castingPhrases";
 
 const TEST_DESCRIPTION =
   "Audio quality: clean studio documentary narration, warm but not polished flat. Identity: middle-aged androgynous American food-channel host with a grounded accent. Timbre: textured, lightly smoky, a little grit at sentence ends. Pitch/dynamics: medium-low pitch with lifted emphasis on reveals. Pace/cadence: patient setup, clipped punchlines, longer pauses before the turn. Emotion/character: curious, dry, observant, amused by the absurd details without sounding cartoonish.";
@@ -79,6 +83,12 @@ function stubLocalStorage(initial: Record<string, string> = {}) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe("casting builder defaults", () => {
+  it("uses a persona id from the persona bank", () => {
+    expect(PERSONA_BANK.some((persona) => persona.id === DEFAULT_BUILDER_SELECTIONS.persona)).toBe(true);
+  });
 });
 
 describe("clampVoiceSettings", () => {
