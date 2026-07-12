@@ -18,10 +18,6 @@ export type ChannelsHubProps = {
   onOpenChannel: (channel: string) => void;
   onNewChannel: () => void;
   creating?: boolean;
-  onOpenCharacters?: () => void;
-  onOpenIdeas?: () => void;
-  onOpenRuns?: () => void;
-  onOpenReview?: () => void;
   onRetry?: () => void;
 };
 
@@ -47,10 +43,6 @@ export function ChannelsHub({
   onOpenChannel,
   onNewChannel,
   creating = false,
-  onOpenCharacters,
-  onOpenIdeas,
-  onOpenRuns,
-  onOpenReview,
   onRetry,
 }: ChannelsHubProps) {
   const showEmpty = !loading && error === null && cards.length === 0;
@@ -68,26 +60,6 @@ export function ChannelsHub({
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
-          {onOpenCharacters ? (
-            <button type="button" className="btn-secondary" onClick={onOpenCharacters}>
-              Characters {"\u2192"}
-            </button>
-          ) : null}
-          {onOpenIdeas ? (
-            <button type="button" className="btn-secondary" onClick={onOpenIdeas}>
-              Ideas {"\u2192"}
-            </button>
-          ) : null}
-          {onOpenRuns ? (
-            <button type="button" className="btn-secondary" onClick={onOpenRuns}>
-              Runs {"\u2192"}
-            </button>
-          ) : null}
-          {onOpenReview ? (
-            <button type="button" className="btn-secondary" onClick={onOpenReview}>
-              Review {"\u2192"}
-            </button>
-          ) : null}
           <button
             type="button"
             className="btn-new-channel"

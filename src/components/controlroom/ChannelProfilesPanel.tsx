@@ -615,7 +615,11 @@ export function ChannelProfilesPanel({
         </aside>
       )}
 
-      <section className="dossier" aria-labelledby="channel-profile-title">
+      <section
+        className="dossier"
+        aria-label={scopedChannel ? "Channel guidelines" : undefined}
+        aria-labelledby={scopedChannel ? undefined : "channel-profile-title"}
+      >
         {!isScopedLayout && (
           <div className="mobile-roster">
             <label className="eyebrow" htmlFor="mobile-channel-roster-select">
@@ -656,24 +660,20 @@ export function ChannelProfilesPanel({
           </div>
         )}
 
-        <header className="dossier-head">
-          <div className="filecode">
-            <span>CHANNEL PROFILE</span>
-            <span className="live">{creating ? "NEW ROW" : "EDITING ROW"}</span>
-          </div>
-          {scopedChannel ? (
-            <h2 id="channel-profile-title">
-              {form?.displayName || form?.channel || "New channel"}
-            </h2>
-          ) : (
+        {scopedChannel ? (
+          <p className="sub">Settings that apply to every run on this channel.</p>
+        ) : (
+          <header className="dossier-head">
+            <div className="filecode">
+              <span>CHANNEL PROFILE</span>
+              <span className="live">{creating ? "NEW ROW" : "EDITING ROW"}</span>
+            </div>
             <h1 id="channel-profile-title">
               {form?.displayName || form?.channel || "New channel"}
             </h1>
-          )}
-          <p className="sub">
-            Settings that apply to every run on this channel.
-          </p>
-        </header>
+            <p className="sub">Settings that apply to every run on this channel.</p>
+          </header>
+        )}
 
         {form && (
           <>

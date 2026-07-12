@@ -1986,6 +1986,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       runsHubCards,
     ],
   );
+  const auroraNav = {
+    activeKey:
+      scope.kind === "workspace" || scope.hub === "actions" || scope.hub === "overview"
+        ? "channels"
+        : scope.hub,
+    onNavigate: (key: "channels" | "characters" | "ideas" | "runs" | "review") =>
+      navigate({ kind: "hub", hub: key }),
+  } as const;
   const hubLandingProps = {
     channels: {
       cards: hubChannelCards,
@@ -1999,10 +2007,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         // an existing channel (the overwrite-the-default footgun).
         setNewChannelOpen(true);
       },
-      onOpenCharacters: handleCharactersHubNav,
-      onOpenIdeas: () => navigate({ kind: "hub", hub: "ideas" }),
-      onOpenRuns: () => navigate({ kind: "hub", hub: "runs" }),
-      onOpenReview: () => navigate({ kind: "hub", hub: "review" }),
       onRetry: () => void refetchChannelProfiles(),
     },
     glance: {
@@ -2017,6 +2021,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       onOpenLegacyConsole: () => openLegacyConsole("roster"),
     },
     operatorInitials,
+    nav: auroraNav,
   };
   const ideaCaptureDisabled = Boolean(ideaSubmittingTitle);
   const canSubmitIdea = draftIdea.trim().length > 0 && !ideaCaptureDisabled;
@@ -2474,7 +2479,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials}>
+        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
           <div className="cost-center scoped">
             <div className="overview-hub__head">
               <div>
@@ -2515,7 +2520,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       return (
         <>
           {globalOverlays}
-          <AuroraShell operatorInitials={operatorInitials}>
+          <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
             <div className="channel-create-surface">
               <nav className="breadcrumb" aria-label="Breadcrumb">
                 <button
@@ -2560,7 +2565,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials}>
+        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
           <ActionCenter
             jobs={actionableJobs}
             parkById={jobParkById}
@@ -2635,7 +2640,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials}>
+        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
           {charactersBenchContent}
         </AuroraShell>
       </>
@@ -2646,7 +2651,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials}>
+        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
           <IdeasHub {...ideasHubProps} />
         </AuroraShell>
       </>
@@ -2657,7 +2662,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials}>
+        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
           <RunsHub {...runsHubProps} />
         </AuroraShell>
       </>
@@ -2668,7 +2673,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials}>
+        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
           <ReviewHub
             fixtures={MOCK_REVIEW_FIXTURES}
             onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
@@ -2682,7 +2687,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials}>
+        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
           <div className="overview-hub scoped">
             <div className="overview-hub__head">
               <div>
@@ -2746,7 +2751,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials}>
+        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
           <nav className="breadcrumb" aria-label="Breadcrumb">
             <button
               type="button"
