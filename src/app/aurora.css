@@ -3716,6 +3716,218 @@
   }
 }
 
+/* ==========================================================================
+   REVEAL HUB (slice #8 phase 1 mock-only approval preview)
+   Local decision state against synthetic parked-reveal fixtures.
+   ========================================================================== */
+.aurora-app .reveal-hub.scoped {
+  margin-top: 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.aurora-app .reveal-hub__title {
+  font-size: 2rem;
+}
+
+.aurora-app .reveal-hub__mock-banner {
+  padding: 1rem 1.25rem;
+  border-left: 3px solid var(--warn);
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.aurora-app .reveal-hub__empty {
+  display: grid;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.aurora-app .reveal-hub__episodes,
+.aurora-app .reveal-hub__reveal-list {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.aurora-app .reveal-hub__episode {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+  padding: 1.25rem;
+}
+
+.aurora-app .reveal-hub__episode-head,
+.aurora-app .reveal-hub__reveal-head,
+.aurora-app .reveal-hub__batch-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.aurora-app .reveal-hub__episode-head > div,
+.aurora-app .reveal-hub__batch-actions > div {
+  min-width: 0;
+}
+
+.aurora-app .reveal-hub__batch-count {
+  flex: 0 0 auto;
+  background: var(--surface-3);
+  color: var(--text-main);
+}
+
+.aurora-app .reveal-hub__reveal-card {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.aurora-app .reveal-hub__reveal-text {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.aurora-app .reveal-hub__grade {
+  flex: 0 0 auto;
+}
+
+.aurora-app .reveal-hub__grade--green {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.aurora-app .reveal-hub__grade--yellow {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.aurora-app .reveal-hub__grade--red {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+
+.aurora-app .reveal-hub__reason,
+.aurora-app .reveal-hub__decision-status,
+.aurora-app .reveal-hub__recheck-note,
+.aurora-app .reveal-hub__batch-actions p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.aurora-app .reveal-hub__brand-caution {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  overflow-wrap: anywhere;
+}
+
+.aurora-app .reveal-hub__decision-controls,
+.aurora-app .reveal-hub__editor-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.aurora-app .reveal-hub__decision-controls button[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.15);
+}
+
+.aurora-app .reveal-hub__editor {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+}
+
+.aurora-app .reveal-hub__editor label {
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.aurora-app .reveal-hub__editor textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.aurora-app .reveal-hub__recheck-note,
+.aurora-app .reveal-hub__decision-status {
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+
+.aurora-app .reveal-hub__batch-actions {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-soft);
+  align-items: flex-end;
+}
+
+.aurora-app .reveal-hub__batch-actions > div {
+  display: grid;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .aurora-app .reveal-hub__header,
+  .aurora-app .reveal-hub__episode-head,
+  .aurora-app .reveal-hub__reveal-head,
+  .aurora-app .reveal-hub__batch-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .aurora-app .reveal-hub__header {
+    gap: 1rem;
+  }
+
+  .aurora-app .reveal-hub__header button,
+  .aurora-app .reveal-hub__batch-actions button {
+    width: 100%;
+  }
+
+  .aurora-app .reveal-hub__grade,
+  .aurora-app .reveal-hub__batch-count {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 420px) {
+  .aurora-app .reveal-hub.scoped {
+    margin-top: 2rem;
+  }
+
+  .aurora-app .reveal-hub__episode,
+  .aurora-app .reveal-hub__reveal-card,
+  .aurora-app .reveal-hub__editor {
+    padding: 0.875rem;
+  }
+
+  .aurora-app .reveal-hub__decision-controls,
+  .aurora-app .reveal-hub__editor-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
 .aurora-app .run-card__error {
   background: var(--danger-bg);
   border-left: 3px solid var(--danger);

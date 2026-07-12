@@ -24,6 +24,7 @@ type ActionCenterProps = {
   onCancel: () => void;
   canPublish: (job: QueueJob) => boolean;
   onBack: () => void;
+  onOpenRevealPreview: () => void;
   statusLabel: (job: QueueJob) => string;
   factClaims?: FactClaim[] | null;
   factClaimsLoading?: boolean;
@@ -40,6 +41,7 @@ export function ActionCenter({
   onCancel,
   canPublish,
   onBack,
+  onOpenRevealPreview,
   statusLabel,
   factClaims,
   factClaimsLoading = false,
@@ -78,9 +80,14 @@ export function ActionCenter({
             )}
           </h1>
         </div>
-        <button type="button" className="action-button" onClick={onBack}>
-          Back to Channels
-        </button>
+        <div className="approval-actions">
+          <button type="button" className="btn btn-secondary" onClick={onOpenRevealPreview}>
+            Preview reveal approvals
+          </button>
+          <button type="button" className="action-button" onClick={onBack}>
+            Back to Channels
+          </button>
+        </div>
       </div>
 
       {jobs.length === 0 ? (

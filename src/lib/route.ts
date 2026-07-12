@@ -5,7 +5,8 @@ export type HubKey =
   | "characters"
   | "ideas"
   | "runs"
-  | "review";
+  | "review"
+  | "reveal";
 export type WorkspaceTab = "production" | "character" | "guidelines" | "cost";
 export type AppScope =
   | { kind: "hub"; hub: HubKey }
@@ -19,6 +20,7 @@ export const HUB_KEYS = [
   "ideas",
   "runs",
   "review",
+  "reveal",
 ] as const satisfies readonly HubKey[];
 export const WORKSPACE_TABS = [
   "production",
