@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobStatus } from "@/lib/jobs";
 import { parkKindLabel, type ParkKind } from "@/lib/parkReason";
 import { ALL_CHANNELS_KEY, cardMatchesChannel, channelFacets } from "@/lib/runsChannelFilter";
+import { groupRunCards, type RunGroupKey } from "@/lib/runsGrouping";
 import type { WorkerReliability } from "@/lib/workerReliability";
 
 export type RunCardVM = {
@@ -51,8 +52,6 @@ export type RunsHubProps = {
   loadReliability: () => Promise<ReliabilityResult>;
 };
 
-type RunFilter = "attention" | "all";
-
 type DiagnosticsState = {
   loading: boolean;
   error: string | null;
@@ -69,14 +68,15 @@ export function RunsHub({
   loadReliability,
 }: RunsHubProps) {
   const attentionCount = cards.filter((card) => card.needsAttention).length;
-  const [filter, setFilter] = useState<RunFilter>("all");
   const [channelKey, setChannelKey] = useState<string>(ALL_CHANNELS_KEY);
+  const [groupOpen, setGroupOpen] = useState<Partial<Record<RunGroupKey, boolean>>>({});
   const facets = useMemo(() => channelFacets(cards), [cards]);
   const effectiveChannelKey = facets.some((facet) => facet.key === channelKey) ? channelKey : ALL_CHANNELS_KEY;
-  const visible = cards.filter(
-    (card) =>
-      (filter === "all" || card.needsAttention) && cardMatchesChannel(card, effectiveChannelKey),
+  const channelFiltered = useMemo(
+    () => cards.filter((card) => cardMatchesChannel(card, effectiveChannelKey)),
+    [cards, effectiveChannelKey],
   );
+  const groups = useMemo(() => groupRunCards(channelFiltered), [channelFiltered]);
 
   const showEmpty = !loading && error === null && cards.length === 0;
   const showList = !loading && error === null && cards.length > 0;
@@ -99,28 +99,6 @@ export function RunsHub({
       </div>
 
       <WorkerReliabilityPanel loadReliability={loadReliability} />
-
-      {showList ? (
-        <div className="runs-hub__filters" role="group" aria-label="Filter runs">
-          <button
-            type="button"
-            className={"runs-hub__filter" + (filter === "all" ? " is-active" : "")}
-            aria-pressed={filter === "all"}
-            onClick={() => setFilter("all")}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            className={"runs-hub__filter" + (filter === "attention" ? " is-active" : "")}
-            aria-pressed={filter === "attention"}
-            onClick={() => setFilter("attention")}
-            disabled={attentionCount === 0}
-          >
-            Needs attention{attentionCount > 0 ? ` (${attentionCount})` : ""}
-          </button>
-        </div>
-      ) : null}
 
       {showList && facets.length > 2 ? (
         <div className="runs-hub__filters runs-hub__filter--channel" role="group" aria-label="Filter by channel">
@@ -171,16 +149,49 @@ export function RunsHub({
 
       {showList ? (
         <div className="runs-hub__list" aria-label="Runs">
-          {visible.map((card) => (
-            <RunCard key={card.id} card={card} loadDiagnostics={loadDiagnostics} />
-          ))}
-          {visible.length === 0 ? (
+          {groups.map((group) => {
+            const open = groupOpen[group.key] ?? group.defaultOpen;
+            const headerId = `runs-hub-group-${group.key}-header`;
+            const bodyId = `runs-hub-group-${group.key}-body`;
+
+            return (
+              <section key={group.key} className="runs-hub__group">
+                <button
+                  type="button"
+                  id={headerId}
+                  className="runs-hub__group-head"
+                  aria-expanded={open}
+                  aria-controls={bodyId}
+                  onClick={() =>
+                    setGroupOpen((current) => ({
+                      ...current,
+                      [group.key]: !(current[group.key] ?? group.defaultOpen),
+                    }))
+                  }
+                >
+                  <span className="text-title">
+                    {open ? "▾" : "▸"} {group.label} · {group.cards.length}
+                  </span>
+                </button>
+
+                {open ? (
+                  <div
+                    id={bodyId}
+                    className="runs-hub__group-body"
+                    role="region"
+                    aria-labelledby={headerId}
+                  >
+                    {group.cards.map((card) => (
+                      <RunCard key={card.id} card={card} loadDiagnostics={loadDiagnostics} />
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
+          {channelFiltered.length === 0 ? (
             <div className="glass-panel au-empty">
-              <p>
-                {effectiveChannelKey !== ALL_CHANNELS_KEY
-                  ? "No runs in this channel need attention right now."
-                  : "No runs need attention right now."}
-              </p>
+              <p>No runs in this channel right now.</p>
             </div>
           ) : null}
         </div>
