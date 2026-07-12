@@ -377,3 +377,51 @@ negative contract tests in between); the **pipeline** uses bare
 and its policies are **pipeline-owned** and live in the pipeline's lane —
 `0013` (`spend_approved`), `0014` (`jobs_read` + `jobs_enqueue`), `0015`
 (`publish_approved`). Those are **not** in this repo and must not be recreated here.
+
+---
+
+## Reveal-approval contract (RATIFIED 2026-07-12 — Architect ruling)
+
+Ratified on HQ (reels#88 problem-solver `4952962040`, pipeline pin `4952902874`, dashboard
+draft `4952832716`) as part of the content-spine/gate-rebuild spec
+(`reels: docs/architecture/spec-channel-dna-and-reveal-spine.md`, §8). A new mid-stream
+approval-park (`reveal`) that mirrors the existing fact/spend/publish approval machinery.
+Recorded here per the ratify's housekeeping item; jobs columns land in the **pipeline's**
+migration lane (owner GO + dated #88 heads-up) — NOT recreated in this repo.
+
+**Park signal (pipeline writes, dashboard reads):** the conductor parks the job after
+`reveal_auditor` / before `assembly` at `status='ready_for_review'`, `park_kind='reveal'`
+(new value in the existing `jobs.park_kind` vocabulary). Dashboard detects it via
+`resolveParkKind`, exactly like `fact`/`spend`/`publish`.
+
+**`reveal_auditor` receipt (pipeline-owned, read-only to dashboard):** `result` jsonb =
+`{ reveals: [ { reveal_id (ordinal "r1","r2",… stable across resume/repair), reveal_text,
+grade ("green"|"yellow"|"red"), reason, brand_specific ({ flagged, detail? }),
+component_claims[] (the SAME shape as the `fact_check` receipt claims — id + citation +
+source_span + status — reused by the #2-display renderer) } ] }`. Read the **max-seq**
+`reveal_auditor` receipt per episode (latest-wins); join `(episode_id, reveal_id)`.
+
+**`jobs` reveal columns (PIPELINE-OWNED — pipeline migration lane, owner GO):** dashboard
+gets an **approval-write RLS grant** (same class as `spend_approved`) to UPDATE **only**
+these, and only on a `park_kind='reveal'` job — never lifecycle columns:
+- `reveal_approved boolean` — dashboard sets `true` → conductor resumes to assembly.
+- `reveal_override jsonb` — `[{ reveal_id, edited_text }]`; conductor re-runs `reveal_auditor`
+  grounding checks (§6/§7) on the edit before render (pass → proceed; **fail → re-park
+  `reveal` with a `grade:"red"` + reason receipt** surfaced back to the owner). The owner is
+  sovereign over *which* reveal, **not** over grounding.
+- `reveal_rejected jsonb` — `{ reason }` (owner's optional steer); conductor re-queues
+  `script_writer` with it threaded as `retry_feedback`, bounded by `max_iterations` → then
+  re-park for the owner (never an unbounded loop). **Field type converged to jsonb**
+  (dashboard adopted the pipeline's shape, HQ `4952961083`).
+
+**`reveal_approvals` (DASHBOARD-OWNED, new — owner-scoped RLS like `characters`):** durable
+audit record `{ id, episode_id, reveal_id, decision ('approved'|'edited'|'rejected'),
+edited_text, steer, owner, decided_at }`. The jobs flags are the pipeline-read *resume
+signal*; this table is the *record*. Dashboard migration lane (`dash_NNNN_*`).
+
+**Dashboard build:** the §8 preview surface (list `park_kind='reveal'` jobs → render each
+reveal + grounding via the shared fact-claim component → approve/edit/reject controls). It is
+a **render/spend-gating write path → two-lens review (Gemini + suerta/Opus) + owner GO to
+merge.** Build order: read + UI + `reveal_approvals` table first (no dependency on the
+pipeline columns); wire the jobs write-back once the pipeline lands the columns + posts the
+#88 heads-up.
