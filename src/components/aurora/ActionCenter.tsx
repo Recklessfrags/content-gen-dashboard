@@ -6,6 +6,7 @@ import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
 import type { QueueJob } from "../controlroom/shared";
 
 type QueueAction = "fact" | "spend" | "publish" | "stale";
+type TriggeredActionRequest = (job: QueueJob, action: QueueAction, trigger: HTMLButtonElement) => void;
 
 type ActionCenterPark = {
   kind: "fact" | "spend" | "publish" | "reveal" | "unknown";
@@ -19,7 +20,7 @@ type ActionCenterProps = {
   parkById: Record<QueueJob["id"], ActionCenterPark>;
   pending: { job: QueueJob; action: QueueAction } | null;
   submitting: boolean;
-  onRequest: (job: QueueJob, action: QueueAction, trigger: HTMLButtonElement) => void;
+  onRequest: (job: QueueJob, action: QueueAction) => void;
   onConfirm: () => void;
   onCancel: () => void;
   canPublish: (job: QueueJob) => boolean;
@@ -57,9 +58,9 @@ export function ActionCenter({
     previousPendingRef.current = pending;
   }, [pending]);
 
-  const handleRequest: ActionCenterProps["onRequest"] = (job, action, trigger) => {
+  const handleRequest: TriggeredActionRequest = (job, action, trigger) => {
     triggerRef.current = trigger;
-    onRequest(job, action, trigger);
+    onRequest(job, action);
   };
 
   return (
@@ -160,7 +161,7 @@ function PrimaryAction({
   park: ActionCenterPark | undefined;
   isStale: boolean;
   publishAllowed: boolean;
-  onRequest: ActionCenterProps["onRequest"];
+  onRequest: TriggeredActionRequest;
   onOpenRevealPreview: () => void;
 }) {
   if (isStale) {

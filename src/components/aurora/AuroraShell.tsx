@@ -10,6 +10,7 @@ import { useUiMode } from "./UiModeContext";
 type AuroraShellProps = {
   children: ReactNode;
   operatorInitials?: string;
+  signOutSlot?: ReactNode;
   nav?: {
     activeKey: NavKey;
     onNavigate: (key: NavKey) => void;
@@ -26,7 +27,12 @@ const NAV_ITEMS: { key: NavKey; label: string; icon: ReactNode }[] = [
   { key: "review", label: "Review", icon: <ReviewIcon /> },
 ];
 
-export function AuroraShell({ children, operatorInitials = "OP", nav }: AuroraShellProps) {
+export function AuroraShell({
+  children,
+  operatorInitials = "OP",
+  signOutSlot,
+  nav,
+}: AuroraShellProps) {
   const [theme, setTheme] = useState<AuroraTheme>("dark");
   const { mode, setMode } = useUiMode();
 
@@ -100,6 +106,7 @@ export function AuroraShell({ children, operatorInitials = "OP", nav }: AuroraSh
             <div className="avatar avatar-op avatar--sm" aria-label="Operator">
               {normalizeInitials(operatorInitials)}
             </div>
+            {signOutSlot}
           </div>
         </header>
 

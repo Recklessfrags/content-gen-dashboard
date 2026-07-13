@@ -416,6 +416,36 @@
 
 .aurora-app .header-actions { display: flex; align-items: center; gap: 1rem; }
 
+.aurora-app .aurora-sign-out {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
+
+.aurora-app .aurora-sign-out:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.aurora-app .aurora-sign-out:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.aurora-app .aurora-sign-out:active {
+  background: var(--surface-3);
+  transform: translateY(1px);
+}
+
 .aurora-app .theme-toggle {
   background: var(--surface-1);
   border: 1px solid var(--border-soft);
@@ -2736,6 +2766,7 @@
   .aurora-app .app-container { padding: 1rem; gap: 2rem; }
   .aurora-app > main.aurora-container { padding: 1rem; gap: 2rem; }
   .aurora-app .app-header { padding: 1rem; flex-direction: column; gap: 1rem; align-items: flex-start; }
+  .aurora-app .header-actions { width: 100%; gap: 0.5rem; flex-wrap: wrap; }
   .aurora-app .channels-grid { grid-template-columns: 1fr; }
   .aurora-app .action-header { flex-direction: column; gap: 1rem; }
 }

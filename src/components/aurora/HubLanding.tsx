@@ -17,9 +17,9 @@ export type HubLandingProps = {
     pendingCount: number;
     items: { id: number; title: string; detail: string }[];
     onReviewAll: () => void;
-    onOpenLegacyConsole: () => void;
   };
   operatorInitials?: string;
+  signOutSlot: ComponentProps<typeof AuroraShell>["signOutSlot"];
   nav: ComponentProps<typeof AuroraShell>["nav"];
 };
 
@@ -28,10 +28,11 @@ export function HubLanding({
   glance,
   actions,
   operatorInitials,
+  signOutSlot,
   nav,
 }: HubLandingProps) {
   return (
-    <AuroraShell operatorInitials={operatorInitials} nav={nav}>
+    <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={nav}>
       <section className="hero-grid" aria-label="System Overview">
         <article className="glass-panel action-center">
           <div className="action-header">
@@ -58,9 +59,6 @@ export function HubLanding({
             <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
               <button type="button" className="action-button" onClick={actions.onReviewAll}>
                 Review All
-              </button>
-              <button type="button" className="btn-secondary" onClick={actions.onOpenLegacyConsole}>
-                Legacy console
               </button>
             </div>
           </div>

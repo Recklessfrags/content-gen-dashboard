@@ -16,7 +16,6 @@ import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
 import { useIdeas } from "@/lib/hooks/useIdeas";
 import { useJobs } from "@/lib/hooks/useJobs";
 import { usePolling } from "@/lib/hooks/usePolling";
-import { useReceipts } from "@/lib/hooks/useReceipts";
 import { useScrollLock } from "@/lib/hooks/useScrollLock";
 import {
   buildFactApprovalReenqueue,
@@ -80,11 +79,9 @@ import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
 import { CostBoxDashboard } from "./controlroom/CostBoxDashboard";
-import { DrillDownPanel } from "./controlroom/DrillDownPanel";
 import { EnqueueIdeaPanel } from "./controlroom/EnqueueIdeaPanel";
 import { HistoryDrawer } from "./controlroom/HistoryDrawer";
 import { OverviewDashboard } from "./controlroom/OverviewDashboard";
-import { QueueActionDialog } from "./controlroom/QueueActionDialog";
 import { VisualIdentityPanel } from "./controlroom/VisualIdentityPanel";
 import {
   DEFAULT_HUB,
@@ -116,42 +113,12 @@ import {
   type QueueJob,
 } from "./controlroom/shared";
 
-type View = "roster" | "channels" | "wire" | "queue" | "runs" | "overview" | "cost";
-const VIEW_KEYS: View[] = ["roster", "channels", "wire", "queue", "runs", "overview", "cost"];
-const VIEW_NAV_ITEMS: ReadonlyArray<{ key: View; label: string }> = [
-  { key: "roster", label: "Roster" },
-  { key: "channels", label: "Channels" },
-  { key: "wire", label: "The Wire" },
-  { key: "queue", label: "Queue" },
-  { key: "runs", label: "Runs" },
-  { key: "overview", label: "Overview" },
-  { key: "cost", label: "Cost" },
-];
-const PRIMARY_VIEW_PANEL_ID = "control-room-primary-view-panel";
-
-function viewTabId(view: View) {
-  return `control-room-tab-${view}`;
-}
-
 function workspaceTabId(tab: WorkspaceTab) {
   return `workspace-tab-${tab}`;
 }
 
 function workspacePanelId(tab: WorkspaceTab) {
   return `workspace-panel-${tab}`;
-}
-
-function isView(value: string | null): value is View {
-  return value !== null && (VIEW_KEYS as string[]).includes(value);
-}
-// Active view persisted in the URL (?view=) so a refresh restores it.
-function readViewFromUrl(): View | null {
-  if (typeof window === "undefined") return null;
-  const value = new URLSearchParams(window.location.search).get("view");
-  return isView(value) ? value : null;
-}
-function viewUrl(view: View): string {
-  return `${window.location.pathname}?view=${view}${window.location.hash}`;
 }
 
 function isApprovalParkKind(
@@ -182,24 +149,7 @@ const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
   used: "Used",
 };
 
-type QueueFilter = "all" | "review" | "errors" | "running" | "done";
-type RunsFilter = "all" | "success" | "running" | "failed";
 type FactClaimsResult = { claims: FactClaim[]; error: string | null };
-
-const QUEUE_FILTERS: ReadonlyArray<{ key: QueueFilter; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "review", label: "Needs review" },
-  { key: "errors", label: "Errors" },
-  { key: "running", label: "Running" },
-  { key: "done", label: "Done" },
-];
-
-const RUNS_FILTERS: ReadonlyArray<{ key: RunsFilter; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "success", label: "Success" },
-  { key: "running", label: "Running" },
-  { key: "failed", label: "Failed" },
-];
 
 const WORKSPACE_TAB_LABELS: Record<WorkspaceTab, string> = {
   production: "Production",
@@ -231,34 +181,6 @@ function formatQueueTimestamp(createdAt: string) {
   }
 
   return new Date(createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
-}
-
-function timestampMs(createdAt: string) {
-  const timestamp = new Date(createdAt).getTime();
-  return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
-function queueActionPriority(job: QueueJob) {
-  const status = classifyJobStatus(job.status);
-  if (status === "ready_for_review") return 0;
-  if (status === "error" || status === "stale") return 1;
-  return 2;
-}
-
-function queueJobMatchesFilter(job: QueueJob, filter: QueueFilter) {
-  const status = classifyJobStatus(job.status);
-  if (filter === "all") return true;
-  if (filter === "review") return status === "ready_for_review";
-  if (filter === "errors") return status === "error" || status === "stale";
-  if (filter === "running") return status === "queued" || status === "running";
-  return status === "done" || status === "no_op";
-}
-
-function runMatchesFilter(status: string, filter: RunsFilter) {
-  if (filter === "all") return true;
-  if (filter === "success") return isClearedStatus(status);
-  if (filter === "failed") return isFailedStatus(status);
-  return !isClearedStatus(status) && !isFailedStatus(status);
 }
 
 function channelInitials(channel: string, character: string | null | undefined) {
@@ -514,14 +436,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     refetch: refetchChannelProfiles,
   } = useChannelProfiles(supabase);
   const {
-    receipts,
-    loading: receiptsLoading,
-    error: receiptsError,
-    load: fetchReceipts,
-    clear: clearReceipts,
-    reset: resetReceipts,
-  } = useReceipts(supabase);
-  const {
     chars,
     loading,
     loadError,
@@ -556,7 +470,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     .join(",");
   const revealParkedJobsRef = useRef(revealParkedJobs);
   revealParkedJobsRef.current = revealParkedJobs;
-  const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [activeEnqueueIdeaId, setActiveEnqueueIdeaId] = useState<string | null>(null);
   const [castingOpen, setCastingOpen] = useState(false);
   const [castingSuggestedPersona, setCastingSuggestedPersona] = useState<string | null>(null);
@@ -572,19 +485,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const [pendingRestore, setPendingRestore] = useState<CharacterBibleRevision | null>(null);
   const [pendingDirtyAction, setPendingDirtyAction] = useState<PendingDirtyAction | null>(null);
   const [isRestoredDraft, setIsRestoredDraft] = useState(false);
-  const [view, setView] = useState<View>("roster");
   const [scope, setScope] = useState<AppScope>({ kind: "hub", hub: DEFAULT_HUB });
-  const [legacyShellOpen, setLegacyShellOpen] = useState(false);
   const [charactersBenchMode, setCharactersBenchMode] = useState<"grid" | "editor">("grid");
-  const [channelsAutoNew, setChannelsAutoNew] = useState(false);
   const [newChannelOpen, setNewChannelOpen] = useState(false);
   const [costCenterOpen, setCostCenterOpen] = useState(false);
   const [draftIdea, setDraftIdea] = useState("");
   const [draftIdeaNote, setDraftIdeaNote] = useState("");
   const [draftIdeaCharacterId, setDraftIdeaCharacterId] = useState<string | null>(null);
   const [draftIdeaChannel, setDraftIdeaChannel] = useState<string | null>(null);
-  const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
-  const [runsFilter, setRunsFilter] = useState<RunsFilter>("all");
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const adding = false;
@@ -608,26 +516,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, [scope]);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const viewTabRefs = useRef<Record<View, HTMLButtonElement | null>>({
-    roster: null,
-    channels: null,
-    wire: null,
-    queue: null,
-    runs: null,
-    overview: null,
-    cost: null,
-  });
   const workspaceTabRefs = useRef<Record<WorkspaceTab, HTMLButtonElement | null>>({
     production: null,
     character: null,
     guidelines: null,
     cost: null,
   });
-  const runButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const enqueueButtonRefs = useRef(new Map<string, HTMLButtonElement>());
-  const lastRunTriggerRef = useRef<string | null>(null);
   const lastEnqueueTriggerRef = useRef<string | null>(null);
-  const runDetailRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const enqueueRestoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const headerHistoryButtonRef = useRef<HTMLButtonElement>(null);
   const castingTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -644,7 +540,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const lastManualFocusRef = useRef<HTMLElement | null>(null);
   const lastDirtyTriggerRef = useRef<HTMLElement | null>(null);
   const discardDialogRestoreFocusRef = useRef<HTMLElement | null>(null);
-  const queueActionRestoreFocusRef = useRef<HTMLElement | null>(null);
   const exitFormRef = useRef<HTMLFormElement>(null);
   const ideaTitleRef = useRef<HTMLTextAreaElement>(null);
   const didInitScopeRef = useRef(false);
@@ -931,7 +826,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     revisions.find((revision) => revision.id === previewingRevisionId) ?? null;
   const displayedActive =
     active && previewingRevision ? flattenRevision(previewingRevision, active) : active;
-  const activeEpisode = episodes.find((e) => e.episode_id === activeEpisodeId) ?? null;
   const activeEnqueueIdea =
     ideas.find((idea) => idea.id === activeEnqueueIdeaId) ?? null;
   const activeEnqueueCharacter =
@@ -952,15 +846,15 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     ? (savedSnapshots[activeId] ?? currentEditableFields)
     : null;
   const dirty = useDirtyState(currentEditableFields, savedEditableFields);
-  const overlayOpen = activeEpisodeId !== null || pendingQueueAction !== null;
+  const overlayOpen = pendingQueueAction !== null;
   const POLL_MS = 5000;
 
   usePolling(pollJobs, {
-    enabled: ((!legacyShellOpen) || view === "queue") && !overlayOpen,
+    enabled: !overlayOpen,
     intervalMs: POLL_MS,
   });
   usePolling(pollEpisodes, {
-    enabled: ((!legacyShellOpen) || view === "runs" || view === "queue") && !overlayOpen,
+    enabled: !overlayOpen,
     intervalMs: POLL_MS,
   });
 
@@ -1020,72 +914,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     [activeId, discardDraftCharacter, guardDirtyAction],
   );
 
-  const guardedSetView = useCallback(
-    (nextView: View, cancel?: () => void) => {
-      if (nextView === view) return;
-      // In-app nav: push a history entry (after the dirty guard approves) so
-      // the URL reflects the view AND browser back/forward moves between views.
-      guardDirtyAction(() => {
-        if (isDraftCharacterId(activeId)) discardDraftCharacter();
-        setView(nextView);
-        if (typeof window !== "undefined") {
-          window.history.pushState(null, "", viewUrl(nextView));
-        }
-      }, cancel);
-    },
-    [activeId, discardDraftCharacter, guardDirtyAction, view],
-  );
-
-  const focusSelectedViewTab = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      viewTabRefs.current[view]?.focus();
-    });
-  }, [view]);
-
-  const activateViewTab = useCallback(
-    (nextView: View) => {
-      guardedSetView(nextView, focusSelectedViewTab);
-    },
-    [focusSelectedViewTab, guardedSetView],
-  );
-
-  const focusViewTab = useCallback((nextView: View) => {
-    viewTabRefs.current[nextView]?.focus();
-  }, []);
-
-  const handleViewTabKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLButtonElement>, currentView: View) => {
-      const currentIndex = VIEW_KEYS.indexOf(currentView);
-      if (currentIndex === -1) return;
-
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        const direction = event.key === "ArrowDown" ? 1 : -1;
-        const nextIndex = (currentIndex + direction + VIEW_KEYS.length) % VIEW_KEYS.length;
-        focusViewTab(VIEW_KEYS[nextIndex]);
-        return;
-      }
-
-      if (event.key === "Home") {
-        event.preventDefault();
-        focusViewTab(VIEW_KEYS[0]);
-        return;
-      }
-
-      if (event.key === "End") {
-        event.preventDefault();
-        focusViewTab(VIEW_KEYS[VIEW_KEYS.length - 1]);
-        return;
-      }
-
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        activateViewTab(currentView);
-      }
-    },
-    [activateViewTab, focusViewTab],
-  );
-
   const focusWorkspaceTab = useCallback((nextTab: WorkspaceTab) => {
     workspaceTabRefs.current[nextTab]?.focus();
   }, []);
@@ -1094,9 +922,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     (next: AppScope) => {
       if (activeId === DRAFT_CHARACTER_ID) discardDraftCharacter();
       didInitScopeRef.current = true;
-      setLegacyShellOpen(false);
       setPendingQueueAction(null);
-      setChannelsAutoNew(false);
       setScope(next);
       if (typeof window !== "undefined") {
         window.history.pushState(
@@ -1107,29 +933,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       }
     },
     [activeId, discardDraftCharacter],
-  );
-
-  const openLegacyConsoleUnguarded = useCallback(
-    (nextView: View = "roster") => {
-      if (activeId === DRAFT_CHARACTER_ID) discardDraftCharacter();
-      didInitScopeRef.current = true;
-      setLegacyShellOpen(true);
-      setPendingQueueAction(null);
-      setView(nextView);
-      if (typeof window !== "undefined") {
-        window.history.pushState(null, "", viewUrl(nextView));
-      }
-    },
-    [activeId, discardDraftCharacter],
-  );
-
-  const openLegacyConsole = useCallback(
-    (nextView: View = "roster") => {
-      guardDirtyAction(() => {
-        openLegacyConsoleUnguarded(nextView);
-      });
-    },
-    [guardDirtyAction, openLegacyConsoleUnguarded],
   );
 
   const handleOpenCharacter = useCallback(
@@ -1253,8 +1056,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     });
 
     setScope((current) => (scopesEqual(current, nextScope) ? current : nextScope));
-    setLegacyShellOpen(false);
-
     if (canonicalize) {
       window.history.replaceState(
         null,
@@ -1267,7 +1068,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   useEffect(() => {
     if (
       !didInitScopeRef.current ||
-      legacyShellOpen ||
       channelProfilesLoading ||
       channelProfilesError !== null ||
       scope.kind !== "workspace" ||
@@ -1283,23 +1083,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       "",
       scopeToUrl(nextScope, window.location.pathname, window.location.hash),
     );
-  }, [channelProfilesError, channelProfilesLoading, knownChannels, legacyShellOpen, scope]);
+  }, [channelProfilesError, channelProfilesLoading, knownChannels, scope]);
 
   useEffect(() => {
-    if (legacyShellOpen || scope.kind !== "hub" || scope.hub !== "characters") {
-      if (!legacyShellOpen) {
-        if (isDraftCharacterId(activeId)) {
-          discardDraftCharacter();
-        }
-        setCastingOpen(false);
-        setVisualCastingOpen(false);
+    if (scope.kind !== "hub" || scope.hub !== "characters") {
+      if (isDraftCharacterId(activeId)) {
+        discardDraftCharacter();
       }
+      setCastingOpen(false);
+      setVisualCastingOpen(false);
       setCharactersBenchMode("grid");
     }
   }, [
     activeId,
     discardDraftCharacter,
-    legacyShellOpen,
     scope,
     setCastingOpen,
     setVisualCastingOpen,
@@ -1307,7 +1104,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   useEffect(() => {
     if (
-      !legacyShellOpen &&
       scope.kind === "hub" &&
       scope.hub === "characters" &&
       charactersBenchMode !== "editor"
@@ -1322,7 +1118,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     activeId,
     charactersBenchMode,
     discardDraftCharacter,
-    legacyShellOpen,
     scope,
     setCastingOpen,
     setVisualCastingOpen,
@@ -1330,30 +1125,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   useEffect(() => {
     const onPopState = () => {
-      const fromUrl = readViewFromUrl();
-      const cancelUrl = legacyShellOpen
-        ? viewUrl(view)
-        : scopeToUrl(scope, window.location.pathname, window.location.hash);
-
-      if (fromUrl !== null) {
-        if (legacyShellOpen && fromUrl === view) return;
-        guardDirtyAction(
-          () => {
-            setPendingQueueAction(null);
-            setView(fromUrl);
-            setLegacyShellOpen(true);
-          },
-          () => window.history.replaceState(null, "", cancelUrl),
-        );
-        return;
-      }
+      const cancelUrl = scopeToUrl(scope, window.location.pathname, window.location.hash);
 
       const { scope: nextScope, canonicalize } = parseScope(window.location.search, {
         knownChannels:
           channelProfilesLoading || channelProfilesError !== null ? undefined : knownChannels,
       });
 
-      if (scopesEqual(nextScope, scope) && !canonicalize && !legacyShellOpen) return;
+      if (scopesEqual(nextScope, scope) && !canonicalize) return;
 
       guardDirtyAction(
         () => {
@@ -1364,7 +1143,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             setCastingOpen(false);
             setVisualCastingOpen(false);
           }
-          setLegacyShellOpen(false);
           setPendingQueueAction(null);
           setScope(nextScope);
           if (canonicalize) {
@@ -1386,11 +1164,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     channelProfilesLoading,
     guardDirtyAction,
     knownChannels,
-    legacyShellOpen,
     scope,
     setCastingOpen,
     setVisualCastingOpen,
-    view,
     discardDraftCharacter,
   ]);
 
@@ -1521,23 +1297,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     showFlash("Draft loaded from history — click Save to write new version");
   };
 
-  const openRunDetail = (episodeId: string) => {
-    lastRunTriggerRef.current = episodeId;
-    runDetailRestoreFocusRef.current = runButtonRefs.current.get(episodeId) ?? null;
-    setActiveEpisodeId(episodeId);
-    clearReceipts();
-    void fetchReceipts(episodeId);
-  };
-
-  const closeRunDetail = useCallback(() => {
-    const triggerId = lastRunTriggerRef.current;
-    setActiveEpisodeId(null);
-    resetReceipts();
-    runDetailRestoreFocusRef.current = triggerId
-      ? (runButtonRefs.current.get(triggerId) ?? null)
-      : null;
-  }, [resetReceipts]);
-
   const openEnqueuePanel = (ideaId: string, trigger: HTMLButtonElement) => {
     lastEnqueueTriggerRef.current = ideaId;
     enqueueRestoreFocusRef.current = trigger;
@@ -1591,10 +1350,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const requestQueueAction = (
     job: QueueJob,
     action: "fact" | "spend" | "publish" | "stale",
-    trigger: HTMLButtonElement,
   ) => {
     if (queueActionSubmitting) return;
-    queueActionRestoreFocusRef.current = trigger;
     setPendingQueueAction({ job, action });
   };
 
@@ -1784,12 +1541,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     discardDraftCharacter();
     const draft = createDraftCharacter();
     setActiveId(draft.id);
-    setView("roster");
-    // Keep the URL in sync with this programmatic view switch (a refresh would
-    // otherwise restore a stale ?view=).
-    if (typeof window !== "undefined") {
-      window.history.replaceState(null, "", viewUrl("roster"));
-    }
   };
 
   const guardedAddChar = () => {
@@ -1858,23 +1609,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }
   };
 
-  const openIdeas = ideas.filter((i) => i.status !== "used").length;
-  const activeQueueJobs = jobs.filter((job) => !isTerminalStatus(classifyJobStatus(job.status))).length;
-  const filteredQueueJobs = useMemo(
-    () =>
-      [...jobs]
-        .sort(
-          (a, b) =>
-            queueActionPriority(a) - queueActionPriority(b) ||
-            timestampMs(b.created_at) - timestampMs(a.created_at),
-        )
-        .filter((job) => queueJobMatchesFilter(job, queueFilter)),
-    [jobs, queueFilter],
-  );
-  const filteredEpisodes = useMemo(
-    () => episodes.filter((episode) => runMatchesFilter(episode.status, runsFilter)),
-    [episodes, runsFilter],
-  );
   const actionableJobs = useMemo(
     () => jobs.filter((job) => isActionableStatus(classifyJobStatus(job.status))),
     [jobs],
@@ -1913,7 +1647,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     [activeId, chars],
   );
   const activeRuns = useMemo(
-    () => episodes.filter((episode) => runMatchesFilter(episode.status, "running")).length,
+    () =>
+      episodes.filter(
+        (episode) => !isClearedStatus(episode.status) && !isFailedStatus(episode.status),
+      ).length,
     [episodes],
   );
   const spend30d = useMemo(() => {
@@ -2186,6 +1923,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     onNavigate: (key: "channels" | "characters" | "ideas" | "runs" | "review") =>
       navigate({ kind: "hub", hub: key }),
   } as const;
+  const handleExitSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    if (!dirty || !active) return;
+    event.preventDefault();
+    guardDirtyAction(() => {
+      exitFormRef.current?.submit();
+    });
+  };
+  const signOutSlot = (
+    <form ref={exitFormRef} action="/auth/signout" method="post" onSubmit={handleExitSubmit}>
+      <button className="aurora-sign-out" type="submit" aria-label={`Sign out ${userEmail}`}>
+        Sign out
+      </button>
+    </form>
+  );
   const hubLandingProps = {
     channels: {
       cards: hubChannelCards,
@@ -2210,13 +1961,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       pendingCount: actionableJobs.length,
       items: hubActionItems,
       onReviewAll: () => navigate({ kind: "hub", hub: "actions" }),
-      onOpenLegacyConsole: () => openLegacyConsole("roster"),
     },
     operatorInitials,
+    signOutSlot,
     nav: auroraNav,
   };
-  const ideaCaptureDisabled = Boolean(ideaSubmittingTitle);
-  const canSubmitIdea = draftIdea.trim().length > 0 && !ideaCaptureDisabled;
   const selectedDraftIdeaCharacterId = draftIdeaCharacterId ?? activeId ?? "";
   const selectedDraftIdeaChannel = draftIdeaChannel ?? CHANNELS[0];
   const dirtyCodename = active?.codename.trim() ? active.codename : "Untitled";
@@ -2234,14 +1983,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         .sort((a, b) => Number(b.id === activeId) - Number(a.id === activeId)),
     [activeId, chars],
   );
-
-  const handleExitSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    if (!dirty || !active) return;
-    event.preventDefault();
-    guardDirtyAction(() => {
-      exitFormRef.current?.submit();
-    });
-  };
 
   const closeVisualCasting = useCallback(() => {
     setVisualCastingOpen(false);
@@ -2359,8 +2100,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     const mobileRosterNode = renderMobileRoster(createHandler);
     // Basic mode keeps the high-leverage user seeds (name, concept, voice, gold-standard
     // lines) and tucks the auto-drafted bible detail behind "Show advanced settings".
-    // The legacy `.cr` shell (legacyShellOpen) always shows everything.
-    const showAdvancedFields = uiAdvanced || legacyShellOpen;
+    const showAdvancedFields = uiAdvanced;
 
     if (active && displayedActive) {
       return (
@@ -2668,11 +2408,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   };
 
   // ── render ─────────────────────────────────────────────────────────────────
-  if (!legacyShellOpen && costCenterOpen) {
+  if (costCenterOpen) {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
+        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
           <div className="cost-center scoped">
             <div className="overview-hub__head">
               <div>
@@ -2708,12 +2448,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     );
   }
 
-  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === DEFAULT_HUB) {
+  if (scope.kind === "hub" && scope.hub === DEFAULT_HUB) {
     if (newChannelOpen) {
       return (
         <>
           {globalOverlays}
-          <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
+          <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
             <div className="channel-create-surface">
               <nav className="breadcrumb" aria-label="Breadcrumb">
                 <button
@@ -2755,11 +2495,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     );
   }
 
-  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "actions") {
+  if (scope.kind === "hub" && scope.hub === "actions") {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
+        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
           <ActionCenter
             jobs={actionableJobs}
             parkById={jobParkById}
@@ -2781,7 +2521,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     );
   }
 
-  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "characters") {
+  if (scope.kind === "hub" && scope.hub === "characters") {
     const charactersBenchContent =
       charactersBenchMode === "grid"
         ? <CharactersHub {...charactersHubProps} />
@@ -2835,40 +2575,40 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
+        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
           {charactersBenchContent}
         </AuroraShell>
       </>
     );
   }
 
-  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "ideas") {
+  if (scope.kind === "hub" && scope.hub === "ideas") {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
+        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
           <IdeasHub {...ideasHubProps} />
         </AuroraShell>
       </>
     );
   }
 
-  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "runs") {
+  if (scope.kind === "hub" && scope.hub === "runs") {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
+        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
           <RunsHub {...runsHubProps} />
         </AuroraShell>
       </>
     );
   }
 
-  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "review") {
+  if (scope.kind === "hub" && scope.hub === "review") {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
+        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
           <ReviewHub
             fixtures={MOCK_REVIEW_FIXTURES}
             onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
@@ -2878,11 +2618,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     );
   }
 
-  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "reveal") {
+  if (scope.kind === "hub" && scope.hub === "reveal") {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
+        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
           <RevealHub
             fixtures={revealFixtures}
             loading={revealFixturesLoading}
@@ -2895,11 +2635,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     );
   }
 
-  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "overview") {
+  if (scope.kind === "hub" && scope.hub === "overview") {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
+        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
           <div className="overview-hub scoped">
             <div className="overview-hub__head">
               <div>
@@ -2932,7 +2672,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     );
   }
 
-  if (!legacyShellOpen && scope.kind === "workspace") {
+  if (scope.kind === "workspace") {
     const channelProfile =
       channelProfiles.find((profile) => profile.channel === scope.channel) ?? null;
     const channelName = channelProfile?.display_name?.trim() || scope.channel;
@@ -2963,7 +2703,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     return (
       <>
         {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
+        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
           <nav className="breadcrumb" aria-label="Breadcrumb">
             <button
               type="button"
@@ -3480,894 +3220,5 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     );
   }
 
-  return (
-    <>
-    {globalOverlays}
-    <div className="cr">
-      <nav className="rail">
-        <div className="brand" style={{ marginBottom: "8px" }}>
-          CONTROL<b>·</b>ROOM
-        </div>
-        <button
-          className="navbtn"
-          type="button"
-          onClick={() => guardDirtyAction(() => navigate({ kind: "hub", hub: DEFAULT_HUB }))}
-        >
-          <Icon name="channels" />
-          <span>Hub</span>
-          <div className="dot" />
-        </button>
-        <button
-          className={"chip " + (active?.status === "draft" ? "draft" : active ? "active" : "")}
-          type="button"
-          onClick={() => guardedSetView("roster")}
-          disabled={!active}
-          title={active ? `ACTIVE: ${active.codename || "Untitled"}${dirty ? "*" : ""}` : "No active operator"}
-          aria-label={
-            active
-              ? `Current operator: ${active.codename || "Untitled"}${dirty ? ", unsaved changes" : ""}. Return to roster.`
-              : "No active operator"
-          }
-          style={{
-            width: "68px",
-            minHeight: "30px",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            background: "transparent",
-          }}
-        >
-          {active ? (
-            <>
-              <span aria-hidden="true">{active.status === "active" ? "● " : "○ "}</span>
-              {active.codename || "Untitled"}
-              {dirty ? "*" : ""}
-            </>
-          ) : (
-            "NO ACTIVE"
-          )}
-        </button>
-        <div role="tablist" aria-orientation="vertical" aria-label="Primary views">
-          {VIEW_NAV_ITEMS.map(({ key: k, label }) => (
-            <button
-              key={k}
-              ref={(node) => {
-                viewTabRefs.current[k] = node;
-              }}
-              id={viewTabId(k)}
-              className={"navbtn" + (view === k ? " on" : "")}
-              type="button"
-              role="tab"
-              aria-selected={view === k}
-              aria-controls={PRIMARY_VIEW_PANEL_ID}
-              tabIndex={view === k ? 0 : -1}
-              onClick={() => activateViewTab(k)}
-              onKeyDown={(event) => handleViewTabKeyDown(event, k)}
-            >
-              <Icon name={k} />
-              <span>{label}</span>
-              <div className="dot" />
-            </button>
-          ))}
-        </div>
-        <form
-          ref={exitFormRef}
-          action="/auth/signout"
-          method="post"
-          className="railspacer"
-          onSubmit={handleExitSubmit}
-        >
-          <button
-            className="navbtn"
-            type="submit"
-            title={`Sign out · ${userEmail}`}
-            aria-label={`Sign out ${userEmail}`}
-          >
-            <Icon name="exit" />
-            <span>Exit</span>
-            <div className="dot" />
-          </button>
-        </form>
-      </nav>
-
-      <main
-        id={PRIMARY_VIEW_PANEL_ID}
-        role="tabpanel"
-        aria-labelledby={viewTabId(view)}
-        tabIndex={0}
-      >
-        {loading ? (
-          <div className="loading">
-            <span className="spin" /> Loading field manuals…
-          </div>
-        ) : loadError ? (
-          <div className="empty">
-            <h3>Comms down</h3>
-            <p>Couldn&apos;t reach the database: {loadError}</p>
-            <button className="btn" type="button" onClick={() => void fetchCharacters()}>
-              Retry Roster
-            </button>
-          </div>
-        ) : (
-          <>
-          {view === "roster" && (
-            <div className="main">
-              <aside className="roster">
-                <div className="col-head">
-                  <h2>Roster</h2>
-                  <span className="count">{chars.length} on file</span>
-                </div>
-                <div className="roster-list">
-                  {chars.map((c) => (
-                    <button
-                      key={c.id}
-                      className={"pcard" + (c.id === activeId ? " on" : "")}
-                      onClick={() => guardedSetActiveId(c.id)}
-                    >
-                      <div className="codename">
-                        {c.codename || "Untitled"}
-                        {c.id === activeId && dirty ? "*" : ""}
-                      </div>
-                      <div className="concept">
-                        {c.concept || "No concept logged yet."}
-                      </div>
-                      <div className="meta">
-                        {c.id === activeId && (
-                          <span className="chip active">● Casting</span>
-                        )}
-                        {c.status === "draft" && (
-                          <span className="chip draft">Draft</span>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                  <button className="addbtn" onClick={guardedAddChar} disabled={adding}>
-                    {adding ? "Creating…" : "+ New character"}
-                  </button>
-                </div>
-              </aside>
-
-              {renderDossierEditor(guardedAddChar)}
-            </div>
-          )}
-
-          {view === "channels" && (
-            <ChannelProfilesPanel
-              supabase={supabase}
-              profiles={channelProfiles}
-              characters={channelCharacterOptions}
-              loading={channelProfilesLoading}
-              error={channelProfilesError}
-              onRefetch={refetchChannelProfiles}
-              autoStartNew={channelsAutoNew}
-              onAutoStartNewConsumed={() => setChannelsAutoNew(false)}
-              onUseInCasting={handleUseInCasting}
-            />
-          )}
-
-          {view === "wire" && (
-            <div className="wire">
-              <div className="col-head">
-                <h2>The Wire</h2>
-                <span className="count">
-                  {ideas.length} logged · {openIdeas} open
-                </span>
-              </div>
-              <div className="cap">
-                <span className="eyebrow">
-                  TRANSMITTING FREQUENCY · LOG NEW BEAT
-                </span>
-                <div className="field" style={{ marginTop: 12 }}>
-                  <textarea
-                    ref={ideaTitleRef}
-                    rows={2}
-                    value={draftIdea}
-                    placeholder={'Dossier title (e.g. "Acoustic Kitty target extraction")...'}
-                    onChange={(e) => setDraftIdea(e.target.value)}
-                    onKeyDown={handleIdeaTitleKeyDown}
-                    disabled={ideaCaptureDisabled}
-                    aria-label="New idea title"
-                    style={{ resize: "vertical" }}
-                  />
-                </div>
-                <div className="field" style={{ marginTop: 10 }}>
-                  <textarea
-                    rows={2}
-                    value={draftIdeaNote}
-                    placeholder="Tactical notes, dialogue fragments, or scene beats (optional)..."
-                    onChange={(e) => setDraftIdeaNote(e.target.value)}
-                    onKeyDown={handleIdeaNoteKeyDown}
-                    disabled={ideaCaptureDisabled}
-                    aria-label="New idea note"
-                    style={{ resize: "vertical" }}
-                  />
-                </div>
-                <div className="row" style={{ marginTop: 10, alignItems: "center" }}>
-                  <select
-                    className="tag-select"
-                    value={selectedDraftIdeaCharacterId}
-                    onChange={(event) => setDraftIdeaCharacterId(event.target.value)}
-                    disabled={ideaCaptureDisabled}
-                    aria-label="Idea character assignment"
-                  >
-                    <option value="">No character</option>
-                    {active && (
-                      <option value={active.id}>Current Dossier: {active.codename || "Untitled"}</option>
-                    )}
-                    {chars
-                      .filter((character) => character.id !== active?.id && character.status === "active")
-                      .map((character) => (
-                        <option key={character.id} value={character.id}>
-                          ● {character.codename || "Untitled"}
-                        </option>
-                      ))}
-                    {chars
-                      .filter((character) => character.id !== active?.id && character.status !== "active")
-                      .map((character) => (
-                        <option key={character.id} value={character.id}>
-                          ○ {character.codename || "Untitled"}
-                        </option>
-                      ))}
-                  </select>
-                  <select
-                    className="tag-select"
-                    value={selectedDraftIdeaChannel}
-                    onChange={(event) => setDraftIdeaChannel(event.target.value)}
-                    disabled={ideaCaptureDisabled}
-                    aria-label="Idea channel assignment"
-                  >
-                    {CHANNELS.map((channel) => (
-                      <option key={channel} value={channel}>
-                        {channel}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => void logIdea()}
-                    disabled={!canSubmitIdea}
-                  >
-                    {ideaSubmittingTitle ? "TRANSMITTING..." : "LOG IT"}
-                  </button>
-                </div>
-              </div>
-              {ideasError && ideas.length > 0 && (
-                <div className="cap" role="alert">
-                  <span className="eyebrow">Wire read degraded</span>
-                  <div className="row" style={{ marginTop: 9, alignItems: "center" }}>
-                    <span className="note">Couldn&apos;t refresh logged ideas: {ideasError}</span>
-                    <button className="btn" type="button" onClick={() => void fetchIdeas()}>
-                      Retry Wire
-                    </button>
-                  </div>
-                </div>
-              )}
-              {ideasLoading && ideas.length === 0 ? (
-                <div className="loading">
-                  <span className="spin" /> Loading wire queue…
-                </div>
-              ) : ideasError && ideas.length === 0 ? (
-                <div className="empty">
-                  <h3>Wire unavailable</h3>
-                  <p>Couldn&apos;t read logged ideas: {ideasError}</p>
-                  <button className="btn" type="button" onClick={() => void fetchIdeas()}>
-                    Retry Wire
-                  </button>
-                </div>
-              ) : ideas.length === 0 ? (
-                <div className="empty">
-                  <h3>The wire&apos;s quiet</h3>
-                  <p>Nothing logged yet. Drop the next idea above the moment it lands.</p>
-                </div>
-              ) : (
-                <div className="wire-list">
-                  {ideas.map((i) => {
-                    const writeState = i.clientWriteState;
-                    const isWriteBlocked = Boolean(writeState);
-                    const currentDossier = activeId
-                      ? chars.find((c) => c.id === activeId)
-                      : undefined;
-                    const groupedDossiers = chars.filter((c) => c.id !== currentDossier?.id);
-                    const activeDossiers = groupedDossiers.filter((c) => c.status === "active");
-                    const draftDossiers = groupedDossiers.filter((c) => c.status !== "active");
-                    const borderLeftColor =
-                      writeState === "failed"
-                        ? "var(--stamp)"
-                        : writeState === "saving"
-                          ? "var(--line-soft)"
-                          : i.status === "active"
-                            ? "var(--brass)"
-                            : i.status === "used"
-                              ? "var(--cleared)"
-                              : "var(--line)";
-                    return (
-                      <div
-                        key={i.clientKey ?? i.id}
-                        className="icard"
-                        aria-busy={writeState === "saving"}
-                        style={{
-                          borderLeftColor,
-                          borderColor: writeState === "failed" ? "var(--stamp-deep)" : undefined,
-                          opacity: writeState === "saving" ? 0.65 : undefined,
-                        }}
-                      >
-                        <div className="body">
-                          <div className="title">{i.title}</div>
-                          {i.note && <div className="note">{i.note}</div>}
-                          <div className="tags">
-                            {writeState === "saving" ? (
-                              <span className="statusbtn">[TRANSMITTING...]</span>
-                            ) : writeState === "failed" ? (
-                              <>
-                                <button
-                                  className="statusbtn"
-                                  type="button"
-                                  onClick={() => retryIdea(i)}
-                                  disabled={ideaCaptureDisabled}
-                                >
-                                  [TRANSMISSION FAILED - RETRY]
-                                </button>
-                                <button
-                                  className="statusbtn"
-                                  type="button"
-                                  onClick={() => dismissIdea(i.id)}
-                                >
-                                  Dismiss
-                                </button>
-                              </>
-                            ) : (
-                              <div
-                                className="status-segmented-control"
-                                role="group"
-                                aria-label="Update idea status"
-                              >
-                                {IDEA_STATUS_OPTIONS.map((status) => {
-                                  const isActiveStatus = i.status === status;
-                                  return (
-                                    <button
-                                      key={status}
-                                      className={
-                                        "segment-btn" +
-                                        (isActiveStatus ? " active-segment s-" + status : "")
-                                      }
-                                      type="button"
-                                      aria-pressed={isActiveStatus}
-                                      disabled={isWriteBlocked}
-                                      onClick={() => setIdeaStatus(i.id, status)}
-                                    >
-                                      {IDEA_STATUS_LABELS[status]}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                            {!isWriteBlocked && i.status !== "used" && (
-                              <button
-                                ref={(node) => {
-                                  if (node) enqueueButtonRefs.current.set(i.id, node);
-                                  else enqueueButtonRefs.current.delete(i.id);
-                                }}
-                                className="statusbtn enqueue-trigger"
-                                type="button"
-                                onClick={(event) => openEnqueuePanel(i.id, event.currentTarget)}
-                                aria-haspopup="dialog"
-                                aria-expanded={activeEnqueueIdeaId === i.id}
-                              >
-                                [ Queue as run ]
-                              </button>
-                            )}
-                            <select
-                              className="tag-select"
-                              value={chars.length === 0 ? "" : i.character_id ?? ""}
-                              onChange={(e) =>
-                                setIdeaField(i.id, "character_id", e.target.value)
-                              }
-                              disabled={isWriteBlocked || chars.length === 0}
-                              aria-label="Assign character"
-                            >
-                              {chars.length === 0 ? (
-                                <option value="">[ No characters on file ]</option>
-                              ) : (
-                                <>
-                                  <option value="">[ -- Unassigned -- ]</option>
-                                  {currentDossier && (
-                                    <option value={currentDossier.id}>
-                                      ⚡ Current Dossier: {currentDossier.codename || "Untitled"}
-                                    </option>
-                                  )}
-                                  {activeDossiers.length > 0 && (
-                                    <optgroup label="Active Field Manuals">
-                                      {activeDossiers.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                          ● {c.codename || "Untitled"}
-                                        </option>
-                                      ))}
-                                    </optgroup>
-                                  )}
-                                  {draftDossiers.length > 0 && (
-                                    <optgroup label="Draft Field Manuals">
-                                      {draftDossiers.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                          ○ {c.codename || "Untitled"}
-                                        </option>
-                                      ))}
-                                    </optgroup>
-                                  )}
-                                </>
-                              )}
-                            </select>
-                            <select
-                              className="tag-select"
-                              value={i.channel}
-                              onChange={(e) =>
-                                setIdeaField(i.id, "channel", e.target.value)
-                              }
-                              disabled={isWriteBlocked}
-                              aria-label="Assign channel"
-                            >
-                              {CHANNELS.map((ch) => (
-                                <option key={ch} value={ch}>
-                                  {ch}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          {writeState === "failed" && i.clientError && (
-                            <div className="note" role="alert" style={{ color: "var(--stamp)" }}>
-                              {i.clientError}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {view === "queue" && (
-            <div className="wire">
-              <div className="col-head">
-                <h2>Queue</h2>
-                <span className="count">
-                  {jobsLoading
-                    ? "interrogating pipeline"
-                    : `pipeline queue · ${activeQueueJobs} active job${activeQueueJobs === 1 ? "" : "s"}`}
-                </span>
-              </div>
-              <div className="cap">
-                <span className="eyebrow">
-                  Upstream jobs before production. Runs are finished episodes after the worker
-                  pipeline writes output.
-                </span>
-                <div className="filter-chips" role="group" aria-label="Filter queue jobs">
-                  {QUEUE_FILTERS.map((filter) => (
-                    <button
-                      key={filter.key}
-                      className={"chip" + (queueFilter === filter.key ? " on" : "")}
-                      type="button"
-                      aria-pressed={queueFilter === filter.key}
-                      onClick={() => setQueueFilter(filter.key)}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {jobsLoading ? (
-                <div className="wire-list" aria-label="Loading queued jobs">
-                  <div className="queue-card-meta">Interrogating pipeline database...</div>
-                  {[0, 1, 2].map((row) => (
-                    <div
-                      key={row}
-                      className="icard job-card skeleton skeleton-card"
-                      aria-hidden="true"
-                    >
-                      <div className="queue-card-head">
-                        <span className="skeleton skeleton-text skeleton-wide" />
-                        <span className="skeleton skeleton-text skeleton-badge" />
-                      </div>
-                      <span className="skeleton skeleton-text" />
-                      <span className="skeleton skeleton-text skeleton-short" />
-                    </div>
-                  ))}
-                </div>
-              ) : jobsError ? (
-                <div className="queue-error-banner" role="alert">
-                  <h3>Comms Down</h3>
-                  <p>Couldn&apos;t reach the pipeline jobs database: {jobsError}</p>
-                  <button className="btn" type="button" onClick={() => void fetchJobs()}>
-                    Retry Queue Connection
-                  </button>
-                </div>
-              ) : jobs.length === 0 ? (
-                <div className="empty">
-                  <Icon name="queue" />
-                  <h3>The queue is clear</h3>
-                  <p>
-                    No jobs are currently registered in the pipeline. Dispatch a target run
-                    from The Wire to engage the worker engines.
-                  </p>
-                </div>
-              ) : filteredQueueJobs.length === 0 ? (
-                <div className="empty">
-                  <Icon name="queue" />
-                  <h3>No queue matches</h3>
-                  <p>Switch filters to see the rest of the pipeline queue.</p>
-                </div>
-              ) : (
-                <div className="wire-list" aria-label="Pipeline jobs">
-                  {filteredQueueJobs.map((job) => {
-                    const status = classifyJobStatus(job.status);
-                    const actionable = isActionableStatus(status);
-                    const terminal = isTerminalStatus(status);
-                    const park = jobParkById[job.id];
-                    const hasSpend = typeof job.spend === "number" && job.spend > 0;
-                    const episodeKnown = job.episode_id
-                      ? episodes.some((episode) => episode.episode_id === job.episode_id)
-                      : false;
-                    const cardClass =
-                      "icard job-card status-" +
-                      status +
-                      (status === "running" ? " running-pulse" : "");
-
-                    return (
-                      <article
-                        key={job.id}
-                        className={cardClass}
-                        aria-label={`${JOB_STATUS_LABELS[status]} job for ${job.food}`}
-                      >
-                        <div className="body">
-                          <div className="queue-card-head">
-                            <div>
-                              <div className="title">{job.food}</div>
-                              <div className="queue-card-meta">
-                                <span>OPERATOR: {job.character ?? "default"}</span>
-                                {job.channel != null && (
-                                  <span className="chip queue-channel-chip">{job.channel}</span>
-                                )}
-                                <span>CREATED: {formatQueueTimestamp(job.created_at)}</span>
-                                <span>Attempts: {job.attempts}/3</span>
-                                {terminal && <span>Terminal</span>}
-                              </div>
-                            </div>
-                            <span className={`status-badge ${status}`}>
-                              [ {JOB_STATUS_LABELS[status].toUpperCase()} ]
-                            </span>
-                          </div>
-
-                          {hasSpend && (
-                            <div className="queue-card-spend">
-                              Spend: {formatUsd(job.spend ?? 0)}
-                            </div>
-                          )}
-                          {job.error &&
-                            (() => {
-                              const errorText = `${job.park_kind ? `${job.park_kind}: ` : ""}${job.error}`;
-                              if (!errorText.trim()) return null;
-                              const { firstLine, rest } = splitQueueErrorText(errorText);
-                              return rest ? (
-                                <details className="receipt-json-details queue-card-substatus">
-                                  <summary className="receipt-json-summary">
-                                    {firstLine}
-                                  </summary>
-                                  <pre className="receipt-json-content">
-                                    <code>{rest}</code>
-                                  </pre>
-                                </details>
-                              ) : (
-                                <p className="queue-card-substatus" role="status">
-                                  {firstLine}
-                                </p>
-                              );
-                            })()}
-
-                          {actionable && status === "ready_for_review" && (
-                            <>
-                              {park?.loading ? (
-                                <div className="job-review-panel" role="status">
-                                  <h4>Review Park Detected</h4>
-                                  <p>Reading latest receipt to classify the parked gate.</p>
-                                </div>
-                              ) : park?.kind === "fact" ? (
-                                <div className="job-review-panel">
-                                  <h4>Fact Park Detected</h4>
-                                  <p>
-                                    Regulated-YELLOW claims are waiting on human sign-off.
-                                  </p>
-                                  <button
-                                    className="btn compact"
-                                    type="button"
-                                    onClick={(event) =>
-                                      requestQueueAction(job, "fact", event.currentTarget)
-                                    }
-                                  >
-                                    Approve facts &amp; continue
-                                  </button>
-                                </div>
-                              ) : park?.kind === "publish" ? (
-                                <div className="job-review-panel">
-                                  <h4>Publish Park Detected</h4>
-                                  <p>
-                                    Distribution is waiting on human approval.
-                                    {park.stage ? ` Last receipt stage: ${park.stage}.` : ""}
-                                  </p>
-                                  <p className="queue-card-substatus">
-                                    Approval posts the exact reviewed render with no re-render or
-                                    double-spend. No Buffer token is wired yet, so nothing posts.
-                                  </p>
-                                  <button
-                                    className="btn compact"
-                                    type="button"
-                                    onClick={(event) =>
-                                      requestQueueAction(job, "publish", event.currentTarget)
-                                    }
-                                  >
-                                    Approve &amp; publish
-                                  </button>
-                                </div>
-                              ) : park?.kind === "spend" ? (
-                                <div className="job-review-panel">
-                                  <h4>Spend Park Detected</h4>
-                                  <p>
-                                    This job was parked to prevent runaway credit usage.
-                                    {park.stage ? ` Last receipt stage: ${park.stage}.` : ""}
-                                  </p>
-                                  <button
-                                    className="btn compact"
-                                    type="button"
-                                    onClick={(event) =>
-                                      requestQueueAction(job, "spend", event.currentTarget)
-                                    }
-                                  >
-                                    Approve spend &amp; continue
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="job-review-panel">
-                                  <h4>Review Park Unresolved</h4>
-                                  <p>
-                                    The review gate could not be classified from the job or latest
-                                    receipt. Spend approval is only correct for a spend park; check
-                                    the run drill-down first if this might be a fact or publish park.
-                                    {park?.error ? ` Receipt read failed: ${park.error}` : ""}
-                                  </p>
-                                  <button
-                                    className="btn compact"
-                                    type="button"
-                                    onClick={(event) =>
-                                      requestQueueAction(job, "spend", event.currentTarget)
-                                    }
-                                  >
-                                    Approve spend &amp; continue
-                                  </button>
-                                </div>
-                              )}
-                            </>
-                          )}
-
-                          {actionable && status === "stale" && (
-                            <div className="stale-affordance">
-                              <h4>Stranded Job</h4>
-                              <p className="queue-card-substatus">stranded - needs attention</p>
-                              <button
-                                className="btn ghost compact"
-                                type="button"
-                                onClick={(event) =>
-                                  requestQueueAction(job, "stale", event.currentTarget)
-                                }
-                              >
-                                Re-run Job
-                              </button>
-                            </div>
-                          )}
-
-                          <div className="queue-card-actions">
-                            {job.episode_id && (
-                              <button
-                                ref={(node) => {
-                                  if (!job.episode_id) return;
-                                  if (node) runButtonRefs.current.set(job.episode_id, node);
-                                  else runButtonRefs.current.delete(job.episode_id);
-                                }}
-                                className="btn ghost compact"
-                                type="button"
-                                onClick={() => {
-                                  if (job.episode_id) openRunDetail(job.episode_id);
-                                }}
-                                aria-haspopup="dialog"
-                                aria-expanded={activeEpisodeId === job.episode_id}
-                                title="Open run detail"
-                              >
-                                Open Run Detail
-                              </button>
-                            )}
-                            {job.episode_id && !episodeKnown && (
-                              <small className="queue-card-substatus">
-                                Episode id is present; run detail opens when the episode row is available.
-                              </small>
-                            )}
-                            {job.spend_approved && (
-                              <span className="queue-card-substatus">spend authorized</span>
-                            )}
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-
-              {activeEpisode && (
-                <DrillDownPanel
-                  episode={activeEpisode}
-                  receipts={receipts}
-                  loading={receiptsLoading}
-                  error={receiptsError}
-                  onClose={closeRunDetail}
-                  onRetry={() => {
-                    void fetchReceipts(activeEpisode.episode_id);
-                  }}
-                  restoreFocusRef={runDetailRestoreFocusRef}
-                />
-              )}
-            </div>
-          )}
-
-          {view === "runs" && (
-            <div className="wire">
-              <div className="col-head">
-                <h2>Runs</h2>
-                <span className="count">
-                  {episodesLoading
-                    ? "loading pipeline output"
-                    : `pipeline output · ${episodes.length} episode${episodes.length === 1 ? "" : "s"}`}
-                </span>
-              </div>
-              <div className="cap">
-                <span className="eyebrow">Operation-wide pipeline output — every character&apos;s finished episodes.</span>
-                <div className="filter-chips" role="group" aria-label="Filter runs">
-                  {RUNS_FILTERS.map((filter) => (
-                    <button
-                      key={filter.key}
-                      className={"chip" + (runsFilter === filter.key ? " on" : "")}
-                      type="button"
-                      aria-pressed={runsFilter === filter.key}
-                      onClick={() => setRunsFilter(filter.key)}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {episodesLoading ? (
-                <div className="loading">
-                  <span className="spin" /> Loading pipeline output…
-                </div>
-              ) : episodesError ? (
-                <div className="empty">
-                  <Icon name="runs" />
-                  <h3>Runs unavailable</h3>
-                  <p>Couldn&apos;t read pipeline episodes: {episodesError}</p>
-                  <button className="btn" type="button" onClick={() => void fetchEpisodes()}>
-                    Retry Runs
-                  </button>
-                </div>
-              ) : episodes.length === 0 ? (
-                <div className="empty">
-                  <Icon name="runs" />
-                  <h3>No runs yet</h3>
-                  <p>
-                    Finished episodes land here — each with its fact-check verdict
-                    and the provider that gated it. The content pipeline writes them
-                    to the same Supabase this dashboard reads.
-                  </p>
-                </div>
-              ) : filteredEpisodes.length === 0 ? (
-                <div className="empty">
-                  <Icon name="runs" />
-                  <h3>No runs match</h3>
-                  <p>Switch filters to see the rest of the pipeline output.</p>
-                </div>
-              ) : (
-                <div className="wire-list">
-                  {filteredEpisodes.map((e) => {
-                    const gate = e.sentinels?.[e.sentinels.length - 1];
-                    return (
-                      <button
-                        key={e.episode_id}
-                        ref={(node) => {
-                          if (node) runButtonRefs.current.set(e.episode_id, node);
-                          else runButtonRefs.current.delete(e.episode_id);
-                        }}
-                        className="runcard"
-                        onClick={() => openRunDetail(e.episode_id)}
-                        aria-haspopup="dialog"
-                        aria-expanded={activeEpisodeId === e.episode_id}
-                      >
-                        <div className="topic">{e.food}</div>
-                        <div className="runmeta">
-                          <span className="rmeta stat">{e.status}</span>
-                          {e.final_stage && (
-                            <span className="rmeta">stage · {e.final_stage}</span>
-                          )}
-                          {gate?.provider && (
-                            <span className="rmeta gate">
-                              gated by {gate.provider}
-                              {gate.verdict ? ` · ${gate.verdict}` : ""}
-                            </span>
-                          )}
-                          {typeof e.spend === "number" && e.spend > 0 && (
-                            <span className="rmeta">${e.spend.toFixed(2)}</span>
-                          )}
-                          <span className="rmeta">
-                            {new Date(e.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {activeEpisode && (
-                <DrillDownPanel
-                  episode={activeEpisode}
-                  receipts={receipts}
-                  loading={receiptsLoading}
-                  error={receiptsError}
-                  onClose={closeRunDetail}
-                  onRetry={() => {
-                    void fetchReceipts(activeEpisode.episode_id);
-                  }}
-                  restoreFocusRef={runDetailRestoreFocusRef}
-                />
-              )}
-            </div>
-          )}
-
-          {view === "overview" && (
-            <OverviewDashboard
-              chars={chars}
-              ideas={ideas}
-              episodes={episodes}
-              costStats={costStats}
-              costReceiptsLoading={costReceiptsLoading}
-              costReceiptsError={costReceiptsError}
-            />
-          )}
-
-          {view === "cost" && (
-            <CostBoxDashboard
-              episodes={episodes}
-              costStats={costStats}
-              loading={costReceiptsLoading}
-              error={costReceiptsError}
-              receiptsLoaded={costReceiptsLoaded}
-              onRetry={() => void fetchCostReceipts()}
-            />
-          )}
-          </>
-        )}
-      </main>
-      {pendingQueueAction && (
-        <QueueActionDialog
-          job={pendingQueueAction.job}
-          action={pendingQueueAction.action}
-          submitting={queueActionSubmitting}
-          onCancel={cancelQueueAction}
-          onConfirm={() => {
-            void confirmQueueAction();
-          }}
-          restoreFocusRef={queueActionRestoreFocusRef}
-          factClaims={factClaimsState.claims}
-          factClaimsLoading={factClaimsState.loading}
-          factClaimsError={factClaimsState.error}
-        />
-      )}
-    </div>
-    </>
-  );
+  return null;
 }
