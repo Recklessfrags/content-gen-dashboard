@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-12 (NINE dashboard slices shipped — #1a park view, schema reconcile, #2-display, #3 scoring UI (mock), UX declutter, #4 channel filter, #5 design-system pass, #6 group-by-state, #7 persona "Use in casting", #8 reveal-approval preview phase-1 (mock `?hub=reveal`). Sol design audit fully shipped. Prod tip = `e6310e9` on `claude/new-session-3l99vs`; branch `claude/wire-aurora-home-5b-lleyyg` restarted fresh off it.** by the Architect (Claude)._
+_Last updated: **2026-07-13 (Reveal Phase 2 BUILT + two-lens reviewed + pushed, awaiting GO to merge. Prod tip = `8b40ed9` on `claude/new-session-3l99vs`; branch `claude/wire-aurora-home-5b-lleyyg` is 3 commits AHEAD of prod — unmerged: multi-user design doc `f0b1359`, phase-2 spec `54b12ff`, phase-2 build `fbadf16`.)** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,61 +11,61 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-12) — NINE dashboard slices shipped to prod (`e6310e9`). Read this first.
+## ⚡ LATEST (2026-07-13) — Reveal Phase 2 BUILT + reviewed + pushed; awaiting GO to merge. Read this first.
 
-All merged to `claude/new-session-3l99vs` via squash PRs; branch `claude/wire-aurora-home-5b-lleyyg`
-is restarted fresh off the prod tip after each. Read-only/design class unless noted; each: Codex build
-→ tsc/vitest/next-build gates → Gemini cross-vendor review → merge nod (problem-solver or direct owner
-ratification). **The full Sol design audit is shipped.**
+Prod tip = `8b40ed9`. Ten dashboard slices are shipped to prod (#1a park view, schema reconcile,
+#2-display, #3 scoring UI (mock), UX declutter, #4 channel filter, #5 design-system pass, #6
+group-by-state, #7 persona "Use in casting", #8 reveal-approval preview phase-1 (mock `?hub=reveal`)).
+The Sol design audit is fully shipped. Each shipped via: Codex build → tsc/vitest/next-build gates →
+review → squash-merge to `claude/new-session-3l99vs`.
 
-**9. #8 reveal-approval preview — phase 1** (PR #149) — `src/lib/revealApproval.ts` + `RevealHub.tsx`
-   (`?hub=reveal`, entry from the Action Center). The dashboard half of the **ratified reveal-approval
-   contract** (`docs/contracts/data-contract.md` → "Reveal-approval contract"; reels#88 spec
-   `spec-channel-dna-and-reveal-spine.md` §8). MOCK fixtures, local-only, **no writes** — per-reveal
-   card (synthesis + grade chip + auditor reason + brand caution + grounding via the #2-display
-   component) with Approve/Edit/Reject. **PHASE 2 (not built): the `reveal_approvals` migration + real
-   `jobs.reveal_*` write-back — TWO-LENS (Gemini + suerta/Opus) + owner GO — gated on the PIPELINE
-   landing `reveal_approved`/`reveal_override`/`reveal_rejected` columns + a #88 heads-up.**
+**★ #8 reveal-approval — PHASE 2 (write-back): BUILT, TWO-LENS REVIEWED, PUSHED — NOT YET MERGED.**
+Branch `claude/wire-aurora-home-5b-lleyyg` is **3 commits ahead of prod**: `f0b1359` (multi-user
+design doc), `54b12ff` (phase-2 spec `docs/slices/slice-8-phase-2-reveal-approval-writeback.md`),
+`fbadf16` (the phase-2 build). Phase 2 makes the reveal hub real:
+- **`reveal_approvals`** — dashboard-owned, owner-scoped, **append-only** audit table. Migration
+  **`supabase/migrations/dash_0011_reveal_approvals.sql`** (SELECT+INSERT only, no UPDATE/DELETE;
+  `owner default auth.uid()`). **NOT yet applied to the live DB** — gated on GO.
+- **Real read path** — `?hub=reveal` reads live parked reveals (`ready_for_review` + `park_kind='reveal'`
+  → max-seq `reveal_auditor` receipt → `parseRevealAuditorResult`). 0 parked live today → correct empty
+  state. Mock banner removed from the live surface. Read set keyed off `jobParkById` resolution so it
+  matches the ActionCenter "Review reveals" route (no dead-end).
+- **Guarded write path** — decisions record to `reveal_approvals` immediately; the `jobs.reveal_*` resume
+  write is **guarded OFF** behind env flag **`NEXT_PUBLIC_REVEAL_WRITE_ENABLED`** + a missing-column
+  backstop (VERIFIED live: `jobs` has NO `reveal_*` cols yet). Activates the instant the PIPELINE lands
+  `reveal_approved`/`reveal_override`/`reveal_rejected` + you flip the flag. Never touches lifecycle
+  columns; scoped `.eq('park_kind','reveal')` with a multi-row guard.
+- **Pure builders** `buildRevealApprovalRow`/`buildJobsRevealPatch` (unit-tested); reveal park-kind
+  classification added to `jobs.ts`/`parkReason.ts`/`ActionCenter.tsx`.
+- **Two-lens review (Gemini + suerta/Opus): SHIP-WITH-FIXES** — RLS, guarded write, idempotency confirmed
+  sound; 4 real fixes applied (Promise.allSettled so one bad receipt doesn't collapse the hub; read↔route
+  consistency; stable re-query gating; multi-row UPDATE guard); 1 Gemini false-positive rejected (rule 10).
+- **Gates:** `tsc` ✓ · 237 tests ✓ · `next build` ✓.
 
-1. **#1a park view** + **`channel_profiles` schema reconcile** (PR #141) — `src/lib/parkReason.ts`,
-   ResearchProfile/Sourcing parsers (fail-closed, preserve-on-update).
-2. **#2-display** (PR #142) — `src/lib/factClaims.ts`; read-only flagged-claim + grounding display in
-   the fact-approval dialog (Gemini caught a `javascript:`-URI XSS → `isSafeHttpUrl` allowlist).
-3. **#3 scoring UI** (`?hub=review`, PR #143) — `src/lib/renderReview.ts` + `ReviewHub.tsx`, led
-   questionnaire vs MOCK fixtures, **no DB writes** (flips mock→real only when a gate-passing MP4
-   lands + owner ratify). Shipped with the **UX declutter** (helper text below controls, cast-button
-   helper, compact persona card).
-4. **#4 RunsHub channel filter** (PR #144) — `src/lib/runsChannelFilter.ts`; filter Runs by channel,
-   empty/`default`/legacy-null → explicit "Unassigned" facet. Diagnosis: enqueue path fixed ~07-04
-   (~97% tagged since); legacy nulls predate it; lane-2 backfill is the pipeline's `jobs` write,
-   lane-3 enqueue guard held → C3.
-5. **#5 design-system pass** (PR #145) — persistent bottom **mobile nav bar** in `AuroraShell`
-   (Channels/Characters/Ideas/Runs/Review), **button-color language** fix (`.aurora-app .btn` default
-   so bare `.btn` isn't red; Legacy console → secondary), **duplicate channel H2 removed** on the
-   Guidelines tab. From the Sol design audit (local-render, 8 surfaces).
-6. **#6 RunsHub group-by-state** (PR #147) — `src/lib/runsGrouping.ts`; the Runs flat list + attention
-   toggle → collapsible sections (Needs attention / In progress / Done, Done collapsed), composing with
-   the #4 channel filter. Every `JobStatus` maps to exactly one group (test-asserted). The last Sol-audit item.
-7. **#7 persona "Use in casting"** (PR #147) — the deferred E1.b: a "Use in casting →" button on the
-   channel's Recommended-persona card opens the Casting Studio with the persona pre-selected in the
-   *design* step (`ControlRoom` `castingSuggestedPersona` state → modal `suggestedPersonaChipId`, cleared
-   on close). **No spend** — pre-fill is in-memory; the Generate-previews/Cast-&-lock ElevenLabs gate is
-   untouched (Gemini-verified). Also fixed a dangling default persona id (`deadpan-demystifier` →
-   `deadpan-absurdist`, + guard test).
+**⛳ CURRENT BLOCKER — awaiting merge GO.** Owner (2026-07-13) **delegated the merge ratification to the
+problem-solver** ("problem solver provides the go"). No GO existed on HQ yet, so I **posted a ready-for-GO
+request to HQ #88** (comment `4962266383`, signed Dashboard architect). **On the problem-solver's (or
+owner's) GO:** apply `dash_0011` to the live DB (Supabase `tyeejhaknqkeftjykqog`), squash-merge to prod,
+then reset the branch fresh off the new prod tip. The 10-min poll cron carries this instruction. **Do NOT
+merge or apply the migration without that GO.** Last-seen HQ id = `4962266383`.
 
-**In flight (three, each waiting on a decision/dependency):**
-1. **#8 reveal-approval preview PHASE 2** — the real `reveal_approvals` migration + `jobs.reveal_*`
-   write-back. **TWO-LENS + owner GO.** Gated on the PIPELINE landing the `reveal_*` columns + a #88
-   heads-up (they build it into the content-spine migration). The mock shell (phase 1) is live.
-2. **#3 scoring hub → REAL** — the first gate-passing render landed (`cottage-cheese-20260712-034826`,
-   below_floor_cuts=0). Wire `?hub=review` to the real render + the `render_reviews` write path.
+1–7 (shipped, condensed): #1a park view + `channel_profiles` reconcile (`parkReason.ts`); #2-display
+(`factClaims.ts`, `isSafeHttpUrl` XSS allowlist); #3 scoring UI (`?hub=review`, `renderReview.ts`, MOCK);
+#4 RunsHub channel filter (`runsChannelFilter.ts`); #5 design-system pass (mobile nav bar, button-color);
+#6 group-by-state (`runsGrouping.ts`); #7 persona "Use in casting" (in-memory pre-fill, no spend).
+
+**In flight (besides the Phase-2 merge GO above):**
+1. **#3 scoring hub → REAL** — first gate-passing render landed (`cottage-cheese-20260712-034826`,
+   below_floor_cuts=0). Wire `?hub=review` to the real render + `render_reviews` write path.
    **Owner ratify** (first write on that path) — awaiting the owner's go.
-3. **MULTI-USER** (owner wants a select few users; owner pays spend, others create+test): `characters`/
-   `ideas`/`bibles` are ALREADY owner-scoped RLS + `casting_usage` per-user; GAPS = `channel_profiles`
-   is shared (no owner col) and `jobs` has no owner (spend not per-user). Plan: Google login + email
-   allowlist [mine]; channel `owner` col + RLS + backfill [mine, verify pipeline's channel reads];
-   `jobs.owner` spend-attribution = **cross-team (pipeline owns jobs)**. Awaiting owner's two decisions:
-   channels private-vs-shared; spend approve-every-run vs per-user cap.
+2. **MULTI-USER** (design doc `f0b1359` = `docs/proposals/multi-user-design.md`) — owner wants a select
+   few users; owner pays spend; others create+test; **channels PRIVATE (owner ruled)**. `characters`/
+   `ideas`/`bibles` ALREADY owner-scoped RLS + `casting_usage` per-user; GAPS = `channel_profiles` shared
+   (no owner col) and `jobs` has no owner (spend not per-user). Three pieces: (A) Google login + email
+   allowlist [mine; needs owner's Supabase/Google OAuth config]; (B) channel `owner` col + RLS + backfill
+   [mine; coordinate with @pipeline's Channel-DNA §3 which also extends `channel_profiles`]; (C)
+   `jobs.owner` spend-attribution = **cross-team (pipeline owns jobs)**. **Awaiting owner: spend-model
+   decision (A) approve-every-run [my rec] vs (B) per-user cap + design sign-off + the OAuth config.**
 
 **Parked / gated:** domain name (owner: ship first, name later); **#1b repair-trigger** (money-path)
 HELD — the repair *machinery* is proven (pipeline PR #96, repair_attempt now unbounded) but a
