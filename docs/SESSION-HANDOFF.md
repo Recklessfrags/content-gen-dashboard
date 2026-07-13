@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-12 (EIGHT dashboard slices shipped — #1a park view, channel_profiles schema reconcile, #2-display fact-claim display, #3 scoring UI (`?hub=review`, mock), UX declutter, #4 RunsHub channel filter, #5 design-system pass (nav bar + button colors + duplicate-H1 kill), #6 RunsHub group-by-state, #7 persona "Use in casting". The entire Sol design audit is shipped. Prod tip = `98804c3` on `claude/new-session-3l99vs`; branch `claude/wire-aurora-home-5b-lleyyg` restarted fresh off it.** by the Architect (Claude)._
+_Last updated: **2026-07-12 (NINE dashboard slices shipped — #1a park view, schema reconcile, #2-display, #3 scoring UI (mock), UX declutter, #4 channel filter, #5 design-system pass, #6 group-by-state, #7 persona "Use in casting", #8 reveal-approval preview phase-1 (mock `?hub=reveal`). Sol design audit fully shipped. Prod tip = `e6310e9` on `claude/new-session-3l99vs`; branch `claude/wire-aurora-home-5b-lleyyg` restarted fresh off it.** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,12 +11,21 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-12) — EIGHT dashboard slices shipped to prod (`98804c3`). Read this first.
+## ⚡ LATEST (2026-07-12) — NINE dashboard slices shipped to prod (`e6310e9`). Read this first.
 
 All merged to `claude/new-session-3l99vs` via squash PRs; branch `claude/wire-aurora-home-5b-lleyyg`
-is restarted fresh off the prod tip after each. All read-only/design class (no money/brand path),
-each: Codex build → tsc/vitest/next-build gates → Gemini cross-vendor review → merge nod
-(problem-solver or direct owner ratification). **The full Sol design audit is now shipped.**
+is restarted fresh off the prod tip after each. Read-only/design class unless noted; each: Codex build
+→ tsc/vitest/next-build gates → Gemini cross-vendor review → merge nod (problem-solver or direct owner
+ratification). **The full Sol design audit is shipped.**
+
+**9. #8 reveal-approval preview — phase 1** (PR #149) — `src/lib/revealApproval.ts` + `RevealHub.tsx`
+   (`?hub=reveal`, entry from the Action Center). The dashboard half of the **ratified reveal-approval
+   contract** (`docs/contracts/data-contract.md` → "Reveal-approval contract"; reels#88 spec
+   `spec-channel-dna-and-reveal-spine.md` §8). MOCK fixtures, local-only, **no writes** — per-reveal
+   card (synthesis + grade chip + auditor reason + brand caution + grounding via the #2-display
+   component) with Approve/Edit/Reject. **PHASE 2 (not built): the `reveal_approvals` migration + real
+   `jobs.reveal_*` write-back — TWO-LENS (Gemini + suerta/Opus) + owner GO — gated on the PIPELINE
+   landing `reveal_approved`/`reveal_override`/`reveal_rejected` columns + a #88 heads-up.**
 
 1. **#1a park view** + **`channel_profiles` schema reconcile** (PR #141) — `src/lib/parkReason.ts`,
    ResearchProfile/Sourcing parsers (fail-closed, preserve-on-update).
@@ -44,13 +53,27 @@ each: Codex build → tsc/vitest/next-build gates → Gemini cross-vendor review
    untouched (Gemini-verified). Also fixed a dangling default persona id (`deadpan-demystifier` →
    `deadpan-absurdist`, + guard test).
 
-**Owner-pending (chat, not HQ):** project domain name — parked; owner concluded a fancy brand name is
-premature (ship first, name later). **No actionable dashboard work remains** — the Sol audit + deferred
-persona-casting are all shipped. Remaining candidates need an owner/problem-solver priority call before
-building (don't auto-pick — rule 15): Advanced-mode progressive-disclosure regroup, mobile "More" action
-menu, final home for Cast voice/visual. **#1b repair-trigger** (money-path) still HELD until the
-pipeline's visual-sourcing fix lands a repair-to-COMPLETE; **#3 mock→real** waits on the first
-gate-passing MP4 (none post-07-10 yet).
+**In flight (three, each waiting on a decision/dependency):**
+1. **#8 reveal-approval preview PHASE 2** — the real `reveal_approvals` migration + `jobs.reveal_*`
+   write-back. **TWO-LENS + owner GO.** Gated on the PIPELINE landing the `reveal_*` columns + a #88
+   heads-up (they build it into the content-spine migration). The mock shell (phase 1) is live.
+2. **#3 scoring hub → REAL** — the first gate-passing render landed (`cottage-cheese-20260712-034826`,
+   below_floor_cuts=0). Wire `?hub=review` to the real render + the `render_reviews` write path.
+   **Owner ratify** (first write on that path) — awaiting the owner's go.
+3. **MULTI-USER** (owner wants a select few users; owner pays spend, others create+test): `characters`/
+   `ideas`/`bibles` are ALREADY owner-scoped RLS + `casting_usage` per-user; GAPS = `channel_profiles`
+   is shared (no owner col) and `jobs` has no owner (spend not per-user). Plan: Google login + email
+   allowlist [mine]; channel `owner` col + RLS + backfill [mine, verify pipeline's channel reads];
+   `jobs.owner` spend-attribution = **cross-team (pipeline owns jobs)**. Awaiting owner's two decisions:
+   channels private-vs-shared; spend approve-every-run vs per-user cap.
+
+**Parked / gated:** domain name (owner: ship first, name later); **#1b repair-trigger** (money-path)
+HELD — the repair *machinery* is proven (pipeline PR #96, repair_attempt now unbounded) but a
+repair-to-complete-MP4 still awaits the sourcing arc, AND #1b needs owner priority to start. Deferred
+UI (no auto-build, rule 15): Advanced-mode progressive-disclosure regroup, mobile "More" menu.
+**Content-spine/gate-rebuild** (reels `spec-channel-dna-and-reveal-spine.md`) is being built by the
+pipeline; the dashboard's only piece is the reveal-approval preview (#8). The **Channel DNA object**
+(§3) will extend `channel_profiles` → a future cross-team handshake when it's built.
 
 > **Maintenance note:** this ⚡ entry supersedes the 07-06 one below; when adding the next entry, rotate
 > entries older than the two most recent into `docs/handoff-archive/` verbatim (per the maintenance rule).
