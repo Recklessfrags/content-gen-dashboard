@@ -1,6 +1,56 @@
 # SESSION-HANDOFF archive — 2026 H1 (rotated session snapshots)
 
-_Rotated out of `docs/SESSION-HANDOFF.md` on 2026-07-07 to keep the live handoff a fast-path snapshot (rule 41). The per-session entries below are **verbatim — nothing summarized or deleted** (rule 34). Newest first: 2026-07-06 (sub-lane 5b) back to 2026-07-02 (channel-first redefinition, D-6). The live handoff keeps the current snapshot + the evergreen reference manual (§0–§6); full running history also lives in `docs/HANDOFF.md`._
+_Rotated out of `docs/SESSION-HANDOFF.md` on 2026-07-07 to keep the live handoff a fast-path snapshot (rule 41). The per-session entries below are **verbatim — nothing summarized or deleted** (rule 34). Newest first: 2026-07-06 (Runs hub + cost estimate, rotated 2026-07-13) back to 2026-07-02 (channel-first redefinition, D-6). The live handoff keeps the current snapshot + the evergreen reference manual (§0–§6); full running history also lives in `docs/HANDOFF.md`._
+
+---
+
+## ⚡ EARLIER (2026-07-06) — RUNS HUB (per-worker failure attribution) + EMPIRICAL RUN-COST ESTIMATE shipped.
+
+**Two operator-requested buildable-now read surfaces shipped** (both read-only over existing `jobs`/`receipts` telemetry —
+no writes, no pipeline dependency), built in parallel in one branch on top of sub-lane 5b (#127). Branch for new work:
+**start fresh off production** (keep your harness-designated branch name).
+
+### What shipped
+- **Runs hub (`?hub=runs`, `src/components/aurora/RunsHub.tsx`)** — lists runs (from the already-fetched `jobs`), newest-first,
+  with an "All / Needs attention" filter. Each errored/stale/parked run shows its `jobs.error` at a glance and expands to a
+  **lazily-loaded per-worker breakdown from `receipts`** (stage · verdict · reason · model/provider) — the "why did it fail /
+  which worker" view. New `"runs"` hub key (`route.ts` + test), **"Runs →"** entry on the Channels hub, scoped `.runs-hub` CSS.
+  Diagnostics loader = a read-only `receipts` select wrapped in `loadRunDiagnostics` (ControlRoom).
+- **Run-cost estimate (`RunCostEstimate.tsx` in the Cost center)** — pure **`estimateRunCost()`** (`src/lib/costEstimate.ts`,
+  **10 unit tests**) over historical per-episode spend (`costStats.episodeCosts[].liveSpend`) → a **$ range per run**
+  (median..p90 × episodes-per-run), with a reactive episodes-per-run input. Live: **$0.54–$2.15 (typical $0.82)** for a
+  5-episode run. The early **decision lever** ahead of the render-quality tier selector. Reached via the workspace Cost tab →
+  "View global cost center →".
+- **Both recorded in `docs/roadmap-dashboard.md`** (items 1c + 4a marked ✅ SHIPPED).
+
+### Gates + review + ratify
+- **`tsc` + 158 tests (+10 costEstimate) + `next build` clean.**
+- **Cross-vendor (Gemini) review APPROVE** — read-only surfaces (rule 4 single-lens; no money path → no suerta). Folded its
+  one blocker (raw-string cap input so backspace doesn't force "1") + nits (hoisted run error above the disclosure,
+  `aria-controls`, double-fire ref guard, tiny-USD 3-dp precision).
+- **Live ratify `scripts/ratify-runs-cost.mjs` 10/10, ZERO live writes** (every `/rest/v1` write intercept-and-aborted; reads
+  forwarded): `?hub=runs` renders in AuroraShell with 60 run cards; an errored run shows its error + expands to a 9-stage
+  per-worker log with verdict badges; the estimate renders a $ range and reacts to the input; zero writes, no console errors.
+
+### Also shipped this session (follow-on increments, same telemetry)
+- **Worker reliability rollup** — a collapsible "Worker reliability" table in the Runs hub: `computeWorkerReliability()`
+  (`src/lib/workerReliability.ts`, 6 tests) rolls up `receipts` by stage → attempts, pass/retry/blocked, retry rate, and
+  **retry-cost** (wasted spend on retried attempts). Query bounded (30-day window + 5000-row cap — Gemini blocker folded).
+  Live ratify: 10 stages, 458 attempts, ~$3.59 retry-cost. **Cost estimate now filters by character.** Ratify 13/13, zero writes.
+
+### NEXT / still queued (see `docs/roadmap-dashboard.md`)
+- **Buildable-now follow-ups:** a per-MODEL (not just per-stage) reliability cut; join retry-cost into the estimate; an
+  inline cost hint in the enqueue flow; channel filter on the estimate (waits on the `jobs.channel` tagging gap).
+- **⭐ Sub-lane 5g** (delete the legacy `.cr` shell) is still the migration payoff. **Roster INCOMING** — pipeline is
+  delivering the corrected 6-channel roster (Grandma = Bible-verse grandmother); create the `channel_profiles` rows via
+  Supabase MCP once values + the operator's posture-dial sign-off land. **Render-quality tier selector** + **video-idea
+  generator** + **niche workflow** + the **deferred analytics/monetization/social/ranking/A-B suite** remain queued (the
+  generation path = isolated `script` + `generation` capabilities per the operator; analytics gated on per-episode metrics).
+
+### HQ / cross-team (rule L-6)
+- **No tracker row owed** — both surfaces are dashboard-internal reads of existing shared tables (no schema/contract/behavior
+  change, no new write). No portable lesson this increment. (HQ was updated earlier this session for the render-quality
+  research ask + Grandma correction + cost-estimation dependencies.)
 
 ---
 
