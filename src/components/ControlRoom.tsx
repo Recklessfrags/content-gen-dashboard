@@ -58,6 +58,7 @@ import type {
 import { IdeasHub } from "./aurora/IdeasHub";
 import type { IdeasHubProps } from "./aurora/IdeasHub";
 import { ReviewHub } from "./aurora/ReviewHub";
+import { RevealHub } from "./aurora/RevealHub";
 import { RunsHub } from "./aurora/RunsHub";
 import type {
   ReliabilityResult,
@@ -68,6 +69,7 @@ import type {
 import { RunCostEstimate } from "./aurora/RunCostEstimate";
 import { computeWorkerReliability } from "@/lib/workerReliability";
 import { MOCK_REVIEW_FIXTURES } from "@/lib/renderReview";
+import { MOCK_REVEAL_FIXTURES } from "@/lib/revealApproval";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
@@ -2012,7 +2014,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   );
   const auroraNav = {
     activeKey:
-      scope.kind === "workspace" || scope.hub === "actions" || scope.hub === "overview"
+      scope.kind === "workspace" ||
+      scope.hub === "actions" ||
+      scope.hub === "overview" ||
+      scope.hub === "reveal"
         ? "channels"
         : scope.hub,
     onNavigate: (key: "channels" | "characters" | "ideas" | "runs" | "review") =>
@@ -2602,6 +2607,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             onCancel={cancelQueueAction}
             canPublish={(job) => publishSourceEpisodeId(job) !== null}
             onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+            onOpenRevealPreview={() => navigate({ kind: "hub", hub: "reveal" })}
             statusLabel={(job) => JOB_STATUS_LABELS[classifyJobStatus(job.status)]}
             factClaims={factClaimsState.claims}
             factClaimsLoading={factClaimsState.loading}
@@ -2702,6 +2708,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
           <ReviewHub
             fixtures={MOCK_REVIEW_FIXTURES}
+            onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
+          />
+        </AuroraShell>
+      </>
+    );
+  }
+
+  if (!legacyShellOpen && scope.kind === "hub" && scope.hub === "reveal") {
+    return (
+      <>
+        {globalOverlays}
+        <AuroraShell operatorInitials={operatorInitials} nav={auroraNav}>
+          <RevealHub
+            fixtures={MOCK_REVEAL_FIXTURES}
             onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
           />
         </AuroraShell>
