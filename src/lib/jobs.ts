@@ -344,18 +344,23 @@ export function buildPublishApprovalReenqueue(
 }
 
 /**
- * Maps a parked receipt stage to the review flavor. Assembly/cost-guard/
- * render-cost stages are spend parks; distribution/publish/buffer/posting and a
- * standalone "post" (not post-/post_/post./postX) are publish parks. Unknown or
- * missing stages remain unknown.
+ * Maps a parked receipt stage to the review flavor. Reveal-auditor stages are
+ * reveal parks; assembly/cost-guard/render-cost stages are spend parks;
+ * distribution/publish/buffer/posting and a standalone "post" (not
+ * post-/post_/post./postX) are publish parks. Unknown or missing stages remain
+ * unknown.
  */
 export function detectParkKind(
   lastReceiptStage: string | null | undefined,
-): "spend" | "publish" | "unknown" {
+): "spend" | "publish" | "reveal" | "unknown" {
   const normalized = lastReceiptStage?.trim().toLowerCase();
 
   if (normalized === undefined || normalized.length === 0) {
     return "unknown";
+  }
+
+  if (/(?:^|[^a-z0-9])reveal[_-]?auditor(?:$|[^a-z0-9])/.test(normalized)) {
+    return "reveal";
   }
 
   if (
@@ -381,11 +386,12 @@ export function detectParkKind(
 export function resolveParkKind(
   parkKindColumn: string | null | undefined,
   lastReceiptStage: string | null | undefined,
-): "fact" | "spend" | "publish" | "unknown" {
+): "fact" | "spend" | "publish" | "reveal" | "unknown" {
   if (
     parkKindColumn === "fact" ||
     parkKindColumn === "spend" ||
-    parkKindColumn === "publish"
+    parkKindColumn === "publish" ||
+    parkKindColumn === "reveal"
   ) {
     return parkKindColumn;
   }

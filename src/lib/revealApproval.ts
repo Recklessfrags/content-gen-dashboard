@@ -30,6 +30,20 @@ export type RevealFixture = {
   reveals: Reveal[];
 };
 
+export type RevealApprovalRow = {
+  episode_id: string;
+  reveal_id: string;
+  decision: "approved" | "edited" | "rejected";
+  edited_text: string | null;
+  steer: string | null;
+};
+
+export type RevealJobsPatch = {
+  reveal_approved: boolean;
+  reveal_override: Array<{ reveal_id: string; edited_text: string }>;
+  reveal_rejected: { reason: string } | null;
+};
+
 type UnknownRecord = Record<string, unknown>;
 
 export function parseRevealAuditorResult(result: unknown): Reveal[] {
@@ -88,6 +102,61 @@ export function isBatchDecided(
   decisions: RevealDecisionMap,
 ): boolean {
   return reveals.every((reveal) => decisions[reveal.reveal_id] !== undefined);
+}
+
+export function buildRevealApprovalRow(
+  episodeId: string,
+  revealId: string,
+  decision: RevealDecision,
+): RevealApprovalRow {
+  if (decision.kind === "edit") {
+    return {
+      episode_id: episodeId,
+      reveal_id: revealId,
+      decision: "edited",
+      edited_text: decision.edited_text,
+      steer: null,
+    };
+  }
+
+  if (decision.kind === "reject") {
+    return {
+      episode_id: episodeId,
+      reveal_id: revealId,
+      decision: "rejected",
+      edited_text: null,
+      steer: decision.steer.trim() ? decision.steer : null,
+    };
+  }
+
+  return {
+    episode_id: episodeId,
+    reveal_id: revealId,
+    decision: "approved",
+    edited_text: null,
+    steer: null,
+  };
+}
+
+export function buildJobsRevealPatch(decisions: RevealDecisionMap): RevealJobsPatch {
+  const entries = Object.entries(decisions);
+  const rejectedSteers = entries.flatMap(([, decision]) =>
+    decision.kind === "reject" && decision.steer.trim() ? [decision.steer.trim()] : [],
+  );
+
+  return {
+    reveal_approved:
+      entries.length > 0 && entries.every(([, decision]) => decision.kind === "approve"),
+    reveal_override: entries.flatMap(([revealId, decision]) =>
+      decision.kind === "edit"
+        ? [{ reveal_id: revealId, edited_text: decision.edited_text }]
+        : [],
+    ),
+    reveal_rejected:
+      entries.some(([, decision]) => decision.kind === "reject")
+        ? { reason: rejectedSteers.join("; ") || "Rejected without additional steering." }
+        : null,
+  };
 }
 
 export const MOCK_REVEAL_FIXTURES = [

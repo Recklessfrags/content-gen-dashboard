@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   isBatchDecided,
   setRevealDecision,
@@ -13,14 +13,30 @@ import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
 
 export type RevealHubProps = {
   fixtures: readonly RevealFixture[];
+  loading?: boolean;
+  error?: string | null;
+  onSubmit: (episodeId: string, decisions: RevealDecisionMap) => Promise<void>;
   onBack: () => void;
 };
 
 type DecisionState = Record<string, RevealDecisionMap>;
 type EditorState = { fixtureId: string; revealId: string; kind: "edit" | "reject" } | null;
+type SubmitState =
+  | { status: "idle" }
+  | { status: "submitting" }
+  | { status: "success" }
+  | { status: "error"; message: string };
 
-export function RevealHub({ fixtures, onBack }: RevealHubProps) {
+export function RevealHub({
+  fixtures,
+  loading = false,
+  error = null,
+  onSubmit,
+  onBack,
+}: RevealHubProps) {
   const [decisions, setDecisions] = useState<DecisionState>({});
+  const [submitStates, setSubmitStates] = useState<Record<string, SubmitState>>({});
+  const submittingRef = useRef(new Set<string>());
   const [editor, setEditor] = useState<EditorState>(null);
   const [draft, setDraft] = useState("");
   const parkedFixtures = fixtures.filter((fixture) => fixture.reveals.length > 0);
@@ -30,15 +46,44 @@ export function RevealHub({ fixtures, onBack }: RevealHubProps) {
     revealId: string,
     decision: RevealDecision,
   ) {
+    if (submittingRef.current.has(fixtureId)) return;
     setDecisions((previous) => ({
       ...previous,
       [fixtureId]: setRevealDecision(previous[fixtureId] ?? {}, revealId, decision),
     }));
+    setSubmitStates((previous) => ({ ...previous, [fixtureId]: { status: "idle" } }));
     // Only close the editor if the decision is for the reveal currently being edited,
     // so approving one card doesn't wipe an in-progress edit/steer on another.
     if (editor?.fixtureId === fixtureId && editor.revealId === revealId) {
       setEditor(null);
       setDraft("");
+    }
+  }
+
+  async function submitBatch(fixtureId: string, batchDecisions: RevealDecisionMap) {
+    if (submittingRef.current.has(fixtureId)) return;
+    submittingRef.current.add(fixtureId);
+    setSubmitStates((previous) => ({
+      ...previous,
+      [fixtureId]: { status: "submitting" },
+    }));
+
+    try {
+      await onSubmit(fixtureId, batchDecisions);
+      setSubmitStates((previous) => ({
+        ...previous,
+        [fixtureId]: { status: "success" },
+      }));
+    } catch (error) {
+      setSubmitStates((previous) => ({
+        ...previous,
+        [fixtureId]: {
+          status: "error",
+          message: error instanceof Error ? error.message : "Could not submit reveal decisions.",
+        },
+      }));
+    } finally {
+      submittingRef.current.delete(fixtureId);
     }
   }
 
@@ -59,20 +104,32 @@ export function RevealHub({ fixtures, onBack }: RevealHubProps) {
   return (
     <section className="reveal-hub scoped" aria-labelledby="reveal-hub-title">
       <RevealHeader onBack={onBack} />
-      <div className="glass-panel reveal-hub__mock-banner" role="status">
-        MOCK — sample parked reveals (no pipeline data yet)
-      </div>
 
-      {parkedFixtures.length === 0 ? (
+      {loading ? (
+        <div className="glass-panel reveal-hub__empty" role="status">
+          <h3 className="text-title">Loading parked reveals</h3>
+          <p className="dim">Checking the latest reveal-auditor receipts.</p>
+        </div>
+      ) : error ? (
+        <div className="glass-panel reveal-hub__empty" role="alert">
+          <h3 className="text-title">Couldn&apos;t load parked reveals</h3>
+          <p className="dim">{error}</p>
+        </div>
+      ) : parkedFixtures.length === 0 ? (
         <div className="glass-panel reveal-hub__empty">
           <h3 className="text-title">No parked reveals</h3>
-          <p className="dim">No mock fixtures are available for this preview.</p>
+          <p className="dim">Reveal decisions will appear here when the pipeline parks a batch.</p>
         </div>
       ) : (
         <div className="reveal-hub__episodes">
           {parkedFixtures.map((fixture) => {
             const batchDecisions = decisions[fixture.id] ?? {};
             const batchDecided = isBatchDecided(fixture.reveals, batchDecisions);
+            const submitState = submitStates[fixture.id] ?? { status: "idle" };
+            const submitDisabled =
+              !batchDecided ||
+              submitState.status === "submitting" ||
+              submitState.status === "success";
             const episodeTitleId = `reveal-episode-${fixture.id}`;
 
             return (
@@ -140,19 +197,28 @@ export function RevealHub({ fixtures, onBack }: RevealHubProps) {
                     <button
                       type="button"
                       className="action-button"
-                      disabled
-                      aria-disabled="true"
+                      disabled={submitDisabled}
+                      aria-disabled={submitDisabled}
+                      aria-describedby={`reveal-submit-note-${fixture.id}`}
+                      onClick={() => void submitBatch(fixture.id, batchDecisions)}
                     >
-                      Submit decisions
+                      {submitState.status === "submitting" ? "Submitting…" : "Submit decisions"}
                     </button>
                     <p id={`reveal-submit-note-${fixture.id}`} className="dim">
-                      Approval writes land when a real reveal parks and the pipeline columns exist
+                      Decisions are recorded now; pipeline resume waits when reveal columns are
+                      unavailable.
                     </p>
                   </div>
                   <p className="text-mono dim" aria-live="polite">
-                    {batchDecided
-                      ? "All reveals decided locally — nothing submitted"
-                      : "Decide each reveal to complete this local preview"}
+                    {submitState.status === "submitting"
+                      ? "Submitting reveal decisions"
+                      : submitState.status === "success"
+                        ? "Reveal decisions recorded"
+                        : submitState.status === "error"
+                          ? submitState.message
+                          : batchDecided
+                            ? "All reveals decided — ready to submit"
+                            : "Decide each reveal to enable submission"}
                   </p>
                 </footer>
               </article>

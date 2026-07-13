@@ -8,7 +8,7 @@ import type { QueueJob } from "../controlroom/shared";
 type QueueAction = "fact" | "spend" | "publish" | "stale";
 
 type ActionCenterPark = {
-  kind: "fact" | "spend" | "publish" | "unknown";
+  kind: "fact" | "spend" | "publish" | "reveal" | "unknown";
   loading: boolean;
   stage: string | null;
   error: string | null;
@@ -123,6 +123,7 @@ export function ActionCenter({
                     isStale={isStale}
                     publishAllowed={publishAllowed}
                     onRequest={handleRequest}
+                    onOpenRevealPreview={onOpenRevealPreview}
                   />
                 </div>
 
@@ -153,12 +154,14 @@ function PrimaryAction({
   isStale,
   publishAllowed,
   onRequest,
+  onOpenRevealPreview,
 }: {
   job: QueueJob;
   park: ActionCenterPark | undefined;
   isStale: boolean;
   publishAllowed: boolean;
   onRequest: ActionCenterProps["onRequest"];
+  onOpenRevealPreview: () => void;
 }) {
   if (isStale) {
     return (
@@ -212,6 +215,14 @@ function PrimaryAction({
           </small>
         ) : null}
       </div>
+    );
+  }
+
+  if (park?.kind === "reveal") {
+    return (
+      <button className="btn compact" type="button" onClick={onOpenRevealPreview}>
+        Review reveals
+      </button>
     );
   }
 
@@ -352,6 +363,10 @@ function parkLine(job: QueueJob, park: ActionCenterPark | undefined) {
 
   if (park?.kind === "publish") {
     return "Waiting to publish — posts the exact reviewed render (no re-render, no extra cost); publishing isn't connected yet, so nothing posts";
+  }
+
+  if (park?.kind === "reveal") {
+    return "Reveal synthesis needs your decision before assembly";
   }
 
   return `We couldn't tell which approval this run needs. Open the run to check before approving — approving spend is only right for a spend hold.${

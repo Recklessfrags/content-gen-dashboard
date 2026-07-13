@@ -531,6 +531,39 @@ export type Database = {
         }
         Relationships: []
       }
+      reveal_approvals: {
+        Row: {
+          decided_at: string
+          decision: string
+          edited_text: string | null
+          episode_id: string
+          id: string
+          owner: string
+          reveal_id: string
+          steer: string | null
+        }
+        Insert: {
+          decided_at?: string
+          decision: string
+          edited_text?: string | null
+          episode_id: string
+          id?: string
+          owner?: string
+          reveal_id: string
+          steer?: string | null
+        }
+        Update: {
+          decided_at?: string
+          decision?: string
+          edited_text?: string | null
+          episode_id?: string
+          id?: string
+          owner?: string
+          reveal_id?: string
+          steer?: string | null
+        }
+        Relationships: []
+      }
       receipts: {
         Row: {
           cache_creation_tokens: number | null
