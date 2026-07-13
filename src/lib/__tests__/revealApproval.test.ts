@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   MOCK_REVEAL_FIXTURES,
+  buildJobsRevealPatch,
+  buildRevealApprovalRow,
   isBatchDecided,
   parseRevealAuditorResult,
   setRevealDecision,
@@ -175,6 +177,113 @@ describe("reveal decisions", () => {
       }),
     ).toBe(true);
     expect(isBatchDecided([], {})).toBe(true);
+  });
+});
+
+describe("buildRevealApprovalRow", () => {
+  it("builds approved rows without database-defaulted columns", () => {
+    expect(buildRevealApprovalRow("episode-1", "reveal-1", { kind: "approve" })).toEqual({
+      episode_id: "episode-1",
+      reveal_id: "reveal-1",
+      decision: "approved",
+      edited_text: null,
+      steer: null,
+    });
+  });
+
+  it("builds edited rows with the replacement text", () => {
+    expect(
+      buildRevealApprovalRow("episode-1", "reveal-2", {
+        kind: "edit",
+        edited_text: "A grounded replacement",
+      }),
+    ).toEqual({
+      episode_id: "episode-1",
+      reveal_id: "reveal-2",
+      decision: "edited",
+      edited_text: "A grounded replacement",
+      steer: null,
+    });
+  });
+
+  it("builds rejected rows and stores whitespace-only steering as null", () => {
+    expect(
+      buildRevealApprovalRow("episode-1", "reveal-3", {
+        kind: "reject",
+        steer: "Try a different synthesis",
+      }),
+    ).toEqual({
+      episode_id: "episode-1",
+      reveal_id: "reveal-3",
+      decision: "rejected",
+      edited_text: null,
+      steer: "Try a different synthesis",
+    });
+    expect(
+      buildRevealApprovalRow("episode-1", "reveal-4", { kind: "reject", steer: "   " }),
+    ).toMatchObject({ steer: null });
+  });
+});
+
+describe("buildJobsRevealPatch", () => {
+  it("marks a fully approved batch approved", () => {
+    expect(
+      buildJobsRevealPatch({
+        "reveal-1": { kind: "approve" },
+        "reveal-2": { kind: "approve" },
+      }),
+    ).toEqual({
+      reveal_approved: true,
+      reveal_override: [],
+      reveal_rejected: null,
+    });
+  });
+
+  it("collects every edited reveal and does not mark a mixed batch approved", () => {
+    expect(
+      buildJobsRevealPatch({
+        "reveal-1": { kind: "approve" },
+        "reveal-2": { kind: "edit", edited_text: "Replacement two" },
+        "reveal-3": { kind: "edit", edited_text: "Replacement three" },
+      }),
+    ).toEqual({
+      reveal_approved: false,
+      reveal_override: [
+        { reveal_id: "reveal-2", edited_text: "Replacement two" },
+        { reveal_id: "reveal-3", edited_text: "Replacement three" },
+      ],
+      reveal_rejected: null,
+    });
+  });
+
+  it("joins non-empty reject steering across combined decisions", () => {
+    expect(
+      buildJobsRevealPatch({
+        "reveal-1": { kind: "edit", edited_text: "Replacement" },
+        "reveal-2": { kind: "reject", steer: "Use a less absolute claim" },
+        "reveal-3": { kind: "reject", steer: "  " },
+        "reveal-4": { kind: "reject", steer: "Avoid the brand comparison" },
+      }),
+    ).toEqual({
+      reveal_approved: false,
+      reveal_override: [{ reveal_id: "reveal-1", edited_text: "Replacement" }],
+      reveal_rejected: {
+        reason: "Use a less absolute claim; Avoid the brand comparison",
+      },
+    });
+  });
+
+  it("keeps a clear rejection signal when every steer is blank", () => {
+    expect(
+      buildJobsRevealPatch({
+        "reveal-1": { kind: "reject", steer: "" },
+        "reveal-2": { kind: "reject", steer: "   " },
+      }),
+    ).toEqual({
+      reveal_approved: false,
+      reveal_override: [],
+      reveal_rejected: { reason: "Rejected without additional steering." },
+    });
   });
 });
 

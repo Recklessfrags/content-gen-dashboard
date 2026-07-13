@@ -361,6 +361,7 @@ describe("resolveParkKind", () => {
     expect(resolveParkKind("fact", "assembly")).toBe("fact");
     expect(resolveParkKind("spend", "distribution")).toBe("spend");
     expect(resolveParkKind("publish", "assembly")).toBe("publish");
+    expect(resolveParkKind("reveal", "assembly")).toBe("reveal");
   });
 
   it("falls back to receipt-stage inference when park_kind is null", () => {
@@ -385,6 +386,11 @@ describe("resolveParkKind", () => {
 });
 
 describe("detectParkKind", () => {
+  it("detects reveal auditor parks", () => {
+    expect(detectParkKind("reveal_auditor")).toBe("reveal");
+    expect(detectParkKind("reveal-auditor.review")).toBe("reveal");
+  });
+
   it("detects spend park stages", () => {
     expect(detectParkKind("assembly")).toBe("spend");
     expect(detectParkKind("pre_cost-guard_check")).toBe("spend");

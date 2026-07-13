@@ -1,4 +1,4 @@
-export type ParkKind = "fact" | "spend" | "publish" | "unknown";
+export type ParkKind = "fact" | "spend" | "publish" | "reveal" | "unknown";
 
 export function parseBelowFloorCuts(message: string | null): string[] {
   if (!message) return [];
@@ -24,6 +24,7 @@ export function parkKindLabel(
   if (kind === "fact") return "Awaiting fact approval";
   if (kind === "spend") return "Awaiting spend approval";
   if (kind === "publish") return "Awaiting publish approval";
+  if (kind === "reveal") return "Awaiting reveal approval";
   if (parkKindColumn === "blocked") return "Blocked";
   if (parkKindColumn === "exhausted") return "Budget exhausted";
   return "Parked";
