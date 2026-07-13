@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-13 (Reveal Phase 2 BUILT + two-lens reviewed + pushed, awaiting GO to merge. Prod tip = `8b40ed9` on `claude/new-session-3l99vs`; branch `claude/wire-aurora-home-5b-lleyyg` is 3 commits AHEAD of prod — unmerged: multi-user design doc `f0b1359`, phase-2 spec `54b12ff`, phase-2 build `fbadf16`.)** by the Architect (Claude)._
+_Last updated: **2026-07-13 (Reveal Phase 2 MERGED to prod — migration `dash_0011` applied live + PR #151 squash-merged. Prod tip = `6cdcd0f` on `claude/new-session-3l99vs`; branch `claude/wire-aurora-home-5b-lleyyg` reset fresh off it. `jobs.reveal_*` write stays gated until the pipeline lands its columns.)** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,21 +11,20 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-13) — Reveal Phase 2 BUILT + reviewed + pushed; awaiting GO to merge. Read this first.
+## ⚡ LATEST (2026-07-13) — Reveal Phase 2 MERGED to prod (`6cdcd0f`, PR #151). Read this first.
 
-Prod tip = `8b40ed9`. Ten dashboard slices are shipped to prod (#1a park view, schema reconcile,
+Prod tip = `6cdcd0f`. Eleven dashboard slices are shipped to prod (#1a park view, schema reconcile,
 #2-display, #3 scoring UI (mock), UX declutter, #4 channel filter, #5 design-system pass, #6
 group-by-state, #7 persona "Use in casting", #8 reveal-approval preview phase-1 (mock `?hub=reveal`)).
 The Sol design audit is fully shipped. Each shipped via: Codex build → tsc/vitest/next-build gates →
 review → squash-merge to `claude/new-session-3l99vs`.
 
-**★ #8 reveal-approval — PHASE 2 (write-back): BUILT, TWO-LENS REVIEWED, PUSHED — NOT YET MERGED.**
-Branch `claude/wire-aurora-home-5b-lleyyg` is **3 commits ahead of prod**: `f0b1359` (multi-user
-design doc), `54b12ff` (phase-2 spec `docs/slices/slice-8-phase-2-reveal-approval-writeback.md`),
-`fbadf16` (the phase-2 build). Phase 2 makes the reveal hub real:
+**★ #8 reveal-approval — PHASE 2 (write-back): MERGED to prod (PR #151 → `6cdcd0f`).** GO from the
+problem-solver acting on the owner's GO (HQ #88 `4962331053`). Migration `dash_0011` applied live +
+verified; dated #88 heads-up posted (`4962364286`). Phase 2 makes the reveal hub real:
 - **`reveal_approvals`** — dashboard-owned, owner-scoped, **append-only** audit table. Migration
   **`supabase/migrations/dash_0011_reveal_approvals.sql`** (SELECT+INSERT only, no UPDATE/DELETE;
-  `owner default auth.uid()`). **NOT yet applied to the live DB** — gated on GO.
+  `owner default auth.uid()`). **APPLIED to the live DB** (RLS verified, 0 rows).
 - **Real read path** — `?hub=reveal` reads live parked reveals (`ready_for_review` + `park_kind='reveal'`
   → max-seq `reveal_auditor` receipt → `parseRevealAuditorResult`). 0 parked live today → correct empty
   state. Mock banner removed from the live surface. Read set keyed off `jobParkById` resolution so it
@@ -42,12 +41,15 @@ design doc), `54b12ff` (phase-2 spec `docs/slices/slice-8-phase-2-reveal-approva
   consistency; stable re-query gating; multi-row UPDATE guard); 1 Gemini false-positive rejected (rule 10).
 - **Gates:** `tsc` ✓ · 237 tests ✓ · `next build` ✓.
 
-**⛳ CURRENT BLOCKER — awaiting merge GO.** Owner (2026-07-13) **delegated the merge ratification to the
-problem-solver** ("problem solver provides the go"). No GO existed on HQ yet, so I **posted a ready-for-GO
-request to HQ #88** (comment `4962266383`, signed Dashboard architect). **On the problem-solver's (or
-owner's) GO:** apply `dash_0011` to the live DB (Supabase `tyeejhaknqkeftjykqog`), squash-merge to prod,
-then reset the branch fresh off the new prod tip. The 10-min poll cron carries this instruction. **Do NOT
-merge or apply the migration without that GO.** Last-seen HQ id = `4962266383`.
+**⛳ NEXT — the write path activates on the PIPELINE.** `jobs.reveal_*` columns (`reveal_approved`
+bool / `reveal_override` jsonb `[{reveal_id,edited_text}]` / `reveal_rejected` jsonb `{reason}`) are
+**pipeline-owned and NOT landed yet** (verified live: 0 such columns). When @pipeline lands them + posts
+their heads-up, **flip `NEXT_PUBLIC_REVEAL_WRITE_ENABLED=true`** and the parked-reveal resume goes live
+end-to-end. Until then the dashboard records every decision to `reveal_approvals` and shows "resume
+pending" (no silent failure). Last-seen HQ id = `4962364286`. **Standing delegation (owner-set
+2026-07-13, HQ `4962331053`):** dashboard live-DB migrations that are **two-lens-PASS + additive +
+owner-scoped** clear on the **problem-solver's** GO — no separate owner turn. Brand/GYR, non-additive/
+destructive migrations, and money/publish paths still route to the owner.
 
 1–7 (shipped, condensed): #1a park view + `channel_profiles` reconcile (`parkReason.ts`); #2-display
 (`factClaims.ts`, `isSafeHttpUrl` XSS allowlist); #3 scoring UI (`?hub=review`, `renderReview.ts`, MOCK);
