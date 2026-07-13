@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-13 (Reveal Phase 2 BUILT + two-lens reviewed + pushed, awaiting GO to merge. Prod tip = `8b40ed9` on `claude/new-session-3l99vs`; branch `claude/wire-aurora-home-5b-lleyyg` is 3 commits AHEAD of prod — unmerged: multi-user design doc `f0b1359`, phase-2 spec `54b12ff`, phase-2 build `fbadf16`.)** by the Architect (Claude)._
+_Last updated: **2026-07-13 evening (SLICE 5g SHIPPED — the legacy `.cr` shell is DELETED, Aurora sign-out added, PR #152 `1a776eb`; Reveal Phase 2 also MERGED earlier today by its sibling session, PR #151, `dash_0011` VERIFIED applied live. Prod tip = `1a776eb` on `claude/new-session-3l99vs`.)** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,66 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-13) — Reveal Phase 2 BUILT + reviewed + pushed; awaiting GO to merge. Read this first.
+## ⚡ LATEST (2026-07-13 evening) — SLICE 5g SHIPPED: the legacy `.cr` shell is GONE (PR #152 `1a776eb`). Read this first.
+
+**Prod tip = `1a776eb`.** The dual-shell era is over — the D-6 migration payoff queued since 07-05 landed.
+Net **−1,435 lines**; `ControlRoom.tsx` 4,207 → ~3,040. Cut fresh off `8b40ed9`, rebased over Phase 2 (#151,
+see next entry — the "awaiting GO" blocker there is RESOLVED: its sibling session got the GO, applied
+`dash_0011`, and merged while 5g was in flight; `reveal_approvals` + migration `20260713202509` **verified
+live** by this session post-merge).
+
+### What shipped (#152)
+- **Legacy `.cr` shell DELETED**: the whole legacy render branch, `?view=` state/popstate plumbing (route.ts
+  canonicalize + tests KEPT — old bookmarks redirect to Aurora), `openLegacyConsole` + the HubLanding
+  "Legacy console" button, dead `channelsAutoNew`, `DrillDownPanel.tsx`, legacy-only CSS (every deletion
+  grep-proven; every keep grep-proven live). `QueueActionDialog.tsx` KEPT (`FactClaimsReviewSection` feeds
+  ActionCenter/RevealHub).
+- **Aurora sign-out (gap fix)** — the sweep found the legacy rail's Exit form was the app's ONLY logout.
+  ControlRoom authors the `/auth/signout` POST form (dirty-guard → DiscardChangesDialog preserved) and
+  passes it as `signOutSlot` to all 10 shell branches + HubLanding. Owner runtime-verified on the preview.
+- **Ruled drop (rule-19 receipt, spec §Reachability):** the queue-side "Open Run Detail" receipts modal —
+  superseded by the Runs hub per-worker diagnostics. Operator may flag.
+- Spec + full reachability table: `docs/slices/slice-5g-delete-legacy-shell.md`.
+
+### Loop trail
+Read-only sweep (Explore agent) → spec (Gemini spec-review folded; its CSRF premise refuted by reading the
+signout route) → Codex build → gates (tsc · vitest · next build · grep gates · unauth smoke 307→/login) →
+**Gemini cross-vendor** (its demanded CSS deletions REFUTED — 7 selectors it called dead are live in
+surviving panels, e.g. `.pcard` via composed className; real dead residue removed) + **suerta APPROVE** →
+**problem-solver nod ON THE PR** (conditions: rebase over #151 ✓ with no-clobber evidence; owner
+authenticated eyeball ✓) → owner ruled "merge now, file follow-up" → squash-merge `1a776eb`.
+
+### New follow-up + lesson
+- **Issue #153** (owner-found during the eyeball): the unsaved-changes guard only covers the character
+  dossier — guidelines/other forms lose edits on sign-out (pre-existing in BOTH shells, not a 5g
+  regression; no `beforeunload` anywhere). Filed for problem-solver triage; not started (freeze).
+- **Portable lesson:** a sweep's "legacy-only" list is a hypothesis, not a delete manifest — the grep AT
+  delete time is the gate (it saved 7 live selectors here, twice: builder + Architect verification of a
+  reviewer demand). Belongs in the Process Learnings Ledger when HQ is reachable again (see below).
+
+### Coordination reality this session (READ THIS, next session)
+- **Notion/HQ was UNREACHABLE** (connector present but unauthorized; OAuth impossible non-interactively —
+  the operator was asked to authorize it in claude.ai connector settings). **Coordination ran via GitHub
+  on THIS repo instead and it worked**: the problem-solver rules on issues/PRs (see #137 freeze reframe,
+  #139 brief), gave the 5g nod on PR #152, and now **subscribes to PRs** — it asked that nod requests land
+  where it's watching. **Operator directive (2026-07-13): check in with the problem-solver FREQUENTLY.**
+- **Problem-solver freeze (#137, 07-09) stands:** new dashboard machinery is near-frozen; sanctioned work =
+  the quality loop (casting #136, render scoring #139, enqueue). 5g passed as debt-deletion, explicitly
+  ruled. Propose-before-build via issue, like #137/#153.
+- L-6 HQ outcome: no tracker row owed (5g is dashboard-internal; no shared surface changed). The #153
+  finding + the sweep lesson are queued for the Ledger once Notion is authorized.
+
+### In flight / next (unchanged unless noted)
+1. **#3 scoring hub → REAL** — awaiting owner go (first `render_reviews` write).
+2. **MULTI-USER** — design doc merged in #151; awaiting owner spend-model decision + OAuth config.
+3. **Reveal write-back activation** — `dash_0011`/`reveal_approvals` LIVE; `jobs.reveal_*` resume still
+   guarded OFF (`NEXT_PUBLIC_REVEAL_WRITE_ENABLED` + missing-column backstop) until the pipeline lands the
+   `reveal_*` cols.
+4. **#153 guidelines dirty-guard** — new, awaiting problem-solver triage.
+
+---
+
+## ⚡ (2026-07-13) — Reveal Phase 2 BUILT + reviewed + pushed; awaiting GO to merge. [RESOLVED: GO received; merged as #151 — see the entry above.]
 
 Prod tip = `8b40ed9`. Ten dashboard slices are shipped to prod (#1a park view, schema reconcile,
 #2-display, #3 scoring UI (mock), UX declutter, #4 channel filter, #5 design-system pass, #6
@@ -75,56 +134,9 @@ UI (no auto-build, rule 15): Advanced-mode progressive-disclosure regroup, mobil
 pipeline; the dashboard's only piece is the reveal-approval preview (#8). The **Channel DNA object**
 (§3) will extend `channel_profiles` → a future cross-team handshake when it's built.
 
-> **Maintenance note:** this ⚡ entry supersedes the 07-06 one below; when adding the next entry, rotate
-> entries older than the two most recent into `docs/handoff-archive/` verbatim (per the maintenance rule).
-
-## ⚡ (2026-07-06) — RUNS HUB (per-worker failure attribution) + EMPIRICAL RUN-COST ESTIMATE shipped.
-
-**Two operator-requested buildable-now read surfaces shipped** (both read-only over existing `jobs`/`receipts` telemetry —
-no writes, no pipeline dependency), built in parallel in one branch on top of sub-lane 5b (#127). Branch for new work:
-**start fresh off production** (keep your harness-designated branch name).
-
-### What shipped
-- **Runs hub (`?hub=runs`, `src/components/aurora/RunsHub.tsx`)** — lists runs (from the already-fetched `jobs`), newest-first,
-  with an "All / Needs attention" filter. Each errored/stale/parked run shows its `jobs.error` at a glance and expands to a
-  **lazily-loaded per-worker breakdown from `receipts`** (stage · verdict · reason · model/provider) — the "why did it fail /
-  which worker" view. New `"runs"` hub key (`route.ts` + test), **"Runs →"** entry on the Channels hub, scoped `.runs-hub` CSS.
-  Diagnostics loader = a read-only `receipts` select wrapped in `loadRunDiagnostics` (ControlRoom).
-- **Run-cost estimate (`RunCostEstimate.tsx` in the Cost center)** — pure **`estimateRunCost()`** (`src/lib/costEstimate.ts`,
-  **10 unit tests**) over historical per-episode spend (`costStats.episodeCosts[].liveSpend`) → a **$ range per run**
-  (median..p90 × episodes-per-run), with a reactive episodes-per-run input. Live: **$0.54–$2.15 (typical $0.82)** for a
-  5-episode run. The early **decision lever** ahead of the render-quality tier selector. Reached via the workspace Cost tab →
-  "View global cost center →".
-- **Both recorded in `docs/roadmap-dashboard.md`** (items 1c + 4a marked ✅ SHIPPED).
-
-### Gates + review + ratify
-- **`tsc` + 158 tests (+10 costEstimate) + `next build` clean.**
-- **Cross-vendor (Gemini) review APPROVE** — read-only surfaces (rule 4 single-lens; no money path → no suerta). Folded its
-  one blocker (raw-string cap input so backspace doesn't force "1") + nits (hoisted run error above the disclosure,
-  `aria-controls`, double-fire ref guard, tiny-USD 3-dp precision).
-- **Live ratify `scripts/ratify-runs-cost.mjs` 10/10, ZERO live writes** (every `/rest/v1` write intercept-and-aborted; reads
-  forwarded): `?hub=runs` renders in AuroraShell with 60 run cards; an errored run shows its error + expands to a 9-stage
-  per-worker log with verdict badges; the estimate renders a $ range and reacts to the input; zero writes, no console errors.
-
-### Also shipped this session (follow-on increments, same telemetry)
-- **Worker reliability rollup** — a collapsible "Worker reliability" table in the Runs hub: `computeWorkerReliability()`
-  (`src/lib/workerReliability.ts`, 6 tests) rolls up `receipts` by stage → attempts, pass/retry/blocked, retry rate, and
-  **retry-cost** (wasted spend on retried attempts). Query bounded (30-day window + 5000-row cap — Gemini blocker folded).
-  Live ratify: 10 stages, 458 attempts, ~$3.59 retry-cost. **Cost estimate now filters by character.** Ratify 13/13, zero writes.
-
-### NEXT / still queued (see `docs/roadmap-dashboard.md`)
-- **Buildable-now follow-ups:** a per-MODEL (not just per-stage) reliability cut; join retry-cost into the estimate; an
-  inline cost hint in the enqueue flow; channel filter on the estimate (waits on the `jobs.channel` tagging gap).
-- **⭐ Sub-lane 5g** (delete the legacy `.cr` shell) is still the migration payoff. **Roster INCOMING** — pipeline is
-  delivering the corrected 6-channel roster (Grandma = Bible-verse grandmother); create the `channel_profiles` rows via
-  Supabase MCP once values + the operator's posture-dial sign-off land. **Render-quality tier selector** + **video-idea
-  generator** + **niche workflow** + the **deferred analytics/monetization/social/ranking/A-B suite** remain queued (the
-  generation path = isolated `script` + `generation` capabilities per the operator; analytics gated on per-episode metrics).
-
-### HQ / cross-team (rule L-6)
-- **No tracker row owed** — both surfaces are dashboard-internal reads of existing shared tables (no schema/contract/behavior
-  change, no new write). No portable lesson this increment. (HQ was updated earlier this session for the render-quality
-  research ask + Grandma correction + cost-estimation dependencies.)
+> **Maintenance note:** when adding the next ⚡ entry, rotate entries older than the two most recent
+> into `docs/handoff-archive/` verbatim (per the maintenance rule — the 07-06 Runs-hub entry was rotated
+> there on 2026-07-13).
 
 ---
 
