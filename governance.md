@@ -31,10 +31,17 @@ identifiers**; rules are grouped topically, so a section may list them out of nu
     one-line entry to a living learnings log *at that moment* — don't rely on "I'll encode it
     later." Durable rules still get promoted into this canonical file, but they're logged first
     so they survive the lag before encoding.
-41. **Every session ends with the handoff current.** Before ending, write the handoff:
-    branch/worktree state, what is *proven* versus merely *asserted*, what's next, and the
-    traps that cost real time. A session whose context dies without a written handoff forces
-    the next one to rediscover everything.
+41. **Every session ends with the handoff current — and the handoff INCLUDES a copy-paste-ready
+    kickoff prompt.** Before ending, write the handoff: branch/worktree state, what is *proven*
+    versus merely *asserted*, what's next, and the traps that cost real time. **Then write the
+    complete copy-paste-ready kickoff prompt (including the exact branch to select) into the
+    durable handoff store, AND echo it inline in the chat** — persisting it first so it survives
+    the chat window closing (rules 1/24), and echoing it so the operator can start a fresh session
+    by copying one block, never by asking for it. This is default output at wrap-up, not something
+    the operator has to pull out of the session.
+    A session whose context dies without a written handoff — *or* that makes the operator ask for
+    the kickoff prompt — forces the next one to rediscover everything and erodes trust; if the
+    operator has to ask, the handoff failed.
 
 ## Nothing lands without independent review
 
@@ -166,7 +173,7 @@ Before asking a human, sort the question:
     view is how stale-state bugs happen. Judgment exercised at checkpoints, not a fixed timer.
 23. **Log a blocker the moment it surfaces**, with what it's blocked on. A blocker known only
     to one agent is invisible to everyone else.
-40. **Craft knowledge crosses team walls when another team builds on it.** A summary of *what*
+42. **Craft knowledge crosses team walls when another team builds on it.** A summary of *what*
     to build is not the *how-to-do-it-well* playbook. When another team/agent implements against
     a surface you understand deeply, mirror the playbook where they can read it — a craft doc
     that never crosses the repo/team wall predicts failures it never prevents.
@@ -209,10 +216,10 @@ project's memory names the concrete models per tier.
     nearly free; the expensive thing is a small task appended to a *large* context. Batch related
     small tasks while context is small, and **end the session once context has outgrown the work
     remaining** — hand off to a fresh one rather than paying top-of-context rates for a trailing
-    errand. The trigger to stop is context weight, not a task count. **Measure an autonomous run by
-    what it *ships*, not by specs or reviews ratified** — reserve budget for the build→verify→land
-    tail, and treat refining a spec past mid-run as the signal to **ship what's sound** rather than
-    polish it further.
+    errand. The trigger to stop is context weight, not a task count. And **measure an autonomous
+    run by what it ships, not by specs/reviews ratified**: reserve budget for the terminal step
+    (build → verify → land), and treat "still refining a spec past the run's midpoint" as the
+    signal to ship what is sound — not to open another review round.
 31. **Match the tier to the stakes; move in both directions deliberately.** Default to the
     standard capable model. **Escalate to the top tier for genuinely high-stakes or hardest work**
     — the thorniest architecture and fork decisions — by judgment, not permission; it is still
@@ -232,9 +239,10 @@ project's memory names the concrete models per tier.
     seat is **sized to the stakes like any other work (rule 31)** — escalating to the top tier by
     judgment when the review itself is high-stakes (finding a subtle flaw is often harder than
     writing it), never down-tiered below the work's stakes. A typo or low-stakes doc touch keeps
-    rule 5's single pass. **Cap design/spec review at ~2 rounds for *soundness*, then build** — the
-    change's own adversarial review catches the acceptance-criteria/wording tail; don't let a
-    spec→review→consensus loop consume the run before anything is built.
+    rule 5's single pass. **Cap design/spec review at the rounds needed to settle *soundness*
+    (≈two); once the design is endorsed, build — the change's own adversarial review catches the
+    acceptance-criteria and wording tail.** Re-looping a spec on nits a build-review would catch is
+    the review becoming the goal instead of the ship.
 34. **Fetch shared coordination state by the specific page/row you need, not the whole log.** The
     shared store grows without bound; paging it all in to read one row is the same waste as rule
     32's un-summarized sweep. Fetch the child page/row/query you need. Keeping the log pruned —
@@ -245,3 +253,19 @@ project's memory names the concrete models per tier.
     discovered on the bill.** If a fallback path costs materially more — a pricier tier, a
     redundant call, a paid path where a free one failed — surface it at the moment of substituting
     so the human can veto; cost changes never ride silently.
+
+## Reviewing the foundation
+
+40. **A load-bearing decision gets a dimension-check before anything is built on it — a passing
+    correctness review is not one.** A foundational choice — identity/keys, state & resume, a data
+    contract or schema, the terminal-state/gate model, a spend/safety guard, a security boundary,
+    the channel-agnostic seam — is cheap to change before it has dependents and expensive after.
+    Before such a decision is built on, state three things in the spec/PR: what it **assumes**,
+    what **breaks if that assumption is wrong**, and the **cost to reverse it later**. Ordinary
+    reviews ask "does the code work" and are blind to this by construction — the fresh-episode_id
+    miss (no resume) and the repair-receipt collision it later spawned both passed correctness
+    review. Enforce it where it can't be nodded past: a change touching a load-bearing surface
+    carries the dimension-check or the reviewer rejects it. And prefer **default-deny** structures
+    (lock the unknown case by default) over hand-maintained allow-lists, so the *class* is caught,
+    not each instance by hand — an allow-list of columns that a later migration must remember to
+    update is exactly how the enqueue policy left `fact_approved` forgeable.
