@@ -10,6 +10,7 @@ import {
   type RevealFixture,
 } from "@/lib/revealApproval";
 import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
+import { RenderPlayer } from "./RenderPlayer";
 
 export type RevealHubProps = {
   fixtures: readonly RevealFixture[];
@@ -273,6 +274,7 @@ function RevealCard({
       <p className="reveal-hub__reason">
         <strong>Auditor reason:</strong> {reveal.reason || "No reason provided."}
       </p>
+      <RenderPlayer episodeId={fixtureId} />
 
       {reveal.brand_specific.flagged ? (
         <div className="reveal-hub__brand-caution" role="note">

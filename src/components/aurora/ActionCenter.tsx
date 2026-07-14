@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { FactClaim } from "@/lib/factClaims";
 import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
 import type { QueueJob } from "../controlroom/shared";
+import { RenderPlayer } from "./RenderPlayer";
 
 type QueueAction = "fact" | "spend" | "publish" | "stale";
 type TriggeredActionRequest = (job: QueueJob, action: QueueAction, trigger: HTMLButtonElement) => void;
@@ -115,6 +116,7 @@ export function ActionCenter({
                   {hasSpend ? (
                     <div className="cost-readout">Spend: {formatUsd(job.spend ?? 0)}</div>
                   ) : null}
+                  {job.episode_id ? <RenderPlayer episodeId={job.episode_id} /> : null}
                 </div>
 
                 <div className="approval-actions">

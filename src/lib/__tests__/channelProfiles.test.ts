@@ -5,11 +5,31 @@ import {
   joinListInput,
   parseEngagementPosture,
   parseResearchProfile,
+  parseShortSeconds,
   parseSourcing,
   splitListInput,
   validateChannelProfile,
   type ChannelProfileUpsertInput,
 } from "@/lib/channelProfiles";
+
+describe("parseShortSeconds", () => {
+  it.each([
+    ["", null],
+    ["1", 1],
+    ["70", 70],
+    ["180", 180],
+    ["70.5", 70.5],
+  ])("accepts %j", (raw, value) => {
+    expect(parseShortSeconds(raw)).toEqual({ ok: true, value });
+  });
+
+  it.each(["0", "-5", "181", "abc"])("rejects %j with the bound", (raw) => {
+    expect(parseShortSeconds(raw)).toEqual({
+      ok: false,
+      error: "Short length must be between 1 and 180 seconds.",
+    });
+  });
+});
 
 function profileInput(
   overrides: Partial<ChannelProfileUpsertInput> = {},

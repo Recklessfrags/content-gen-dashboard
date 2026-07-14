@@ -22,6 +22,7 @@ import {
   parsePlatforms,
   parseSourceLadder,
   splitListInput,
+  parseShortSeconds,
   type ChannelProfile,
   type ChannelProfileUpsertInput,
 } from "@/lib/channelProfiles";
@@ -410,13 +411,10 @@ export function ChannelProfilesPanel({
   }, [createOnly]);
 
   const formToInput = (current: FormState): ChannelProfileUpsertInput => {
-    const shortSeconds = current.shortSeconds.trim();
+    const parsedShortSeconds = parseShortSeconds(current.shortSeconds);
+    if (!parsedShortSeconds.ok) throw new Error(parsedShortSeconds.error);
     const lengthTarget =
-      shortSeconds.length > 0 ? { short_s: Number(shortSeconds) } : {};
-
-    if (shortSeconds.length > 0 && !Number.isFinite(lengthTarget.short_s)) {
-      throw new Error("length_target.short_s must be a number");
-    }
+      parsedShortSeconds.value === null ? {} : { short_s: parsedShortSeconds.value };
 
     const selectedCharacter = current.character_id
       ? (characters.find(
@@ -454,6 +452,12 @@ export function ChannelProfilesPanel({
 
   const saveProfile = async () => {
     if (!form || saving) return;
+
+    const parsedShortSeconds = parseShortSeconds(form.shortSeconds);
+    if (!parsedShortSeconds.ok) {
+      setNotice(null);
+      return;
+    }
 
     setSaving(true);
     setNotice(null);
@@ -1034,14 +1038,30 @@ export function ChannelProfilesPanel({
                   </label>
                   <input
                     id="channel-profile-short-seconds"
-                    type="number"
-                    min="0"
-                    step="1"
+                    type="text"
+                    inputMode="decimal"
                     value={form.shortSeconds}
+                    aria-invalid={!parseShortSeconds(form.shortSeconds).ok}
+                    aria-describedby={
+                      parseShortSeconds(form.shortSeconds).ok
+                        ? "channel-profile-short-seconds-help"
+                        : "channel-profile-short-seconds-help channel-profile-short-seconds-error"
+                    }
                     onChange={(event) =>
                       updateForm("shortSeconds", event.target.value)
                     }
                   />
+                  <p id="channel-profile-short-seconds-help" className="hint">
+                    Target video length in seconds — a live production knob. Drives the script
+                    word band (~×1.86 words/s), cut count, and render duration for this channel.
+                    Longer = harder retention and ~linearly higher cost. Leave blank for the
+                    default (70s). Must be 1–180.
+                  </p>
+                  {!parseShortSeconds(form.shortSeconds).ok ? (
+                    <p id="channel-profile-short-seconds-error" className="field-error" role="alert">
+                      Short length must be between 1 and 180 seconds.
+                    </p>
+                  ) : null}
                 </div>
               </section>
               </>
@@ -1062,7 +1082,7 @@ export function ChannelProfilesPanel({
                 className="btn"
                 type="button"
                 onClick={() => void saveProfile()}
-                disabled={saving}
+                disabled={saving || !parseShortSeconds(form.shortSeconds).ok}
               >
                 {saving ? "Saving..." : "Save channel"}
               </button>

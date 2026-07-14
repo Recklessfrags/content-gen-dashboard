@@ -4188,3 +4188,65 @@
   padding: 0.5rem 0.6rem;
   min-width: 10rem;
 }
+
+/* Render watch gate: compact disclosure with a constrained portrait-safe stage. */
+.aurora-app .render-player {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+.aurora-app .render-player__toggle {
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  background: var(--surface-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.aurora-app .render-player__toggle:hover {
+  border-color: var(--border-strong);
+}
+.aurora-app .render-player__toggle:active {
+  transform: translateY(1px);
+}
+.aurora-app .render-player__toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.aurora-app .render-player__stage {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 0.65rem;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: #000;
+}
+.aurora-app .render-player__video {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: min(70vh, 36rem);
+  object-fit: contain;
+  background: #000;
+}
+.aurora-app .render-player__error {
+  margin: 0;
+  padding: 1rem;
+  color: var(--text-main);
+  background: var(--surface-2);
+}
+
+@media (max-width: 480px) {
+  .aurora-app .render-player__video {
+    max-height: min(70vh, calc(100vw - 3rem));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-app .render-player__toggle:active { transform: none; }
+}
