@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { extractBelowFloorCuts, parkExplanation } from "@/lib/parkExplanation";
 import type { FactClaim } from "@/lib/factClaims";
 import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
 import type { QueueJob } from "../controlroom/shared";
 import { RenderPlayer } from "./RenderPlayer";
+import type { RunDiagnosticsResult } from "./RunsHub";
 
 type QueueAction = "fact" | "spend" | "publish" | "stale";
 type TriggeredActionRequest = (job: QueueJob, action: QueueAction, trigger: HTMLButtonElement) => void;
@@ -18,7 +20,9 @@ type ActionCenterPark = {
 
 type ActionCenterProps = {
   jobs: QueueJob[];
+  erroredJobs?: QueueJob[];
   parkById: Record<QueueJob["id"], ActionCenterPark>;
+  loadDiagnostics?: (episodeId: string) => Promise<RunDiagnosticsResult>;
   pending: { job: QueueJob; action: QueueAction } | null;
   submitting: boolean;
   onRequest: (job: QueueJob, action: QueueAction) => void;
@@ -35,7 +39,9 @@ type ActionCenterProps = {
 
 export function ActionCenter({
   jobs,
+  erroredJobs = [],
   parkById,
+  loadDiagnostics,
   pending,
   submitting,
   onRequest,
@@ -113,6 +119,7 @@ export function ActionCenter({
                     <span>{formatCreatedAt(job.created_at)}</span>
                   </div>
                   <p className="dim">{parkLine(job, park)}</p>
+                  <ParkContext job={job} park={park} loadDiagnostics={loadDiagnostics} />
                   {hasSpend ? (
                     <div className="cost-readout">Spend: {formatUsd(job.spend ?? 0)}</div>
                   ) : null}
@@ -147,8 +154,93 @@ export function ActionCenter({
           })}
         </div>
       )}
+
+      {erroredJobs.length > 0 ? (
+        <section className="au-error-jobs" aria-labelledby="errored-jobs-title">
+          <h2 id="errored-jobs-title" className="text-title">Errored / stuck</h2>
+          <div className="glass-panel" role="list" aria-label="Errored or stuck jobs">
+            {erroredJobs.map((job) => {
+              const park = parkById[job.id];
+              return (
+                <article className="approval-row" role="listitem" key={job.id}>
+                  <div className="approval-context">
+                    <strong className="text-title">{job.channel ?? job.food}</strong>
+                    <div className="au-action-meta">
+                      {job.channel ? <span className="status-chip">{job.channel}</span> : null}
+                      <span>{statusLabel(job)}</span><span>{formatCreatedAt(job.created_at)}</span>
+                    </div>
+                    <p className="dim">{parkLine(job, park)}</p>
+                    <ParkContext job={job} park={park} loadDiagnostics={loadDiagnostics} />
+                    {job.episode_id ? <RenderPlayer episodeId={job.episode_id} /> : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </section>
   );
+}
+
+function ParkContext({ job, park, loadDiagnostics }: {
+  job: QueueJob;
+  park: ActionCenterPark | undefined;
+  loadDiagnostics: ActionCenterProps["loadDiagnostics"];
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, setState] = useState<{ loading: boolean; error: string | null; receipts: RunDiagnosticsResult["receipts"] | null }>({ loading: false, error: null, receipts: null });
+  const inFlightRef = useRef(false);
+  const bodyId = `action-diagnostics-${job.id}`;
+  const explanation = parkExplanation(park?.kind, job.status, job.park_kind);
+
+  const load = useCallback(async () => {
+    if (!job.episode_id || !loadDiagnostics || inFlightRef.current) return;
+    inFlightRef.current = true;
+    setState({ loading: true, error: null, receipts: null });
+    const result = await loadDiagnostics(job.episode_id);
+    inFlightRef.current = false;
+    setState({ loading: false, error: result.error, receipts: result.receipts });
+  }, [job.episode_id, loadDiagnostics]);
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next && state.receipts === null && !inFlightRef.current) void load();
+  };
+  const latest = state.receipts?.at(-1);
+  const cuts = latest ? extractBelowFloorCuts({ result: latest.result, evidence: latest.evidence }) : [];
+
+  return (
+    <div className="au-park-context">
+      <div className="au-park-summary">
+        <span className="status-chip">{parkChip(job, park)}</span>
+        {explanation ? <p>{explanation}</p> : null}
+      </div>
+      <button type="button" className="au-park-disclosure" aria-expanded={open} aria-controls={bodyId} onClick={toggle} disabled={!job.episode_id || !loadDiagnostics}>
+        Why it parked {open ? "▾" : "▸"}
+      </button>
+      {open ? <div id={bodyId} className="au-park-log">
+        {state.loading ? <p className="dim" aria-busy="true"><span className="spin" aria-hidden="true" /> Loading run log…</p> : null}
+        {state.error ? <p role="alert">Couldn&apos;t load the run log.</p> : null}
+        {latest && !state.loading && !state.error ? <>
+          <div className="au-park-receipt-head"><strong>{latest.stage || "(stage)"}</strong><span className="status-chip">{latest.verdict || "—"}</span></div>
+          {latest.reason ? <p>{latest.reason}</p> : null}
+          {cuts.length ? <div className="au-below-floor"><strong>{cuts.length} below-floor cut{cuts.length === 1 ? "" : "s"}</strong><ul>{cuts.map((cut) => <li key={cut.cut}><span>{cut.cut}</span>{cut.reason ? ` — ${cut.reason}` : ""}</li>)}</ul></div> : null}
+        </> : null}
+      </div> : null}
+    </div>
+  );
+}
+
+function parkChip(job: QueueJob, park: ActionCenterPark | undefined): string {
+  if (job.park_kind === "blocked") return "Blocked";
+  if (job.park_kind === "exhausted") return "Retries exhausted";
+  if (park?.kind === "fact") return "Fact call";
+  if (park?.kind === "spend") return "Spend approval";
+  if (park?.kind === "publish") return "Publish approval";
+  if (park?.kind === "reveal") return "Reveal sign-off";
+  return job.status?.trim().toLowerCase() === "error" ? "Error" : "Parked";
 }
 
 function PrimaryAction({

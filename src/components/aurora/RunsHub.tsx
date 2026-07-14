@@ -32,6 +32,8 @@ export type RunReceiptRow = {
   reason: string;
   model: string;
   provider: string;
+  result?: unknown;
+  evidence?: unknown;
 };
 
 export type RunDiagnosticsResult = { receipts: RunReceiptRow[]; error: string | null };

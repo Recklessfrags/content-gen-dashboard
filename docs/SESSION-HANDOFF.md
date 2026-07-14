@@ -56,6 +56,22 @@ missed backlog.
 follow-up #153 filed (guidelines dirty-guard — still awaiting problem-solver triage) · session registry
 #155 created · both portable lessons appended to the Notion Ledger.
 
+### Later same session (2026-07-14, after PR #156): Tasks A+B + the self-merge delegation
+- **STANDING DELEGATION (problem-solver, reels#88 `4965428201`/`4965474764`): self-merge dashboard-only
+  + gate-green + cross-vendor-PASS builds** — no per-PR GO. PS GO only for shared surfaces
+  (`jobs`/`channel_profiles`/`characters`/`episodes`/`receipts`/buckets/contract docs) or live
+  migrations, brand GREEN-YELLOW-RED, publish/spend/direction. Post a one-line "merged X" on #88 after.
+- **Task A shipped — parked-render review surface:** Action Center now = the owner's triage loop:
+  errored/stuck section (no actions — read-only), per-card plain-English park explanations
+  (`src/lib/parkExplanation.ts`, copy test-asserted), lazy "Why it parked" receipts disclosure (reuses
+  the RunsHub diagnostics loader; below-floor cut extraction, cycle-safe), RenderPlayer inline.
+- **Task B shipped — governance synced to canonical (reels `d67216a`):** NEW rule 40
+  (foundation dimension-check + default-deny), craft rule renumbered 40→42, and three drifted wordings
+  adopted verbatim (41 kickoff-prompt extension, 30 tail, 33 tail); count refs → 1–42. Gemini fidelity
+  APPROVE ("mirroring means mirroring"). **Note rule 41 now requires the wrap-up kickoff prompt.**
+- **Mad Dog `voice_recipe`** now carries a recast-target shape (pipeline intent-capture; parser verified
+  fail-safe, nothing behavioral).
+
 ---
 
 ## ⚡ (2026-07-13 evening) — SLICE 5g SHIPPED: the legacy `.cr` shell is GONE (PR #152 `1a776eb`).
@@ -142,7 +158,7 @@ authenticated eyeball ✓) → owner ruled "merge now, file follow-up" → squas
    dashboard #139/#153). Always fresh-fetch the #88 tail before telling the operator
    "nothing is buildable" (L-1). The Notion 📮 Coordination Log is the legacy layer (Ledger
    still lives there).
-4. **Read, in order:** this file → `governance.md` (41 shared rules) → `AGENTS.md` (project
+4. **Read, in order:** this file → `governance.md` (42 shared rules) → `AGENTS.md` (project
    layer, L-1..L-5) → `DIRECTION.md` (scope) → `docs/contracts/data-contract.md` (DB shapes +
    ownership) → `GATES.md` → the 📮 Coordination Log tracker (§6).
 5. **Don't-drift / don't-stall:** the dashboard is a **focused control tool, NOT a
@@ -469,7 +485,7 @@ calls are parked — **do NOT raise them until their trigger fires** (owner expl
   rules page, prune co-decision page, Process Learnings Ledger
   (`390d346e-22d2-8152-bb7c-deef7d4c246b` — append lessons the moment they surface).
   After the prune executes, closed rows live in a 🗄 Tracker-archive child page.
-- Repo memory: `governance.md` (rules 1–41) → `AGENTS.md` (L-1..L-5) → this file →
+- Repo memory: `governance.md` (rules 1–42) → `AGENTS.md` (L-1..L-5) → this file →
   `docs/HANDOFF.md` (full history) → `GATES.md`, `DIRECTION.md`,
   `docs/contracts/data-contract.md`, `docs/slices/*`, `docs/design/*`,
   `docs/roadmap-dashboard.md`.

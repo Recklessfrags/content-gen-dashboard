@@ -1613,6 +1613,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     () => jobs.filter((job) => isActionableStatus(classifyJobStatus(job.status))),
     [jobs],
   );
+  const erroredJobs = useMemo(
+    () => jobs.filter((job) => classifyJobStatus(job.status) === "error"),
+    [jobs],
+  );
   const hubChannelCards = useMemo<ChannelCardVM[]>(
     () =>
       channelProfiles.map((profile) => ({
@@ -1750,7 +1754,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     async (episodeId: string): Promise<RunDiagnosticsResult> => {
       const { data, error } = await supabase
         .from("receipts")
-        .select("seq, stage, verdict, reason, model, provider")
+        .select("seq, stage, verdict, reason, model, provider, result, evidence")
         .eq("episode_id", episodeId)
         .order("seq", { ascending: true });
       if (error) return { receipts: [], error: error.message };
@@ -1761,6 +1765,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         reason: row.reason ?? "",
         model: row.model ?? "",
         provider: row.provider ?? "",
+        result: row.result,
+        evidence: row.evidence,
       }));
       return { receipts, error: null };
     },
@@ -2502,7 +2508,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
           <ActionCenter
             jobs={actionableJobs}
+            erroredJobs={erroredJobs}
             parkById={jobParkById}
+            loadDiagnostics={loadRunDiagnostics}
             pending={pendingQueueAction}
             submitting={queueActionSubmitting}
             onRequest={requestQueueAction}
