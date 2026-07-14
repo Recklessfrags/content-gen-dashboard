@@ -2025,6 +2025,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           showFlash={showFlash}
           restoreFocusRef={castingTriggerRef}
           suggestedPersonaChipId={modalSuggestedPersonaChipId}
+          basicMode={!uiAdvanced}
+          onShowAdvanced={() => setUiMode("advanced")}
         />
       )}
       {visualCastingOpen && active && (
@@ -3060,6 +3062,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         onCharacterPatched={patchCharacter}
                         showFlash={showFlash}
                         restoreFocusRef={inlineCastingRestoreRef}
+                        basicMode={!uiAdvanced}
+                        onShowAdvanced={() => setUiMode("advanced")}
                       />
                     </div>
                   </>
