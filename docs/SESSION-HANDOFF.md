@@ -114,9 +114,13 @@ merge or apply the migration without that GO.** Last-seen HQ id = `4962266383`.
 #6 group-by-state (`runsGrouping.ts`); #7 persona "Use in casting" (in-memory pre-fill, no spend).
 
 **In flight (besides the Phase-2 merge GO above):**
-1. **#3 scoring hub → REAL** — first gate-passing render landed (`cottage-cheese-20260712-034826`,
-   below_floor_cuts=0). Wire `?hub=review` to the real render + `render_reviews` write path.
-   **Owner ratify** (first write on that path) — awaiting the owner's go.
+1. **#3 scoring hub → REAL — ⚠️ HELD, and the old trigger is REVOKED (2026-07-14).** The
+   `cottage-cheese-20260712-034826-4cadec` render this item previously cited as "first
+   gate-passing" was a **FALSE PASS** — its `on_topic_ratio=1.0` came from the old
+   caption-not-subject judge bug (HQ reels#88 `4951405330`, backlog `4964858225` item 4;
+   acked by this session `4964959636`). **Do NOT calibrate any scoring surface against that
+   episode and do NOT flip `?hub=review` mock→real** until a validated relevance judge
+   exists (pipeline-side) + owner ratify of the first `render_reviews` write.
 2. **MULTI-USER** (design doc `f0b1359` = `docs/proposals/multi-user-design.md`) — owner wants a select
    few users; owner pays spend; others create+test; **channels PRIVATE (owner ruled)**. `characters`/
    `ideas`/`bibles` ALREADY owner-scoped RLS + `casting_usage` per-user; GAPS = `channel_profiles` shared

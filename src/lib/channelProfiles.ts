@@ -65,6 +65,22 @@ export type LengthTarget = {
   short_s?: number;
 };
 
+export type ParsedShortSeconds =
+  | { ok: true; value: number | null }
+  | { ok: false; error: string };
+
+export function parseShortSeconds(raw: string): ParsedShortSeconds {
+  const normalized = raw.trim();
+  if (!normalized) return { ok: true, value: null };
+
+  const value = Number(normalized);
+  if (!Number.isFinite(value) || value <= 0 || value > 180) {
+    return { ok: false, error: "Short length must be between 1 and 180 seconds." };
+  }
+
+  return { ok: true, value };
+}
+
 export type ResearchProfile = {
   anchor_type: ResearchAnchorType;
   source_hierarchy: string[];
