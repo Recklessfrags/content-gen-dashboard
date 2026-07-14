@@ -1,6 +1,80 @@
 # SESSION-HANDOFF archive — 2026 H1 (rotated session snapshots)
 
-_Rotated out of `docs/SESSION-HANDOFF.md` on 2026-07-07 to keep the live handoff a fast-path snapshot (rule 41). The per-session entries below are **verbatim — nothing summarized or deleted** (rule 34). Newest first: 2026-07-06 (Runs hub + cost estimate, rotated 2026-07-13) back to 2026-07-02 (channel-first redefinition, D-6). The live handoff keeps the current snapshot + the evergreen reference manual (§0–§6); full running history also lives in `docs/HANDOFF.md`._
+_Rotated out of `docs/SESSION-HANDOFF.md` on 2026-07-07 to keep the live handoff a fast-path snapshot (rule 41). The per-session entries below are **verbatim — nothing summarized or deleted** (rule 34). Newest first: 2026-07-13 (Reveal Phase 2, rotated 2026-07-14) back to 2026-07-02 (channel-first redefinition, D-6). The live handoff keeps the current snapshot + the evergreen reference manual (§0–§6); full running history also lives in `docs/HANDOFF.md`._
+
+---
+
+## ⚡ EARLIER (2026-07-13) — Reveal Phase 2 BUILT + reviewed + pushed; awaiting GO to merge. [RESOLVED: GO received; merged as #151 — see the entry above.]
+
+Prod tip = `8b40ed9`. Ten dashboard slices are shipped to prod (#1a park view, schema reconcile,
+#2-display, #3 scoring UI (mock), UX declutter, #4 channel filter, #5 design-system pass, #6
+group-by-state, #7 persona "Use in casting", #8 reveal-approval preview phase-1 (mock `?hub=reveal`)).
+The Sol design audit is fully shipped. Each shipped via: Codex build → tsc/vitest/next-build gates →
+review → squash-merge to `claude/new-session-3l99vs`.
+
+**★ #8 reveal-approval — PHASE 2 (write-back): BUILT, TWO-LENS REVIEWED, PUSHED — NOT YET MERGED.**
+Branch `claude/wire-aurora-home-5b-lleyyg` is **3 commits ahead of prod**: `f0b1359` (multi-user
+design doc), `54b12ff` (phase-2 spec `docs/slices/slice-8-phase-2-reveal-approval-writeback.md`),
+`fbadf16` (the phase-2 build). Phase 2 makes the reveal hub real:
+- **`reveal_approvals`** — dashboard-owned, owner-scoped, **append-only** audit table. Migration
+  **`supabase/migrations/dash_0011_reveal_approvals.sql`** (SELECT+INSERT only, no UPDATE/DELETE;
+  `owner default auth.uid()`). **NOT yet applied to the live DB** — gated on GO.
+- **Real read path** — `?hub=reveal` reads live parked reveals (`ready_for_review` + `park_kind='reveal'`
+  → max-seq `reveal_auditor` receipt → `parseRevealAuditorResult`). 0 parked live today → correct empty
+  state. Mock banner removed from the live surface. Read set keyed off `jobParkById` resolution so it
+  matches the ActionCenter "Review reveals" route (no dead-end).
+- **Guarded write path** — decisions record to `reveal_approvals` immediately; the `jobs.reveal_*` resume
+  write is **guarded OFF** behind env flag **`NEXT_PUBLIC_REVEAL_WRITE_ENABLED`** + a missing-column
+  backstop (VERIFIED live: `jobs` has NO `reveal_*` cols yet). Activates the instant the PIPELINE lands
+  `reveal_approved`/`reveal_override`/`reveal_rejected` + you flip the flag. Never touches lifecycle
+  columns; scoped `.eq('park_kind','reveal')` with a multi-row guard.
+- **Pure builders** `buildRevealApprovalRow`/`buildJobsRevealPatch` (unit-tested); reveal park-kind
+  classification added to `jobs.ts`/`parkReason.ts`/`ActionCenter.tsx`.
+- **Two-lens review (Gemini + suerta/Opus): SHIP-WITH-FIXES** — RLS, guarded write, idempotency confirmed
+  sound; 4 real fixes applied (Promise.allSettled so one bad receipt doesn't collapse the hub; read↔route
+  consistency; stable re-query gating; multi-row UPDATE guard); 1 Gemini false-positive rejected (rule 10).
+- **Gates:** `tsc` ✓ · 237 tests ✓ · `next build` ✓.
+
+**⛳ CURRENT BLOCKER — awaiting merge GO.** Owner (2026-07-13) **delegated the merge ratification to the
+problem-solver** ("problem solver provides the go"). No GO existed on HQ yet, so I **posted a ready-for-GO
+request to HQ #88** (comment `4962266383`, signed Dashboard architect). **On the problem-solver's (or
+owner's) GO:** apply `dash_0011` to the live DB (Supabase `tyeejhaknqkeftjykqog`), squash-merge to prod,
+then reset the branch fresh off the new prod tip. The 10-min poll cron carries this instruction. **Do NOT
+merge or apply the migration without that GO.** Last-seen HQ id = `4962266383`.
+
+1–7 (shipped, condensed): #1a park view + `channel_profiles` reconcile (`parkReason.ts`); #2-display
+(`factClaims.ts`, `isSafeHttpUrl` XSS allowlist); #3 scoring UI (`?hub=review`, `renderReview.ts`, MOCK);
+#4 RunsHub channel filter (`runsChannelFilter.ts`); #5 design-system pass (mobile nav bar, button-color);
+#6 group-by-state (`runsGrouping.ts`); #7 persona "Use in casting" (in-memory pre-fill, no spend).
+
+**In flight (besides the Phase-2 merge GO above):**
+1. **#3 scoring hub → REAL — ⚠️ HELD, and the old trigger is REVOKED (2026-07-14).** The
+   `cottage-cheese-20260712-034826-4cadec` render this item previously cited as "first
+   gate-passing" was a **FALSE PASS** — its `on_topic_ratio=1.0` came from the old
+   caption-not-subject judge bug (HQ reels#88 `4951405330`, backlog `4964858225` item 4;
+   acked by this session `4964959636`). **Do NOT calibrate any scoring surface against that
+   episode and do NOT flip `?hub=review` mock→real** until a validated relevance judge
+   exists (pipeline-side) + owner ratify of the first `render_reviews` write.
+2. **MULTI-USER** (design doc `f0b1359` = `docs/proposals/multi-user-design.md`) — owner wants a select
+   few users; owner pays spend; others create+test; **channels PRIVATE (owner ruled)**. `characters`/
+   `ideas`/`bibles` ALREADY owner-scoped RLS + `casting_usage` per-user; GAPS = `channel_profiles` shared
+   (no owner col) and `jobs` has no owner (spend not per-user). Three pieces: (A) Google login + email
+   allowlist [mine; needs owner's Supabase/Google OAuth config]; (B) channel `owner` col + RLS + backfill
+   [mine; coordinate with @pipeline's Channel-DNA §3 which also extends `channel_profiles`]; (C)
+   `jobs.owner` spend-attribution = **cross-team (pipeline owns jobs)**. **Awaiting owner: spend-model
+   decision (A) approve-every-run [my rec] vs (B) per-user cap + design sign-off + the OAuth config.**
+
+**Parked / gated:** domain name (owner: ship first, name later); **#1b repair-trigger** (money-path)
+HELD — the repair *machinery* is proven (pipeline PR #96, repair_attempt now unbounded) but a
+repair-to-complete-MP4 still awaits the sourcing arc, AND #1b needs owner priority to start. Deferred
+UI (no auto-build, rule 15): Advanced-mode progressive-disclosure regroup, mobile "More" menu.
+**Content-spine/gate-rebuild** (reels `spec-channel-dna-and-reveal-spine.md`) is being built by the
+pipeline; the dashboard's only piece is the reveal-approval preview (#8). The **Channel DNA object**
+(§3) will extend `channel_profiles` → a future cross-team handshake when it's built.
+
+> **Maintenance note:** when adding the next ⚡ entry, rotate entries older than the two most recent
+> into `docs/handoff-archive/` verbatim (per the maintenance rule — the 07-06 Runs-hub entry was rotated
+> there on 2026-07-13).
 
 ---
 
