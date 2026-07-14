@@ -146,6 +146,7 @@ export type VoiceDesignPrompt = {
   gender?: VoiceGender; // optional; ElevenLabs design benefits from it
   voice_description_raw?: string;
   preview_text_raw?: string;
+  prompt_raw?: string;
   builder_state?: BuilderSelections;
 };
 
@@ -226,6 +227,7 @@ export function clampVoiceDesignPrompt(
     ...(typeof input.preview_text_raw === "string"
       ? { preview_text_raw: input.preview_text_raw }
       : {}),
+    ...(typeof input.prompt_raw === "string" ? { prompt_raw: input.prompt_raw } : {}),
     ...(isBuilderSelections(input.builder_state) ? { builder_state: input.builder_state } : {}),
   };
   if (!hasRaw || hasLegacySliders) {
@@ -405,6 +407,7 @@ export type AuditionCandidate = {
   quality: number | null;
   builder_state?: BuilderSelections;
   prompt_state?: VoiceDesignPrompt; // legacy persisted bracket support
+  prompt_raw?: string;
   template_name?: string; // stamped at generation time for recipe provenance
 };
 
@@ -468,6 +471,7 @@ export async function generateVoicePreviews(
     seed?: unknown;
     quality?: unknown;
     builder_state?: BuilderSelections;
+    prompt_raw?: string;
   },
 ): Promise<AuditionCandidate[]> {
   const voiceDescription = input.voice_description_raw;
@@ -524,6 +528,9 @@ export async function generateVoicePreviews(
         seed: generation.seed ?? previewSeed ?? responseSeed,
         quality: generation.quality,
         ...(isBuilderSelections(input.builder_state) ? { builder_state: input.builder_state } : {}),
+        ...(typeof input.prompt_raw === "string" && input.prompt_raw.length > 0
+          ? { prompt_raw: input.prompt_raw }
+          : {}),
       };
     });
 }

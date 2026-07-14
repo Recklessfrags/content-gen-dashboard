@@ -2046,6 +2046,9 @@ body{font-family:var(--body)}
 .casting-slider .hint{font-family:var(--mono);font-size:11px;color:var(--paper-faint);
   text-transform:none;letter-spacing:.02em;margin:0}
 .casting-prose{margin-top:8px;font-style:italic}
+.casting-prompt-field{margin-bottom:18px}
+.casting-prompt-field textarea{width:100%}
+.casting-prompt-field .btn,.show-advanced-btn{min-height:44px}
 .casting-inline-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
 .casting-generation-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:16px 18px;margin:16px 0}
 .casting-generation-grid .field:last-child{grid-column:1/-1}

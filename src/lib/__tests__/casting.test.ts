@@ -25,9 +25,29 @@ import {
 } from "@/lib/casting";
 import {
   DEFAULT_BUILDER_SELECTIONS,
+  castingControlVisibility,
   purgeCreatedVoiceId,
 } from "@/components/controlroom/CastingStudioPanel";
 import { PERSONA_BANK } from "@/lib/castingPhrases";
+
+describe("casting progressive disclosure", () => {
+  it("keeps the tournament in basic while hiding advanced controls", () => {
+    expect(castingControlVisibility(true)).toEqual({
+      kit: false,
+      previewEditor: false,
+      guidance: false,
+      resetToPicks: false,
+      tournament: true,
+    });
+    expect(castingControlVisibility(false)).toEqual({
+      kit: true,
+      previewEditor: true,
+      guidance: true,
+      resetToPicks: true,
+      tournament: true,
+    });
+  });
+});
 
 const TEST_DESCRIPTION =
   "Audio quality: clean studio documentary narration, warm but not polished flat. Identity: middle-aged androgynous American food-channel host with a grounded accent. Timbre: textured, lightly smoky, a little grit at sentence ends. Pitch/dynamics: medium-low pitch with lifted emphasis on reveals. Pace/cadence: patient setup, clipped punchlines, longer pauses before the turn. Emotion/character: curious, dry, observant, amused by the absurd details without sounding cartoonish.";

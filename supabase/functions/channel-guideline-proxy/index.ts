@@ -13,9 +13,10 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const ANTHROPIC_BASE = "https://api.anthropic.com";
 const ANTHROPIC_MODEL = "claude-opus-4-8";
 const ANTHROPIC_VERSION = "2023-06-01";
-const DAILY_CAP = 10;
+const DAILY_CAP = 25;
 const DESCRIPTION_MIN = 30;
 const DESCRIPTION_MAX = 2000;
+const CAST_PROMPT_MAX = 1000;
 const BRIEF_MAX_TOKENS = 1024;
 const MAP_MAX_TOKENS = 1536;
 const CHANNEL_GUIDELINE_ALLOWED_ORIGINS = Deno.env.get("CHANNEL_GUIDELINE_ALLOWED_ORIGINS");
@@ -94,6 +95,24 @@ Rules:
 - assumptions: 2–4 short strings naming what you inferred from an ambiguous concept. Be honest and specific.
 - cast_brief: voice_description is 200–600 characters of vivid, ElevenLabs-ready prose for the ideal narrator voice (age, timbre, energy, delivery), suited to short-form narration — describe a VOICE, never a named person. preview_line is one 8–20 word sample line delivered in that voice. This is an advisory cast brief, not a character.
 Return exactly one tool call.`;
+
+const CAST_DESCRIBE_TOOL = {
+  name: "draft_voice_cast",
+  description: "Draft an original voice description and its matching audition performance script.",
+  input_schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      voice_description: { type: "string" },
+      preview_text: { type: "string" },
+    },
+    required: ["voice_description", "preview_text"],
+  },
+};
+
+const CAST_DESCRIBE_SYSTEM_PROMPT = `You are an expert voice casting director writing inputs for an AI voice-design system. Expand the operator's intent into two fields. voice_description is exactly one rich paragraph, 200–600 characters, covering timbre, pacing, register, texture, apparent age, accent, and energy. preview_text is a matching advertiser-safe in-character performance script of about 2–4 sentences, long enough to audition pacing and emotional turns.
+
+Transform every real-person or fictional-character reference into original trait language. The output must contain no real-person, performer, production, or character names and must evoke traits without copying an identifiable performance. Keep both fields advertiser-safe, including when the input is not. Return exactly one tool call.`;
 
 const FACT_ANCHOR = ["fda_standard_of_identity", "declassified_primary_doc", "none"];
 const TREATMENT = ["archival_documentary", "motion_graphic", "avatar", "live_demo"];
@@ -196,18 +215,25 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Invalid JSON body." }, 400, origin);
   }
   const action = body.action;
-  if (action !== "generate") {
+  if (action !== "generate" && action !== "cast_describe") {
     return json({ error: "Unknown action." }, 400, origin);
   }
 
   // ── validate inputs BEFORE consuming any cap ──────────────────────────────
-  const description = String(body.description ?? "").trim();
-  if (description.length < DESCRIPTION_MIN || description.length > DESCRIPTION_MAX) {
+  const description = action === "generate" ? String(body.description ?? "").trim() : "";
+  const castPrompt = action === "cast_describe" ? String(body.prompt ?? "").trim() : "";
+  if (action === "generate" && (description.length < DESCRIPTION_MIN || description.length > DESCRIPTION_MAX)) {
     return json(
       { error: `Description must be ${DESCRIPTION_MIN}–${DESCRIPTION_MAX} characters.` },
       400,
       origin,
     );
+  }
+  if (action === "cast_describe" && !castPrompt) {
+    return json({ error: "Voice prompt is required." }, 400, origin);
+  }
+  if (action === "cast_describe" && castPrompt.length > CAST_PROMPT_MAX) {
+    return json({ error: `Voice prompt must be ${CAST_PROMPT_MAX} characters or fewer.` }, 400, origin);
   }
 
   // ── soft cap ──────────────────────────────────────────────────────────────
@@ -237,6 +263,47 @@ Deno.serve(async (req: Request) => {
 
   // ── Anthropic Messages call ───────────────────────────────────────────────
   try {
+    if (action === "cast_describe") {
+      const rawCharacter = body.character && typeof body.character === "object"
+        ? body.character as Record<string, unknown>
+        : {};
+      const codename = cleanText(rawCharacter.codename).slice(0, 120);
+      const concept = cleanText(rawCharacter.concept).slice(0, 1000);
+      const context = [codename ? `Character codename: ${codename}` : "", concept ? `Character concept: ${concept}` : ""]
+        .filter(Boolean)
+        .join("\n");
+      const res = await fetch(`${ANTHROPIC_BASE}/v1/messages`, {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": ANTHROPIC_VERSION,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: ANTHROPIC_MODEL,
+          max_tokens: 1024,
+          system: CAST_DESCRIBE_SYSTEM_PROMPT,
+          tools: [CAST_DESCRIBE_TOOL],
+          tool_choice: { type: "tool", name: "draft_voice_cast" },
+          messages: [{ role: "user", content: `${context ? `${context}\n\n` : ""}Operator voice prompt:\n${castPrompt}` }],
+        }),
+      });
+      if (!res.ok) return await anthropicError(res, origin);
+      const data = await res.json();
+      if (data?.stop_reason === "refusal") {
+        return json({ error: "The model declined to draft this voice. Edit the prompt and try again." }, 200, origin);
+      }
+      const block = Array.isArray(data?.content)
+        ? data.content.find((item: any) => item?.type === "tool_use" && item?.name === "draft_voice_cast")
+        : null;
+      const voiceDescription = cleanText(block?.input?.voice_description);
+      const previewText = cleanText(block?.input?.preview_text);
+      if (voiceDescription.length < 200 || voiceDescription.length > 600 || previewText.length < 100 || previewText.length > 1000) {
+        return json({ error: "The model did not return a usable casting draft. Try a more specific prompt." }, 200, origin);
+      }
+      return json({ voice_description: voiceDescription, preview_text: previewText }, 200, origin);
+    }
+
     // ── stage 1: editorial brief (prose) ──────────────────────────────────
     const briefRes = await fetch(`${ANTHROPIC_BASE}/v1/messages`, {
       method: "POST",

@@ -60,6 +60,11 @@ import {
 } from "@/lib/castingPhrases";
 import { createClient } from "@/lib/supabase/client";
 import {
+  CASTING_PROMPT_MAX,
+  draftCastingDescription,
+} from "@/lib/castingDescribe";
+import { recastTargetFromRecipe } from "@/lib/castingRecast";
+import {
   createVoiceTemplate,
   deleteVoiceTemplate,
   listVoiceTemplates,
@@ -80,6 +85,8 @@ type CastingStudioPanelProps = {
   restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
   variant?: "modal" | "inline";
   suggestedPersonaChipId?: string | null;
+  basicMode?: boolean;
+  onShowAdvanced?: () => void;
 };
 
 const GUIDANCE_PRESETS: ReadonlyArray<{ label: string; value: number }> = [
@@ -134,6 +141,16 @@ export function purgeCreatedVoiceId(
   }
 }
 
+export function castingControlVisibility(basicMode: boolean) {
+  return {
+    kit: !basicMode,
+    previewEditor: !basicMode,
+    guidance: !basicMode,
+    resetToPicks: !basicMode,
+    tournament: true,
+  } as const;
+}
+
 function withSuggestedPersona(base: BuilderSelections, chipId: string | null | undefined): BuilderSelections {
   if (chipId && PERSONA_BANK.some((p) => p.id === chipId)) {
     return { ...base, persona: chipId };
@@ -150,8 +167,11 @@ export function CastingStudioPanel({
   restoreFocusRef,
   variant = "modal",
   suggestedPersonaChipId = null,
+  basicMode = false,
+  onShowAdvanced,
 }: CastingStudioPanelProps) {
   const inline = variant === "inline";
+  const visibleControls = castingControlVisibility(basicMode);
   const suggestedPersonaRef = useRef(suggestedPersonaChipId);
   const panelRef = useRef<HTMLElement>(null);
   const firstFieldRef = useRef<HTMLButtonElement>(null);
@@ -179,6 +199,10 @@ export function CastingStudioPanel({
   const channelCastBrief = useMemo(() => loadCastBrief(character.id), [character.id]);
   const [builderSelections, setBuilderSelections] = useState<BuilderSelections>(() => initialBuilderSelections);
   const [builderDetached, setBuilderDetached] = useState(() => characterRecipeInputs?.detached ?? false);
+  const [voicePrompt, setVoicePrompt] = useState(() => recastTargetFromRecipe(character.voice_recipe) ?? "");
+  const [lastDraftPrompt, setLastDraftPrompt] = useState<string | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const [sampleText, setSampleText] = useState(() =>
     characterRecipeInputs?.previewText ||
     sampleTextFor({
@@ -331,6 +355,9 @@ export function CastingStudioPanel({
     const nextBuilder = inputs?.builderState ?? withSuggestedPersona(DEFAULT_BUILDER_SELECTIONS, suggestedPersonaRef.current);
     setBuilderSelections(nextBuilder);
     setBuilderDetached(inputs?.detached ?? false);
+    setVoicePrompt(recastTargetFromRecipe(character.voice_recipe) ?? "");
+    setLastDraftPrompt(null);
+    setDraftError(null);
     setVoiceDescription(inputs?.voiceDescription ?? assembleKitDescription(nextBuilder));
     setSampleText(
       inputs?.previewText ||
@@ -533,6 +560,7 @@ export function CastingStudioPanel({
         seed: activeGeneration.seed,
         quality: activeGeneration.quality,
         builder_state: builderSelections,
+        prompt_raw: lastDraftPrompt ?? undefined,
       });
       if (!aliveRef.current) return;
       const stamped = candidates.map((candidate) => ({
@@ -563,6 +591,30 @@ export function CastingStudioPanel({
     }
   };
 
+  const handleDraftDescription = async () => {
+    if (drafting || !voicePrompt.trim()) return;
+    if (!confirmManualOverwrite()) return;
+    setDraftError(null);
+    setDrafting(true);
+    try {
+      const draftedPrompt = voicePrompt.trim();
+      const draft = await draftCastingDescription(supabase, draftedPrompt, {
+        codename: character.codename,
+        concept: character.concept,
+      });
+      if (!aliveRef.current) return;
+      setVoiceDescription(draft.voice_description);
+      setSampleText(draft.preview_text);
+      setBuilderDetached(true);
+      setLastDraftPrompt(draftedPrompt);
+    } catch (draftFailure) {
+      if (!aliveRef.current) return;
+      setDraftError(draftFailure instanceof Error ? draftFailure.message : "Could not draft the voice description.");
+    } finally {
+      if (aliveRef.current) setDrafting(false);
+    }
+  };
+
   const handleRequestLock = (
     candidate: AuditionCandidate,
     trigger: HTMLButtonElement,
@@ -587,6 +639,7 @@ export function CastingStudioPanel({
           voice_description_raw: candidateDescription(candidate),
           preview_text_raw: candidatePreviewText(candidate),
           ...(candidate.builder_state ? { builder_state: candidate.builder_state } : {}),
+          ...(candidate.prompt_raw ? { prompt_raw: candidate.prompt_raw } : {}),
         },
         generation: candidateGeneration(candidate),
         voice_settings: nextSettings,
@@ -950,7 +1003,38 @@ export function CastingStudioPanel({
               </p>
             )}
 
-            <div className={"casting-card" + (builderDetached ? " is-detached" : "")}>
+            <div className="field casting-prompt-field">
+              <label htmlFor="casting-voice-prompt">
+                <span className="eyebrow">Describe the voice</span>
+                <span className="field-label-side"><span className="hint">{voicePrompt.length}/{CASTING_PROMPT_MAX}</span></span>
+              </label>
+              <textarea
+                id="casting-voice-prompt"
+                value={voicePrompt}
+                rows={4}
+                maxLength={CASTING_PROMPT_MAX}
+                disabled={drafting || designing}
+                onChange={(event) => {
+                  setVoicePrompt(event.target.value);
+                  setDraftError(null);
+                }}
+              />
+              <p className="hint casting-prose">
+                Plain language. References welcome — e.g. &apos;a cross between Yosemite Sam and R. Lee Ermey in Full Metal Jacket, minced-oath fury, no hard profanity.&apos;
+              </p>
+              {draftError && <p className="history-error" role="alert">{draftError}</p>}
+              <button
+                className="btn ghost"
+                type="button"
+                disabled={drafting || designing || !voicePrompt.trim()}
+                aria-busy={drafting}
+                onClick={() => void handleDraftDescription()}
+              >
+                {drafting ? "Drafting…" : "Draft description"}
+              </button>
+            </div>
+
+            {visibleControls.kit && <div className={"casting-card" + (builderDetached ? " is-detached" : "")}>
               <div className="casting-pick-grid">
                 <div className="field">
                   <span className="eyebrow">Gender</span>
@@ -1031,13 +1115,13 @@ export function CastingStudioPanel({
                   </div>
                 );
               })}
-            </div>
+            </div>}
 
             <div className="field">
               <label htmlFor="casting-description">
                 <span className="eyebrow">Assembled voice description</span>
                 <span className="field-label-side">
-                  {builderDetached && (
+                  {visibleControls.resetToPicks && builderDetached && (
                     <button
                       className="btn ghost compact"
                       type="button"
@@ -1078,7 +1162,7 @@ export function CastingStudioPanel({
               )}
             </div>
 
-            <div className="field">
+            {visibleControls.previewEditor && <div className="field">
               <label htmlFor="casting-sample">
                 <span className="eyebrow">Audition script</span>
                 <span className="field-label-side">
@@ -1106,9 +1190,9 @@ export function CastingStudioPanel({
                   Insert KIT preview scaffold
                 </button>
               </div>
-            </div>
+            </div>}
 
-            <div className="casting-generation-grid">
+            {visibleControls.guidance && <div className="casting-generation-grid">
               <div className="field">
                 <span className="eyebrow">Model</span>
                 <div className="casting-readonly-pill" aria-label="Voice model">Voice Design v3</div>
@@ -1190,7 +1274,7 @@ export function CastingStudioPanel({
                   </p>
                 )}
               </div>
-            </div>
+            </div>}
 
             <div className="casting-generate-row">
               <p className="casting-credit-warning" role="note">
@@ -1372,6 +1456,12 @@ export function CastingStudioPanel({
                 </>
               )}
             </section>
+          )}
+
+          {basicMode && (
+            <button type="button" className="show-advanced-btn" onClick={onShowAdvanced}>
+              Show all casting controls
+            </button>
           )}
 
           {/* ── Live synthesis tuning ──────────────────────────────────── */}

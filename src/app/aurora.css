@@ -509,6 +509,7 @@
   color: var(--accent);
   border-color: var(--accent);
 }
+.aurora-app .show-advanced-btn { min-height: 44px; }
 
 /* GLASS PANELS / BENTO */
 .aurora-app .glass-panel {
