@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RenderPlayer } from "@/components/aurora/RenderPlayer";
 import type { JobStatus } from "@/lib/jobs";
 import { parkKindLabel, type ParkKind } from "@/lib/parkReason";
 import { ALL_CHANNELS_KEY, cardMatchesChannel, channelFacets } from "@/lib/runsChannelFilter";
@@ -415,6 +416,8 @@ function RunCard({
           {card.parkReason ? <p className="dim run-card__park-reason">{card.parkReason}</p> : null}
         </div>
       ) : null}
+
+      {card.episodeId ? <RenderPlayer episodeId={card.episodeId} /> : null}
 
       {canDiagnose ? (
         <div className="run-card__diagnostics">
