@@ -117,6 +117,7 @@ describe("buildJobInsert", () => {
       publish_approved: false,
       publish_only: false,
       channel: null,
+      script_directive: null,
       source_episode_id: null,
       idempotency_key: "fixed-key",
     });
@@ -177,6 +178,7 @@ describe("approval re-enqueue builders", () => {
     publish_approved: false,
     publish_only: false,
     routes: {},
+    script_directive: "Frame this as a myth-busting investigation.",
     source_episode_id: null,
     spend: null,
     spend_approved: false,
@@ -228,6 +230,7 @@ describe("approval re-enqueue builders", () => {
       publish_approved: false,
       publish_only: false,
       channel: "dark-history",
+      script_directive: null,
       source_episode_id: null,
       idempotency_key: "job_rerun_1_1700000000000",
     });
@@ -293,6 +296,31 @@ describe("approval re-enqueue builders", () => {
       source_episode_id: "episode-rendered-001",
       idempotency_key: "job_rerun_42_1700000000000",
     });
+  });
+
+  it("preserves script_directive from a parked row through every approval re-enqueue", () => {
+    const input = jobInputFromRow(parkedJob, {
+      idempotencyKey: "job_rerun_42_1700000000000",
+    });
+
+    expect(input.script_directive).toBe("Frame this as a myth-busting investigation.");
+    expect(buildSpendApprovalReenqueue(input)).toMatchObject({
+      script_directive: "Frame this as a myth-busting investigation.",
+    });
+    expect(buildFactApprovalReenqueue(input)).toMatchObject({
+      script_directive: "Frame this as a myth-busting investigation.",
+    });
+    expect(buildPublishApprovalReenqueue(input, "episode-rendered-001")).toMatchObject({
+      script_directive: "Frame this as a myth-busting investigation.",
+    });
+  });
+
+  it("normalizes absent and null script_directive to null without changing fresh enqueues", () => {
+    expect(buildJobInsert(jobInput())).toMatchObject({ script_directive: null });
+    expect(buildJobInsert(jobInput({ script_directive: null }))).toMatchObject({
+      script_directive: null,
+    });
+    expect(jobInputFromRow({ ...parkedJob, script_directive: null }).script_directive).toBeNull();
   });
 
   it("preserves distinct caller-supplied idempotency keys across calls", () => {

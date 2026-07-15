@@ -440,6 +440,7 @@ export type Database = {
           publish_approved: boolean
           publish_only: boolean
           routes: Json
+          script_directive: string | null
           source_episode_id: string | null
           spend: number | null
           spend_approved: boolean
@@ -469,6 +470,7 @@ export type Database = {
           publish_approved?: boolean
           publish_only?: boolean
           routes?: Json
+          script_directive?: string | null
           source_episode_id?: string | null
           spend?: number | null
           spend_approved?: boolean
@@ -498,6 +500,7 @@ export type Database = {
           publish_approved?: boolean
           publish_only?: boolean
           routes?: Json
+          script_directive?: string | null
           source_episode_id?: string | null
           spend?: number | null
           spend_approved?: boolean
