@@ -88,6 +88,7 @@ export type JobEnqueueInput = {
   fact_approved?: boolean;
   publish_approved?: boolean;
   publish_only?: boolean;
+  script_directive?: string | null;
   source_episode_id?: string | null;
   idempotency_key?: string | null;
 };
@@ -234,6 +235,7 @@ export function buildJobInsert(
     fact_approved: input.fact_approved ?? false,
     publish_approved: input.publish_approved ?? false,
     publish_only: input.publish_only ?? false,
+    script_directive: input.script_directive ?? null,
     source_episode_id: input.source_episode_id ?? null,
     idempotency_key:
       input.idempotency_key === undefined
@@ -268,6 +270,7 @@ export function jobInputFromRow(
     spend_approved: overrides.spendApproved ?? job.spend_approved,
     fact_approved: job.fact_approved,
     publish_approved: overrides.publishApproved ?? job.publish_approved,
+    script_directive: job.script_directive ?? null,
     idempotency_key:
       "idempotencyKey" in overrides ? overrides.idempotencyKey : job.idempotency_key,
   };
