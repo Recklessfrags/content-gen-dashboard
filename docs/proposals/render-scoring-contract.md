@@ -1,7 +1,8 @@
 # Proposal — render-scoring contract: schema + per-beat join key
 
-_2026-07-14, rev 2 (suerta review folded — 3 blockers + 6 shoulds; Gemini seat down:
-credits depleted, flagged on HQ). Dashboard architect. The #88 "first item to settle": dashboard #139 captures
+_2026-07-14, rev 3 (suerta review folded rev 2; Gemini cross-vendor consumer-lens review
+folded rev 3 — 2 structural blockers: reviews bind to a RENDER not an episode; the cut_id
+stability ask corrected to within-generation). Dashboard architect. The #88 "first item to settle": dashboard #139 captures
 the owner's render scores; the pipeline consumes them (QA-judge calibration, stage-directed
 fixes, exemplar corpus). This is the PROPOSED contract for the pipeline architect to
 counter/agree on HQ; problem-solver arbitrates; **owner ratifies before anything is built**.
@@ -25,12 +26,16 @@ Grounded in the LIVE receipt shapes (verified 2026-07-14 against
 - Script-beat labels/timecodes are display-layer only (prose, unstable across regens) —
   used to label the UI, never as the key.
 
-**RATIFICATION PRECONDITION (was open-point #1, promoted per review):** the pipeline must
-state a `cut_id` **stability guarantee across resume/repair** in the same contractual terms
-as `reveal_id` ("stable across resume/repair") — the conductor's idempotent resume/repair
-machinery is exactly what could reorder or reuse cut ids across re-renders, and a frozen
-owner score that misattributes to a different cut breaks calibration, stage routing, and
-exemplar re-identification silently. No stability guarantee → no ratify.
+**Generation binding (rev 3 — replaces the rev-2 "stability across resume/repair"
+precondition, which the cross-vendor consumer-lens review showed is physically impossible
+for edit-altering repairs: an editing fix legitimately re-cuts the video).** The model is:
+`cut_id`s are stable **within one assembly generation** (one EDL), and every review binds
+to the exact generation the owner watched via a **NOT NULL top-level
+`render_reviews.source_receipt_seq`** (§2) — so scores can never misattribute across
+re-renders, and the pipeline owes no impossible cross-render stability. **Ratification
+precondition (narrowed):** the pipeline confirms (a) `cut_id`s are stable and never reused
+WITHIN a generation, and (b) `receipts.seq` uniquely identifies the generation whose EDL
+produced the `mastered.mp4` the dashboard plays.
 
 **One pipeline ask (additive, v2 enabler):** per-cut timing (`start_s`/`end_s`) readable by
 the dashboard — EITHER as additive `per_cut[]` keys OR by pointing the dashboard at the
@@ -45,13 +50,16 @@ is a new row; latest-wins by `decided_at`).
 
 ```sql
 create table render_reviews (
-  id          bigint generated always as identity primary key,
-  owner       uuid not null default auth.uid(),
-  episode_id  text not null,
-  verdict     text not null check (verdict in ('publish','almost','reject')),
-  note        text,                -- whole-render free-text "why"
-  qa_snapshot jsonb,               -- machine scores + judge identity at review time (§3)
-  decided_at  timestamptz not null default now()
+  id                 bigint generated always as identity primary key,
+  owner              uuid not null default auth.uid(),
+  episode_id         text not null,
+  source_receipt_seq bigint not null, -- THE render generation reviewed (rev 3: load-bearing,
+                                      -- promoted from the snapshot; fix-routing + exemplar
+                                      -- queries key on (episode_id, source_receipt_seq))
+  verdict            text not null check (verdict in ('publish','almost','reject')),
+  note               text,            -- whole-render free-text "why"
+  qa_snapshot        jsonb,           -- machine scores + judge identity at review time (§3)
+  decided_at         timestamptz not null default now()
 );
 
 create table render_review_scores (
@@ -95,11 +103,11 @@ calibration code, not here.
 snapshot correlations meaningless, and a pointer into regenerating receipts cannot recover
 it):
 `{ judge: { model, provider, method, rubric_version? }, per_cut: [{cut_id,
-relevance_score, relevance_method, below_floor}], on_topic_ratio, source_receipt_seq }` —
-judge fields copied INTO the snapshot from the source receipt (`receipts.model`/`provider`
-exist today; `rubric_version` when the pipeline emits it). `source_receipt_seq` remains as
-a convenience pointer only — nothing load-bearing may rely on it, by the freeze rationale
-itself. **Scope honesty (review folded): the calibration pair exists today for
+relevance_score, relevance_method, below_floor}], on_topic_ratio }` — judge fields copied
+INTO the snapshot from the source receipt (`receipts.model`/`provider` exist today;
+`rubric_version` when the pipeline emits it). (rev 3: `source_receipt_seq` moved OUT of
+the snapshot to a load-bearing top-level column — the review IS a review of that
+generation.) **Scope honesty (review folded): the calibration pair exists today for
 `visual_relevance` ONLY** — the machine emits no per-cut scores for the other five
 dimensions; those are human-only labels until it does (the snapshot shape is
 forward-compatible when it does).
@@ -123,7 +131,12 @@ timing read path + per-dimension machine scores. Everything else is dashboard-si
   currently mock — captures per-cut scores while the shipped render player plays).
   Latest-wins reads order by `(decided_at, id)` — `id` tiebreaks same-timestamp resubmits.
 - **Pipeline reads** (service role): calibration set, stage-directed fix routing
-  (`shot_id` → sourcing/script/VO/editing), exemplar corpus (`verdict='publish'` episodes).
+  (`shot_ids` → sourcing/script/VO/editing — applied only to the generation named by
+  `source_receipt_seq`, never to a newer re-cut), exemplar corpus — conceptually
+  "episodes whose LATEST review OF the LATEST generation has `verdict='publish'`".
+- **Omission semantics (pinned, rev 3):** a cut×dimension with NO score row means "no
+  critique" — the owner skipping a cut is implicit adequacy for routing purposes, not
+  missing data. The UI never forces exhaustive scoring; low scores + why are the signal.
 - **Migrations:** dashboard lane (`dash_0012_render_reviews`), expand/contract, applied
   only after this contract is ratified — NOT before (the mock→real flip stays HELD until
   the validated relevance judge exists; the schema can land ratified-but-unused so the
@@ -133,16 +146,17 @@ timing read path + per-dimension machine scores. Everything else is dashboard-si
 
 ## 5. Open points for the pipeline architect
 
-1. ~~`cut_id` stability~~ — PROMOTED to ratification precondition (§1). Please state the
-   guarantee in `reveal_id`-equivalent terms.
-2. Per-cut timing read path: additive `per_cut[]` keys OR a documented render-manifest/EDL
-   read — your call where timing canonically lives (§1).
-3. **Cut→shot cardinality:** is a cut always exactly one shot? If a cut can composite
-   shots (or a shot recur across cuts), `shot_ids` stays an array — confirm so the
-   stage-fix routing consumer isn't lossy.
-4. Whether the exemplar-corpus consumer wants anything beyond `verdict='publish'` +
-   `episode_id` (e.g. a minimum dimension floor).
-5. Dimension vocabulary confirmation (the six above, verbatim, pipeline-owned; text +
+1. Confirm the narrowed §1 precondition: within-generation `cut_id` stability + `seq`
+   identifies the generation behind the played `mastered.mp4`.
+2. Per-cut timing read path — the cross-vendor consumer-lens review PREDICTED you'd prefer
+   additive `start_s`/`end_s` floats in `per_cut[]` (trivially mapped from the EDL at
+   assembly); please confirm or name the manifest read instead. (Prediction, not your
+   commitment — confirm explicitly.)
+3. **Cut→shot cardinality** — same caveat: the consumer-lens review predicted composite
+   cuts (b-roll over a-roll), which is why `shot_ids` is an array. Confirm.
+4. Exemplar-corpus criteria beyond the §4b conceptual query (e.g. a minimum dimension
+   floor)?
+5. Dimension vocabulary confirmation (the six, verbatim, pipeline-owned; text +
    soft-validation dashboard-side, per §2).
 6. Per-dimension machine scores beyond `visual_relevance` — timeline/appetite (§3 scope
    honesty).
@@ -153,7 +167,9 @@ The live `per_cut[]`/`cut_id` shapes were verified by the dashboard architect vi
 SQL against the shared DB (2026-07-14, episode `acoustic-kitty-20260714-061326-f4143c`) —
 the pipeline repo clone available to reviewers does not contain the assembly stage, so the
 independent reviewer could not re-verify them and flagged that honestly. Pipeline
-architect: please confirm the shapes match your writer at ratify time. Reviewed by suerta
-(independent, adversarial — 3 blockers + 6 shoulds folded into this rev); the cross-vendor
-Gemini seat was DOWN (credits depleted) at review time, so the cross-team counter-review
-on HQ is the cross-vendor gate for this contract.
+architect: please confirm the shapes match your writer at ratify time. Review trail:
+suerta (independent, adversarial — 3 blockers + 6 shoulds, folded rev 2); Gemini
+cross-vendor consumer-lens (seat restored — 2 structural blockers folded rev 3: render
+binding + the corrected stability model). Where the cross-vendor reviewer ANSWERED open
+points while roleplaying the consumer, those are marked as predictions in §5 — only the
+real pipeline architect's #88 reply commits the pipeline.
