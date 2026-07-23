@@ -1,8 +1,9 @@
 # Proposal — render-scoring contract: schema + per-beat join key
 
-_2026-07-14, rev 3 (suerta review folded rev 2; Gemini cross-vendor consumer-lens review
+_2026-07-14, rev 3.1 (suerta review folded rev 2; Gemini cross-vendor consumer-lens review
 folded rev 3 — 2 structural blockers: reviews bind to a RENDER not an episode; the cut_id
-stability ask corrected to within-generation). Dashboard architect. The #88 "first item to settle": dashboard #139 captures
+stability ask corrected to within-generation; rev 3.1 2026-07-23 — the PS-arbitrated
+`mastered.mp4` overwrite read semantic folded, wording only, per reels#88 `5060237883`). Dashboard architect. The #88 "first item to settle": dashboard #139 captures
 the owner's render scores; the pipeline consumes them (QA-judge calibration, stage-directed
 fixes, exemplar corpus). This is the PROPOSED contract for the pipeline architect to
 counter/agree on HQ; problem-solver arbitrates; **owner ratifies before anything is built**.
@@ -36,6 +37,15 @@ re-renders, and the pipeline owes no impossible cross-render stability. **Ratifi
 precondition (narrowed):** the pipeline confirms (a) `cut_id`s are stable and never reused
 WITHIN a generation, and (b) `receipts.seq` uniquely identifies the generation whose EDL
 produced the `mastered.mp4` the dashboard plays.
+
+**Overwrite read semantic (rev 3.1 — binding, PS arbitration reels#88 `5060237883`;
+pipeline confirmation `5060187458`):** `render-assets/<episode_id>/mastered.mp4` is ONE
+storage object per episode, overwritten by a repair/re-render — the played file is always
+the **max-seq** assembly generation, and earlier generations' MP4s are not retained. A
+`render_reviews` row whose `source_receipt_seq` < the episode's current max therefore
+refers to a **no-longer-playable artifact**: stale-generation scores stay valid as labels
+(never deleted) but must never be presented as reviews of the currently-playable file.
+The capture surface resolves the max-seq assembly receipt **at score-time** and binds it.
 
 **One pipeline ask (additive, v2 enabler):** per-cut timing (`start_s`/`end_s`) readable by
 the dashboard — EITHER as additive `per_cut[]` keys OR by pointing the dashboard at the
