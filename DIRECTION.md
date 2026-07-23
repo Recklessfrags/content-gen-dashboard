@@ -21,8 +21,10 @@ the information architecture: a **global Channels hub → per-channel workspace*
 casting elevated to first-class; a real character↔channel link; plain vocabulary; a
 global inline action queue for the daily approval loop. Design + phased plan + the
 independent-review trail (Gemini design pass + suerta/Opus): **`docs/design/channel-first-redefinition.md`**.
-Phased, component-reusing migration; the full idea→episode thread (Phase 3) depends on a
-pipeline-emitted correlation key (filed cross-team). The prior character-first framing
+Phased, component-reusing migration; the full idea→episode thread (Phase 3) was to depend
+on a pipeline-emitted correlation key — **that mechanism was formally DROPPED (owner-
+ratified 2026-07-23, reels#88 5058526487)**, superseded by the render-scoring contract's
+`(episode_id, cut_id)` + `source_receipt_seq` binding. The prior character-first framing
 below is **superseded on the spine** but its ownership/scope split is unchanged.
 
 ## The product
