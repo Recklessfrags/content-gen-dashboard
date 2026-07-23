@@ -1,10 +1,10 @@
 # SESSION-HANDOFF archive — 2026 H1 (rotated session snapshots)
 
-_Rotated out of `docs/SESSION-HANDOFF.md` on 2026-07-07 to keep the live handoff a fast-path snapshot (rule 41). The per-session entries below are **verbatim — nothing summarized or deleted** (rule 34). Newest first: 2026-07-13 evening (slice 5g, rotated 2026-07-23), then 2026-07-13 (Reveal Phase 2, rotated 2026-07-14) back to 2026-07-02 (channel-first redefinition, D-6). The live handoff keeps the current snapshot + the evergreen reference manual (§0–§6); full running history also lives in `docs/HANDOFF.md`._
+_Rotated out of `docs/SESSION-HANDOFF.md` on 2026-07-07 to keep the live handoff a fast-path snapshot (rule 41). The per-session entries below are **verbatim — nothing summarized or deleted** (rule 34). Newest first: 2026-07-13 evening (slice 5g, rotated 2026-07-23) back to 2026-07-02 (channel-first redefinition, D-6). The live handoff keeps the current snapshot + the evergreen reference manual (§0–§6); full running history also lives in `docs/HANDOFF.md`._
 
 ---
 
-## ⚡ (2026-07-13 evening) — SLICE 5g SHIPPED: the legacy `.cr` shell is GONE (PR #152 `1a776eb`).
+## ⚡ EARLIER (2026-07-13 evening) — SLICE 5g SHIPPED: the legacy `.cr` shell is GONE (PR #152 `1a776eb`).
 
 **Prod tip = `1a776eb`.** The dual-shell era is over — the D-6 migration payoff queued since 07-05 landed.
 Net **−1,435 lines**; `ControlRoom.tsx` 4,207 → ~3,040. Cut fresh off `8b40ed9`, rebased over Phase 2 (#151,

@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-23 (post-video-POC RECONCILIATION adopted — owner-ratified ruling reels#88 `5058526487`; governance mirror verified in sync; queue re-sorted, zero code owed. Prod tip = `6820b0f` on `claude/new-session-3l99vs`.)** by the Architect (Claude)._
+_Last updated: **2026-07-23 (RECONCILIATION recorded + independently verified by a second session — governance mirror confirmed in sync, roster rows confirmed live, ACK on #88 `5058695023`; correlation_key retired; scoring contract rev 3 awaiting pipeline §5 answers + owner ratify. Prod tip = `a28c6a0` on `claude/new-session-3l99vs`.)** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,41 +11,90 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-23) — RECONCILIATION adopted: new direction in force (universal directorial layer → dark_history reference channel); dashboard queue re-sorted; governance mirror VERIFIED in sync. Read this first.
+## ⚡ LATEST (2026-07-23) — RECONCILIATION RATIFIED (owner): universal directorial layer first → dark-history end-to-end reference channel → per-channel onboarding. Read reels#88 `5058526487` + the canonical plan `docs/architecture/handoff-2026-07-20-video-poc-to-pipeline.md` (reels main).
 
-**Prod tip = `6820b0f`** (docs #163 = scoring-contract rev 3). **No open PRs; dashboard in-flight = zero** — all tasked work through 07-19 shipped (#156/#158/#159/#160/#161, docs #162/#163). This session shipped no code because none was owed: it was the operator-mandated reconcile-don't-resume pass. Branch `claude/dashboard-governance-sync-ykvjf9` carries only this handoff refresh.
+**What changed for the dashboard (recorded from the ruling):**
+1. **Scoring contract rev 3 is THE live cross-team thread** — pipeline directed to answer its §5
+   asks early (within-generation `cut_id` stability, `receipts.seq`→generation confirm, per-cut
+   timing path); owner ratifies after. **The capture-surface build stays PAUSED until the first
+   universal-layer MP4 exists.**
+2. **`episodes.correlation_key` formally DROPPED** (superseded by the contract's
+   `(episode_id, cut_id)` + `source_receipt_seq` binding) — the jobs.ts docstring + DIRECTION.md
+   note retired accordingly (this commit).
+3. **Mad Dog re-cast UNLOCKED** (owner verdicts 07-21: contour re-direct insufficient; both food
+   A/B arms below bar). The OWNER runs the Casting Studio flow — basic mode already seeds from
+   his recorded recast target; expect `characters` writes when a voice locks. No dashboard build.
+4. Holds re-affirmed + deferrals: reveal write-back A-vs-B + `0021` apply = owner-gated bundle,
+   explicitly deferred (publish far off); scoring mock→real = held for a validated relevance
+   judge. Parked under the freeze: tier selector, #137 per-model cut, #153 unsaved-edits guard,
+   roster rows. Pipeline-side test-mode instrument DROPPED.
 
-### The ruling that governs the queue (reels#88 comment `5058526487`, owner-ratified 2026-07-23)
-**Direction:** build the **universal directorial layer FIRST** (1 editor cut-on-progress + per-channel cut rhythm, 2 synchronized foley, 3 VO humanization, 4 captions/particle/grade) → take **`dark_history`** end-to-end as the reference channel → then per-channel onboarding. Per-channel *generation policy* (fully-generated / process / animation / archival-doc / faceless-avatar) is **`channel_profiles` config, not new pipelines**. Canonical doc: pipeline repo `docs/architecture/handoff-2026-07-20-video-poc-to-pipeline.md` (their `main`; note their default branch is NOT `main` — `git fetch origin main` explicitly).
+(Everything shipped 07-14 — video player everywhere, length_target guard, Task A triage surface,
+governance 40/42, casting basic mode, script_directive copy-forward, scoring contract rev 1→3 —
+see the entry below. Earlier snapshots: archive.)
 
-**Dashboard sort (ACKed with evidence at #88 `5058695023`):**
-- **LIVE thread — scoring contract rev 3** (`docs/proposals/render-scoring-contract.md`, docs #163): pipeline is directed to answer our §5 asks early (within-generation `cut_id` stability; `receipts.seq`→generation confirmation; per-cut timing path). **Capture build stays PAUSED until the first universal-layer MP4 exists**; nothing builds against `render_reviews` until ratified.
-- **DROPPED (owner-ratified):** `episodes.correlation_key` as a dashboard-consumed join key — rev-3 `(episode_id, cut_id)` + `source_receipt_seq` supersedes it. The column EXISTS live (43/103 episodes, pipeline 0019, shipped 07-04 — the 07-20 handoff's "queued" was stale); `dash_0006_idea_job_map` is unaffected; no DB action taken or implied.
-- **HOLDS unchanged:** reveal write-back RLS A-vs-B + `0021` apply (owner-gated bundle, explicitly deferred — publish is far off); scoring mock→real flip (held for a validated relevance judge; the cottage-cheese false-pass is never a calibration source).
-- **PARKED under the freeze:** tier-selector mapping, #137 per-model cut, #153 unsaved-edits guard, roster expansion to additional channels.
-- **Mad Dog re-cast UNLOCKED** (owner verdict 07-21: contour re-direct insufficient). The OWNER executes it in the Casting Studio (basic mode seeds from `characters.voice_recipe` — the Yosemite Sam × R. Lee Ermey target is already in the row, parser verified fail-safe). Expect `characters` writes when a voice locks; no dashboard change needed.
-
-### Verified this session (investigate-then-conclude, receipts in #88 `5058695023`)
-- **Governance mirror = BYTE-IDENTICAL** to the pipeline canonical at their `main` (`2d77b56`) — diff run 2026-07-23. Rule 40 (foundation dimension-check) + the 40→42 renumber were already adopted 07-14 (#158); the 07-20 "dashboard: sync your mirror" heads-up is satisfied per its own "treat as landing confirmation" language. **No repo change needed.**
-- **All four `channel_profiles` roster rows are live + fully populated** (`dark_history`/Mad Dog, `grandma`/Grandma Pearl posture `none/aggressive`, `weird_food`/Fine Print, `default` — each with `character_id`/`sourcing`/`research_profile`/`length_target`; dark_history `short_s=100`). The Notion tracker row that still said OPEN is now marked resolved with this evidence; the ruling's "roster rows parked" applies only to FUTURE expansion.
-- **#88 is still the live 4-way bus** (today's ruling landed there); Notion Coordination Log = durable mirror, Ledger still takes lessons (2026-07-23 entry appended: a ratified ruling's per-item states still need live-artifact verification).
+### Verification pass (same day, second session — receipts in reels#88 ACK `5058695023`)
+Two dashboard sessions worked 2026-07-23 concurrently: the one above recorded the ruling +
+retired `correlation_key` (#164); this one ran the operator-mandated reconcile-don't-resume
+verification (STEP 0 over both repos + the entire Notion HQ + the workbench). Findings, all
+evidence-backed:
+- **Governance mirror = BYTE-IDENTICAL** to the pipeline canonical at their `main` (`2d77b56`;
+  diff run 2026-07-23). Rule 40 + the 40→42 renumber were already adopted 07-14 (#158); the
+  07-20 "dashboard: sync your mirror" heads-up is satisfied per its own "treat as landing
+  confirmation" language. **No sync change needed.**
+- **All four `channel_profiles` roster rows are live + fully populated** (`dark_history`/Mad Dog,
+  `grandma`/Grandma Pearl posture `none/aggressive`, `weird_food`/Fine Print, `default` — each
+  with `character_id`/`sourcing`/`research_profile`/`length_target`; dark_history `short_s=100`).
+  The Notion tracker row that still said OPEN is marked resolved with this evidence; the ruling's
+  "roster rows parked" applies only to FUTURE expansion. And `episodes.correlation_key` EXISTS
+  live (43/103 episodes; pipeline 0019, shipped 07-04) — the 07-20 handoff's "queued" was stale;
+  dropping it as a dashboard join key costs nothing (`dash_0006_idea_job_map` unaffected).
+- **#88 is still the live 4-way bus**; Notion Coordination Log = durable mirror; Ledger lesson
+  appended 2026-07-23 (a ratified ruling's per-item states still need live-artifact verification).
+- HQ outcome (L-6): #88 ACK `5058695023` · tracker roster row resolved · session re-registered
+  at #155 · Ledger appended — all before this handoff refresh.
 
 ### Anticipated surfaces (NOT built — freeze + pause; spec only after pipeline contracts land)
-1. **Per-channel generation-mode config** in the channel editor, once the pipeline defines the `channel_profiles` generation-policy keys (grouped-jsonb precedent; `vocabularies.json` still unshipped — dropdown vocabularies stay hand-maintained until then, a known rule-40 allow-list smell).
-2. **Approval/watch surfaces for universal-layer outputs** — extend the existing Action Center/Runs hub patterns (`operator_watch`, `below_floor_notice`, parked-render triage + RenderPlayer are all live already).
-3. **Scoring capture surface** (`dash_0012_render_reviews`) — after rev-3 ratification AND the first universal-layer MP4.
+1. **Per-channel generation-mode config** in the channel editor, once the pipeline defines the
+   `channel_profiles` generation-policy keys (grouped-jsonb precedent; `vocabularies.json` still
+   unshipped — dropdown vocabularies stay hand-maintained until then, a known rule-40
+   allow-list smell).
+2. **Approval/watch surfaces for universal-layer outputs** — extend the existing Action
+   Center/Runs hub patterns (`operator_watch`, `below_floor_notice`, parked-render triage +
+   RenderPlayer are all live already).
+3. **Scoring capture surface** (`dash_0012_render_reviews`) — after rev-3 ratification AND the
+   first universal-layer MP4.
 
-### Next session
-1. **Poll the #88 tail FIRST (L-1)**, plus dashboard #139/#153/#155. The trigger to act: the pipeline's rev-3 §5 answers → arbitration → owner ratify.
-2. Session traps hit this pass: whole-Coordination-Log Notion fetch overflows (fetch child pages / grep the saved dump; rule 34); Notion `update_content` needs a `content_updates` array with `old_str`/`new_str`; the pipeline repo must be added via `list_repos`+`add_repo` and shallow-clones to its non-`main` default branch.
-3. **HQ outcome (L-6):** #88 reconciliation ACK `5058695023`; Notion tracker roster row marked resolved; session re-registered at #155; Ledger lesson appended — all done BEFORE this handoff was written.
+### Session traps (this pass)
+Whole-Coordination-Log Notion fetch overflows — fetch child pages / grep the saved dump
+(rule 34); Notion `update_content` needs a `content_updates` array with `old_str`/`new_str`;
+the pipeline repo must be added via `list_repos`+`add_repo` and shallow-clones to its
+non-`main` default branch (`git fetch origin main` explicitly); two same-day sessions can
+both refresh this handoff — re-fetch the default branch before merging (this merge conflict
+was lived, resolved by folding, and re-reviewed per rule 36).
 
 ### Kickoff prompt (copy-paste for a fresh session)
-> You are the DASHBOARD architect (repo `recklessfrags/content-gen-dashboard`). Select/cut your branch fresh from `origin/claude/new-session-3l99vs` (the default/production branch). Read `docs/SESSION-HANDOFF.md` top-to-bottom FIRST, then `governance.md` (42 rules), `AGENTS.md` (L-1..L-6), `DIRECTION.md`, `docs/contracts/data-contract.md`, `GATES.md`. Coordination: GitHub `reels-content-generation#88` is the live 4-way bus — read its tail before judging anything (L-1), plus dashboard #139/#153/#155; re-register your session ID at content-gen-dashboard#155; Notion HQ (Coordination Log + Process Learnings Ledger) is the durable mirror. Direction in force (owner-ratified 2026-07-23, reels#88 `5058526487`): universal directorial layer first → dark_history end-to-end as reference channel → per-channel onboarding; the dashboard is in a WAITING posture — the scoring contract rev 3 (`docs/proposals/render-scoring-contract.md`) is the live cross-team thread awaiting the pipeline's §5 answers; capture build paused until the first universal-layer MP4; `correlation_key` dropped; reveal write-back + scoring mock→real HELD; #137/#153/tier-selector/roster-expansion PARKED. Build app code only through Codex; Gemini cross-vendor review before merge; self-merge only dashboard-only + gate-green + cross-vendor-PASS; shared surfaces need a problem-solver GO; spend/publish/direction are owner-only. Talk terse (L-3).
+> You are the DASHBOARD architect (repo `recklessfrags/content-gen-dashboard`). Select/cut your
+> branch fresh from `origin/claude/new-session-3l99vs` (the default/production branch). Read
+> `docs/SESSION-HANDOFF.md` top-to-bottom FIRST, then `governance.md` (42 rules), `AGENTS.md`
+> (L-1..L-6), `DIRECTION.md`, `docs/contracts/data-contract.md`, `GATES.md`. Coordination:
+> GitHub `reels-content-generation#88` is the live 4-way bus — read its tail before judging
+> anything (L-1), plus dashboard #139/#153/#155; re-register your session ID at
+> content-gen-dashboard#155; Notion HQ (Coordination Log + Process Learnings Ledger) is the
+> durable mirror. Direction in force (owner-ratified 2026-07-23, reels#88 `5058526487`):
+> universal directorial layer first → dark_history end-to-end as reference channel →
+> per-channel onboarding; the dashboard is in a WAITING posture — the scoring contract rev 3
+> (`docs/proposals/render-scoring-contract.md`) is the live cross-team thread awaiting the
+> pipeline's §5 answers; capture build paused until the first universal-layer MP4;
+> `correlation_key` dropped; reveal write-back + scoring mock→real HELD;
+> #137/#153/tier-selector/roster-expansion PARKED. Build app code only through Codex; Gemini
+> cross-vendor review before merge; self-merge only dashboard-only + gate-green +
+> cross-vendor-PASS; shared surfaces need a problem-solver GO; spend/publish/direction are
+> owner-only. Talk terse (L-3).
 
 ---
 
-## ⚡ (2026-07-14) — HQ backlog worked: render VIDEO player + `length_target` validation SHIPPED (PR #156 `4895324`).
+## ⚡ (2026-07-14) — HQ backlog worked: render VIDEO player + `length_target` validation SHIPPED (PR #156 `4895324`). The coordination bus is GitHub reels#88 — read its tail FIRST. Read this first.
 
 **Prod tip = `4895324`.** Same session as the 5g entry below, continued after the operator surfaced a
 missed backlog.
