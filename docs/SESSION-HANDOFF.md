@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-14 (HQ backlog worked: render VIDEO player + `length_target` validation SHIPPED, PR #156; scoring false-pass HELD + recorded; coordination bus = GitHub reels#88. Prod tip = `4895324` on `claude/new-session-3l99vs`.)** by the Architect (Claude)._
+_Last updated: **2026-07-23 (RECONCILIATION recorded; correlation_key retired; scoring contract rev 3 awaiting pipeline §5 answers + owner ratify. Prior 07-14: HQ backlog worked: render VIDEO player + `length_target` validation SHIPPED, PR #156; scoring false-pass HELD + recorded; coordination bus = GitHub reels#88. Prod tip = `4895324` on `claude/new-session-3l99vs`.)** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -11,7 +11,31 @@ is the fast path._
 
 ---
 
-## ⚡ LATEST (2026-07-14) — HQ backlog worked: render VIDEO player + `length_target` validation SHIPPED (PR #156 `4895324`). The coordination bus is GitHub reels#88 — read its tail FIRST. Read this first.
+## ⚡ LATEST (2026-07-23) — RECONCILIATION RATIFIED (owner): universal directorial layer first → dark-history end-to-end reference channel → per-channel onboarding. Read reels#88 `5058526487` + the canonical plan `docs/architecture/handoff-2026-07-20-video-poc-to-pipeline.md` (reels main).
+
+**What changed for the dashboard (recorded from the ruling):**
+1. **Scoring contract rev 3 is THE live cross-team thread** — pipeline directed to answer its §5
+   asks early (within-generation `cut_id` stability, `receipts.seq`→generation confirm, per-cut
+   timing path); owner ratifies after. **The capture-surface build stays PAUSED until the first
+   universal-layer MP4 exists.**
+2. **`episodes.correlation_key` formally DROPPED** (superseded by the contract's
+   `(episode_id, cut_id)` + `source_receipt_seq` binding) — the jobs.ts docstring + DIRECTION.md
+   note retired accordingly (this commit).
+3. **Mad Dog re-cast UNLOCKED** (owner verdicts 07-21: contour re-direct insufficient; both food
+   A/B arms below bar). The OWNER runs the Casting Studio flow — basic mode already seeds from
+   his recorded recast target; expect `characters` writes when a voice locks. No dashboard build.
+4. Holds re-affirmed + deferrals: reveal write-back A-vs-B + `0021` apply = owner-gated bundle,
+   explicitly deferred (publish far off); scoring mock→real = held for a validated relevance
+   judge. Parked under the freeze: tier selector, #137 per-model cut, #153 unsaved-edits guard,
+   roster rows. Pipeline-side test-mode instrument DROPPED.
+
+(Everything shipped 07-14 — video player everywhere, length_target guard, Task A triage surface,
+governance 40/42, casting basic mode, script_directive copy-forward, scoring contract rev 1→3 —
+see the entry below. Earlier snapshots: archive.)
+
+---
+
+## ⚡ (2026-07-14) — HQ backlog worked: render VIDEO player + `length_target` validation SHIPPED (PR #156 `4895324`). The coordination bus is GitHub reels#88 — read its tail FIRST. Read this first.
 
 **Prod tip = `4895324`.** Same session as the 5g entry below, continued after the operator surfaced a
 missed backlog.
@@ -71,65 +95,6 @@ follow-up #153 filed (guidelines dirty-guard — still awaiting problem-solver t
   APPROVE ("mirroring means mirroring"). **Note rule 41 now requires the wrap-up kickoff prompt.**
 - **Mad Dog `voice_recipe`** now carries a recast-target shape (pipeline intent-capture; parser verified
   fail-safe, nothing behavioral).
-
----
-
-## ⚡ (2026-07-13 evening) — SLICE 5g SHIPPED: the legacy `.cr` shell is GONE (PR #152 `1a776eb`).
-
-**Prod tip = `1a776eb`.** The dual-shell era is over — the D-6 migration payoff queued since 07-05 landed.
-Net **−1,435 lines**; `ControlRoom.tsx` 4,207 → ~3,040. Cut fresh off `8b40ed9`, rebased over Phase 2 (#151,
-see next entry — the "awaiting GO" blocker there is RESOLVED: its sibling session got the GO, applied
-`dash_0011`, and merged while 5g was in flight; `reveal_approvals` + migration `20260713202509` **verified
-live** by this session post-merge).
-
-### What shipped (#152)
-- **Legacy `.cr` shell DELETED**: the whole legacy render branch, `?view=` state/popstate plumbing (route.ts
-  canonicalize + tests KEPT — old bookmarks redirect to Aurora), `openLegacyConsole` + the HubLanding
-  "Legacy console" button, dead `channelsAutoNew`, `DrillDownPanel.tsx`, legacy-only CSS (every deletion
-  grep-proven; every keep grep-proven live). `QueueActionDialog.tsx` KEPT (`FactClaimsReviewSection` feeds
-  ActionCenter/RevealHub).
-- **Aurora sign-out (gap fix)** — the sweep found the legacy rail's Exit form was the app's ONLY logout.
-  ControlRoom authors the `/auth/signout` POST form (dirty-guard → DiscardChangesDialog preserved) and
-  passes it as `signOutSlot` to all 10 shell branches + HubLanding. Owner runtime-verified on the preview.
-- **Ruled drop (rule-19 receipt, spec §Reachability):** the queue-side "Open Run Detail" receipts modal —
-  superseded by the Runs hub per-worker diagnostics. Operator may flag.
-- Spec + full reachability table: `docs/slices/slice-5g-delete-legacy-shell.md`.
-
-### Loop trail
-Read-only sweep (Explore agent) → spec (Gemini spec-review folded; its CSRF premise refuted by reading the
-signout route) → Codex build → gates (tsc · vitest · next build · grep gates · unauth smoke 307→/login) →
-**Gemini cross-vendor** (its demanded CSS deletions REFUTED — 7 selectors it called dead are live in
-surviving panels, e.g. `.pcard` via composed className; real dead residue removed) + **suerta APPROVE** →
-**problem-solver nod ON THE PR** (conditions: rebase over #151 ✓ with no-clobber evidence; owner
-authenticated eyeball ✓) → owner ruled "merge now, file follow-up" → squash-merge `1a776eb`.
-
-### New follow-up + lesson
-- **Issue #153** (owner-found during the eyeball): the unsaved-changes guard only covers the character
-  dossier — guidelines/other forms lose edits on sign-out (pre-existing in BOTH shells, not a 5g
-  regression; no `beforeunload` anywhere). Filed for problem-solver triage; not started (freeze).
-- **Portable lesson:** a sweep's "legacy-only" list is a hypothesis, not a delete manifest — the grep AT
-  delete time is the gate (it saved 7 live selectors here, twice: builder + Architect verification of a
-  reviewer demand). Belongs in the Process Learnings Ledger when HQ is reachable again (see below).
-
-### Coordination reality this session (READ THIS, next session)
-- **Notion/HQ was UNREACHABLE** (connector present but unauthorized; OAuth impossible non-interactively —
-  the operator was asked to authorize it in claude.ai connector settings). **Coordination ran via GitHub
-  on THIS repo instead and it worked**: the problem-solver rules on issues/PRs (see #137 freeze reframe,
-  #139 brief), gave the 5g nod on PR #152, and now **subscribes to PRs** — it asked that nod requests land
-  where it's watching. **Operator directive (2026-07-13): check in with the problem-solver FREQUENTLY.**
-- **Problem-solver freeze (#137, 07-09) stands:** new dashboard machinery is near-frozen; sanctioned work =
-  the quality loop (casting #136, render scoring #139, enqueue). 5g passed as debt-deletion, explicitly
-  ruled. Propose-before-build via issue, like #137/#153.
-- L-6 HQ outcome: no tracker row owed (5g is dashboard-internal; no shared surface changed). The #153
-  finding + the sweep lesson are queued for the Ledger once Notion is authorized.
-
-### In flight / next (unchanged unless noted)
-1. **#3 scoring hub → REAL** — awaiting owner go (first `render_reviews` write).
-2. **MULTI-USER** — design doc merged in #151; awaiting owner spend-model decision + OAuth config.
-3. **Reveal write-back activation** — `dash_0011`/`reveal_approvals` LIVE; `jobs.reveal_*` resume still
-   guarded OFF (`NEXT_PUBLIC_REVEAL_WRITE_ENABLED` + missing-column backstop) until the pipeline lands the
-   `reveal_*` cols.
-4. **#153 guidelines dirty-guard** — new, awaiting problem-solver triage.
 
 ---
 

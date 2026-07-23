@@ -279,8 +279,7 @@ export function jobInputFromRow(
 /**
  * Approval recovery re-enqueues the job with a caller-supplied fresh unique
  * non-null key (`job_rerun_<parentJobId>_<ts>`). That key never collides, so the
- * insert avoids a 409, and the worker echoes it into `episodes.correlation_key`
- * so the money-spending re-run remains threadable (Phase 3 Lane 1).
+ * insert avoids a 409.
  */
 export function buildSpendApprovalReenqueue(
   originalInput: JobEnqueueInput,
