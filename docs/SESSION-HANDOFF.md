@@ -1,6 +1,6 @@
 # SESSION HANDOFF — start here to finish the project
 
-_Last updated: **2026-07-23 (RECONCILIATION recorded + independently verified by a second session — governance mirror confirmed in sync, roster rows confirmed live, ACK on #88 `5058695023`; correlation_key retired; scoring contract rev 3 awaiting pipeline §5 answers + owner ratify. Prod tip = `a28c6a0` on `claude/new-session-3l99vs`.)** by the Architect (Claude)._
+_Last updated: **2026-07-23 evening (SCORING CONTRACT rev 3.1 RATIFIED by the owner, reels#88 `5060907260`; RLS A-vs-B ruled **B** — reveal-resume edge function, hold → buildable-at-discretion low-priority with PS GO; session-claim via #155 + vocabularies.json bundling both accepted as standing process. Earlier same day: reconciliation recorded + verified, governance mirror in sync, correlation_key retired.)** by the Architect (Claude)._
 This is the **one authoritative "start here"** for a **new chat** picking up the work. Read this top-to-bottom,
 then the canonical docs it points to. Deep running history is in `docs/HANDOFF.md`; this file
 is the fast path._
@@ -24,7 +24,7 @@ is the fast path._
 3. **Mad Dog re-cast UNLOCKED** (owner verdicts 07-21: contour re-direct insufficient; both food
    A/B arms below bar). The OWNER runs the Casting Studio flow — basic mode already seeds from
    his recorded recast target; expect `characters` writes when a voice locks. No dashboard build.
-4. Holds re-affirmed + deferrals: reveal write-back A-vs-B + `0021` apply = owner-gated bundle,
+4. **[SUPERSEDED same day — see the "Evening rulings" block below]** Holds re-affirmed + deferrals: reveal write-back A-vs-B + `0021` apply = owner-gated bundle,
    explicitly deferred (publish far off); scoring mock→real = held for a validated relevance
    judge. Parked under the freeze: tier selector, #137 per-model cut, #153 unsaved-edits guard,
    roster rows. Pipeline-side test-mode instrument DROPPED.
@@ -32,6 +32,31 @@ is the fast path._
 (Everything shipped 07-14 — video player everywhere, length_target guard, Task A triage surface,
 governance 40/42, casting basic mode, script_directive copy-forward, scoring contract rev 1→3 —
 see the entry below. Earlier snapshots: archive.)
+
+### Evening rulings (2026-07-23, later same day — these supersede the holds above)
+- **Render-scoring contract rev 3.1 = RATIFIED by the owner** (reels#88 `5060907260`) at
+  `43aa27f`: `(episode_id, cut_id)` join key · NOT NULL `source_receipt_seq` generation
+  binding · within-generation `cut_id` stability as a standing pipeline guarantee ·
+  max-seq overwrite read semantic (rev 3.1, PS-arbitrated `5060237883`) · omission
+  semantics · append-only owner-scoped tables. Doc carries a RATIFIED status line.
+  Pipeline's §5 answers were code-verified (`5060187458`); the additive `start_s`/`end_s`
+  ask was withdrawn — timing reads from the max-seq assembly receipt's
+  `result.visual_edl[].{id,start,dur}`. **Sequencing unchanged:** `dash_0012` migration +
+  capture build still wait for the first universal-layer MP4.
+- **RLS A-vs-B = B, owner-ruled** (`5060945515`): reveal write-back goes through a
+  dedicated **`reveal-resume` edge function** (service-role, session-gated, validates
+  caller + transition, writes `jobs.reveal_*`, receipts every write; NO browser RLS
+  UPDATE on `jobs`). `0021` is applied. The DO-NOT-BUILD hold is CONVERTED to
+  **buildable at the dashboard's discretion, LOW priority** — and it is **NOT
+  self-merge territory** (writes the shared `jobs` table): gate-green + cross-vendor
+  PASS + **PS GO on the PR**. Pattern: `casting-proxy` (verify_jwt, 401-unauth-verified).
+- **Standing process accepted** (`5060876115`): (a) **#155 registration = the dashboard
+  seat claim** — a session acts only after re-registering there; the superseded session
+  stands down on sight. (b) **vocabularies.json ships WITH the pipeline's
+  `channel_profiles`-touching slices** (cut-rhythm + generation-mode keys) as a standing
+  queue amendment — the generation-mode config editor gets built against that contract,
+  never as a fourth hand-maintained list.
+- Owner's remaining open list: Mad Dog re-cast (his own, in the Casting Studio, whenever).
 
 ### Verification pass (same day, second session — receipts in reels#88 ACK `5058695023`)
 Two dashboard sessions worked 2026-07-23 concurrently: the one above recorded the ruling +
@@ -86,7 +111,10 @@ was lived, resolved by folding, and re-reviewed per rule 36).
 > per-channel onboarding; the dashboard is in a WAITING posture — the scoring contract rev 3
 > (`docs/proposals/render-scoring-contract.md`) is the live cross-team thread awaiting the
 > pipeline's §5 answers; capture build paused until the first universal-layer MP4;
-> `correlation_key` dropped; reveal write-back + scoring mock→real HELD;
+> `correlation_key` dropped; the contract is RATIFIED (rev 3.1, `5060907260`); reveal
+> write-back is ruled B (`reveal-resume` edge function) and buildable at discretion,
+> LOW priority, PS GO required on its PR (shared `jobs` write — not self-merge);
+> scoring mock→real HELD;
 > #137/#153/tier-selector/roster-expansion PARKED. Build app code only through Codex; Gemini
 > cross-vendor review before merge; self-merge only dashboard-only + gate-green +
 > cross-vendor-PASS; shared surfaces need a problem-solver GO; spend/publish/direction are

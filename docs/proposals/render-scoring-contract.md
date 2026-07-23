@@ -1,5 +1,10 @@
 # Proposal — render-scoring contract: schema + per-beat join key
 
+> **STATUS: RATIFIED by the owner 2026-07-23** (reels#88 `5060907260`) at rev 3.1
+> (`43aa27f`, dashboard #166) — this is the agreed cross-team contract. Sequencing
+> unchanged: the `dash_0012_render_reviews` migration + capture build still wait for
+> the first universal-layer MP4.
+
 _2026-07-14, rev 3.1 (suerta review folded rev 2; Gemini cross-vendor consumer-lens review
 folded rev 3 — 2 structural blockers: reviews bind to a RENDER not an episode; the cut_id
 stability ask corrected to within-generation; rev 3.1 2026-07-23 — the PS-arbitrated
