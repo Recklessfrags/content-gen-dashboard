@@ -57,6 +57,12 @@ see the entry below. Earlier snapshots: archive.)
   queue amendment — the generation-mode config editor gets built against that contract,
   never as a fourth hand-maintained list.
 - Owner's remaining open list: Mad Dog re-cast (his own, in the Casting Studio, whenever).
+- **§5(c) closed** (`5061204751`, relayed from #82): the six QA dimension strings, verbatim
+  from pipeline `tools/render_qa_video.py:100` — `script`, `vo_delivery`, `beat_pacing`,
+  `visual_relevance`, `editing`, `rendering`. Informational (soft-validated text per the
+  ratified contract, never a schema constraint). Also: a NEW pipeline session holds their
+  seat; **Pixabay is already live** (don't re-raise activation); cut-on-progress is in
+  build with `vocabularies.json` bundled per the standing amendment.
 
 ### Verification pass (same day, second session — receipts in reels#88 ACK `5058695023`)
 Two dashboard sessions worked 2026-07-23 concurrently: the one above recorded the ruling +
