@@ -10,6 +10,9 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--ink);color:var(--paper)}
+[data-theme='dark']{color-scheme:dark}
+[data-theme='light']{color-scheme:light}
+input,button,textarea,select{font:inherit;color:inherit;background-color:transparent}
 body{font-family:var(--body)}
 
 /* Visible keyboard focus everywhere (quality floor). Mouse clicks stay clean. */
