@@ -35,6 +35,11 @@ import {
 } from "@/lib/channelGuideline";
 import { logGuidelineKeepRate } from "@/lib/channelGuidelineTelemetry";
 import { stashCastBrief } from "@/lib/castBrief";
+import {
+  CHANNEL_FIELD_CONSUMPTION,
+  resolveEscalationLadder,
+  resolveResearchAnchor,
+} from "@/lib/channelFieldConsumption";
 import { suggestPersonaForChannel } from "@/lib/suggestPersona";
 import type { createClient } from "@/lib/supabase/client";
 import { Field } from "./shared";
@@ -204,6 +209,8 @@ export function ChannelProfilesPanel({
   // Scoped layout = single-column form chrome (workspace Guidelines tab OR the Aurora
   // "New channel" create surface): hide the master list / mobile picker / delete.
   const isScopedLayout = Boolean(scopedChannel) || Boolean(createOnly);
+  const routingResolution = resolveEscalationLadder(selectedProfile?.sourcing);
+  const anchorResolution = resolveResearchAnchor(selectedProfile?.research_profile);
   const personaSuggestion = useMemo(() => {
     if (!form) return null;
 
@@ -331,10 +338,6 @@ export function ChannelProfilesPanel({
         mk("treatment", "Style", s.treatment, false),
         mk("claimDiscipline", "Fact-check strictness", s.engagement_posture.claim_discipline, true),
         mk("arousalCeiling", "Intensity limit", s.engagement_posture.arousal_ceiling, true),
-        mk("sourceLadder", "Footage sources", joinListInput(s.source_ladder), false),
-        mk("platforms", "Platforms", joinListInput(s.platforms), false),
-        mk("titleStyle", "Title style", s.packaging.title_style, false),
-        mk("thumbnailStyle", "Thumbnail style", s.packaging.thumbnail_style, false),
         mk("shortSeconds", "Short length (s)", typeof s.length_target.short_s === "number" ? String(s.length_target.short_s) : "", false),
       ].filter((f) => f.enforced || f.proposed.trim().length > 0);
       setProposal({ generatedAt: new Date().toISOString(), brief, assumptions, castBrief: cast_brief, fields });
@@ -881,6 +884,14 @@ export function ChannelProfilesPanel({
                         </option>
                       ))}
                     </select>
+                    <span className="hint">{CHANNEL_FIELD_CONSUMPTION.fact_anchor.note}</span>
+                    <span className="hint">
+                      {anchorResolution.effective
+                        ? `Pipeline fact anchor: ${anchorResolution.effective}`
+                        : anchorResolution.configured && anchorResolution.ignoredValue !== null
+                          ? `Pipeline fact anchor: none — the stored value "${anchorResolution.ignoredValue}" is not a valid anchor and is ignored.`
+                          : "Pipeline fact anchor: not set in the database — the pipeline default applies."}
+                    </span>
                   </div>
                   <div className="field">
                     <label htmlFor="channel-profile-treatment">
@@ -899,6 +910,7 @@ export function ChannelProfilesPanel({
                         </option>
                       ))}
                     </select>
+                    <span className="hint">{CHANNEL_FIELD_CONSUMPTION.treatment.note}</span>
                   </div>
                 </div>
 
@@ -981,32 +993,51 @@ export function ChannelProfilesPanel({
 
               <section
                 className="channel-profile-section"
-                aria-labelledby="channel-profile-sources-packaging-heading"
+                aria-labelledby="channel-profile-unused-fields-heading"
               >
                 <h3
-                  id="channel-profile-sources-packaging-heading"
+                  id="channel-profile-unused-fields-heading"
                   className="text-title channel-profile-section-title"
                 >
-                  Footage &amp; presentation
+                  Not used by the pipeline
                 </h3>
+                <p className="hint">
+                  These values are stored but nothing reads them. They remain visible so existing values are not hidden.
+                </p>
                 <div className="grid2">
-                  <Field
-                    id="channel-profile-source-ladder"
-                    label="Footage sources"
-                    hint="Newline or comma list"
-                    value={form.sourceLadder}
-                    onChange={(value) => updateForm("sourceLadder", value)}
-                    rows={5}
-                    mono
-                  />
+                  <div>
+                    <Field
+                      id="channel-profile-source-ladder"
+                      label="Footage sources"
+                      hint="Stored value; read-only"
+                      value={form.sourceLadder}
+                      onChange={() => {}}
+                      rows={5}
+                      mono
+                      readOnly
+                    />
+                    <p className="hint">
+                      {!routingResolution.configured
+                        ? "Actual pipeline routing: archival (pipeline default — nothing set for this channel)"
+                        : routingResolution.ignoredRaw !== null
+                          ? `Actual pipeline routing: archival (pipeline default) — the stored value ${routingResolution.ignoredRaw} is not usable and is ignored.`
+                        : routingResolution.effective.length > 0
+                          ? `Actual pipeline routing: ${routingResolution.effective.join(", ")}`
+                          : "Actual pipeline routing: nothing — no valid source tier is configured."}
+                      {routingResolution.ignored.length > 0 ? (
+                        <><br />Ignored (not a valid source tier): {routingResolution.ignored.join(", ")}</>
+                      ) : null}
+                    </p>
+                  </div>
                   <Field
                     id="channel-profile-platforms"
                     label="Platforms"
-                    hint="Newline or comma list"
+                    hint="Stored value; read-only"
                     value={form.platforms}
-                    onChange={(value) => updateForm("platforms", value)}
+                    onChange={() => {}}
                     rows={5}
                     mono
+                    readOnly
                   />
                 </div>
 
@@ -1015,17 +1046,19 @@ export function ChannelProfilesPanel({
                     id="channel-profile-title-style"
                     label="Title style"
                     value={form.titleStyle}
-                    onChange={(value) => updateForm("titleStyle", value)}
+                    onChange={() => {}}
                     rows={1}
                     multiline={false}
+                    readOnly
                   />
                   <Field
                     id="channel-profile-thumbnail-style"
                     label="Thumbnail style"
                     value={form.thumbnailStyle}
-                    onChange={(value) => updateForm("thumbnailStyle", value)}
+                    onChange={() => {}}
                     rows={1}
                     multiline={false}
+                    readOnly
                   />
                 </div>
 

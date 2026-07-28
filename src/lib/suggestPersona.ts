@@ -29,7 +29,7 @@ type SuggestPersonaRule = {
   chipId: string;
 };
 
-const NICHE_FIELDS = ["channel", "display_name", "treatment", "fact_anchor"] as const;
+export const NICHE_FIELDS = ["channel", "display_name", "treatment", "fact_anchor"] as const;
 
 export const SUGGEST_PERSONA_RULES = [
   { scope: "voice_archetype", keywords: ["drill", "sergeant"], chipId: "drill-sergeant-historian" },
