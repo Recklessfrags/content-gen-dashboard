@@ -3,6 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderPlayer } from "@/components/aurora/RenderPlayer";
 import type { JobStatus } from "@/lib/jobs";
+import {
+  classifyFailure,
+  failureClassLabel,
+  resolveTerminalState,
+  summarizeFailures,
+  terminalStateLabel,
+  type FailureClassId,
+  type TerminalState,
+  type TerminalStateSource,
+} from "@/lib/failureClass";
 import { parkKindLabel, type ParkKind } from "@/lib/parkReason";
 import { ALL_CHANNELS_KEY, cardMatchesChannel, channelFacets } from "@/lib/runsChannelFilter";
 import { groupRunCards, type RunGroupKey } from "@/lib/runsGrouping";
@@ -21,6 +31,9 @@ export type RunCardVM = {
   needsAttention: boolean;
   parkKind?: ParkKind | null;
   parkKindColumn?: string | null;
+  failureClass?: FailureClassId | null;
+  terminalState?: TerminalState | null;
+  terminalStateSource?: TerminalStateSource | null;
   finalStage?: string | null;
   parkReason?: string | null;
   belowFloorCuts?: string[];
@@ -184,6 +197,7 @@ export function RunsHub({
                     role="region"
                     aria-labelledby={headerId}
                   >
+                    {group.key === "attention" ? <FailureRollup cards={group.cards} /> : null}
                     {group.cards.map((card) => (
                       <RunCard key={card.id} card={card} loadDiagnostics={loadDiagnostics} />
                     ))}
@@ -348,9 +362,16 @@ function RunCard({
   const bodyId = `run-diagnostics-${card.id}`;
 
   const canDiagnose = card.episodeId !== null;
+  const isFailure = card.status === "error";
   const parkKind = card.parkKind ?? null;
   const showParkReason = parkKind !== null;
   const belowFloorCuts = card.belowFloorCuts ?? [];
+  const failureClass = isFailure ? (card.failureClass ?? classifyFailure(card.error)) : null;
+  const terminalStateResult = isFailure
+    ? card.terminalState && card.terminalStateSource
+      ? { state: card.terminalState, source: card.terminalStateSource }
+      : resolveTerminalState(card.parkKindColumn, card.error)
+    : null;
 
   const runDiagnostics = useCallback(async () => {
     if (card.episodeId === null || inFlightRef.current) return;
@@ -377,6 +398,11 @@ function RunCard({
       <div className="run-card__head">
         <div className="run-card__main">
           <span className={statusChipClass(card.status)}>{card.statusLabel}</span>
+          {isFailure && failureClass ? (
+            <span className="status-chip run-card__failure-class-chip">
+              {failureClassLabel(failureClass)}
+            </span>
+          ) : null}
           <h4 className="text-title run-card__title">{card.title}</h4>
         </div>
         <div className="run-card__meta">
@@ -385,6 +411,36 @@ function RunCard({
           <span className="dim">{formatCreatedAt(card.createdAt)}</span>
         </div>
       </div>
+
+      {isFailure ? (
+        <div className="run-card__failure" role="note" aria-label="Failure summary">
+          <div className="run-card__failure-head">
+            <span className="run-card__failure-title">Failure summary</span>
+            {terminalStateResult ? (
+              <span
+                className="status-chip run-card__failure-terminal"
+                title={
+                  terminalStateResult.source === "derived"
+                    ? "derived from the error text"
+                    : terminalStateResult.source === "unavailable"
+                      ? "terminal state not recorded"
+                      : undefined
+                }
+              >
+                {terminalStateLabel(terminalStateResult.state)}
+                {terminalStateResult.source === "derived" ? " (derived from the error text)" : ""}
+              </span>
+            ) : (
+              <span className="status-chip run-card__failure-terminal" title="terminal state not recorded">
+                Unclassified
+              </span>
+            )}
+          </div>
+          <p className="dim run-card__failure-stage">
+            stage of death · {card.finalStage ? card.finalStage : "stage not recorded"}
+          </p>
+        </div>
+      ) : null}
 
       {card.error ? (
         <div className="run-card__error" role="note">
@@ -481,6 +537,40 @@ function RunCard({
         </div>
       ) : null}
     </article>
+  );
+}
+
+function FailureRollup({ cards }: { cards: RunCardVM[] }) {
+  const failures = cards.filter((card) => card.status === "error");
+  if (failures.length === 0) return null;
+
+  const rows = summarizeFailures(
+    failures.map((card) => ({
+      error: card.error,
+      spend: card.spend,
+      stage: card.finalStage ?? null,
+    })),
+  );
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="glass-panel runs-hub__failure-rollup" role="note" aria-label="Error rollup">
+      <p className="text-title runs-hub__failure-rollup-title">Errors by cause</p>
+      <div className="runs-hub__failure-rollup-rows">
+        {rows.map((row) => (
+          <div key={row.classId} className="runs-hub__failure-rollup-row">
+            <span className="runs-hub__failure-rollup-label">{row.label}</span>
+            <span className="dim runs-hub__failure-rollup-metrics">
+              {row.count} · {formatUsd(row.spend)} burned
+              {row.spendUnrecorded > 0
+                ? ` · ${row.spendUnrecorded} run${row.spendUnrecorded === 1 ? "" : "s"} have no recorded spend`
+                : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -32,6 +32,7 @@ import {
   resolveParkKind,
   type JobEnqueueInput,
 } from "@/lib/jobs";
+import { classifyFailure, resolveTerminalState } from "@/lib/failureClass";
 import { parseBelowFloorCuts } from "@/lib/parkReason";
 import { parseFactClaims, type FactClaim } from "@/lib/factClaims";
 import { isCast } from "@/lib/casting";
@@ -1870,9 +1871,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       jobs.map((job) => {
         const status = classifyJobStatus(job.status);
         const isParked = status === "ready_for_review" || (status === "error" && job.park_kind != null);
+        const isFailure = status === "error";
         const episodeParkReason = job.episode_id
           ? (episodeParkReasonById.get(job.episode_id) ?? null)
           : null;
+        const parkedFinalStage = isParked ? (episodeParkReason?.finalStage ?? null) : null;
+        const finalStage =
+          isFailure && parkedFinalStage === null ? (episodeParkReason?.finalStage ?? null) : parkedFinalStage;
+        const terminalStateResult = isFailure ? resolveTerminalState(job.park_kind, job.error) : null;
         return {
           id: String(job.id),
           episodeId: job.episode_id ?? null,
@@ -1887,7 +1893,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             status === "error" || status === "stale" || status === "ready_for_review",
           parkKind: isParked ? resolveParkKind(job.park_kind, null) : null,
           parkKindColumn: isParked ? (job.park_kind ?? null) : null,
-          finalStage: isParked ? (episodeParkReason?.finalStage ?? null) : null,
+          failureClass: isFailure ? classifyFailure(job.error) : null,
+          terminalState: isFailure ? terminalStateResult?.state ?? null : null,
+          terminalStateSource: isFailure ? terminalStateResult?.source ?? null : null,
+          finalStage,
           parkReason: isParked ? (episodeParkReason?.message ?? null) : null,
           belowFloorCuts: isParked
             ? parseBelowFloorCuts(episodeParkReason?.message ?? null)

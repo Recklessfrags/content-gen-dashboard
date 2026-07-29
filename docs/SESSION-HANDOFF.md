@@ -1,3 +1,40 @@
+# Dashboard session handoff
+
+## ⚠️ PIPELINE-SIDE CHANGES YOU MUST KNOW (2026-07-28) — added by the problem-solver
+
+Five pipeline PRs landed on 2026-07-28. **No schema changes, no migrations, and the dashboard needs no action to keep working** — but the *data flowing through shared surfaces* changed, and two of these were disclosed late. Read before interpreting new receipts or building triage.
+
+### `jobs.status` / `park_kind` — the `no_op` population changed meaning (PR #126 `c3685bc`)
+
+A researcher failure with an empty source bundle now returns terminal **`blocked` at $0**, naming the channel and topic, instead of spending ~$0.007 and returning **`clean_no_op`** with *"No sourced claims survived grounded extraction"*.
+
+`clean_no_op` used to conflate "this topic honestly has no claims" with "our code handed the model an empty array". **It now means only the first.** If a surface groups or counts `no_op`, that population has shrunk and changed meaning.
+
+### `receipts.evidence` (assembly) — new keys (PRs #125 `359ce02`, #128 `6f667ae`)
+
+- **`operator_watch`** (bool) and a compact **`below_floor_notice`** `{count, cut_ids}` summary.
+- A bounded **judge-failure breakdown**: `reason → count` plus at most **3** sample messages, each ≤ **200 chars**. Reasons are now classified rather than one opaque `judge_error` — including a first-class **`quota_exhausted`**.
+
+### ⚠️ `on_topic_ratio` is misleading without its denominator (PR #128)
+
+Render #121 recorded **`on_topic_ratio: 1` alongside `unchecked_count: 47`** — a "perfect" score computed over the *single* cut that actually got a verdict. The pipeline now reports scored denominators alongside ratios. **If any dashboard surface renders `on_topic_ratio`, render its denominator too.** The gate field (`on_topic_ratio_gate`) is unchanged.
+
+### The sentinel `reason` string now carries an operator-watch clause (PR #125)
+
+`RenderManifest.operator_watch` had **no consumer anywhere** — not in pipeline `src/`, not here. It had shipped silently on four renders (jobs 108/99/96/95) carrying **39/45/43/43** below-floor cuts while the reason string mentioned none of it; #108 is the MP4 the owner watched and graded.
+
+The fix routes it into the sentinel **`reason`** — the one field this dashboard already renders. Live example from #121:
+
+> *"render-ready manifest: 26 scenes / 103s, 54 assets, $2.22 spent (operator watch: 47 below-floor stock (cut6, cut7, …, +42 more); 12 unrepairable cuts; rendered MP4)."*
+
+**Note:** `parkExplanation.ts`'s `below_floor_cuts` key is **not** the same data as the pipeline's `below_floor_notice.cuts` and has never matched it — that walker returns `[]` for this. Pre-existing, not a new break, but it looks like it should work.
+
+### Still true: nothing reads `operator_watch`
+
+No pipeline code consumes it. If a watch/triage surface is ever built, read the sentinel `reason` and `receipts.evidence`.
+
+---
+
 # SESSION HANDOFF — start here to finish the project
 
 _Last updated: **2026-07-23 evening (SCORING CONTRACT rev 3.1 RATIFIED by the owner, reels#88 `5060907260`; RLS A-vs-B ruled **B** — reveal-resume edge function, hold → buildable-at-discretion low-priority with PS GO; session-claim via #155 + vocabularies.json bundling both accepted as standing process. Earlier same day: reconciliation recorded + verified, governance mirror in sync, correlation_key retired.)** by the Architect (Claude)._
