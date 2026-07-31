@@ -307,25 +307,95 @@ describe("buildChannelProfileUpsert", () => {
     ).toThrow("channel is required; fact_anchor is invalid");
   });
 
-  it("never emits research_profile/sourcing (preserve-on-update safety)", () => {
-    const result = buildChannelProfileUpsert({
-      ...profileInput(),
-      research_profile: {
-        anchor_type: "scripture",
-        source_hierarchy: ["primary"],
-        thesis: "pipeline-owned",
+  it("merges an edited escalation ladder without changing unrendered sourcing keys", () => {
+    const queryVocabulary = {
+      topic_token_policy: { mode: "pipeline-owned", minimum: 3 },
+    };
+    const result = buildChannelProfileUpsert(profileInput(), {
+      stored: {
+        research_profile: null,
+        sourcing: {
+          escalation_ladder: ["archival"],
+          assembly_max_spend: 4.75,
+          query_vocabulary: queryVocabulary,
+        },
       },
-      sourcing: {
-        artifact_types: ["stock"],
-        stock_vision_gate: true,
-        max_generated_clips: 2,
-        generation_budget_usd: 9,
+      edits: {
+        sourcing: { escalation_ladder: ["archival", "pixabay"] },
       },
     });
 
+    expect(result.sourcing).toEqual({
+      escalation_ladder: ["archival", "pixabay"],
+      assembly_max_spend: 4.75,
+      query_vocabulary: queryVocabulary,
+    });
+    expect(
+      (result.sourcing as { query_vocabulary: unknown }).query_vocabulary,
+    ).toBe(queryVocabulary);
+  });
+
+  it("merges an edited research anchor without changing other research keys", () => {
+    const sourceHierarchy = ["primary", "secondary"];
+    const result = buildChannelProfileUpsert(profileInput(), {
+      stored: {
+        sourcing: null,
+        research_profile: {
+          anchor_type: "scripture",
+          source_hierarchy: sourceHierarchy,
+          thesis: "pipeline-owned",
+        },
+      },
+      edits: {
+        research_profile: { anchor_type: "declassified_primary_doc" },
+      },
+    });
+
+    expect(result.research_profile).toEqual({
+      anchor_type: "declassified_primary_doc",
+      source_hierarchy: sourceHierarchy,
+      thesis: "pipeline-owned",
+    });
+    expect(
+      (result.research_profile as { source_hierarchy: unknown })
+        .source_hierarchy,
+    ).toBe(sourceHierarchy);
+  });
+
+  it("emits neither pipeline-owned group when neither group was edited", () => {
+    const result = buildChannelProfileUpsert(profileInput(), {
+      stored: {
+        sourcing: {
+          escalation_ladder: ["pixabay"],
+          assembly_max_spend: 8,
+        },
+        research_profile: {
+          anchor_type: "scripture",
+          thesis: "pipeline-owned",
+        },
+      },
+      edits: {},
+    });
+
+    expect(Object.prototype.hasOwnProperty.call(result, "sourcing")).toBe(false);
     expect(
       Object.prototype.hasOwnProperty.call(result, "research_profile"),
     ).toBe(false);
-    expect(Object.prototype.hasOwnProperty.call(result, "sourcing")).toBe(false);
+  });
+
+  it("rejects pipeline values outside the named allowed sets instead of dropping them", () => {
+    expect(() =>
+      buildChannelProfileUpsert(profileInput(), {
+        stored: { sourcing: null, research_profile: null },
+        edits: {
+          sourcing: {
+            escalation_ladder: ["generated"],
+            archival_providers: ["youtube"],
+          },
+        },
+      }),
+    ).toThrow(
+      "sourcing.escalation_ladder must contain only: archival, pixabay; sourcing.archival_providers must contain only: internet_archive, loc, wikimedia_commons",
+    );
   });
 });

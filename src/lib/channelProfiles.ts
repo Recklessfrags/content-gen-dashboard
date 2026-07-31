@@ -1,4 +1,8 @@
 import type { Json, Tables, TablesInsert } from "@/lib/database.types";
+import {
+  PIPELINE_ARCHIVAL_PROVIDERS,
+  PIPELINE_ESCALATION_TIERS,
+} from "@/lib/channelFieldConsumption";
 
 export type ChannelProfile = Tables<"channel_profiles">;
 export type ChannelProfileUpsertInput = TablesInsert<"channel_profiles">;
@@ -92,6 +96,21 @@ export type Sourcing = {
   stock_vision_gate: boolean;
   max_generated_clips: number | null;
   generation_budget_usd: number | null;
+};
+
+export type ChannelProfilePipelineEdits = {
+  sourcing?: {
+    escalation_ladder?: string[];
+    archival_providers?: string[];
+  };
+  research_profile?: {
+    anchor_type?: ResearchAnchorType;
+  };
+};
+
+export type ChannelProfilePipelineMerge = {
+  stored: Pick<ChannelProfile, "sourcing" | "research_profile">;
+  edits: ChannelProfilePipelineEdits;
 };
 
 export const DEFAULT_ENGAGEMENT_POSTURE: EngagementPosture = {
@@ -321,19 +340,80 @@ export function validateChannelProfile(
   return errors;
 }
 
-// research_profile and sourcing are pipeline-owned; the dashboard intentionally
-// omits them from the upsert so an on-conflict update never clobbers them. A UI
-// to edit them is a future, separately-gated build.
+function hasOwn(record: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function validateListVocabulary(
+  field: string,
+  values: readonly string[],
+  allowed: readonly string[],
+): string | null {
+  const allowedValues = new Set(allowed);
+  return values.every((value) => allowedValues.has(value))
+    ? null
+    : `${field} must contain only: ${allowed.join(", ")}`;
+}
+
+export function validateChannelProfilePipelineEdits(
+  edits: ChannelProfilePipelineEdits,
+): string[] {
+  const errors: string[] = [];
+  const sourcing = edits.sourcing;
+  const researchProfile = edits.research_profile;
+
+  if (sourcing && hasOwn(sourcing, "escalation_ladder")) {
+    const error = validateListVocabulary(
+      "sourcing.escalation_ladder",
+      sourcing.escalation_ladder ?? [],
+      PIPELINE_ESCALATION_TIERS,
+    );
+    if (error) errors.push(error);
+  }
+
+  if (sourcing && hasOwn(sourcing, "archival_providers")) {
+    const error = validateListVocabulary(
+      "sourcing.archival_providers",
+      sourcing.archival_providers ?? [],
+      PIPELINE_ARCHIVAL_PROVIDERS,
+    );
+    if (error) errors.push(error);
+  }
+
+  if (
+    researchProfile &&
+    hasOwn(researchProfile, "anchor_type") &&
+    !isCatalogValue(researchProfile.anchor_type, RESEARCH_ANCHOR_TYPE)
+  ) {
+    errors.push(
+      `research_profile.anchor_type must be one of: ${RESEARCH_ANCHOR_TYPE.join(", ")}`,
+    );
+  }
+
+  return errors;
+}
+
+function storedObject(value: Json | null): JsonRecord {
+  return isJsonRecord(value) ? value : {};
+}
+
+// Pipeline-owned groups are omitted unless a rendered field was edited. When a
+// field is edited, merge it over the stored object so keys this form cannot
+// render survive the on-conflict update unchanged.
 export function buildChannelProfileUpsert(
   input: ChannelProfileUpsertInput,
+  pipelineMerge?: ChannelProfilePipelineMerge,
 ): TablesInsert<"channel_profiles"> {
-  const errors = validateChannelProfile(input);
+  const errors = [
+    ...validateChannelProfile(input),
+    ...validateChannelProfilePipelineEdits(pipelineMerge?.edits ?? {}),
+  ];
 
   if (errors.length > 0) {
     throw new Error(errors.join("; "));
   }
 
-  return {
+  const result: TablesInsert<"channel_profiles"> = {
     channel: input.channel.trim(),
     description: input.description?.trim() ?? "",
     display_name: input.display_name?.trim() ?? "",
@@ -348,4 +428,32 @@ export function buildChannelProfileUpsert(
     length_target: parseLengthTarget(input.length_target ?? {}),
     platforms: parsePlatforms(input.platforms ?? []),
   };
+
+  const sourcingEdits = pipelineMerge?.edits.sourcing;
+  if (
+    sourcingEdits &&
+    (hasOwn(sourcingEdits, "escalation_ladder") ||
+      hasOwn(sourcingEdits, "archival_providers"))
+  ) {
+    const sourcing: JsonRecord = {
+      ...storedObject(pipelineMerge?.stored.sourcing ?? null),
+    };
+    if (hasOwn(sourcingEdits, "escalation_ladder")) {
+      sourcing.escalation_ladder = sourcingEdits.escalation_ladder ?? [];
+    }
+    if (hasOwn(sourcingEdits, "archival_providers")) {
+      sourcing.archival_providers = sourcingEdits.archival_providers ?? [];
+    }
+    result.sourcing = sourcing;
+  }
+
+  const researchEdits = pipelineMerge?.edits.research_profile;
+  if (researchEdits && hasOwn(researchEdits, "anchor_type")) {
+    result.research_profile = {
+      ...storedObject(pipelineMerge?.stored.research_profile ?? null),
+      anchor_type: researchEdits.anchor_type,
+    };
+  }
+
+  return result;
 }

@@ -102,6 +102,11 @@ export function isInertChannelField(field: string): boolean {
 // lines 80-97. The durable fix is to publish these through the shared
 // vocabularies.json contract instead of maintaining constants in two repos.
 export const PIPELINE_ESCALATION_TIERS = ["archival", "pixabay"] as const;
+export const PIPELINE_ARCHIVAL_PROVIDERS = [
+  "internet_archive",
+  "loc",
+  "wikimedia_commons",
+] as const;
 export const PIPELINE_DEFAULT_ESCALATION_LADDER = ["archival"] as const;
 export const PIPELINE_RESEARCH_ANCHORS = [
   "fda_standard_of_identity",
