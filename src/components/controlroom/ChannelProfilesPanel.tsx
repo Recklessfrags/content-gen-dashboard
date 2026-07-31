@@ -24,7 +24,9 @@ import {
   splitListInput,
   parseShortSeconds,
   type ChannelProfile,
+  type ChannelProfilePipelineEdits,
   type ChannelProfileUpsertInput,
+  type ResearchAnchorType,
 } from "@/lib/channelProfiles";
 import {
   DESCRIPTION_MAX,
@@ -37,6 +39,9 @@ import { logGuidelineKeepRate } from "@/lib/channelGuidelineTelemetry";
 import { stashCastBrief } from "@/lib/castBrief";
 import {
   CHANNEL_FIELD_CONSUMPTION,
+  PIPELINE_ARCHIVAL_PROVIDERS,
+  PIPELINE_ESCALATION_TIERS,
+  PIPELINE_RESEARCH_ANCHORS,
   resolveEscalationLadder,
   resolveResearchAnchor,
 } from "@/lib/channelFieldConsumption";
@@ -91,7 +96,15 @@ type FormState = {
   titleStyle: string;
   thumbnailStyle: string;
   shortSeconds: string;
+  escalationLadder: string;
+  archivalProviders: string;
+  researchAnchorType: string;
 };
+
+type PipelineField =
+  | "escalationLadder"
+  | "archivalProviders"
+  | "researchAnchorType";
 
 type ProposalField = {
   key: keyof FormState;
@@ -124,6 +137,38 @@ function comparableCodename(value: string) {
 
 function jsonValue(value: ChannelProfile["source_ladder"] | undefined): Json {
   return value ?? [];
+}
+
+function jsonObject(value: Json | null | undefined) {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : null;
+}
+
+function pipelineListValue(
+  group: Json | null | undefined,
+  key: string,
+): string {
+  const value = jsonObject(group)?.[key];
+  if (typeof value === "string") return value;
+  if (!Array.isArray(value)) return value === undefined ? "" : JSON.stringify(value);
+  return value
+    .map((entry) =>
+      typeof entry === "string" ? entry : JSON.stringify(entry),
+    )
+    .join("\n");
+}
+
+function pipelineScalarValue(
+  group: Json | null | undefined,
+  key: string,
+): string {
+  const value = jsonObject(group)?.[key];
+  return typeof value === "string"
+    ? value
+    : value === undefined
+      ? ""
+      : JSON.stringify(value);
 }
 
 function profileToForm(
@@ -165,6 +210,18 @@ function profileToForm(
       typeof lengthTarget.short_s === "number"
         ? String(lengthTarget.short_s)
         : "",
+    escalationLadder: pipelineListValue(
+      profile.sourcing,
+      "escalation_ladder",
+    ),
+    archivalProviders: pipelineListValue(
+      profile.sourcing,
+      "archival_providers",
+    ),
+    researchAnchorType: pipelineScalarValue(
+      profile.research_profile,
+      "anchor_type",
+    ),
   };
 }
 
@@ -198,6 +255,9 @@ export function ChannelProfilesPanel({
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [lastApplied, setLastApplied] = useState<AppliedProposal | null>(null);
   const [aiFlagged, setAiFlagged] = useState<Set<string>>(new Set());
+  const [pipelineEdits, setPipelineEdits] = useState<Set<PipelineField>>(
+    new Set(),
+  );
   const hydratedChannelRef = useRef<string | null>(null);
 
   const selectedProfile = useMemo(
@@ -211,6 +271,34 @@ export function ChannelProfilesPanel({
   const isScopedLayout = Boolean(scopedChannel) || Boolean(createOnly);
   const routingResolution = resolveEscalationLadder(selectedProfile?.sourcing);
   const anchorResolution = resolveResearchAnchor(selectedProfile?.research_profile);
+  const escalationValues = form
+    ? splitListInput(form.escalationLadder)
+    : [];
+  const invalidEscalationValues = escalationValues.filter(
+    (value) => !PIPELINE_ESCALATION_TIERS.includes(
+      value as (typeof PIPELINE_ESCALATION_TIERS)[number],
+    ),
+  );
+  const archivalProviderValues = form
+    ? splitListInput(form.archivalProviders)
+    : [];
+  const invalidArchivalProviders = archivalProviderValues.filter(
+    (value) => !PIPELINE_ARCHIVAL_PROVIDERS.includes(
+      value as (typeof PIPELINE_ARCHIVAL_PROVIDERS)[number],
+    ),
+  );
+  const invalidResearchAnchor = Boolean(
+    form?.researchAnchorType &&
+      !PIPELINE_RESEARCH_ANCHORS.includes(
+        form.researchAnchorType as (typeof PIPELINE_RESEARCH_ANCHORS)[number],
+      ),
+  );
+  const editedPipelineConfigIsInvalid =
+    (pipelineEdits.has("escalationLadder") &&
+      invalidEscalationValues.length > 0) ||
+    (pipelineEdits.has("archivalProviders") &&
+      invalidArchivalProviders.length > 0) ||
+    (pipelineEdits.has("researchAnchorType") && invalidResearchAnchor);
   const personaSuggestion = useMemo(() => {
     if (!form) return null;
 
@@ -262,6 +350,7 @@ export function ChannelProfilesPanel({
     if (nextProfile.channel !== hydratedChannelRef.current) {
       hydratedChannelRef.current = nextProfile.channel;
       setForm(profileToForm(nextProfile, characters));
+      setPipelineEdits(new Set());
     }
   }, [characters, creating, loading, profiles, scopedChannel, selectedProfile]);
 
@@ -288,6 +377,14 @@ export function ChannelProfilesPanel({
       setForm((current) => (current ? { ...current, [key]: value } : current));
     },
     [],
+  );
+
+  const updatePipelineForm = useCallback(
+    (key: PipelineField, value: string) => {
+      updateForm(key, value);
+      setPipelineEdits((current) => new Set(current).add(key));
+    },
+    [updateForm],
   );
 
   const updateCharacter = useCallback(
@@ -387,6 +484,7 @@ export function ChannelProfilesPanel({
     setProposal(null);
     setLastApplied(null);
     setAiFlagged(new Set());
+    setPipelineEdits(new Set());
   };
 
   const startNew = () => {
@@ -398,6 +496,7 @@ export function ChannelProfilesPanel({
     setProposal(null);
     setLastApplied(null);
     setAiFlagged(new Set());
+    setPipelineEdits(new Set());
   };
 
   useEffect(() => {
@@ -465,7 +564,35 @@ export function ChannelProfilesPanel({
     setSaving(true);
     setNotice(null);
     try {
-      const built = buildChannelProfileUpsert(formToInput(form));
+      const pipelineConfigEdits: ChannelProfilePipelineEdits = {};
+      if (
+        pipelineEdits.has("escalationLadder") ||
+        pipelineEdits.has("archivalProviders")
+      ) {
+        pipelineConfigEdits.sourcing = {};
+        if (pipelineEdits.has("escalationLadder")) {
+          pipelineConfigEdits.sourcing.escalation_ladder = splitListInput(
+            form.escalationLadder,
+          );
+        }
+        if (pipelineEdits.has("archivalProviders")) {
+          pipelineConfigEdits.sourcing.archival_providers = splitListInput(
+            form.archivalProviders,
+          );
+        }
+      }
+      if (pipelineEdits.has("researchAnchorType")) {
+        pipelineConfigEdits.research_profile = {
+          anchor_type: form.researchAnchorType as ResearchAnchorType,
+        };
+      }
+      const built = buildChannelProfileUpsert(formToInput(form), {
+        stored: {
+          sourcing: selectedProfile?.sourcing ?? null,
+          research_profile: selectedProfile?.research_profile ?? null,
+        },
+        edits: pipelineConfigEdits,
+      });
       const { error: upsertError } = await supabase
         .from("channel_profiles")
         .upsert(built, { onConflict: "channel" });
@@ -478,7 +605,13 @@ export function ChannelProfilesPanel({
       setCreating(false);
       setSelectedChannel(built.channel);
       hydratedChannelRef.current = built.channel;
-      setForm(profileToForm(built, characters));
+      setForm(
+        profileToForm(
+          selectedProfile ? { ...selectedProfile, ...built } : built,
+          characters,
+        ),
+      );
+      setPipelineEdits(new Set());
       await onRefetch();
       setNotice({ message: "Channel profile saved." });
       if (lastApplied) {
@@ -993,6 +1126,109 @@ export function ChannelProfilesPanel({
 
               <section
                 className="channel-profile-section"
+                aria-labelledby="channel-profile-pipeline-config-heading"
+              >
+                <h3
+                  id="channel-profile-pipeline-config-heading"
+                  className="text-title channel-profile-section-title"
+                >
+                  Pipeline configuration
+                </h3>
+                <p className="hint">
+                  These settings control research and footage selection. Saving an edit preserves pipeline settings that are not shown here.
+                </p>
+                <div className="grid2">
+                  <div className="field">
+                    <label htmlFor="channel-profile-escalation-ladder">
+                      <span className="eyebrow">Footage routing</span>
+                      <span className="field-label-side">
+                        <span className="hint">Newline or comma list</span>
+                      </span>
+                    </label>
+                    <textarea
+                      id="channel-profile-escalation-ladder"
+                      className="mono"
+                      rows={3}
+                      value={form.escalationLadder}
+                      aria-invalid={invalidEscalationValues.length > 0}
+                      aria-describedby="channel-profile-escalation-ladder-help channel-profile-escalation-ladder-error"
+                      onChange={(event) =>
+                        updatePipelineForm("escalationLadder", event.target.value)
+                      }
+                    />
+                    <span id="channel-profile-escalation-ladder-help" className="hint">
+                      Allowed: {PIPELINE_ESCALATION_TIERS.join(", ")}.
+                    </span>
+                    {invalidEscalationValues.length > 0 && (
+                      <p id="channel-profile-escalation-ladder-error" className="field-error" role="alert">
+                        Invalid footage routing: {invalidEscalationValues.join(", ")}. Allowed: {PIPELINE_ESCALATION_TIERS.join(", ")}.
+                      </p>
+                    )}
+                  </div>
+                  <div className="field">
+                    <label htmlFor="channel-profile-archival-providers">
+                      <span className="eyebrow">Archival providers</span>
+                      <span className="field-label-side">
+                        <span className="hint">Newline or comma list</span>
+                      </span>
+                    </label>
+                    <textarea
+                      id="channel-profile-archival-providers"
+                      className="mono"
+                      rows={3}
+                      value={form.archivalProviders}
+                      aria-invalid={invalidArchivalProviders.length > 0}
+                      aria-describedby="channel-profile-archival-providers-help channel-profile-archival-providers-error"
+                      onChange={(event) =>
+                        updatePipelineForm("archivalProviders", event.target.value)
+                      }
+                    />
+                    <span id="channel-profile-archival-providers-help" className="hint">
+                      Allowed: {PIPELINE_ARCHIVAL_PROVIDERS.join(", ")}.
+                    </span>
+                    {invalidArchivalProviders.length > 0 && (
+                      <p id="channel-profile-archival-providers-error" className="field-error" role="alert">
+                        Invalid archival provider: {invalidArchivalProviders.join(", ")}. Allowed: {PIPELINE_ARCHIVAL_PROVIDERS.join(", ")}.
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="field">
+                  <label htmlFor="channel-profile-research-anchor">
+                    <span className="eyebrow">Pipeline fact anchor</span>
+                  </label>
+                  <select
+                    id="channel-profile-research-anchor"
+                    value={form.researchAnchorType}
+                    aria-invalid={invalidResearchAnchor}
+                    aria-describedby="channel-profile-research-anchor-help channel-profile-research-anchor-error"
+                    onChange={(event) =>
+                      updatePipelineForm("researchAnchorType", event.target.value)
+                    }
+                  >
+                    <option value="" disabled>Not set</option>
+                    {invalidResearchAnchor && (
+                      <option value={form.researchAnchorType}>
+                        {form.researchAnchorType} (invalid stored value)
+                      </option>
+                    )}
+                    {PIPELINE_RESEARCH_ANCHORS.map((value) => (
+                      <option key={value} value={value}>{labelize(value)}</option>
+                    ))}
+                  </select>
+                  <span id="channel-profile-research-anchor-help" className="hint">
+                    Allowed: {PIPELINE_RESEARCH_ANCHORS.join(", ")}.
+                  </span>
+                  {invalidResearchAnchor && (
+                    <p id="channel-profile-research-anchor-error" className="field-error" role="alert">
+                      Invalid pipeline fact anchor: {form.researchAnchorType}. Allowed: {PIPELINE_RESEARCH_ANCHORS.join(", ")}.
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              <section
+                className="channel-profile-section"
                 aria-labelledby="channel-profile-unused-fields-heading"
               >
                 <h3
@@ -1115,7 +1351,11 @@ export function ChannelProfilesPanel({
                 className="btn"
                 type="button"
                 onClick={() => void saveProfile()}
-                disabled={saving || !parseShortSeconds(form.shortSeconds).ok}
+                disabled={
+                  saving ||
+                  !parseShortSeconds(form.shortSeconds).ok ||
+                  editedPipelineConfigIsInvalid
+                }
               >
                 {saving ? "Saving..." : "Save channel"}
               </button>
