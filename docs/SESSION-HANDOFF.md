@@ -1,5 +1,52 @@
 # Dashboard session handoff
 
+## ⚠️ PIPELINE-SIDE CHANGES YOU MUST KNOW (2026-07-30) — added by the problem-solver
+
+**Process note first, because it matters more than any single item below:** this repo went **two days without a sync** while four pipeline changes landed or were built that affect it. The same coordinator controls both repos, so there was no cross-team boundary to wait on — the staleness was a prioritisation failure, not a coordination one. The 2026-07-28 ledger already recorded *"a handoff is only current for the repo whose session wrote it"*; that lesson was logged and then repeated. Treat this repo as running the **same** builder → cross-vendor review → merge protocol as the pipeline, not as a downstream consumer.
+
+### MERGED on `main` — AC-D6 (PR #131 `b1b5c49`): a failed render now leaves a manifest behind
+
+**`receipts.result` (assembly) is no longer `null` on a render failure.** It now carries the full `RenderManifest`.
+
+| assembly receipt | `result` | `evidence` |
+|---|---|---|
+| before | **`null`** | `{model, provider}` |
+| **now** | **manifest** | `below_floor_notice, footage_relevance, operator_watch, visual_distinctness, visual_relevance` + provider/model |
+
+**If any surface tests `result == null` to mean "render failed", that test no longer holds.** Distinguish by the sentinel `reason` (still begins `provider error: Render failed: …`) or `render_status != "rendered"`.
+
+**`render_status` caveat — read this if you key off it.** A render that was *attempted and failed* persists `render_status = "planned"` plus `render_skip_reason`. We deliberately did not widen the `Literal["planned","rendered","blocked"]` vocabulary. **Consequence: a failed render is indistinguishable from a never-attempted one by `render_status` alone.** Key off `render_skip_reason`. Say the word if you would rather we add a `"failed"` member.
+
+**Also:** `parkExplanation.ts:63-74` `extractBelowFloorCuts` does an unbounded recursive walk looking for `below_floor_cuts` — a key the pipeline still never writes (ours is `below_floor_notice.cuts`, the known pre-existing drift). It still returns `[]`, but on render-failure receipts it now walks a much larger object.
+
+### 🔴 Defect D root cause was WRONG in the spec, and is now corrected
+
+The reviewed spec concluded *"not a Wikimedia user-agent block — measured, not assumed."* **That measurement was invalid**: `curl` with no `-A` still sends `curl/8.x`, so the null case was never tested. Re-measured with a truly empty UA, and with `axios` / `python-requests` / `Go-http-client` defaults → **403**. Wikimedia enforces a UA policy at the HAProxy edge (phabricator T400119). The render vendor independently confirmed it: *"Wikimedia Commons blocks automated/non-browser downloads, so URLs that open fine in a web browser can still return 403 to a server-side renderer."*
+
+**No URL strategy avoids it** — `Special:FilePath`, the Action API and the REST API all resolve back to the same `upload.wikimedia.org` and 403 identically. Rehosting is the only fix. It is built and in review.
+
+### 🔴 Phantom render spend — `jobs.spend` has been OVER-reported
+
+`adapters/render.py` stamps `EST_COST_PER_RENDER` ($0.30) on **every** render `AdapterError`, on the assumption "the render billed on submit". The vendor confirmed the opposite for asset-download failures: *"these failed renders did not consume any rendering credits (they failed before the render stage)"*, with the credit balance unchanged.
+
+**Jobs #122, #127 and #128 each booked ≈$0.30 that was never spent (~$0.90 total).** If any surface sums or reports spend, those rows are inflated. A fix is in review; historical rows are not retro-corrected.
+
+### 🆕 STANDING OPERATOR POLICY: test every improvement on AT LEAST TWO CHANNELS
+
+One agent set driven by per-channel config means a change that helps one profile can silently regress another. **It earned itself on first use:** the same pipeline scored `on_topic_ratio` **0.324** on `dark_history` (25 of 37 cuts below floor) and **0.769** on `weird_food` (6 of 26). The relevance problem is largely channel-specific. Any relevance-affecting dashboard surface should show *both* channels, never one.
+
+### ⚠️ The `default` channel_profiles row is doing two incompatible jobs
+
+It is display-named **"Animal channel"** with the description *"…Example, how do birds find water?"*, but it is ALSO the fallback every channel-less job resolves to. It has `character = null`, `research_profile = null`, `sourcing = null` — so it can never ground a topic (verified: job #125 blocked at $0.00). Its `source_ladder` is one of the confirmed decoy fields. **An animal channel needs its own row.**
+
+### Coming — built but NOT merged, listed so they are not a surprise
+
+- **Topic-researcher retrieval:** the blocked reason string changes (`"no retrieval on the worker path"` → `"no usable cited sources"` / `"retrieval is disabled"`), and `SourceType` gains **`"web"`** — a closed-Literal widening. If anything switches on source type, add the member.
+- **Channel lexicon + substitution:** adds a new terminal block reason family, so `jobs.park_kind` gains a member.
+- **Defect D rehost:** archival assets will be served from our own bucket, so `asset_plan[].uri` for archival stops being a third-party host.
+
+---
+
 ## ⚠️ PIPELINE-SIDE CHANGES YOU MUST KNOW (2026-07-28) — added by the problem-solver
 
 Five pipeline PRs landed on 2026-07-28. **No schema changes, no migrations, and the dashboard needs no action to keep working** — but the *data flowing through shared surfaces* changed, and two of these were disclosed late. Read before interpreting new receipts or building triage.
