@@ -20,6 +20,7 @@ import {
   parseLengthTarget,
   parsePackaging,
   parsePlatforms,
+  resolvePipelineMerge,
   parseSourceLadder,
   splitListInput,
   parseShortSeconds,
@@ -586,19 +587,34 @@ export function ChannelProfilesPanel({
           anchor_type: form.researchAnchorType as ResearchAnchorType,
         };
       }
+      const pipelineMerge = resolvePipelineMerge({
+        creating,
+        channel: form.channel,
+        selectedProfile,
+        profiles,
+      });
+      if (!pipelineMerge.ok) {
+        setNotice({ message: pipelineMerge.reason, error: true });
+        return;
+      }
       const built = buildChannelProfileUpsert(formToInput(form), {
-        stored: {
-          sourcing: selectedProfile?.sourcing ?? null,
-          research_profile: selectedProfile?.research_profile ?? null,
-        },
+        stored: pipelineMerge.stored,
         edits: pipelineConfigEdits,
       });
-      const { error: upsertError } = await supabase
-        .from("channel_profiles")
-        .upsert(built, { onConflict: "channel" });
+      const { error: upsertError } = creating
+        ? await supabase.from("channel_profiles").insert(built)
+        : await supabase
+            .from("channel_profiles")
+            .upsert(built, { onConflict: "channel" });
 
       if (upsertError) {
-        setNotice({ message: upsertError.message, error: true });
+        setNotice({
+          message:
+            upsertError.code === "23505"
+              ? `A channel named "${built.channel}" already exists. Open it from Channels and edit it there — saving here would overwrite its pipeline settings.`
+              : upsertError.message,
+          error: true,
+        });
         return;
       }
 

@@ -113,6 +113,53 @@ export type ChannelProfilePipelineMerge = {
   edits: ChannelProfilePipelineEdits;
 };
 
+export type PipelineMergeResolution =
+  | {
+      ok: true;
+      stored: { sourcing: Json | null; research_profile: Json | null };
+    }
+  | { ok: false; reason: string };
+
+export function resolvePipelineMerge(params: {
+  creating: boolean;
+  channel: string;
+  selectedProfile: {
+    channel: string;
+    sourcing: Json | null;
+    research_profile: Json | null;
+  } | null;
+  profiles: ReadonlyArray<{
+    channel: string;
+    sourcing: Json | null;
+    research_profile: Json | null;
+  }>;
+}): PipelineMergeResolution {
+  const name = params.channel.trim();
+  if (params.creating) {
+    const existing = params.profiles.find((p) => p.channel === name);
+    if (existing) {
+      return {
+        ok: false,
+        reason: `A channel named "${name}" already exists. Open it from Channels and edit it there — saving here would overwrite its pipeline settings.`,
+      };
+    }
+    return {
+      ok: true,
+      stored: { sourcing: null, research_profile: null },
+    };
+  }
+  if (!params.selectedProfile) {
+    return { ok: false, reason: "No channel selected to save." };
+  }
+  return {
+    ok: true,
+    stored: {
+      sourcing: params.selectedProfile.sourcing ?? null,
+      research_profile: params.selectedProfile.research_profile ?? null,
+    },
+  };
+}
+
 export const DEFAULT_ENGAGEMENT_POSTURE: EngagementPosture = {
   claim_discipline: "fact_first",
   arousal_ceiling: "conservative",

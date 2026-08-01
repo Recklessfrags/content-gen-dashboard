@@ -7,10 +7,110 @@ import {
   parseResearchProfile,
   parseShortSeconds,
   parseSourcing,
+  resolvePipelineMerge,
   splitListInput,
   validateChannelProfile,
   type ChannelProfileUpsertInput,
 } from "@/lib/channelProfiles";
+
+describe("resolvePipelineMerge", () => {
+  const existingProfile = {
+    channel: "food",
+    sourcing: { assembly_max_spend: 4.75 },
+    research_profile: { thesis: "pipeline-owned" },
+  };
+
+  it("rejects a new channel whose name already exists", () => {
+    const result = resolvePipelineMerge({
+      creating: true,
+      channel: "food",
+      selectedProfile: null,
+      profiles: [existingProfile],
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("includes the duplicate channel name in a non-empty reason", () => {
+    const result = resolvePipelineMerge({
+      creating: true,
+      channel: "food",
+      selectedProfile: null,
+      profiles: [existingProfile],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).not.toBe("");
+      expect(result.reason).toContain("food");
+    }
+  });
+
+  it("allows a new channel name with empty pipeline settings", () => {
+    const result = resolvePipelineMerge({
+      creating: true,
+      channel: "history",
+      selectedProfile: null,
+      profiles: [existingProfile],
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      stored: { sourcing: null, research_profile: null },
+    });
+  });
+
+  it("preserves the selected profile pipeline settings while editing", () => {
+    const result = resolvePipelineMerge({
+      creating: false,
+      channel: "food",
+      selectedProfile: existingProfile,
+      profiles: [existingProfile],
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      stored: {
+        sourcing: existingProfile.sourcing,
+        research_profile: existingProfile.research_profile,
+      },
+    });
+  });
+
+  it("rejects editing without a selected profile", () => {
+    const result = resolvePipelineMerge({
+      creating: false,
+      channel: "food",
+      selectedProfile: null,
+      profiles: [existingProfile],
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("preserves null sourcing while editing", () => {
+    const result = resolvePipelineMerge({
+      creating: false,
+      channel: "food",
+      selectedProfile: { ...existingProfile, sourcing: null },
+      profiles: [existingProfile],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.stored.sourcing).toBeNull();
+  });
+
+  it("trims a new channel name before checking for an existing match", () => {
+    const result = resolvePipelineMerge({
+      creating: true,
+      channel: "  food  ",
+      selectedProfile: null,
+      profiles: [existingProfile],
+    });
+
+    expect(result.ok).toBe(false);
+  });
+});
 
 describe("parseShortSeconds", () => {
   it.each([
