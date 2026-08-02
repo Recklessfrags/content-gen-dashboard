@@ -76,11 +76,42 @@ describe("ChannelProfilesPanel saves", () => {
     await user.click(screen.getByRole("button", { name: "Save channel" }));
 
     await waitFor(() => expect(insert).toHaveBeenCalledTimes(1));
-    expect(insert).toHaveBeenCalledWith(
-      expect.objectContaining({ channel: "science" }),
-    );
+    const insertPayload = insert.mock.calls[0][0];
+    expect(insertPayload).toEqual(expect.objectContaining({ channel: "science" }));
+    expect(insertPayload).not.toHaveProperty("sourcing");
+    expect(insertPayload).not.toHaveProperty("research_profile");
     expect(upsert).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects an edited channel identity before any RPC or upsert", async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    const upsert = vi.fn().mockResolvedValue({ error: null });
+    const rpc = vi.fn();
+    const from = vi.fn(() => ({ insert, upsert }));
+    const user = userEvent.setup();
+    const selected = { ...existingProfile };
+
+    render(
+      <ChannelProfilesPanel
+        supabase={{ from, rpc } as never}
+        profiles={[selected]}
+        loading={false}
+        error={null}
+        onRefetch={vi.fn()}
+      />,
+    );
+
+    await screen.findByRole("textbox", { name: "Channel" });
+    // Simulate the selected row changing underneath an already-hydrated form.
+    selected.channel = "renamed";
+    await user.click(screen.getByRole("button", { name: "Save channel" }));
+
+    expect(await screen.findByText(/channel identity cannot be changed/i)).toBeInTheDocument();
+    expect(rpc).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it("shallow-merges only edited sourcing keys without sending a stale stored snapshot", async () => {

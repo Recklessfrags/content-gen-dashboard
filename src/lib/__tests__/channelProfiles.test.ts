@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import pipelineVocabularies from "@/lib/pipeline-vocabularies.json";
 import {
   buildChannelProfilePipelinePatch,
   buildChannelProfileUpsert,
@@ -8,12 +9,36 @@ import {
   parseResearchProfile,
   parseShortSeconds,
   parseSourcing,
+  RESEARCH_ANCHOR_TYPE,
   resolvePipelineMerge,
   splitListInput,
   validateChannelProfile,
   validateChannelProfilePipelineEdits,
+  VOICE_ARCHETYPE_SUGGESTIONS,
   type ChannelProfileUpsertInput,
 } from "@/lib/channelProfiles";
+
+describe("pipeline vocabulary wiring", () => {
+  it("uses pipeline-owned voice-archetype suggestions", () => {
+    expect(new Set(VOICE_ARCHETYPE_SUGGESTIONS)).toEqual(
+      new Set(pipelineVocabularies.voice_archetypes.values),
+    );
+    expect(VOICE_ARCHETYPE_SUGGESTIONS).toHaveLength(
+      pipelineVocabularies.voice_archetypes.values.length,
+    );
+  });
+
+  it("keeps research-anchor display order a permutation of pipeline membership", () => {
+    // The pipeline WILL add anchor-as-data values; this is the loud tripwire that
+    // tells the dashboard to extend its hardcoded ResearchAnchorType union.
+    expect(new Set(RESEARCH_ANCHOR_TYPE)).toEqual(
+      new Set(pipelineVocabularies.anchor_types.values),
+    );
+    expect(RESEARCH_ANCHOR_TYPE).toHaveLength(
+      pipelineVocabularies.anchor_types.values.length,
+    );
+  });
+});
 
 describe("resolvePipelineMerge", () => {
   const existingProfile = {
@@ -52,6 +77,7 @@ describe("resolvePipelineMerge", () => {
 
     expect(result).toEqual({
       ok: true,
+      creating: true,
       stored: { sourcing: null, research_profile: null },
     });
   });
@@ -63,6 +89,32 @@ describe("resolvePipelineMerge", () => {
     });
 
     expect(result.ok).toBe(false);
+  });
+
+  it("returns an edit result with no stored pipeline snapshot", () => {
+    const result = resolvePipelineMerge({
+      creating: false,
+      channel: "food",
+      selectedProfile: existingProfile,
+      profiles: [existingProfile],
+    });
+
+    expect(result).toEqual({ ok: true, creating: false });
+    expect(result).not.toHaveProperty("stored");
+  });
+
+  it("rejects a changed channel identity while editing", () => {
+    const result = resolvePipelineMerge({
+      creating: false,
+      channel: "renamed",
+      selectedProfile: existingProfile,
+      profiles: [existingProfile],
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "The channel identity cannot be changed while editing. Create a new channel instead.",
+    });
   });
 });
 

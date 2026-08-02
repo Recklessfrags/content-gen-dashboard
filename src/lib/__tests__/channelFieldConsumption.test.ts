@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import pipelineVocabularies from "@/lib/pipeline-vocabularies.json";
 import {
   CHANNEL_FIELD_CONSUMPTION,
+  PIPELINE_ARCHIVAL_PROVIDERS,
+  PIPELINE_ESCALATION_TIERS,
+  PIPELINE_RESEARCH_ANCHORS,
   isInertChannelField,
   resolveArchivalProviders,
   resolveEscalationLadder,
@@ -10,6 +14,31 @@ import { NICHE_FIELDS } from "@/lib/suggestPersona";
 import type { Json } from "@/lib/database.types";
 
 describe("channel field consumption", () => {
+  it("uses the bundled pipeline contract for vocabulary membership", () => {
+    expect(new Set(PIPELINE_ESCALATION_TIERS)).toEqual(
+      new Set(pipelineVocabularies.escalation_tiers.values),
+    );
+    expect(PIPELINE_ESCALATION_TIERS).toHaveLength(
+      pipelineVocabularies.escalation_tiers.values.length,
+    );
+    expect(new Set(PIPELINE_ARCHIVAL_PROVIDERS)).toEqual(
+      new Set(pipelineVocabularies.archival_providers.values),
+    );
+    expect(PIPELINE_ARCHIVAL_PROVIDERS).toHaveLength(
+      pipelineVocabularies.archival_providers.values.length,
+    );
+    expect(new Set(PIPELINE_RESEARCH_ANCHORS)).toEqual(
+      new Set(pipelineVocabularies.anchor_types.values),
+    );
+    expect(PIPELINE_RESEARCH_ANCHORS).toHaveLength(
+      pipelineVocabularies.anchor_types.values.length,
+    );
+  });
+
+  it("records the pipeline commit that supplied the bundled contract", () => {
+    expect(pipelineVocabularies.source_commit).toMatch(/^[0-9a-f]{7,40}$/);
+  });
+
   it("classifies pipeline, dashboard, and inert fields", () => {
     for (const field of ["source_ladder", "packaging", "platforms"]) {
       expect(CHANNEL_FIELD_CONSUMPTION[field].kind).toBe("inert");

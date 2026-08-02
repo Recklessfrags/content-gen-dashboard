@@ -97,10 +97,8 @@ export function isInertChannelField(field: string): boolean {
   return fieldConsumption(field)?.kind === "inert";
 }
 
-// Hand-mirrored from the pipeline repo: src/pipeline/config.py lines 92, 104,
-// 222-229, and 267-275; research anchors come from src/pipeline/models.py
-// lines 80-97. The durable fix is to publish these through the shared
-// vocabularies.json contract instead of maintaining constants in two repos.
+// These local tuples are the TypeScript source of truth. Contract parity tests
+// deliberately fail when the vendored pipeline vocabulary changes.
 export const PIPELINE_ESCALATION_TIERS = ["archival", "pixabay"] as const;
 export const PIPELINE_ARCHIVAL_PROVIDERS = [
   "internet_archive",
@@ -112,12 +110,19 @@ export const PIPELINE_DEFAULT_ARCHIVAL_PROVIDERS = [
   "internet_archive",
   "wikimedia_commons",
 ] as const;
+// Display order is intentionally local. Its permutation test makes drift loud.
 export const PIPELINE_RESEARCH_ANCHORS = [
   "fda_standard_of_identity",
   "declassified_primary_doc",
   "scripture",
   "none",
 ] as const;
+
+const PIPELINE_ESCALATION_TIER_SET = new Set<string>(PIPELINE_ESCALATION_TIERS);
+const PIPELINE_ARCHIVAL_PROVIDER_SET = new Set<string>(PIPELINE_ARCHIVAL_PROVIDERS);
+const PIPELINE_RESEARCH_ANCHOR_SET = new Set<string>(
+  PIPELINE_RESEARCH_ANCHORS,
+);
 
 export type LadderResolution = {
   /** PRESENCE only: the key exists. Never type, emptiness, or equality-with-a-default. */
@@ -202,11 +207,10 @@ export function resolveEscalationLadder(
   }
 
   const lowered = normalized.map((entry) => entry.toLowerCase());
-  const validTiers = new Set<string>(PIPELINE_ESCALATION_TIERS);
   return {
     configured: true,
-    effective: lowered.filter((entry) => validTiers.has(entry)),
-    ignored: lowered.filter((entry) => !validTiers.has(entry)),
+    effective: lowered.filter((entry) => PIPELINE_ESCALATION_TIER_SET.has(entry)),
+    ignored: lowered.filter((entry) => !PIPELINE_ESCALATION_TIER_SET.has(entry)),
     usesDefault: false,
     ignoredRaw: null,
   };
@@ -257,11 +261,10 @@ export function resolveArchivalProviders(
     };
   }
 
-  const validProviders = new Set<string>(PIPELINE_ARCHIVAL_PROVIDERS);
   return {
     configured: true,
-    effective: normalized.filter((entry) => validProviders.has(entry)),
-    ignored: normalized.filter((entry) => !validProviders.has(entry)),
+    effective: normalized.filter((entry) => PIPELINE_ARCHIVAL_PROVIDER_SET.has(entry)),
+    ignored: normalized.filter((entry) => !PIPELINE_ARCHIVAL_PROVIDER_SET.has(entry)),
     usesDefault: false,
     ignoredRaw: null,
   };
@@ -277,8 +280,7 @@ export function resolveResearchAnchor(
   if (!configured) return { configured: false, effective: null, ignoredValue: null };
 
   const value = object?.anchor_type;
-  const validAnchors = new Set<string>(PIPELINE_RESEARCH_ANCHORS);
-  if (typeof value === "string" && validAnchors.has(value)) {
+  if (typeof value === "string" && PIPELINE_RESEARCH_ANCHOR_SET.has(value)) {
     return { configured: true, effective: value, ignoredValue: null };
   }
   return {

@@ -13,6 +13,7 @@ import {
   FACT_ANCHOR,
   TREATMENT,
   VOICE_ARCHETYPE_SUGGESTIONS,
+  buildChannelProfilePipelinePatch,
   buildChannelProfileUpsert,
   defaultChannelProfile,
   joinListInput,
@@ -617,11 +618,39 @@ export function ChannelProfilesPanel({
         setNotice({ message: pipelineMerge.reason, error: true });
         return;
       }
-      const built = buildChannelProfileUpsert(formToInput(form), {
-        stored: pipelineMerge.stored,
-        edits: pipelineConfigEdits,
-      });
-      const { error: upsertError } = creating
+      const built = buildChannelProfileUpsert(
+        formToInput(form),
+        pipelineMerge.creating
+          ? { stored: pipelineMerge.stored, edits: pipelineConfigEdits }
+          : undefined,
+      );
+      if (!pipelineMerge.creating) {
+        const patch = buildChannelProfilePipelinePatch(pipelineConfigEdits);
+        if (patch.sourcing || patch.research_profile) {
+          const { data, error: mergeError } = await supabase.rpc(
+            "merge_channel_profile_patch",
+            {
+              p_channel: form.channel.trim(),
+              ...(patch.sourcing ? { p_sourcing_patch: patch.sourcing } : {}),
+              ...(patch.research_profile
+                ? { p_research_patch: patch.research_profile }
+                : {}),
+            },
+          );
+          if (mergeError) {
+            setNotice({ message: mergeError.message, error: true });
+            return;
+          }
+          if (!data || data.length === 0) {
+            setNotice({
+              message: `Channel "${form.channel.trim()}" no longer exists. Refresh and try again.`,
+              error: true,
+            });
+            return;
+          }
+        }
+      }
+      const { error: upsertError } = pipelineMerge.creating
         ? await supabase.from("channel_profiles").insert(built)
         : await supabase
             .from("channel_profiles")

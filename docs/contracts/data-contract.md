@@ -23,6 +23,14 @@ write the pipeline-owned **lifecycle** columns. The one sanctioned dashboard wri
 RLS policy (`jobs_enqueue`). The pipeline writes everything via the service role, which
 bypasses RLS.
 
+## Pipeline-owned vocabularies
+
+The dashboard vendors the pipeline repo's `docs/contracts/vocabularies.json` as
+`src/lib/pipeline-vocabularies.json`. Pipeline disclosures are adopted by copying the
+source file; `src/lib/SYNC.md` records that sync procedure. The pipeline remains the
+owner of these vocabulary values, while dashboard-specific display ordering and
+defaults remain local behavior.
+
 ---
 
 ## `characters` — dashboard-owned

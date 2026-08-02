@@ -31,6 +31,13 @@ export const RESEARCH_ANCHOR_TYPE = [
   "none",
 ] as const;
 export type ResearchAnchorType = (typeof RESEARCH_ANCHOR_TYPE)[number];
+const RESEARCH_ANCHOR_TYPE_SET = new Set<string>(
+  RESEARCH_ANCHOR_TYPE,
+);
+
+function isResearchAnchorType(value: unknown): value is ResearchAnchorType {
+  return typeof value === "string" && RESEARCH_ANCHOR_TYPE_SET.has(value);
+}
 
 export const TREATMENT = [
   "archival_documentary",
@@ -40,17 +47,11 @@ export const TREATMENT = [
 ] as const;
 export type Treatment = (typeof TREATMENT)[number];
 
-// Suggestion hints for the (free-text, open-vocabulary) voice_archetype field.
-// The PIPELINE is the authority on accepted archetypes; this list is a
-// hand-maintained convenience copy and can drift — the durable fix is to
-// generate it from the pipeline's shared vocabulary contract
-// (docs/contracts/vocabularies.json, incoming) instead of editing here.
 export const VOICE_ARCHETYPE_SUGGESTIONS = [
-  "drill_instructor",
   "calm_explainer",
+  "drill_instructor",
+  "field_reporter",
   "warm_storyteller",
-  "npr_explainer",
-  "hype_announcer",
 ] as const;
 export type VoiceArchetypeSuggestion =
   (typeof VOICE_ARCHETYPE_SUGGESTIONS)[number];
@@ -123,12 +124,20 @@ export type ChannelProfilePipelineMerge = {
 export type PipelineMergeResolution =
   | {
       ok: true;
+      creating: true;
       stored: { sourcing: Json | null; research_profile: Json | null };
     }
+  | { ok: true; creating: false }
   | { ok: false; reason: string };
 
 export function resolvePipelineMerge(params: {
+  creating?: boolean;
   channel: string;
+  selectedProfile?: {
+    channel: string;
+    sourcing: Json | null;
+    research_profile: Json | null;
+  } | null;
   profiles: ReadonlyArray<{
     channel: string;
     sourcing: Json | null;
@@ -136,16 +145,32 @@ export function resolvePipelineMerge(params: {
   }>;
 }): PipelineMergeResolution {
   const name = params.channel.trim();
-  const existing = params.profiles.find((p) => p.channel === name);
-  if (existing) {
+  if (params.creating ?? true) {
+    const existing = params.profiles.find((p) => p.channel === name);
+    if (existing) {
+      return {
+        ok: false,
+        reason: `A channel named "${name}" already exists. Open it from Channels and edit it there — saving here would overwrite its pipeline settings.`,
+      };
+    }
+    return {
+      ok: true,
+      creating: true,
+      stored: { sourcing: null, research_profile: null },
+    };
+  }
+  if (!params.selectedProfile) {
+    return { ok: false, reason: "No channel selected to save." };
+  }
+  if (name !== params.selectedProfile.channel) {
     return {
       ok: false,
-      reason: `A channel named "${name}" already exists. Open it from Channels and edit it there — saving here would overwrite its pipeline settings.`,
+      reason: "The channel identity cannot be changed while editing. Create a new channel instead.",
     };
   }
   return {
     ok: true,
-    stored: { sourcing: null, research_profile: null },
+    creating: false,
   };
 }
 
@@ -239,7 +264,7 @@ export function parseResearchProfile(json: Json): ResearchProfile {
   const thesis = stringField(json, "thesis") ?? null;
 
   return {
-    anchor_type: isCatalogValue(anchorType, RESEARCH_ANCHOR_TYPE)
+    anchor_type: isResearchAnchorType(anchorType)
       ? anchorType
       : "fda_standard_of_identity",
     source_hierarchy: parseStringArray(json.source_hierarchy ?? []),
@@ -423,7 +448,7 @@ export function validateChannelProfilePipelineEdits(
   if (
     researchProfile &&
     hasOwn(researchProfile, "anchor_type") &&
-    !isCatalogValue(researchProfile.anchor_type, RESEARCH_ANCHOR_TYPE)
+    !isResearchAnchorType(researchProfile.anchor_type)
   ) {
     errors.push(
       `research_profile.anchor_type must be one of: ${RESEARCH_ANCHOR_TYPE.join(", ")}`,
