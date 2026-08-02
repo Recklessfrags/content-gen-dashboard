@@ -38,16 +38,17 @@ const existingProfile: ChannelProfile = {
 
 afterEach(cleanup);
 
-describe("ChannelProfilesPanel create saves", () => {
+describe("ChannelProfilesPanel saves", () => {
   it("refuses an existing channel before any write, then inserts a new channel", async () => {
     const insert = vi.fn().mockResolvedValue({ error: null });
     const upsert = vi.fn().mockResolvedValue({ error: null });
+    const rpc = vi.fn();
     const from = vi.fn(() => ({ insert, upsert }));
     const user = userEvent.setup();
 
     render(
       <ChannelProfilesPanel
-        supabase={{ from } as never}
+        supabase={{ from, rpc } as never}
         profiles={[existingProfile]}
         loading={false}
         error={null}
@@ -68,6 +69,7 @@ describe("ChannelProfilesPanel create saves", () => {
     expect(from).not.toHaveBeenCalled();
     expect(insert).not.toHaveBeenCalled();
     expect(upsert).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
 
     await user.clear(channelInput);
     await user.type(channelInput, "science");
@@ -78,11 +80,15 @@ describe("ChannelProfilesPanel create saves", () => {
       expect.objectContaining({ channel: "science" }),
     );
     expect(upsert).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("normalizes stored pipeline lists and explains the archival default", async () => {
+  it("shallow-merges only edited sourcing keys without sending a stale stored snapshot", async () => {
     const insert = vi.fn().mockResolvedValue({ error: null });
     const upsert = vi.fn().mockResolvedValue({ error: null });
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: [existingProfile], error: null });
     const from = vi.fn(() => ({ insert, upsert }));
     const user = userEvent.setup();
     const mixedCaseProfile: ChannelProfile = {
@@ -95,7 +101,7 @@ describe("ChannelProfilesPanel create saves", () => {
 
     render(
       <ChannelProfilesPanel
-        supabase={{ from } as never}
+        supabase={{ from, rpc } as never}
         profiles={[mixedCaseProfile]}
         loading={false}
         error={null}
@@ -122,17 +128,90 @@ describe("ChannelProfilesPanel create saves", () => {
     await user.type(providers, "Wikimedia_Commons");
     await user.click(screen.getByRole("button", { name: "Save channel" }));
 
-    await waitFor(() => expect(upsert).toHaveBeenCalledTimes(1));
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sourcing: {
-          escalation_ladder: ["archival"],
-          archival_providers: ["wikimedia_commons"],
-          assembly_max_spend: 7.5,
-        },
-      }),
-      { onConflict: "channel" },
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+    expect(rpc).toHaveBeenCalledWith("merge_channel_profile_patch", {
+      p_channel: "history",
+      p_sourcing_patch: {
+        escalation_ladder: ["archival"],
+        archival_providers: ["wikimedia_commons"],
+      },
+    });
+    expect(JSON.stringify(rpc.mock.calls[0])).not.toContain(
+      "assembly_max_spend",
     );
+    expect(JSON.stringify(rpc.mock.calls[0])).not.toContain("7.5");
+
+    await waitFor(() => expect(upsert).toHaveBeenCalledTimes(1));
+    const upsertPayload = upsert.mock.calls[0][0];
+    expect(upsertPayload).not.toHaveProperty("sourcing");
+    expect(upsertPayload).not.toHaveProperty("research_profile");
+    expect(upsert).toHaveBeenCalledWith(upsertPayload, {
+      onConflict: "channel",
+    });
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("surfaces an RPC failure and does not continue to the profile upsert", async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    const upsert = vi.fn().mockResolvedValue({ error: null });
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "merge failed" },
+    });
+    const from = vi.fn(() => ({ insert, upsert }));
+    const user = userEvent.setup();
+
+    render(
+      <ChannelProfilesPanel
+        supabase={{ from, rpc } as never}
+        profiles={[existingProfile]}
+        loading={false}
+        error={null}
+        onRefetch={vi.fn()}
+      />,
+    );
+
+    const routing = await screen.findByRole("textbox", {
+      name: /Footage routing/i,
+    });
+    await user.clear(routing);
+    await user.type(routing, "pixabay");
+    await user.click(screen.getByRole("button", { name: "Save channel" }));
+
+    expect(await screen.findByText("merge failed")).toBeInTheDocument();
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(upsert).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("treats an empty RPC result as an error and does not upsert", async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    const upsert = vi.fn().mockResolvedValue({ error: null });
+    const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
+    const from = vi.fn(() => ({ insert, upsert }));
+    const user = userEvent.setup();
+
+    render(
+      <ChannelProfilesPanel
+        supabase={{ from, rpc } as never}
+        profiles={[existingProfile]}
+        loading={false}
+        error={null}
+        onRefetch={vi.fn()}
+      />,
+    );
+
+    const routing = await screen.findByRole("textbox", {
+      name: /Footage routing/i,
+    });
+    await user.clear(routing);
+    await user.type(routing, "pixabay");
+    await user.click(screen.getByRole("button", { name: "Save channel" }));
+
+    expect(
+      await screen.findByText(/Channel "history" no longer exists/),
+    ).toBeInTheDocument();
+    expect(upsert).not.toHaveBeenCalled();
     expect(insert).not.toHaveBeenCalled();
   });
 });

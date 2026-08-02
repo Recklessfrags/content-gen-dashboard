@@ -650,6 +650,32 @@ export type Database = {
           used: number
         }[]
       }
+      merge_channel_profile_patch: {
+        Args: {
+          p_channel: string
+          p_research_patch?: Json | null
+          p_sourcing_patch?: Json | null
+        }
+        Returns: {
+          channel: string
+          character: string | null
+          character_id: string | null
+          created_at: string
+          description: string
+          display_name: string
+          engagement_posture: Json
+          fact_anchor: string
+          length_target: Json
+          packaging: Json
+          platforms: Json
+          research_profile: Json | null
+          source_ladder: Json
+          sourcing: Json | null
+          treatment: string
+          updated_at: string
+          voice_archetype: string | null
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

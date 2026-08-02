@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildChannelProfilePipelinePatch,
   buildChannelProfileUpsert,
   defaultChannelProfile,
   joinListInput,
@@ -23,9 +24,7 @@ describe("resolvePipelineMerge", () => {
 
   it("rejects a new channel whose name already exists", () => {
     const result = resolvePipelineMerge({
-      creating: true,
       channel: "food",
-      selectedProfile: null,
       profiles: [existingProfile],
     });
 
@@ -34,9 +33,7 @@ describe("resolvePipelineMerge", () => {
 
   it("includes the duplicate channel name in a non-empty reason", () => {
     const result = resolvePipelineMerge({
-      creating: true,
       channel: "food",
-      selectedProfile: null,
       profiles: [existingProfile],
     });
 
@@ -49,9 +46,7 @@ describe("resolvePipelineMerge", () => {
 
   it("allows a new channel name with empty pipeline settings", () => {
     const result = resolvePipelineMerge({
-      creating: true,
       channel: "history",
-      selectedProfile: null,
       profiles: [existingProfile],
     });
 
@@ -61,51 +56,9 @@ describe("resolvePipelineMerge", () => {
     });
   });
 
-  it("preserves the selected profile pipeline settings while editing", () => {
-    const result = resolvePipelineMerge({
-      creating: false,
-      channel: "food",
-      selectedProfile: existingProfile,
-      profiles: [existingProfile],
-    });
-
-    expect(result).toEqual({
-      ok: true,
-      stored: {
-        sourcing: existingProfile.sourcing,
-        research_profile: existingProfile.research_profile,
-      },
-    });
-  });
-
-  it("rejects editing without a selected profile", () => {
-    const result = resolvePipelineMerge({
-      creating: false,
-      channel: "food",
-      selectedProfile: null,
-      profiles: [existingProfile],
-    });
-
-    expect(result.ok).toBe(false);
-  });
-
-  it("preserves null sourcing while editing", () => {
-    const result = resolvePipelineMerge({
-      creating: false,
-      channel: "food",
-      selectedProfile: { ...existingProfile, sourcing: null },
-      profiles: [existingProfile],
-    });
-
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.stored.sourcing).toBeNull();
-  });
-
   it("trims a new channel name before checking for an existing match", () => {
     const result = resolvePipelineMerge({
-      creating: true,
       channel: "  food  ",
-      selectedProfile: null,
       profiles: [existingProfile],
     });
 
@@ -350,6 +303,38 @@ describe("validateChannelProfile", () => {
   });
 });
 
+describe("buildChannelProfilePipelinePatch", () => {
+  it("normalizes and returns only explicitly edited top-level keys", () => {
+    expect(
+      buildChannelProfilePipelinePatch({
+        sourcing: {
+          escalation_ladder: ["  Archival  ", "PIXABAY"],
+        },
+        research_profile: {
+          anchor_type: "declassified_primary_doc",
+        },
+      }),
+    ).toEqual({
+      sourcing: {
+        escalation_ladder: ["archival", "pixabay"],
+      },
+      research_profile: {
+        anchor_type: "declassified_primary_doc",
+      },
+    });
+  });
+
+  it("rejects invalid patch values", () => {
+    expect(() =>
+      buildChannelProfilePipelinePatch({
+        sourcing: { archival_providers: ["youtube"] },
+      }),
+    ).toThrow(
+      "sourcing.archival_providers must contain only: internet_archive, loc, wikimedia_commons",
+    );
+  });
+});
+
 describe("buildChannelProfileUpsert", () => {
   it("normalizes fields and strips timestamps", () => {
     expect(
@@ -408,7 +393,7 @@ describe("buildChannelProfileUpsert", () => {
     ).toThrow("channel is required; fact_anchor is invalid");
   });
 
-  it("merges an edited escalation ladder without changing unrendered sourcing keys", () => {
+  it("preserves unrendered sourcing keys while building a new profile", () => {
     const queryVocabulary = {
       topic_token_policy: { mode: "pipeline-owned", minimum: 3 },
     };
@@ -436,7 +421,7 @@ describe("buildChannelProfileUpsert", () => {
     ).toBe(queryVocabulary);
   });
 
-  it("merges an edited research anchor without changing other research keys", () => {
+  it("preserves unrendered research keys while building a new profile", () => {
     const sourceHierarchy = ["primary", "secondary"];
     const result = buildChannelProfileUpsert(profileInput(), {
       stored: {

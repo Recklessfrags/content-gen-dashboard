@@ -108,6 +108,13 @@ export type ChannelProfilePipelineEdits = {
   };
 };
 
+export type ChannelProfilePipelinePatch = {
+  sourcing?: NonNullable<ChannelProfilePipelineEdits["sourcing"]>;
+  research_profile?: NonNullable<
+    ChannelProfilePipelineEdits["research_profile"]
+  >;
+};
+
 export type ChannelProfilePipelineMerge = {
   stored: Pick<ChannelProfile, "sourcing" | "research_profile">;
   edits: ChannelProfilePipelineEdits;
@@ -121,13 +128,7 @@ export type PipelineMergeResolution =
   | { ok: false; reason: string };
 
 export function resolvePipelineMerge(params: {
-  creating: boolean;
   channel: string;
-  selectedProfile: {
-    channel: string;
-    sourcing: Json | null;
-    research_profile: Json | null;
-  } | null;
   profiles: ReadonlyArray<{
     channel: string;
     sourcing: Json | null;
@@ -135,28 +136,16 @@ export function resolvePipelineMerge(params: {
   }>;
 }): PipelineMergeResolution {
   const name = params.channel.trim();
-  if (params.creating) {
-    const existing = params.profiles.find((p) => p.channel === name);
-    if (existing) {
-      return {
-        ok: false,
-        reason: `A channel named "${name}" already exists. Open it from Channels and edit it there — saving here would overwrite its pipeline settings.`,
-      };
-    }
+  const existing = params.profiles.find((p) => p.channel === name);
+  if (existing) {
     return {
-      ok: true,
-      stored: { sourcing: null, research_profile: null },
+      ok: false,
+      reason: `A channel named "${name}" already exists. Open it from Channels and edit it there — saving here would overwrite its pipeline settings.`,
     };
-  }
-  if (!params.selectedProfile) {
-    return { ok: false, reason: "No channel selected to save." };
   }
   return {
     ok: true,
-    stored: {
-      sourcing: params.selectedProfile.sourcing ?? null,
-      research_profile: params.selectedProfile.research_profile ?? null,
-    },
+    stored: { sourcing: null, research_profile: null },
   };
 }
 
@@ -448,39 +437,65 @@ function storedObject(value: Json | null): JsonRecord {
   return isJsonRecord(value) ? value : {};
 }
 
-// Pipeline-owned groups are omitted unless a rendered field was edited. When a
-// field is edited, merge it over the stored object so keys this form cannot
-// render survive the on-conflict update unchanged.
-export function buildChannelProfileUpsert(
-  input: ChannelProfileUpsertInput,
-  pipelineMerge?: ChannelProfilePipelineMerge,
-): TablesInsert<"channel_profiles"> {
-  const normalizedPipelineEdits: ChannelProfilePipelineEdits = {
-    ...pipelineMerge?.edits,
-    sourcing: pipelineMerge?.edits.sourcing
+function normalizePipelineEdits(
+  edits: ChannelProfilePipelineEdits,
+): ChannelProfilePipelineEdits {
+  return {
+    ...edits,
+    sourcing: edits.sourcing
       ? {
-          ...pipelineMerge.edits.sourcing,
-          ...(hasOwn(pipelineMerge.edits.sourcing, "escalation_ladder")
+          ...edits.sourcing,
+          ...(hasOwn(edits.sourcing, "escalation_ladder")
             ? {
                 escalation_ladder: normalizePipelineList(
-                  pipelineMerge.edits.sourcing.escalation_ladder ?? [],
+                  edits.sourcing.escalation_ladder ?? [],
                 ),
               }
             : {}),
-          ...(hasOwn(pipelineMerge.edits.sourcing, "archival_providers")
+          ...(hasOwn(edits.sourcing, "archival_providers")
             ? {
                 archival_providers: normalizePipelineList(
-                  pipelineMerge.edits.sourcing.archival_providers ?? [],
+                  edits.sourcing.archival_providers ?? [],
                 ),
               }
             : {}),
         }
       : undefined,
   };
-  const errors = [
-    ...validateChannelProfile(input),
-    ...validateChannelProfilePipelineEdits(normalizedPipelineEdits),
-  ];
+}
+
+/** Build only the edited top-level keys sent to the server-side shallow merge. */
+export function buildChannelProfilePipelinePatch(
+  edits: ChannelProfilePipelineEdits,
+): ChannelProfilePipelinePatch {
+  const normalized = normalizePipelineEdits(edits);
+  const errors = validateChannelProfilePipelineEdits(normalized);
+  if (errors.length > 0) {
+    throw new Error(errors.join("; "));
+  }
+
+  const patch: ChannelProfilePipelinePatch = {};
+  if (normalized.sourcing) {
+    patch.sourcing = { ...normalized.sourcing };
+  }
+  if (normalized.research_profile) {
+    patch.research_profile = { ...normalized.research_profile };
+  }
+  return patch;
+}
+
+// Pipeline-owned groups are omitted unless a rendered field was edited. When a
+// field is edited during creation, merge it over the create-time stored object.
+// Existing rows use buildChannelProfilePipelinePatch + the server-side RPC so a
+// mount-time snapshot can never overwrite a concurrent pipeline setting.
+export function buildChannelProfileUpsert(
+  input: ChannelProfileUpsertInput,
+  pipelineMerge?: ChannelProfilePipelineMerge,
+): TablesInsert<"channel_profiles"> {
+  const pipelinePatch = buildChannelProfilePipelinePatch(
+    pipelineMerge?.edits ?? {},
+  );
+  const errors = [...validateChannelProfile(input)];
 
   if (errors.length > 0) {
     throw new Error(errors.join("; "));
@@ -502,7 +517,7 @@ export function buildChannelProfileUpsert(
     platforms: parsePlatforms(input.platforms ?? []),
   };
 
-  const sourcingEdits = normalizedPipelineEdits.sourcing;
+  const sourcingEdits = pipelinePatch.sourcing;
   if (
     sourcingEdits &&
     (hasOwn(sourcingEdits, "escalation_ladder") ||
@@ -520,7 +535,7 @@ export function buildChannelProfileUpsert(
     result.sourcing = sourcing;
   }
 
-  const researchEdits = normalizedPipelineEdits.research_profile;
+  const researchEdits = pipelinePatch.research_profile;
   if (researchEdits && hasOwn(researchEdits, "anchor_type")) {
     result.research_profile = {
       ...storedObject(pipelineMerge?.stored.research_profile ?? null),
