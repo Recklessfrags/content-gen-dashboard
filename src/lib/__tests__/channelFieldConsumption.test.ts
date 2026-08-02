@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CHANNEL_FIELD_CONSUMPTION,
   isInertChannelField,
+  resolveArchivalProviders,
   resolveEscalationLadder,
   resolveResearchAnchor,
 } from "@/lib/channelFieldConsumption";
@@ -67,6 +68,34 @@ describe("channel field consumption", () => {
     });
     expect(resolveEscalationLadder({ escalation_ladder: 42 })).toEqual({
       configured: true, effective: ["archival"], ignored: [], usesDefault: true, ignoredRaw: "42",
+    });
+  });
+
+  it("resolves archival providers with the pipeline default when unset", () => {
+    const fallback = {
+      configured: false,
+      effective: ["internet_archive", "wikimedia_commons"],
+      ignored: [],
+      usesDefault: true,
+      ignoredRaw: null,
+    };
+
+    expect(resolveArchivalProviders(undefined)).toEqual(fallback);
+    expect(resolveArchivalProviders(null)).toEqual(fallback);
+    expect(resolveArchivalProviders({})).toEqual(fallback);
+  });
+
+  it("normalizes configured archival providers like the pipeline", () => {
+    expect(
+      resolveArchivalProviders({
+        archival_providers: [" Internet_Archive ", "WIKIMEDIA_COMMONS", "YouTube"],
+      }),
+    ).toEqual({
+      configured: true,
+      effective: ["internet_archive", "wikimedia_commons"],
+      ignored: ["youtube"],
+      usesDefault: false,
+      ignoredRaw: null,
     });
   });
 

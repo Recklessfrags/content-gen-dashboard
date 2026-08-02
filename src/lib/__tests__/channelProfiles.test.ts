@@ -10,6 +10,7 @@ import {
   resolvePipelineMerge,
   splitListInput,
   validateChannelProfile,
+  validateChannelProfilePipelineEdits,
   type ChannelProfileUpsertInput,
 } from "@/lib/channelProfiles";
 
@@ -481,6 +482,72 @@ describe("buildChannelProfileUpsert", () => {
     expect(
       Object.prototype.hasOwnProperty.call(result, "research_profile"),
     ).toBe(false);
+  });
+
+  it("never copies populated pipeline groups from the profile input without edits", () => {
+    const result = buildChannelProfileUpsert(
+      profileInput({
+        sourcing: {
+          escalation_ladder: ["pixabay"],
+          assembly_max_spend: 8,
+        },
+        research_profile: {
+          anchor_type: "scripture",
+          thesis: "pipeline-owned",
+        },
+      }),
+    );
+
+    expect(Object.prototype.hasOwnProperty.call(result, "sourcing")).toBe(false);
+    expect(
+      Object.prototype.hasOwnProperty.call(result, "research_profile"),
+    ).toBe(false);
+  });
+
+  it("normalizes pipeline list edits before validating and writing", () => {
+    expect(
+      validateChannelProfilePipelineEdits({
+        sourcing: { escalation_ladder: ["Archival"] },
+      }),
+    ).toEqual([]);
+
+    const result = buildChannelProfileUpsert(profileInput(), {
+      stored: { sourcing: null, research_profile: null },
+      edits: {
+        sourcing: {
+          escalation_ladder: ["  Archival  ", "PIXABAY"],
+          archival_providers: [" Internet_Archive ", "WIKIMEDIA_COMMONS"],
+        },
+      },
+    });
+
+    expect(result.sourcing).toEqual({
+      escalation_ladder: ["archival", "pixabay"],
+      archival_providers: ["internet_archive", "wikimedia_commons"],
+    });
+  });
+
+  it("round-trips mixed-case stored pipeline lists as normalized edits", () => {
+    const result = buildChannelProfileUpsert(profileInput(), {
+      stored: {
+        sourcing: {
+          escalation_ladder: ["Archival"],
+          archival_providers: ["Wikimedia_Commons"],
+        },
+        research_profile: null,
+      },
+      edits: {
+        sourcing: {
+          escalation_ladder: ["Archival"],
+          archival_providers: ["Wikimedia_Commons"],
+        },
+      },
+    });
+
+    expect(result.sourcing).toEqual({
+      escalation_ladder: ["archival"],
+      archival_providers: ["wikimedia_commons"],
+    });
   });
 
   it("rejects pipeline values outside the named allowed sets instead of dropping them", () => {

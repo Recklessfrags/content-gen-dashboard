@@ -397,9 +397,13 @@ function validateListVocabulary(
   allowed: readonly string[],
 ): string | null {
   const allowedValues = new Set(allowed);
-  return values.every((value) => allowedValues.has(value))
+  return normalizePipelineList(values).every((value) => allowedValues.has(value))
     ? null
     : `${field} must contain only: ${allowed.join(", ")}`;
+}
+
+function normalizePipelineList(values: readonly string[]): string[] {
+  return values.map((value) => value.trim().toLowerCase()).filter(Boolean);
 }
 
 export function validateChannelProfilePipelineEdits(
@@ -451,9 +455,31 @@ export function buildChannelProfileUpsert(
   input: ChannelProfileUpsertInput,
   pipelineMerge?: ChannelProfilePipelineMerge,
 ): TablesInsert<"channel_profiles"> {
+  const normalizedPipelineEdits: ChannelProfilePipelineEdits = {
+    ...pipelineMerge?.edits,
+    sourcing: pipelineMerge?.edits.sourcing
+      ? {
+          ...pipelineMerge.edits.sourcing,
+          ...(hasOwn(pipelineMerge.edits.sourcing, "escalation_ladder")
+            ? {
+                escalation_ladder: normalizePipelineList(
+                  pipelineMerge.edits.sourcing.escalation_ladder ?? [],
+                ),
+              }
+            : {}),
+          ...(hasOwn(pipelineMerge.edits.sourcing, "archival_providers")
+            ? {
+                archival_providers: normalizePipelineList(
+                  pipelineMerge.edits.sourcing.archival_providers ?? [],
+                ),
+              }
+            : {}),
+        }
+      : undefined,
+  };
   const errors = [
     ...validateChannelProfile(input),
-    ...validateChannelProfilePipelineEdits(pipelineMerge?.edits ?? {}),
+    ...validateChannelProfilePipelineEdits(normalizedPipelineEdits),
   ];
 
   if (errors.length > 0) {
@@ -476,7 +502,7 @@ export function buildChannelProfileUpsert(
     platforms: parsePlatforms(input.platforms ?? []),
   };
 
-  const sourcingEdits = pipelineMerge?.edits.sourcing;
+  const sourcingEdits = normalizedPipelineEdits.sourcing;
   if (
     sourcingEdits &&
     (hasOwn(sourcingEdits, "escalation_ladder") ||
@@ -494,7 +520,7 @@ export function buildChannelProfileUpsert(
     result.sourcing = sourcing;
   }
 
-  const researchEdits = pipelineMerge?.edits.research_profile;
+  const researchEdits = normalizedPipelineEdits.research_profile;
   if (researchEdits && hasOwn(researchEdits, "anchor_type")) {
     result.research_profile = {
       ...storedObject(pipelineMerge?.stored.research_profile ?? null),

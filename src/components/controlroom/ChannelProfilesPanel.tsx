@@ -41,8 +41,10 @@ import { stashCastBrief } from "@/lib/castBrief";
 import {
   CHANNEL_FIELD_CONSUMPTION,
   PIPELINE_ARCHIVAL_PROVIDERS,
+  PIPELINE_DEFAULT_ARCHIVAL_PROVIDERS,
   PIPELINE_ESCALATION_TIERS,
   PIPELINE_RESEARCH_ANCHORS,
+  resolveArchivalProviders,
   resolveEscalationLadder,
   resolveResearchAnchor,
 } from "@/lib/channelFieldConsumption";
@@ -160,6 +162,17 @@ function pipelineListValue(
     .join("\n");
 }
 
+function normalizedPipelineListValue(
+  group: Json | null | undefined,
+  key: string,
+): string {
+  return joinListInput(
+    splitListInput(pipelineListValue(group, key)).map((value) =>
+      value.trim().toLowerCase(),
+    ),
+  );
+}
+
 function pipelineScalarValue(
   group: Json | null | undefined,
   key: string,
@@ -211,11 +224,11 @@ function profileToForm(
       typeof lengthTarget.short_s === "number"
         ? String(lengthTarget.short_s)
         : "",
-    escalationLadder: pipelineListValue(
+    escalationLadder: normalizedPipelineListValue(
       profile.sourcing,
       "escalation_ladder",
     ),
-    archivalProviders: pipelineListValue(
+    archivalProviders: normalizedPipelineListValue(
       profile.sourcing,
       "archival_providers",
     ),
@@ -271,9 +284,14 @@ export function ChannelProfilesPanel({
   // "New channel" create surface): hide the master list / mobile picker / delete.
   const isScopedLayout = Boolean(scopedChannel) || Boolean(createOnly);
   const routingResolution = resolveEscalationLadder(selectedProfile?.sourcing);
+  const archivalProviderResolution = resolveArchivalProviders(
+    selectedProfile?.sourcing,
+  );
   const anchorResolution = resolveResearchAnchor(selectedProfile?.research_profile);
   const escalationValues = form
-    ? splitListInput(form.escalationLadder)
+    ? splitListInput(form.escalationLadder).map((value) =>
+        value.trim().toLowerCase(),
+      )
     : [];
   const invalidEscalationValues = escalationValues.filter(
     (value) => !PIPELINE_ESCALATION_TIERS.includes(
@@ -281,7 +299,9 @@ export function ChannelProfilesPanel({
     ),
   );
   const archivalProviderValues = form
-    ? splitListInput(form.archivalProviders)
+    ? splitListInput(form.archivalProviders).map((value) =>
+        value.trim().toLowerCase(),
+      )
     : [];
   const invalidArchivalProviders = archivalProviderValues.filter(
     (value) => !PIPELINE_ARCHIVAL_PROVIDERS.includes(
@@ -574,12 +594,12 @@ export function ChannelProfilesPanel({
         if (pipelineEdits.has("escalationLadder")) {
           pipelineConfigEdits.sourcing.escalation_ladder = splitListInput(
             form.escalationLadder,
-          );
+          ).map((value) => value.trim().toLowerCase());
         }
         if (pipelineEdits.has("archivalProviders")) {
           pipelineConfigEdits.sourcing.archival_providers = splitListInput(
             form.archivalProviders,
-          );
+          ).map((value) => value.trim().toLowerCase());
         }
       }
       if (pipelineEdits.has("researchAnchorType")) {
@@ -1200,7 +1220,10 @@ export function ChannelProfilesPanel({
                       }
                     />
                     <span id="channel-profile-archival-providers-help" className="hint">
-                      Allowed: {PIPELINE_ARCHIVAL_PROVIDERS.join(", ")}.
+                      Allowed: {PIPELINE_ARCHIVAL_PROVIDERS.join(", ")}.{" "}
+                      {archivalProviderResolution.usesDefault
+                        ? `Pipeline default: ${PIPELINE_DEFAULT_ARCHIVAL_PROVIDERS.join(", ")}.`
+                        : `Pipeline providers: ${archivalProviderResolution.effective.join(", ")}.`}
                     </span>
                     {invalidArchivalProviders.length > 0 && (
                       <p id="channel-profile-archival-providers-error" className="field-error" role="alert">

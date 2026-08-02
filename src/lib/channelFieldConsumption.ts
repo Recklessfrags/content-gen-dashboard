@@ -108,6 +108,10 @@ export const PIPELINE_ARCHIVAL_PROVIDERS = [
   "wikimedia_commons",
 ] as const;
 export const PIPELINE_DEFAULT_ESCALATION_LADDER = ["archival"] as const;
+export const PIPELINE_DEFAULT_ARCHIVAL_PROVIDERS = [
+  "internet_archive",
+  "wikimedia_commons",
+] as const;
 export const PIPELINE_RESEARCH_ANCHORS = [
   "fda_standard_of_identity",
   "declassified_primary_doc",
@@ -203,6 +207,61 @@ export function resolveEscalationLadder(
     configured: true,
     effective: lowered.filter((entry) => validTiers.has(entry)),
     ignored: lowered.filter((entry) => !validTiers.has(entry)),
+    usesDefault: false,
+    ignoredRaw: null,
+  };
+}
+
+export function resolveArchivalProviders(
+  sourcing: Json | null | undefined,
+): LadderResolution {
+  const object = jsonObject(sourcing);
+  const hasKey = Boolean(
+    object && Object.prototype.hasOwnProperty.call(object, "archival_providers"),
+  );
+  const rawValue = hasKey ? object?.archival_providers : undefined;
+  if (!hasKey) {
+    return {
+      configured: false,
+      effective: [...PIPELINE_DEFAULT_ARCHIVAL_PROVIDERS],
+      ignored: [],
+      usesDefault: true,
+      ignoredRaw: null,
+    };
+  }
+
+  if (typeof rawValue !== "string" && !Array.isArray(rawValue)) {
+    return {
+      configured: true,
+      effective: [...PIPELINE_DEFAULT_ARCHIVAL_PROVIDERS],
+      ignored: [],
+      usesDefault: true,
+      ignoredRaw: displayRaw(rawValue),
+    };
+  }
+
+  const entries = typeof rawValue === "string"
+    ? rawValue.split(/[\s,]+/)
+    : rawValue.map((entry) => String(entry));
+  const normalized = entries
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (normalized.length === 0) {
+    return {
+      configured: true,
+      effective: [...PIPELINE_DEFAULT_ARCHIVAL_PROVIDERS],
+      ignored: [],
+      usesDefault: true,
+      ignoredRaw: displayRaw(rawValue),
+    };
+  }
+
+  const validProviders = new Set<string>(PIPELINE_ARCHIVAL_PROVIDERS);
+  return {
+    configured: true,
+    effective: normalized.filter((entry) => validProviders.has(entry)),
+    ignored: normalized.filter((entry) => !validProviders.has(entry)),
     usesDefault: false,
     ignoredRaw: null,
   };
