@@ -39,6 +39,25 @@ describe("channel field consumption", () => {
     expect(pipelineVocabularies.source_commit).toMatch(/^[0-9a-f]{7,40}$/);
   });
 
+  it("documents every vendored pipeline sourcing key as pipeline-consumed", () => {
+    const documented = new Set(
+      Object.values(CHANNEL_FIELD_CONSUMPTION)
+        .filter(
+          ({ field, kind }) =>
+            kind === "pipeline" && field.startsWith("sourcing."),
+        )
+        .map(({ field }) => field.slice("sourcing.".length)),
+    );
+    const missing = pipelineVocabularies.sourcing_keys.values.filter(
+      (field) => !documented.has(field),
+    );
+
+    expect(
+      missing,
+      `Pipeline sourcing keys missing from CHANNEL_FIELD_CONSUMPTION: ${missing.join(", ")}`,
+    ).toEqual([]);
+  });
+
   it("classifies pipeline, dashboard, and inert fields", () => {
     for (const field of ["source_ladder", "packaging", "platforms"]) {
       expect(CHANNEL_FIELD_CONSUMPTION[field].kind).toBe("inert");

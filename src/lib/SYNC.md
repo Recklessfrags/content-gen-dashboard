@@ -6,8 +6,8 @@ To update it:
 1. Copy `docs/contracts/vocabularies.json` from the pipeline repo.
 2. Add `source_commit` with the pipeline commit the file came from.
 3. Run the parity tests. If they go red, consciously re-sync every changed
-   vocabulary: extend a corresponding local `as const` tuple where one exists,
-   or update the pinned test snapshot where the dashboard has no local tuple.
+   vocabulary: extend the corresponding local tuple or consumption map where one
+   exists, then update the pinned test snapshot.
 
 A red parity test immediately after copying is the designed staleness tripwire,
 not a sync failure.
