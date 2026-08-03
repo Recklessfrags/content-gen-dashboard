@@ -26,4 +26,36 @@ describe("extractBelowFloorCuts", () => {
       { cut: "cut2", reason: "Low relevance" },
     ]);
   });
+
+  it("extracts explained cuts from the production below_floor_notice shape", () => {
+    const payload = {
+      below_floor_notice: {
+        count: 5,
+        operator_watch: true,
+        stock_vision_gate: true,
+        cuts: [
+          {
+            cut_id: "cut22",
+            shot_id: "beat_001",
+            anchor_phrase: "21 CFR 133.128",
+            relevance_score: 0.0,
+            relevance_method: "grid_vision",
+            vision_confirm: "vision_fail",
+            escalation: {
+              exhausted: true,
+              accepted_tier: null,
+              attempted_tiers: ["footage", "pixabay"],
+            },
+          },
+        ],
+      },
+    };
+
+    expect(extractBelowFloorCuts(payload)).toEqual([
+      {
+        cut: "cut22",
+        reason: 'cut22 — "21 CFR 133.128", relevance 0.00, vision_fail, attempted tiers footage → pixabay, exhausted',
+      },
+    ]);
+  });
 });

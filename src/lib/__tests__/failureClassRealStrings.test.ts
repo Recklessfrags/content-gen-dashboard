@@ -39,6 +39,12 @@ const AMBIGUOUS: Array<[string, string, string]> = [
   ["job5 no_progress YELLOW claim",
    "parked: no_progress: YELLOW claim c3 used without its on-screen receipt cued",
    "other"],
+  ["authored caption numeral mismatch",
+   "parked: blocked: authored caption numeral mismatch: missing from captions=[\"21\"]; missing from voiceover=[\"133\"]",
+   "caption_audit"],
+  ["unaudited vendor-recognised captions",
+   "parked: blocked: numeral-bearing script rendered with unaudited vendor-recognised captions",
+   "caption_audit"],
 ];
 
 describe("classifier vs real ambiguous production strings", () => {

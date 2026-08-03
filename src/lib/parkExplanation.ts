@@ -40,12 +40,48 @@ export function extractBelowFloorCuts(value: unknown): BelowFloorCut[] {
     if (!prior || (!prior.reason && why)) found.set(label, { cut: label, reason: why });
   };
 
+  const rowReason = (row: Record<string, unknown>, cut: unknown): unknown => {
+    if (row.reason != null) return row.reason;
+    if (row.message != null) return row.message;
+
+    const label =
+      typeof cut === "string" || typeof cut === "number" ? String(cut).trim() : "";
+    const details: string[] = [];
+    if (typeof row.anchor_phrase === "string" && row.anchor_phrase.trim()) {
+      details.push(`"${row.anchor_phrase.trim()}"`);
+    }
+    if (typeof row.relevance_score === "number" && Number.isFinite(row.relevance_score)) {
+      details.push(`relevance ${row.relevance_score.toFixed(2)}`);
+    }
+    if (typeof row.vision_confirm === "string" && row.vision_confirm.trim()) {
+      details.push(row.vision_confirm.trim());
+    }
+    if (row.escalation && typeof row.escalation === "object" && !Array.isArray(row.escalation)) {
+      const escalation = row.escalation as Record<string, unknown>;
+      if (Array.isArray(escalation.attempted_tiers)) {
+        const attemptedTiers = escalation.attempted_tiers.filter(
+          (tier): tier is string => typeof tier === "string" && Boolean(tier.trim()),
+        );
+        if (attemptedTiers.length > 0) {
+          details.push(`attempted tiers ${attemptedTiers.map((tier) => tier.trim()).join(" → ")}`);
+        }
+      }
+      if (typeof escalation.accepted_tier === "string" && escalation.accepted_tier.trim()) {
+        details.push(`accepted tier ${escalation.accepted_tier.trim()}`);
+      } else if (escalation.exhausted === true) {
+        details.push("exhausted");
+      }
+    }
+    return label && details.length > 0 ? `${label} — ${details.join(", ")}` : undefined;
+  };
+
   const visitCuts = (cuts: unknown) => {
     if (Array.isArray(cuts)) {
       for (const entry of cuts) {
         if (entry && typeof entry === "object" && !Array.isArray(entry)) {
           const row = entry as Record<string, unknown>;
-          add(row.cut ?? row.cut_id ?? row.id ?? row.name ?? row.index, row.reason ?? row.message);
+          const cut = row.cut ?? row.cut_id ?? row.id ?? row.name ?? row.index;
+          add(cut, rowReason(row, cut));
         } else add(entry);
       }
     } else if (cuts && typeof cuts === "object") {
@@ -53,7 +89,8 @@ export function extractBelowFloorCuts(value: unknown): BelowFloorCut[] {
         if (typeof detail === "string") add(cut, detail);
         else if (detail && typeof detail === "object") {
           const row = detail as Record<string, unknown>;
-          add(row.cut ?? row.cut_id ?? row.id ?? cut, row.reason ?? row.message);
+          const rowCut = row.cut ?? row.cut_id ?? row.id ?? cut;
+          add(rowCut, rowReason(row, rowCut));
         } else add(cut);
       }
     }
@@ -68,7 +105,11 @@ export function extractBelowFloorCuts(value: unknown): BelowFloorCut[] {
       return;
     }
     for (const [key, child] of Object.entries(node as Record<string, unknown>)) {
-      if (key.toLowerCase() === "below_floor_cuts") visitCuts(child);
+      if (["below_floor_cuts", "below_floor_notice"].includes(key.toLowerCase())) {
+        if (key.toLowerCase() === "below_floor_notice" && child && typeof child === "object") {
+          visitCuts((child as Record<string, unknown>).cuts);
+        } else visitCuts(child);
+      }
       else walk(child);
     }
   };
