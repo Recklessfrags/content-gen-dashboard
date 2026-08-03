@@ -25,6 +25,10 @@ import {
 const EXPECTED_PIPELINE_VOCABULARIES = {
   escalation_tiers: PIPELINE_ESCALATION_TIERS,
   park_kinds: ["blocked", "exhausted", "fact", "publish", "reveal", "spend"],
+  // Pipeline f83a0d3 (R3-1): honest source-type classification. "web" is the new
+  // non-primary value -- an unrecognised domain now labels itself honestly instead of
+  // being laundered into a primary-source type. Report-only pipeline-side for now.
+  source_types: ["archive", "cfr", "court", "fda", "foia", "gov_record", "patent", "peer_reviewed", "usda", "web"],
   artifact_types: ["archival_doc", "period_archival", "reg_text", "scripture_text"],
   anchor_types: RESEARCH_ANCHOR_TYPE,
   voice_archetypes: VOICE_ARCHETYPE_SUGGESTIONS,

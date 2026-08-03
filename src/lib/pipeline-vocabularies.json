@@ -71,6 +71,22 @@
     "owner": "pipeline",
     "source": "pipeline.vocabularies.VISUAL_SOURCES"
   },
+  "source_types": {
+    "values": [
+      "archive",
+      "cfr",
+      "court",
+      "fda",
+      "foia",
+      "gov_record",
+      "patent",
+      "peer_reviewed",
+      "usda",
+      "web"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.vocabularies.SOURCE_TYPES"
+  },
   "cut_rhythm_keys": {
     "values": [
       "generated_max_hold_s",
@@ -234,5 +250,5 @@
     "owner": "pipeline",
     "source": "pipeline.vocabularies.HUMANIZATION_KEYS"
   },
-  "source_commit": "893a0eb"
+  "source_commit": "f83a0d3"
 }
