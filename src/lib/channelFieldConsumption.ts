@@ -165,6 +165,24 @@ export const CHANNEL_FIELD_CONSUMPTION: Readonly<Record<string, FieldConsumption
     note: "pipeline-read; semantics not documented dashboard-side.",
     consumers: ["Content pipeline"],
   },
+  "sourcing.craft_hook_window_s": {
+    field: "sourcing.craft_hook_window_s",
+    kind: "pipeline",
+    note: "pipeline-read; R6-4 Tier-2 hook window in seconds. 0 disables BOTH the relatedness check and the static-hook check for this channel -- the intended switch for deliberately static formats.",
+    consumers: ["Content pipeline"],
+  },
+  "sourcing.craft_min_luma_variance": {
+    field: "sourcing.craft_min_luma_variance",
+    kind: "pipeline",
+    note: "pipeline-read; R6-4 near-blank-frame floor, grayscale 0-255 population variance. 0 disables. Default 100 was measured: a real render shipped a frame at mean luma 1.1/255.",
+    consumers: ["Content pipeline"],
+  },
+  "sourcing.craft_flag_static_hook": {
+    field: "sourcing.craft_flag_static_hook",
+    kind: "pipeline",
+    note: "pipeline-read; R6-4. When false, the 100%-static-hook proxy reports not_run instead of firing. Set false for held-shot formats.",
+    consumers: ["Content pipeline"],
+  },
   "sourcing.craft_phash_hamming_max": {
     field: "sourcing.craft_phash_hamming_max",
     kind: "pipeline",

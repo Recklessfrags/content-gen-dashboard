@@ -205,6 +205,9 @@
       "artifact_types",
       "artifact_vision_cap",
       "assembly_max_spend",
+      "craft_flag_static_hook",
+      "craft_hook_window_s",
+      "craft_min_luma_variance",
       "craft_phash_hamming_max",
       "craft_rhythm_band_ratio",
       "craft_rhythm_run_min",
@@ -269,6 +272,13 @@
       },
       "craft_rhythm_run_min": {
         "min": 2
+      },
+      "craft_hook_window_s": {
+        "min": 0,
+        "max": 30
+      },
+      "craft_min_luma_variance": {
+        "min": 0
       }
     },
     "owner": "pipeline",
@@ -312,5 +322,5 @@
     "owner": "pipeline",
     "source": "pipeline.vocabularies.HUMANIZATION_KEYS"
   },
-  "source_commit": "ab13551"
+  "source_commit": "2ad65a4"
 }
