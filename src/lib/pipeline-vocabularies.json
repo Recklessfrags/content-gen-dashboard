@@ -206,7 +206,7 @@
       "artifact_vision_cap",
       "assembly_max_spend",
       "craft_phash_hamming_max",
-      "craft_rhythm_band_sec",
+      "craft_rhythm_band_ratio",
       "craft_rhythm_run_min",
       "craft_subject_confusables",
       "escalation_ladder",
@@ -263,9 +263,9 @@
         "min": 0,
         "max": 64
       },
-      "craft_rhythm_band_sec": {
+      "craft_rhythm_band_ratio": {
         "min": 0,
-        "max": 5
+        "max": 1
       },
       "craft_rhythm_run_min": {
         "min": 2
@@ -312,5 +312,5 @@
     "owner": "pipeline",
     "source": "pipeline.vocabularies.HUMANIZATION_KEYS"
   },
-  "source_commit": "a3baf5c"
+  "source_commit": "ab13551"
 }

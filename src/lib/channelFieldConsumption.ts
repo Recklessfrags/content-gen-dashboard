@@ -171,10 +171,10 @@ export const CHANNEL_FIELD_CONSUMPTION: Readonly<Record<string, FieldConsumption
     note: "pipeline-read; R6-1 craft gates. Threshold for near-identical FRAME detection only -- measured NOT to catch same-subject repetition.",
     consumers: ["Content pipeline"],
   },
-  "sourcing.craft_rhythm_band_sec": {
-    field: "sourcing.craft_rhythm_band_sec",
+  "sourcing.craft_rhythm_band_ratio": {
+    field: "sourcing.craft_rhythm_band_ratio",
     kind: "pipeline",
-    note: "pipeline-read; R6-1 shot-rhythm monotony band.",
+    note: "pipeline-read; R6-1 shot-rhythm monotony band, RELATIVE (max/min - 1), not seconds. Renamed from craft_rhythm_band_sec per pipeline P41 -- the units were wrong. Correct, but measured NOT effective: flags zero runs on a render a director scored 3-4/10 for pacing.",
     consumers: ["Content pipeline"],
   },
   "sourcing.craft_rhythm_run_min": {

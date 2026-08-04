@@ -79,7 +79,7 @@ const EXPECTED_PIPELINE_VOCABULARIES = {
     "artifact_vision_cap",
     "assembly_max_spend",
     "craft_phash_hamming_max",
-    "craft_rhythm_band_sec",
+    "craft_rhythm_band_ratio",
     "craft_rhythm_run_min",
     "craft_subject_confusables",
     "escalation_ladder",
