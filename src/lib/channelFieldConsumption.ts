@@ -207,6 +207,24 @@ export const CHANNEL_FIELD_CONSUMPTION: Readonly<Record<string, FieldConsumption
     note: "pipeline-read; R6-1 per-channel confusable subjects (e.g. cottage cheese -> brie) for the free subject pre-filter.",
     consumers: ["Content pipeline"],
   },
+  "sourcing.craft_vision_batch_cap_usd": {
+    field: "sourcing.craft_vision_batch_cap_usd",
+    kind: "pipeline",
+    note: "pipeline-read; P52 per-channel Tier-1/2 craft-vision spend cap per batch (env CRAFT_VISION_BATCH_CAP_USD overrides).",
+    consumers: ["Content pipeline"],
+  },
+  "sourcing.craft_vision_estimated_batch_cost_usd": {
+    field: "sourcing.craft_vision_estimated_batch_cost_usd",
+    kind: "pipeline",
+    note: "pipeline-read; P52 per-channel estimated cost of one craft-vision batch (env override).",
+    consumers: ["Content pipeline"],
+  },
+  "sourcing.craft_vision_proximity_window_sec": {
+    field: "sourcing.craft_vision_proximity_window_sec",
+    kind: "pipeline",
+    note: "pipeline-read; P52 per-channel proximity window for craft-vision repetition pairing (env override).",
+    consumers: ["Content pipeline"],
+  },
   "sourcing.escalation_ladder": {
     field: "sourcing.escalation_ladder",
     kind: "pipeline",
