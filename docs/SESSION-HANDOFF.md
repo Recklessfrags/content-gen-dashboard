@@ -13,6 +13,43 @@ Operator stated (verbatim intent): *"for now I'll pay for the users' renders, bu
 
 ---
 
+## 🔚 CLOSE-OUT 2026-08-07 (dashboard UX + auth + generator session) — what shipped, and the two big one-shot specs (SIMPLIFICATION REDO + PER-USER ISOLATION) ready for the next session
+
+### Shipped this session (all on default branch `claude/new-session-3l99vs`)
+- **Google OAuth + fail-closed beta allowlist** (`7ec2da2`). Unset `DASHBOARD_ALLOWED_EMAILS` admits ONLY the operator floor (`DASHBOARD_OPERATOR_EMAIL`, default `cameronnicodemus@gmail.com`); requires `email_confirmed_at`; no user-email trim; `NEXT_PUBLIC_SITE_URL` preferred over forwarded host. **Operator setup to activate:** enable Google provider in Supabase Auth + add prod `/auth/callback` to its redirect allowlist; set `DASHBOARD_ALLOWED_EMAILS` (beta emails) + `NEXT_PUBLIC_SITE_URL` in Vercel. (`BUILD-NOTES-D3.md`.)
+- **Honest video progress bar + plain-language pass.** `src/lib/renderProgress.ts` (9-stage ladder researcher→distribution, monotonic furthest-step, "Step N of 9 · <plain label>", NO fake %/ETA), `src/lib/hooks/useRenderProgress.ts` (5s refetch, 100-id chunk, entertainment_judge excluded), `src/lib/plainLanguage.ts` (park_kind→"Waiting on you", verdict→"Result", receipts→"What happened", below_floor→"Low-quality shots flagged", final_stage→"Stopped at", terminal_state/failure_class→"Why it stopped"). Two-lens reviewed; monotonic + polling fixes folded.
+- **AI character generator** (`1ac4dea`). `character-proxy` edge function LIVE (verify_jwt on; Claude Opus draft_character tool; anti-real-person prompt; advisory-only, never writes a character), migration `dash_0013_character_usage` APPLIED + probe-verified (25/user/day cap, mirrors dash_0009), `src/lib/castingCharacter.ts` + `CharacterGenerator.tsx` in the create flow, confirm-before-overwrite. Operator note: optionally set `CHARACTER_PROXY_ALLOWED_ORIGINS` to the prod URL (CORS hardening; works without it).
+
+### ⭐ ONE-SHOT SPEC A — THE SIMPLIFICATION REDO (operator-requested "make it easier to use")
+Diagnosis + visual proposal artifact: **the dashboard grew to 12 destinations + ~8 overlays** (5 nav + 3 hidden hubs Actions/Overview/Reveal + a 4-tab channel workspace with 2 "coming soon" tabs), still leaked jargon (now fixed by the plain-language pass = **move 2 DONE**), approvals appear in 3 places, and it's all inside one **3,246-line `src/components/ControlRoom.tsx` god-component**. Remaining moves, cheapest-first, each its own reviewed commit:
+1. **One approval queue** — fold the 3 approval surfaces (landing `HubLanding.tsx` Action Center panel, hidden `aurora/ActionCenter.tsx` hub, and the copy inside `aurora/RunsHub.tsx`) into ONE canonical queue on Home. Reuse the shared `QueueActionDialog`/`FactClaimsReviewSection`; remove the duplicate render sites. (high payoff / low effort)
+3. **Retire dead rooms** — remove the `Reveal` hub (flag-gated `NEXT_PUBLIC_REVEAL_WRITE_ENABLED` + `MOCK_REVIEW_FIXTURES`, near-dead) and fold `Overview` into Home; drop them from `route.ts` HUB_KEYS + `AuroraShell` NAV and the `ControlRoom.tsx:~1930-1940` nav-highlight remap so the nav stops pointing at pages it won't admit you're on. (high / low)
+4. **Drop the "coming soon" tabs** — the per-channel workspace `Production` + `Cost` tabs are deferred placeholders (`ControlRoom.tsx:~2708-2966, 3205-3237`); collapse the 4-tab strip to the 2 that hold real content until the others do. (med / low)
+5. **Unify casting into one flow** — casting is scattered across `CharactersHub` grid + `CastingStudioPanel.tsx` (voice) + `VisualIdentityPanel.tsx` (image) + the workspace Guidelines tab (channel link). Walk it as one path: pick character → voice → face → attach to channel. (high / med — spec on its own)
+6. **Remove the global Basic/Advanced toggle** (`AuroraShell.tsx:74-108`, `UiModeContext`) — pick one good default, put rare advanced controls behind a local "more options". (med / low)
+Structural note (not a move, but the reason it sprawled): the god-component has no seam that makes adding a place cost anything — a later ControlRoom.tsx split is the durable fix. Recommend executing moves 1+3+4 first (one afternoon, mostly surface), then 5 as its own slice.
+
+### ⭐ ONE-SHOT SPEC B — PER-USER ISOLATION (operator ratified: "no user shares channels"; operator still pays)
+Goal: beta users see only THEIR OWN channels/characters/ideas/renders; operator keeps everything; global spend cap stays (operator pays). **Operator DECISION locked: each user gets their own channels — `channel_profiles` becomes per-user, duplicate names allowed.** Backfill target = the one existing user `e5503683-2826-4168-bee2-7811e6e21f40`.
+
+| table | today | change |
+|---|---|---|
+| `characters` | has `owner` (9 rows, all operator, 0 null) | RLS scope `owner=auth.uid()` — **Phase 1, safe now** |
+| `ideas` | has `owner` (4 rows, all operator) | RLS scope — **Phase 1** |
+| `channel_profiles` | keyed by `channel` text, 5 rows, NO owner | add `owner`, backfill operator, unique `(owner, channel)`; keep a GLOBAL `default` row (owner NULL) so new users get a working default — **Phase 2** |
+| `jobs` | 149 rows, NO owner | add `owner`, backfill operator; enqueue stamps `auth.uid()`; RLS own-rows — **Phase 2** |
+| `episodes`,`receipts` | keyed by episode_id, NO owner | **no new column** — RLS derives via `EXISTS(job with same episode_id AND owner=auth.uid())` — **Phase 2** |
+
+**Why the worker is unaffected:** the pipeline uses the **service-role key which bypasses RLS** (verified: `worker.py` + `channel_profiles.py` use `SUPABASE_SERVICE_KEY`). RLS never touches it.
+**THE CROSS-TEAM PIECE (Phase 2 is NOT dashboard-only):** the pipeline resolves a channel by NAME today (`reels-content-generation/src/pipeline/channel_profiles.py:73 load_channel_profile(channel)` matches `row.channel == requested`). With per-user channels that's ambiguous — the pipeline MUST resolve by `(owner, channel)`, so `jobs` carries `owner`, the worker passes `job.owner`, and `load_channel_profile(channel, owner)` filters by owner (falling back to the global default row). This needs a paired pipeline change + a Coordination Log heads-up (shared tables `jobs`/`channel_profiles`/`episodes`/`receipts`). Land the dashboard + pipeline halves together or a render could load the wrong user's channel config.
+**Sequencing:** Phase 1 (characters+ideas RLS) is safe, dashboard-only, do first. Phase 2 (channel_profiles+jobs owner + derived episode/receipt RLS + the pipeline owner-aware lookup) is the coordinated slice — expand/contract: add nullable owner → backfill → pipeline reads owner → enforce RLS + `(owner,channel)` unique. Per-user API keys + billing are LATER (BYO-keys step), not this slice.
+
+### Queued small follow-ups (either session)
+- **Bring-your-own character image** — upload ALREADY EXISTS (`VisualIdentityPanel.tsx` → private `character-refs` bucket via `castingVisual.ts:uploadRefImage`, accepts png/jpeg/webp, locks `reference_image_url`). Gap: the copy says "generate elsewhere then upload"; reframe to welcome **selfies/drawings**, and **add HEIC/HEIF** so iPhone photos work. Flag (operator-owned, publish-time): the locked "original character, no identifiable real person" rule — a real-person selfie on a published character is a likeness question; upload freely, surface a quiet note at publish, don't restrict uploads.
+- **Required-field markers in the character studio** — operator model = TWO TIERS: *Required to save* = Name (codename), Concept, Bible-with-content (the bible starts EMPTY `{}` and is creator-filled — NOT auto-generated; the "describe" step only makes the voice description); *Required to use* = locked Voice, plus a Reference image ONLY for visual-continuity channels (never for voice-only characters like Fine Print). Show done-vs-needed; don't nag food characters for an image.
+
+---
+
 ## ⚠️ PIPELINE-SIDE CHANGES YOU MUST KNOW (2026-07-30) — added by the problem-solver
 
 **Process note first, because it matters more than any single item below:** this repo went **two days without a sync** while four pipeline changes landed or were built that affect it. The same coordinator controls both repos, so there was no cross-team boundary to wait on — the staleness was a prioritisation failure, not a coordination one. The 2026-07-28 ledger already recorded *"a handoff is only current for the repo whose session wrote it"*; that lesson was logged and then repeated. Treat this repo as running the **same** builder → cross-vendor review → merge protocol as the pipeline, not as a downstream consumer.
