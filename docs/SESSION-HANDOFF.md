@@ -1,5 +1,18 @@
 # Dashboard session handoff
 
+## ★ OPERATOR PRODUCT DIRECTION (2026-08-07) — the dashboard is heading toward a MULTI-TENANT SUBSCRIPTION PRODUCT
+
+Operator stated (verbatim intent): *"for now I'll pay for the users' renders, but I want to have them provide their API keys for renders, then I roll the dashboard into a subscription."* Sequence:
+1. **Now** — operator pays for all render + generation spend (current state). Single trusted user + a closed beta behind the fail-closed Google-OAuth allowlist (landed 2026-08-07, `7ec2da2`).
+2. **Next** — **BYO render API keys**: each user supplies their own keys for renders (their spend, not the operator's).
+3. **Then** — **subscription**: the dashboard becomes a paid multi-user product.
+
+**The load-bearing architectural gap this exposes (named, NOT yet built — the next big rock before subscription):** the dashboard is **single-tenant by design today** — RLS grants EVERY authenticated user full power over ALL rows (`channel_profiles`/`characters`/`jobs`/`ideas` policies are `to authenticated` with no per-user scoping; see the 2026-08-07 auth notes). A subscription needs **per-user data isolation**: an `owner`/`user_id` on every user-owned row, RLS scoped to `auth.uid()`, per-user key storage (encrypted), and per-user usage/billing. This is a foundation slice of its own — do NOT build it off this note; it needs a real planning pass + operator ratification (it's product direction + a shared-schema/ RLS money-path change).
+
+**Forward-compatibility rule for all near-term work:** keep new features single-tenant-now but multi-tenant-friendly — anything that spends runs on the OPERATOR's key with a **per-user daily cap** (the `character-proxy`/`channel-guideline-proxy` pattern), so flipping to BYO-keys later is a swap, not a rewrite. The 2026-08-07 character generator follows this.
+
+---
+
 ## ⚠️ PIPELINE-SIDE CHANGES YOU MUST KNOW (2026-07-30) — added by the problem-solver
 
 **Process note first, because it matters more than any single item below:** this repo went **two days without a sync** while four pipeline changes landed or were built that affect it. The same coordinator controls both repos, so there was no cross-team boundary to wait on — the staleness was a prioritisation failure, not a coordination one. The 2026-07-28 ledger already recorded *"a handoff is only current for the repo whose session wrote it"*; that lesson was logged and then repeated. Treat this repo as running the **same** builder → cross-vendor review → merge protocol as the pipeline, not as a downstream consumer.

@@ -150,3 +150,31 @@ Verification: `npx tsc --noEmit` clean; `npx vitest run` green (28 files, 325 te
 - `npx tsc --noEmit` — clean.
 - `npx vitest run` — 35 files and 397 tests passed.
 - Work remains uncommitted for independent review.
+
+## Character generator
+
+### Build notes
+
+- Added a dashboard-owned `character-proxy` that authenticates the caller, consumes
+  the character-specific 25/day budget immediately before the Anthropic request,
+  and returns a complete editable character draft without writing it.
+- Added the create-flow “Generate from concept” UI. It is available only on the
+  unsaved character draft, applies the generated name and seven bible fields to
+  local form state, opens Advanced mode for review, and never saves automatically.
+- Added client-side boundary validation, response sanitization, friendly auth/cap
+  errors, and focused client, UI, migration, and proxy-order coverage.
+
+### Coordinator-gated live steps
+
+- Apply `supabase/migrations/dash_0013_character_usage.sql` live. This is gated and
+  must be performed by the coordinator; the builder did not touch production.
+- Deploy `character-proxy` with `verify_jwt` enabled.
+- Set `CHARACTER_PROXY_ALLOWED_ORIGINS` to the exact comma-separated dashboard
+  origins before deployment. The function also requires the existing Anthropic,
+  Supabase URL/anon-key, and service-role secrets.
+
+### Verification
+
+- `npx tsc --noEmit` — clean.
+- `npx vitest run` — 37 files and 406 tests passed.
+- `git diff --check` — clean.

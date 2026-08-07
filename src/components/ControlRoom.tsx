@@ -41,11 +41,13 @@ import { isVisuallyCast, signedRefImageUrl } from "@/lib/castingVisual";
 import { createClient } from "@/lib/supabase/client";
 import { suggestPersonaForChannel } from "@/lib/suggestPersona";
 import {
+  BIBLE_FIELDS,
   CHANNELS,
   type CharacterBibleRevision,
   type IdeaStatus,
   type Receipt,
 } from "@/lib/types";
+import type { GeneratedCharacter } from "@/lib/castingCharacter";
 import { AuroraShell } from "./aurora/AuroraShell";
 import { useUiMode } from "./aurora/UiModeContext";
 import { ActionCenter } from "./aurora/ActionCenter";
@@ -78,6 +80,7 @@ import {
   type RevealFixture,
 } from "@/lib/revealApproval";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
+import { CharacterGenerator } from "./controlroom/CharacterGenerator";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
 import { CompareDialog } from "./controlroom/CompareDialog";
 import { CostBoxDashboard } from "./controlroom/CostBoxDashboard";
@@ -119,6 +122,32 @@ function workspaceTabId(tab: WorkspaceTab) {
 
 function workspacePanelId(tab: WorkspaceTab) {
   return `workspace-panel-${tab}`;
+}
+
+export function applyGeneratedCharacterDraft(
+  active: FlatChar,
+  generated: GeneratedCharacter,
+  applySnapshot: (id: string, snapshot: ReturnType<typeof editableSnapshot>) => void,
+  confirmOverwrite: (message: string) => boolean = window.confirm,
+): boolean {
+  const hasExistingGeneratedField =
+    active.codename.trim().length > 0 ||
+    BIBLE_FIELDS.some((field) => active[field].trim().length > 0);
+
+  if (
+    hasExistingGeneratedField &&
+    !confirmOverwrite("Generating will replace the current character name and bible fields. Continue?")
+  ) {
+    return false;
+  }
+
+  applySnapshot(active.id, {
+    codename: generated.codename,
+    concept: active.concept,
+    status: active.status,
+    bible: generated.bible,
+  });
+  return true;
 }
 
 function isApprovalParkKind(
@@ -2202,6 +2231,18 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               readOnly={Boolean(previewingRevision)}
               locked={Boolean(previewingRevision)}
             />
+            {activeIsDraft && !previewingRevision && (
+              <CharacterGenerator
+                key={active.id}
+                supabase={supabase}
+                concept={active.concept}
+                onGenerated={(generated) => {
+                  if (applyGeneratedCharacterDraft(active, generated, applySnapshot)) {
+                    setUiMode("advanced");
+                  }
+                }}
+              />
+            )}
             <Field
               id={fieldControlId(activeId, "voice")}
               label="Voice & identity"

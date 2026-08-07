@@ -92,6 +92,9 @@ body{font-family:var(--body)}
 .autogen-castbrief p{margin:6px 0 0;color:var(--paper);line-height:1.5;max-width:64ch}
 .autogen-castbrief p.hint{color:var(--paper-dim)}
 .autogen-review-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.character-generator{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:-4px 0 18px}
+.character-generator .hint{margin:0;flex:1 1 260px}
+.character-generator-error{width:100%;margin:0;color:#ff8f87;font-size:13px;line-height:1.45}
 .casting-stamp{position:absolute;top:22px;right:30px;font-family:var(--display);font-weight:700;font-size:13px;
   letter-spacing:.14em;color:var(--stamp);border:2.5px solid var(--stamp);border-radius:4px;
   padding:5px 11px;text-transform:uppercase;transform:rotate(7deg);opacity:.92}
