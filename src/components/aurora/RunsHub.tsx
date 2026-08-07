@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderPlayer } from "@/components/aurora/RenderPlayer";
-import type { JobStatus } from "@/lib/jobs";
+import { RenderProgress } from "@/components/aurora/RenderProgress";
+import { useRenderProgress } from "@/lib/hooks/useRenderProgress";
+import { isInFlightStatus, type JobStatus } from "@/lib/jobs";
+import { plainLanguage, stageLabel } from "@/lib/plainLanguage";
 import {
   classifyFailure,
   failureClassLabel,
@@ -93,6 +96,11 @@ export function RunsHub({
     [cards, effectiveChannelKey],
   );
   const groups = useMemo(() => groupRunCards(channelFiltered), [channelFiltered]);
+  const inFlightEpisodeIds = useMemo(
+    () => cards.filter((card) => isInFlightStatus(card.status)).flatMap((card) => card.episodeId ? [card.episodeId] : []),
+    [cards],
+  );
+  const latestStageByEpisode = useRenderProgress(inFlightEpisodeIds);
 
   const showEmpty = !loading && error === null && cards.length === 0;
   const showList = !loading && error === null && cards.length > 0;
@@ -199,7 +207,12 @@ export function RunsHub({
                   >
                     {group.key === "attention" ? <FailureRollup cards={group.cards} /> : null}
                     {group.cards.map((card) => (
-                      <RunCard key={card.id} card={card} loadDiagnostics={loadDiagnostics} />
+                      <RunCard
+                        key={card.id}
+                        card={card}
+                        latestStage={card.episodeId ? latestStageByEpisode[card.episodeId] : undefined}
+                        loadDiagnostics={loadDiagnostics}
+                      />
                     ))}
                   </div>
                 ) : null}
@@ -263,13 +276,13 @@ function WorkerReliabilityPanel({
         aria-controls="worker-reliability-body"
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="text-title">{open ? "▾" : "▸"} Worker reliability</span>
+        <span className="text-title">{open ? "▾" : "▸"} Step reliability</span>
         {data ? (
           <span className="dim">
             {data.totalAttempts} attempts · {formatUsd(data.totalRetryCost, 3)} on retries · {windowLabel}
           </span>
         ) : (
-          <span className="dim">retry / block rates + wasted spend per worker</span>
+          <span className="dim">retry / stop rates + wasted spend by step</span>
         )}
       </button>
 
@@ -296,13 +309,13 @@ function WorkerReliabilityPanel({
 
           {data && !loading && !error ? (
             rows.length === 0 ? (
-              <p className="dim">No per-worker telemetry recorded yet.</p>
+              <p className="dim">No step history recorded yet.</p>
             ) : (
               <div className="runs-hub__reliability-scroll">
                 <table className="reliability-table">
                   <thead>
                     <tr>
-                      <th scope="col">Worker</th>
+                      <th scope="col">Step</th>
                       <th scope="col">Attempts</th>
                       <th scope="col">Retry</th>
                       <th scope="col">Blocked</th>
@@ -314,7 +327,7 @@ function WorkerReliabilityPanel({
                     {rows.map((row) => (
                       <tr key={row.stage} className={row.retry > 0 ? "reliability-row--warn" : ""}>
                         <th scope="row">
-                          <span className="reliability-stage">{row.stage}</span>
+                          <span className="reliability-stage">{stageLabel(row.stage)}</span>
                           {row.models.length > 0 ? (
                             <span className="reliability-models dim">{row.models.join(" · ")}</span>
                           ) : null}
@@ -332,8 +345,7 @@ function WorkerReliabilityPanel({
             )
           ) : null}
           <p className="dim runs-hub__reliability-note">
-            Wasted $ = spend on attempts the pipeline had to retry — a cheap worker that retries a lot
-            isn&apos;t cheap. Based on the {windowLabel}.
+            Wasted $ = spend on attempts the video system had to retry. Based on the {windowLabel}.
           </p>
         </div>
       ) : null}
@@ -351,9 +363,11 @@ function statusChipClass(status: JobStatus): string {
 
 function RunCard({
   card,
+  latestStage,
   loadDiagnostics,
 }: {
   card: RunCardVM;
+  latestStage?: string;
   loadDiagnostics: RunsHubProps["loadDiagnostics"];
 }) {
   const [open, setOpen] = useState(false);
@@ -421,23 +435,23 @@ function RunCard({
                 className="status-chip run-card__failure-terminal"
                 title={
                   terminalStateResult.source === "derived"
-                    ? "derived from the error text"
+                    ? "worked out from the error text"
                     : terminalStateResult.source === "unavailable"
-                      ? "terminal state not recorded"
+                      ? "stop reason not recorded"
                       : undefined
                 }
               >
                 {terminalStateLabel(terminalStateResult.state)}
-                {terminalStateResult.source === "derived" ? " (derived from the error text)" : ""}
+                {terminalStateResult.source === "derived" ? " (worked out from the error text)" : ""}
               </span>
             ) : (
-              <span className="status-chip run-card__failure-terminal" title="terminal state not recorded">
+              <span className="status-chip run-card__failure-terminal" title="stop reason not recorded">
                 Unclassified
               </span>
             )}
           </div>
           <p className="dim run-card__failure-stage">
-            stage of death · {card.finalStage ? card.finalStage : "stage not recorded"}
+            {plainLanguage("final_stage")} · {stageLabel(card.finalStage)}
           </p>
         </div>
       ) : null}
@@ -452,16 +466,16 @@ function RunCard({
       {showParkReason ? (
         <div className="run-card__park">
           <div className="run-card__park-head">
-            <span className="run-card__park-title">Why it parked</span>
+            <span className="run-card__park-title">{plainLanguage("parked")}</span>
             <span className="status-chip run-card__park-kind">
               {parkKindLabel(parkKind, card.parkKindColumn)}
             </span>
           </div>
           {card.finalStage ? (
-            <p className="dim run-card__park-stage">stopped at · {card.finalStage}</p>
+            <p className="dim run-card__park-stage">{plainLanguage("final_stage")} · {stageLabel(card.finalStage)}</p>
           ) : null}
           {belowFloorCuts.length > 0 ? (
-            <div className="run-card__park-cuts" role="group" aria-label="Below-floor cuts">
+            <div className="run-card__park-cuts" role="group" aria-label={plainLanguage("below_floor")}>
               {belowFloorCuts.map((cut) => (
                 <span key={cut} className="run-card__park-cut">
                   {cut}
@@ -469,9 +483,16 @@ function RunCard({
               ))}
             </div>
           ) : null}
-          {card.parkReason ? <p className="dim run-card__park-reason">{card.parkReason}</p> : null}
+          {card.parkReason ? (
+            <details className="error-details run-card__park-reason">
+              <summary>Technical details</summary>
+              <p className="dim">{card.parkReason}</p>
+            </details>
+          ) : null}
         </div>
       ) : null}
+
+      {isInFlightStatus(card.status) ? <RenderProgress latestStage={latestStage} /> : null}
 
       {card.episodeId ? <RenderPlayer episodeId={card.episodeId} /> : null}
 
@@ -484,20 +505,20 @@ function RunCard({
             aria-controls={bodyId}
             onClick={toggle}
           >
-            {open ? "▾" : "▸"} Why{card.needsAttention ? " did this need attention" : " / which worker"}?
+            {open ? "▾" : "▸"} {plainLanguage("receipts")}
           </button>
 
           {open ? (
             <div className="run-card__diagnostics-body" id={bodyId}>
               {state.loading ? (
                 <p className="dim" aria-busy="true">
-                  <span className="spin" aria-hidden="true" /> Loading per-worker log…
+                  <span className="spin" aria-hidden="true" /> Loading run details…
                 </p>
               ) : null}
 
               {state.error ? (
                 <div className="dim" role="alert">
-                  <p>Couldn&apos;t load the per-worker log.</p>
+                  <p>Couldn&apos;t load the run details.</p>
                   <details className="error-details">
                     <summary>Details</summary>
                     {state.error}
@@ -510,13 +531,13 @@ function RunCard({
 
               {state.receipts !== null && !state.loading && state.error === null ? (
                 state.receipts.length === 0 ? (
-                  <p className="dim">No per-worker log recorded for this run.</p>
+                  <p className="dim">No step history recorded for this run.</p>
                 ) : (
                   <ol className="run-worker-log">
                     {state.receipts.map((row, index) => (
                       <li key={`${row.seq}-${index}`} className="run-worker-row">
                         <div className="run-worker-row__top">
-                          <span className="run-worker-stage">{row.stage || "(stage)"}</span>
+                          <span className="run-worker-stage">{stageLabel(row.stage)}</span>
                           <span className={verdictBadgeClass(row.verdict)}>
                             {verdictLabel(row.verdict)}
                           </span>

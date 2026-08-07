@@ -103,3 +103,50 @@ Verification: `npx tsc --noEmit` clean; `npx vitest run` green (28 files, 325 te
 - `npx vitest run` — 31 files and 356 tests passed, including all 6 callback
   next-path sanitization tests.
 - `git diff --check` — clean.
+
+## Dashboard Slice A — render progress + plain language
+
+### Build notes
+
+- Added the fixed nine-step receipt-stage ladder and a deterministic progress helper. Setup stages show `Starting…`; unknown stages show `Working…`; no percentage or ETA is exposed.
+- Added one batched receipt query per mounted run surface. It reduces by maximum `seq`, skips `entertainment_judge`, avoids empty-id queries, and falls back to an empty map on read errors.
+- Added an accessible, theme-token progress bar to queued/running cards and the landing-page System Glance. Terminal runs do not render it, and reduced-motion users get no shimmer animation.
+- Centralized operator-facing jargon labels and applied them to Runs, Action Center, Reveal, Cost, stage labels, and waiting explanations. Technical stop text remains available behind a closed details disclosure.
+- Added focused ladder, hook, plain-language, and RunsHub render coverage.
+
+### Mutation plan
+
+- Read-only data path: select `episode_id,seq,stage` from `receipts` for the current in-flight episode IDs; do not write or change schema/RLS.
+- Presentation path: derive the latest honest ladder step per episode and render it only while the job status is `queued` or `running`.
+- Copy path: translate display labels only; preserve database fields, payloads, generated types, and pipeline vocabulary unchanged.
+- Scope guard: no auth/OAuth, signout, migration, edge-function, dependency, or pipeline changes.
+
+### Verification
+
+- `npx tsc --noEmit` — clean.
+- `npx vitest run` — 35 files and 390 tests passed.
+- `git diff --check` — clean.
+- Work remains uncommitted for independent review.
+
+### Reviewed-finding fixes
+
+- Progress now uses the furthest known step in the nine-stage ladder across every
+  receipt for an episode, independent of receipt sequence. Unknown/setup stages and
+  `entertainment_judge` are ignored, so retries or interleaved stages cannot move the
+  bar backward; step zero consistently reads `Starting…`.
+- In-flight receipt progress refreshes every 5 seconds by default (overridable for
+  tests), avoids overlapping refreshes, preserves stale-request protection, and
+  clears its interval when IDs empty or the consumer unmounts.
+- Receipt reads are chunked into batches of at most 100 episode IDs and merged before
+  reduction.
+- `final_stage` now displays as `Stopped at`; reason fields (`terminal_state` and
+  `failure_class`) remain `Why it stopped`.
+- Added regression coverage for researcher → assembly → voice direction resolving to
+  `Step 8 of 9 · Assembling the video`, live refresh, query chunking, interval cleanup,
+  and the corrected stop-stage wording.
+
+### Reviewed-finding verification
+
+- `npx tsc --noEmit` — clean.
+- `npx vitest run` — 35 files and 397 tests passed.
+- Work remains uncommitted for independent review.

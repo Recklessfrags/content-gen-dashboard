@@ -25,6 +25,7 @@ import {
   classifyJobStatus,
   detectParkKind,
   isActionableStatus,
+  isInFlightStatus,
   isTerminalStatus,
   jobInputFromRow,
   JOB_STATUS_LABELS,
@@ -103,8 +104,6 @@ import {
   flattenRevision,
   formatRevisionDate,
   formatUsd,
-  isClearedStatus,
-  isFailedStatus,
   toBible,
   type CostReceipt,
   type EnqueueSubmitResult,
@@ -1651,13 +1650,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       })),
     [activeId, chars],
   );
-  const activeRuns = useMemo(
-    () =>
-      episodes.filter(
-        (episode) => !isClearedStatus(episode.status) && !isFailedStatus(episode.status),
-      ).length,
-    [episodes],
+  const inFlightRuns = useMemo(
+    () => jobs
+      .filter((job) => isInFlightStatus(classifyJobStatus(job.status)))
+      .map((job) => ({
+        id: String(job.id),
+        episodeId: job.episode_id ?? null,
+        title: job.food,
+      })),
+    [jobs],
   );
+  const activeRuns = inFlightRuns.length;
   const spend30d = useMemo(() => {
     if (!costReceiptsLoaded || costReceiptsLoading || costReceiptsError) return null;
 
@@ -1971,6 +1974,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       activeChannels: channelProfiles.length,
       activeRuns,
       spend30d,
+      inFlightRuns,
     },
     actions: {
       pendingCount: actionableJobs.length,

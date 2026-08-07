@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { budgetStatus, getBudgetTarget, setBudgetTarget } from "@/lib/budget";
+import { stageLabel } from "@/lib/plainLanguage";
 import type { Episode } from "@/lib/types";
 import { formatUsd, Icon, type CostStats } from "./shared";
 
@@ -136,7 +137,7 @@ export function CostBoxDashboard({
       <div className="cost" role="region" aria-label="Spend governance workspace">
         <div className="col-head">
           <h2>Cost</h2>
-          <span className="count">loading receipts</span>
+          <span className="count">loading run details</span>
         </div>
         <div className="cost-content">
           <CostSkeleton />
@@ -150,7 +151,7 @@ export function CostBoxDashboard({
       <div className="cost" role="region" aria-label="Spend governance workspace">
         <div className="col-head">
           <h2>Cost</h2>
-          <span className="count">receipt read failed</span>
+          <span className="count">run details unavailable</span>
         </div>
         <div className="cost-content">
           <div className="cost-state">
@@ -194,13 +195,13 @@ export function CostBoxDashboard({
       <div className="cost" role="region" aria-label="Spend governance workspace">
         <div className="col-head">
           <h2>Cost</h2>
-          <span className="count">no receipts</span>
+          <span className="count">no run details</span>
         </div>
         <div className="cost-content">
           <div className="cost-state">
             <Icon name="cost" />
-            <h3>No Receipts Logged</h3>
-            <p>Episodes are present, but the pipeline has not reported spend receipts yet.</p>
+            <h3>No Run Details Logged</h3>
+            <p>Episodes are present, but the pipeline has not reported spend details yet.</p>
           </div>
         </div>
       </div>
@@ -312,7 +313,7 @@ export function CostBoxDashboard({
               <p className="metric-subtext">
                 Spend capping is enforced directly at the content pipeline level
                 (research → assembly). Live dashboard threshold monitoring is currently
-                parked, awaiting schema exposure of the pipeline&apos;s internal threshold
+                waiting on pipeline support for its internal threshold
                 tables.
               </p>
             </div>
@@ -396,7 +397,7 @@ export function CostBoxDashboard({
                   <div className="audit-meta">
                     <span className="rmeta stat">{episode.status}</span>
                     {isInFlight && <span className="flight-badge">Running</span>}
-                    {episode.final_stage && <span className="rmeta">stage · {episode.final_stage}</span>}
+                    {episode.final_stage && <span className="rmeta">Why it stopped · {stageLabel(episode.final_stage)}</span>}
                     <span className="rmeta">{new Date(episode.created_at).toLocaleDateString()}</span>
                   </div>
                 </article>

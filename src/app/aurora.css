@@ -3527,6 +3527,66 @@
 .aurora-app .run-card__title { font-size: 1rem; }
 .aurora-app .run-card__meta { display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.8125rem; }
 
+.aurora-app .render-progress {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.aurora-app .render-progress__track {
+  position: relative;
+  height: 0.35rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+.aurora-app .render-progress__fill,
+.aurora-app .render-progress__shimmer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.aurora-app .render-progress__fill { transition: width 180ms ease; }
+.aurora-app .render-progress__shimmer {
+  width: 35%;
+  opacity: 0.65;
+  animation: render-progress-shimmer 1.4s ease-in-out infinite;
+}
+.aurora-app .render-progress__caption {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+.aurora-app .system-glance__runs {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.aurora-app .system-glance__run {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.aurora-app .system-glance__run-title {
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes render-progress-shimmer {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(300%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-app .render-progress__fill { transition: none; }
+  .aurora-app .render-progress__shimmer { animation: none; }
+}
+
 .aurora-app .runs-hub__status--error { background: var(--danger-bg); color: var(--danger-fg); }
 .aurora-app .runs-hub__status--warn { background: var(--warn-bg); color: var(--warn); }
 .aurora-app .runs-hub__status--review { background: var(--surface-2); color: var(--text-main); }

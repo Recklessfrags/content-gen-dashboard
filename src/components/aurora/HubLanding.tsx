@@ -5,6 +5,8 @@ import type { ComponentProps } from "react";
 import { AuroraShell } from "@/components/aurora/AuroraShell";
 import { ChannelsHub } from "@/components/aurora/ChannelsHub";
 import type { ChannelsHubProps } from "@/components/aurora/ChannelsHub";
+import { RenderProgress } from "@/components/aurora/RenderProgress";
+import { useRenderProgress } from "@/lib/hooks/useRenderProgress";
 
 export type HubLandingProps = {
   channels: ChannelsHubProps;
@@ -12,6 +14,7 @@ export type HubLandingProps = {
     activeChannels: number;
     activeRuns: number;
     spend30d: string | null;
+    inFlightRuns: { id: string; episodeId: string | null; title: string }[];
   };
   actions: {
     pendingCount: number;
@@ -31,6 +34,9 @@ export function HubLanding({
   signOutSlot,
   nav,
 }: HubLandingProps) {
+  const inFlightEpisodeIds = glance.inFlightRuns.flatMap((run) => run.episodeId ? [run.episodeId] : []);
+  const latestStageByEpisode = useRenderProgress(inFlightEpisodeIds);
+
   return (
     <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={nav}>
       <section className="hero-grid" aria-label="System Overview">
@@ -96,6 +102,18 @@ export function HubLanding({
               <span className="dim">Active Runs</span>
               <span className="stat-value text-mono">{glance.activeRuns}</span>
             </div>
+            {glance.inFlightRuns.length > 0 ? (
+              <div className="system-glance__runs" aria-label="Active run progress">
+                {glance.inFlightRuns.map((run) => (
+                  <div key={run.id} className="system-glance__run">
+                    <p className="system-glance__run-title">{run.title}</p>
+                    <RenderProgress
+                      latestStage={run.episodeId ? latestStageByEpisode[run.episodeId] : undefined}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div style={{ marginTop: "2rem" }}>

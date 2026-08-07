@@ -108,18 +108,18 @@ export function RevealHub({
 
       {loading ? (
         <div className="glass-panel reveal-hub__empty" role="status">
-          <h3 className="text-title">Loading parked reveals</h3>
-          <p className="dim">Checking the latest reveal-auditor receipts.</p>
+          <h3 className="text-title">Loading reveals waiting on you</h3>
+          <p className="dim">Checking the latest reveal review.</p>
         </div>
       ) : error ? (
         <div className="glass-panel reveal-hub__empty" role="alert">
-          <h3 className="text-title">Couldn&apos;t load parked reveals</h3>
+          <h3 className="text-title">Couldn&apos;t load reveals waiting on you</h3>
           <p className="dim">{error}</p>
         </div>
       ) : parkedFixtures.length === 0 ? (
         <div className="glass-panel reveal-hub__empty">
-          <h3 className="text-title">No parked reveals</h3>
-          <p className="dim">Reveal decisions will appear here when the pipeline parks a batch.</p>
+          <h3 className="text-title">No reveals waiting on you</h3>
+          <p className="dim">Reveal decisions will appear here when a batch needs your input.</p>
         </div>
       ) : (
         <div className="reveal-hub__episodes">

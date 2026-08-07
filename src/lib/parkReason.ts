@@ -1,3 +1,5 @@
+import { plainLanguage } from "@/lib/plainLanguage";
+
 export type ParkKind = "fact" | "spend" | "publish" | "reveal" | "unknown";
 
 export function parseBelowFloorCuts(message: string | null): string[] {
@@ -27,5 +29,5 @@ export function parkKindLabel(
   if (kind === "reveal") return "Awaiting reveal approval";
   if (parkKindColumn === "blocked") return "Blocked";
   if (parkKindColumn === "exhausted") return "Budget exhausted";
-  return "Parked";
+  return plainLanguage("parked");
 }

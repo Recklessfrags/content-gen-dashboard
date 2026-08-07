@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { extractBelowFloorCuts, parkExplanation } from "@/lib/parkExplanation";
+import { plainLanguage, stageLabel } from "@/lib/plainLanguage";
 import type { FactClaim } from "@/lib/factClaims";
 import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
 import type { QueueJob } from "../controlroom/shared";
@@ -218,15 +219,15 @@ function ParkContext({ job, park, loadDiagnostics }: {
         {explanation ? <p>{explanation}</p> : null}
       </div>
       <button type="button" className="au-park-disclosure" aria-expanded={open} aria-controls={bodyId} onClick={toggle} disabled={!job.episode_id || !loadDiagnostics}>
-        Why it parked {open ? "▾" : "▸"}
+        {plainLanguage("receipts")} {open ? "▾" : "▸"}
       </button>
       {open ? <div id={bodyId} className="au-park-log">
         {state.loading ? <p className="dim" aria-busy="true"><span className="spin" aria-hidden="true" /> Loading run log…</p> : null}
         {state.error ? <p role="alert">Couldn&apos;t load the run log.</p> : null}
         {latest && !state.loading && !state.error ? <>
-          <div className="au-park-receipt-head"><strong>{latest.stage || "(stage)"}</strong><span className="status-chip">{latest.verdict || "—"}</span></div>
+          <div className="au-park-receipt-head"><strong>{stageLabel(latest.stage)}</strong><span className="status-chip">{plainLanguage("verdict")}: {latest.verdict || "—"}</span></div>
           {latest.reason ? <p>{latest.reason}</p> : null}
-          {cuts.length ? <div className="au-below-floor"><strong>{cuts.length} below-floor cut{cuts.length === 1 ? "" : "s"}</strong><ul>{cuts.map((cut) => <li key={cut.cut}><span>{cut.cut}</span>{cut.reason ? ` — ${cut.reason}` : ""}</li>)}</ul></div> : null}
+          {cuts.length ? <div className="au-below-floor"><strong>{plainLanguage("below_floor")}: {cuts.length}</strong><ul>{cuts.map((cut) => <li key={cut.cut}><span>{cut.cut}</span>{cut.reason ? ` — ${cut.reason}` : ""}</li>)}</ul></div> : null}
         </> : null}
       </div> : null}
     </div>
@@ -240,7 +241,7 @@ function parkChip(job: QueueJob, park: ActionCenterPark | undefined): string {
   if (park?.kind === "spend") return "Spend approval";
   if (park?.kind === "publish") return "Publish approval";
   if (park?.kind === "reveal") return "Reveal sign-off";
-  return job.status?.trim().toLowerCase() === "error" ? "Error" : "Parked";
+  return job.status?.trim().toLowerCase() === "error" ? "Error" : plainLanguage("parked");
 }
 
 function PrimaryAction({
@@ -453,7 +454,7 @@ function parkLine(job: QueueJob, park: ActionCenterPark | undefined) {
   }
 
   if (park?.kind === "spend") {
-    return `Paused to avoid unexpected cost${park.stage ? ` — ${park.stage}` : ""}`;
+    return `Waiting to avoid unexpected cost${park.stage ? ` — ${stageLabel(park.stage)}` : ""}`;
   }
 
   if (park?.kind === "publish") {

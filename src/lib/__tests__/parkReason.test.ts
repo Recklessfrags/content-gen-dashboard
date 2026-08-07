@@ -44,6 +44,6 @@ describe("parkKindLabel", () => {
   });
 
   it("falls back for unknown parked states", () => {
-    expect(parkKindLabel("unknown")).toBe("Parked");
+    expect(parkKindLabel("unknown")).toBe("Waiting on you");
   });
 });
