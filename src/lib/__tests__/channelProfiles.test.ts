@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import pipelineVocabularies from "@/lib/pipeline-vocabularies.json";
 import {
+  PIPELINE_ARCHIVAL_PROVIDERS,
+  PIPELINE_ESCALATION_TIERS,
+} from "@/lib/channelFieldConsumption";
+import {
   buildChannelProfilePipelinePatch,
   buildChannelProfileUpsert,
   defaultChannelProfile,
@@ -18,25 +22,180 @@ import {
   type ChannelProfileUpsertInput,
 } from "@/lib/channelProfiles";
 
+const EXPECTED_PIPELINE_VOCABULARIES = {
+  escalation_tiers: PIPELINE_ESCALATION_TIERS,
+  park_kinds: ["blocked", "exhausted", "fact", "publish", "reveal", "spend"],
+  // Pipeline f83a0d3 (R3-1): honest source-type classification. "web" is the new
+  // non-primary value -- an unrecognised domain now labels itself honestly instead of
+  // being laundered into a primary-source type. Report-only pipeline-side for now.
+  source_types: ["archive", "cfr", "court", "fda", "foia", "gov_record", "patent", "peer_reviewed", "usda", "web"],
+  artifact_types: ["archival_doc", "period_archival", "reg_text", "scripture_text"],
+  anchor_types: RESEARCH_ANCHOR_TYPE,
+  voice_archetypes: VOICE_ARCHETYPE_SUGGESTIONS,
+  beat_types: ["abstract_process", "authoritative_claim", "character", "concrete_subject"],
+  visual_sources: [
+    "archival",
+    "artifact",
+    "footage",
+    "generated",
+    "locked_character",
+    "still_motion",
+  ],
+  cut_rhythm_keys: [
+    "generated_max_hold_s",
+    "hook_hold_s",
+    "max_hold_s",
+    "min_hold_s",
+    "target_hold_s",
+  ],
+  foley_bed: ["native", "off"],
+  foley_keys: ["bed", "volume"],
+  caption_keys: [
+    "line_color",
+    "max_chars_per_line",
+    "max_words_per_line",
+    "position",
+    "style",
+    "word_color",
+  ],
+  particle_keys: ["suppression_fragment"],
+  grade_keys: ["preset"],
+  grade_presets: ["archival_neutral", "warm_incandescent"],
+  archival_miss_fallback: ["generated", "stock"],
+  archival_providers: PIPELINE_ARCHIVAL_PROVIDERS,
+  sourcing_keys: [
+    // Pipeline a3baf5c: the export went 12 -> 50 keys. It previously listed only a
+    // fraction of what the pipeline actually reads from channel_profiles.sourcing,
+    // so writes to the other 38 -- including assembly_max_spend -- could not be
+    // validated here at all.
+    "archival_medium_denylist",
+    "archival_metadata_only_weight",
+    "archival_miss_fallback",
+    "archival_providers",
+    "archival_relevance_weight_floor",
+    "archival_still_retry_max_cuts",
+    "archival_vision_gate",
+    "artifact_types",
+    "artifact_vision_cap",
+    "assembly_max_spend",
+    "craft_flag_static_hook",
+    "craft_hook_window_s",
+    "craft_min_luma_variance",
+    "craft_phash_hamming_max",
+    "craft_rhythm_band_ratio",
+    "craft_rhythm_run_min",
+    "craft_subject_confusables",
+    "craft_vision_batch_cap_usd",
+    "craft_vision_estimated_batch_cost_usd",
+    "craft_vision_proximity_window_sec",
+    "escalation_ladder",
+    "escalation_max_cuts",
+    "generation_budget_usd",
+    "generation_failure_kill_threshold",
+    "generation_failure_spend_cap_usd",
+    "generation_model",
+    "generation_model_ladder",
+    "generation_retries",
+    "generation_tier",
+    "live_retrieval",
+    "loc_call_budget",
+    "low_specificity_tokens",
+    "low_specificity_weight",
+    "max_artifact_cuts",
+    "max_asset_reuse",
+    "max_generated_clips",
+    "min_relevance_overlap",
+    "on_below_floor",
+    "on_topic_ratio_floor",
+    "provider_retry_max_attempts_per_call",
+    "provider_retry_max_per_episode",
+    "query_vocabulary",
+    "relevance_floor",
+    "repair_degrade_mode",
+    "repair_max_attempts_per_cut",
+    "repair_max_cuts_per_episode",
+    "repair_max_paid_attempts_per_episode",
+    "repair_unrepairable_park_ratio",
+    "repair_unshippable_park_ratio",
+    "retrieval_call_budget",
+    "retrieval_fee_estimate_usd",
+    "stock_on_below_floor",
+    "stock_on_topic_action",
+    "stock_text_screen",
+    "stock_vision_gate",
+    "visual_relevance_vision_cap",
+  ],
+  script: ["bombast_max_outbursts"],
+  qa_dimensions: [
+    "beat_pacing",
+    "editing",
+    "hook",
+    "rendering",
+    "script",
+    "visual_relevance",
+    "vo_delivery",
+  ],
+  humanization_keys: [
+    "breath_dashes",
+    "eq",
+    "filler_rate",
+    "pitch_semitones",
+    "pronunciation_extra",
+    "stutter_rate",
+  ],
+} as const satisfies Record<string, readonly string[]>;
+
 describe("pipeline vocabulary wiring", () => {
-  it("uses pipeline-owned voice-archetype suggestions", () => {
-    expect(new Set(VOICE_ARCHETYPE_SUGGESTIONS)).toEqual(
-      new Set(pipelineVocabularies.voice_archetypes.values),
-    );
-    expect(VOICE_ARCHETYPE_SUGGESTIONS).toHaveLength(
-      pipelineVocabularies.voice_archetypes.values.length,
+  const syncInstructions =
+    "Per src/lib/SYNC.md, re-copy docs/contracts/vocabularies.json from the pipeline repo and update source_commit, confirming the pipeline change is intentional — do not just edit EXPECTED_PIPELINE_VOCABULARIES.";
+
+  const driftMessage = (
+    name: string,
+    expected: readonly string[],
+    actual: readonly string[],
+  ) => {
+    const added = actual.filter((value) => !expected.includes(value));
+    const removed = expected.filter((value) => !actual.includes(value));
+    return `Pipeline vocabulary "${name}" drifted; added values: ${added.length ? added.join(", ") : "none"}; removed values: ${removed.length ? removed.join(", ") : "none"}. ${syncInstructions}`;
+  };
+
+  const vendoredVocabularies = (
+    Object.entries(pipelineVocabularies) as Array<[string, unknown]>
+  ).filter(
+    (entry): entry is [string, { values: string[] }] =>
+      typeof entry[1] === "object" &&
+      entry[1] !== null &&
+      "values" in entry[1] &&
+      Array.isArray(entry[1].values),
+  );
+
+  it("carries the pipeline source commit", () => {
+    expect(
+      typeof pipelineVocabularies.source_commit === "string" &&
+        pipelineVocabularies.source_commit.trim().length > 0,
+      `Vendored pipeline vocabularies have an empty source_commit. ${syncInstructions}`,
+    ).toBe(true);
+  });
+
+  it("pins every vendored vocabulary", () => {
+    const actualNames = vendoredVocabularies.map(([name]) => name).sort();
+    const expectedNames = Object.keys(EXPECTED_PIPELINE_VOCABULARIES).sort();
+    expect(
+      actualNames,
+      driftMessage("vocabulary list", expectedNames, actualNames),
+    ).toEqual(
+      expectedNames,
     );
   });
 
-  it("keeps research-anchor display order a permutation of pipeline membership", () => {
-    // The pipeline WILL add anchor-as-data values; this is the loud tripwire that
-    // tells the dashboard to extend its hardcoded ResearchAnchorType union.
-    expect(new Set(RESEARCH_ANCHOR_TYPE)).toEqual(
-      new Set(pipelineVocabularies.anchor_types.values),
-    );
-    expect(RESEARCH_ANCHOR_TYPE).toHaveLength(
-      pipelineVocabularies.anchor_types.values.length,
-    );
+  it.each(vendoredVocabularies)("keeps %s in sync", (name, vocabulary) => {
+    const expected: readonly string[] | undefined = EXPECTED_PIPELINE_VOCABULARIES[
+      name as keyof typeof EXPECTED_PIPELINE_VOCABULARIES
+    ];
+    const message = driftMessage(name, expected ?? [], vocabulary.values);
+    expect(expected, message).toBeDefined();
+    expect(new Set(expected ?? []), message).toEqual(new Set(vocabulary.values));
+    expect(expected, message).toHaveLength(vocabulary.values.length);
   });
 });
 

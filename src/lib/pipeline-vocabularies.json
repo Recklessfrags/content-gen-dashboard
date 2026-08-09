@@ -1,39 +1,338 @@
 {
-  "source_commit": "4610e9b",
-  "escalation_tiers": {"values": ["archival", "pixabay"], "owner": "pipeline", "source": "pipeline.config.SOURCING_ESCALATION_TIERS"},
-  "park_kinds": {"values": ["blocked", "exhausted", "fact", "publish", "reveal", "spend"], "owner": "pipeline", "source": "pipeline.vocabularies.PARK_KINDS"},
-  "artifact_types": {"values": ["archival_doc", "period_archival", "reg_text", "scripture_text"], "owner": "pipeline", "source": "pipeline.config.SOURCING_ARTIFACT_TYPES"},
-  "anchor_types": {"values": ["declassified_primary_doc", "fda_standard_of_identity", "none", "scripture"], "owner": "pipeline", "source": "pipeline.vocabularies.ANCHOR_TYPES"},
-  "voice_archetypes": {"values": ["calm_explainer", "drill_instructor", "field_reporter", "warm_storyteller"], "owner": "pipeline", "source": "pipeline.vocabularies.VOICE_ARCHETYPES"},
-  "beat_types": {"values": ["abstract_process", "authoritative_claim", "character", "concrete_subject"], "owner": "pipeline", "source": "pipeline.vocabularies.BEAT_TYPES"},
-  "visual_sources": {"values": ["archival", "artifact", "footage", "generated", "locked_character", "still_motion"], "owner": "pipeline", "source": "pipeline.vocabularies.VISUAL_SOURCES"},
+  "escalation_tiers": {
+    "values": [
+      "archival",
+      "pixabay"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.config.SOURCING_ESCALATION_TIERS"
+  },
+  "park_kinds": {
+    "values": [
+      "blocked",
+      "exhausted",
+      "fact",
+      "publish",
+      "reveal",
+      "spend"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.vocabularies.PARK_KINDS"
+  },
+  "artifact_types": {
+    "values": [
+      "archival_doc",
+      "period_archival",
+      "reg_text",
+      "scripture_text"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.config.SOURCING_ARTIFACT_TYPES"
+  },
+  "anchor_types": {
+    "values": [
+      "declassified_primary_doc",
+      "fda_standard_of_identity",
+      "none",
+      "scripture"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.vocabularies.ANCHOR_TYPES"
+  },
+  "voice_archetypes": {
+    "values": [
+      "calm_explainer",
+      "drill_instructor",
+      "field_reporter",
+      "warm_storyteller"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.vocabularies.VOICE_ARCHETYPES"
+  },
+  "beat_types": {
+    "values": [
+      "abstract_process",
+      "authoritative_claim",
+      "character",
+      "concrete_subject"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.vocabularies.BEAT_TYPES"
+  },
+  "visual_sources": {
+    "values": [
+      "archival",
+      "artifact",
+      "footage",
+      "generated",
+      "locked_character",
+      "still_motion"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.vocabularies.VISUAL_SOURCES"
+  },
+  "source_types": {
+    "values": [
+      "archive",
+      "cfr",
+      "court",
+      "fda",
+      "foia",
+      "gov_record",
+      "patent",
+      "peer_reviewed",
+      "usda",
+      "web"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.vocabularies.SOURCE_TYPES"
+  },
   "cut_rhythm_keys": {
-    "values": ["generated_max_hold_s", "hook_hold_s", "max_hold_s", "min_hold_s", "target_hold_s"],
-    "ranges": {"min_hold_s": {"min": 0.3, "max": 5.0}, "hook_hold_s": {"min": 0.3, "max": 5.0}, "target_hold_s": {"min": 0.3, "max": 5.0}, "max_hold_s": {"min": 0.3, "max": 5.0}, "generated_max_hold_s": {"min": 0.6, "max": 5.0}},
-    "owner": "pipeline", "source": "pipeline.config.CUT_RHYTHM_KEYS"
+    "values": [
+      "generated_max_hold_s",
+      "hook_hold_s",
+      "max_hold_s",
+      "min_hold_s",
+      "target_hold_s"
+    ],
+    "ranges": {
+      "min_hold_s": {
+        "min": 0.3,
+        "max": 5.0
+      },
+      "hook_hold_s": {
+        "min": 0.3,
+        "max": 5.0
+      },
+      "target_hold_s": {
+        "min": 0.3,
+        "max": 5.0
+      },
+      "max_hold_s": {
+        "min": 0.3,
+        "max": 5.0
+      },
+      "generated_max_hold_s": {
+        "min": 0.6,
+        "max": 5.0
+      }
+    },
+    "owner": "pipeline",
+    "source": "pipeline.config.CUT_RHYTHM_KEYS"
   },
-  "foley_bed": {"values": ["native", "off"], "owner": "pipeline", "source": "pipeline.config.FOLEY_BED_VALUES"},
+  "foley_bed": {
+    "values": [
+      "native",
+      "off"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.config.FOLEY_BED_VALUES"
+  },
   "foley_keys": {
-    "values": ["bed", "volume"],
-    "ranges": {"volume": {"min": 0.05, "max": 0.8}},
-    "owner": "pipeline", "source": "pipeline.config.FOLEY_KEYS"
+    "values": [
+      "bed",
+      "volume"
+    ],
+    "ranges": {
+      "volume": {
+        "min": 0.05,
+        "max": 0.8
+      }
+    },
+    "owner": "pipeline",
+    "source": "pipeline.config.FOLEY_KEYS"
   },
-  "caption_keys": {"values": ["line_color", "max_words_per_line", "position", "style", "word_color"], "owner": "pipeline", "source": "pipeline.config.CAPTION_KEYS"},
-  "particle_keys": {"values": ["suppression_fragment"], "owner": "pipeline", "source": "pipeline.config.PARTICLE_KEYS"},
-  "grade_keys": {"values": ["preset"], "owner": "pipeline", "source": "pipeline.config.GRADE_KEYS"},
-  "grade_presets": {"values": ["archival_neutral", "warm_incandescent"], "owner": "pipeline", "source": "pipeline.config.GRADE_PRESETS"},
-  "archival_miss_fallback": {"values": ["generated", "stock"], "owner": "pipeline", "source": "pipeline.config.ARCHIVAL_MISS_FALLBACK_VALUES"},
-  "archival_providers": {"values": ["internet_archive", "loc", "wikimedia_commons"], "owner": "pipeline", "source": "pipeline.config.ARCHIVAL_PROVIDER_VALUES"},
+  "caption_keys": {
+    "values": [
+      "line_color",
+      "max_chars_per_line",
+      "max_words_per_line",
+      "position",
+      "style",
+      "word_color"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.config.CAPTION_KEYS"
+  },
+  "particle_keys": {
+    "values": [
+      "suppression_fragment"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.config.PARTICLE_KEYS"
+  },
+  "grade_keys": {
+    "values": [
+      "preset"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.config.GRADE_KEYS"
+  },
+  "grade_presets": {
+    "values": [
+      "archival_neutral",
+      "warm_incandescent"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.config.GRADE_PRESETS"
+  },
+  "archival_miss_fallback": {
+    "values": [
+      "generated",
+      "stock"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.config.ARCHIVAL_MISS_FALLBACK_VALUES"
+  },
+  "archival_providers": {
+    "values": [
+      "internet_archive",
+      "loc",
+      "wikimedia_commons"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.config.ARCHIVAL_PROVIDER_VALUES"
+  },
   "sourcing_keys": {
-    "values": ["archival_miss_fallback", "archival_providers", "loc_call_budget", "max_artifact_cuts", "stock_text_screen"],
-    "ranges": {"max_artifact_cuts": {"min": 0}, "loc_call_budget": {"min": 0}},
-    "owner": "pipeline", "source": "pipeline.config.SOURCING_KEYS"
+    "values": [
+      "archival_medium_denylist",
+      "archival_metadata_only_weight",
+      "archival_miss_fallback",
+      "archival_providers",
+      "archival_relevance_weight_floor",
+      "archival_still_retry_max_cuts",
+      "archival_vision_gate",
+      "artifact_types",
+      "artifact_vision_cap",
+      "assembly_max_spend",
+      "craft_flag_static_hook",
+      "craft_hook_window_s",
+      "craft_min_luma_variance",
+      "craft_phash_hamming_max",
+      "craft_rhythm_band_ratio",
+      "craft_rhythm_run_min",
+      "craft_subject_confusables",
+      "craft_vision_batch_cap_usd",
+      "craft_vision_estimated_batch_cost_usd",
+      "craft_vision_proximity_window_sec",
+      "escalation_ladder",
+      "escalation_max_cuts",
+      "generation_budget_usd",
+      "generation_failure_kill_threshold",
+      "generation_failure_spend_cap_usd",
+      "generation_model",
+      "generation_model_ladder",
+      "generation_retries",
+      "generation_tier",
+      "live_retrieval",
+      "loc_call_budget",
+      "low_specificity_tokens",
+      "low_specificity_weight",
+      "max_artifact_cuts",
+      "max_asset_reuse",
+      "max_generated_clips",
+      "min_relevance_overlap",
+      "on_below_floor",
+      "on_topic_ratio_floor",
+      "provider_retry_max_attempts_per_call",
+      "provider_retry_max_per_episode",
+      "query_vocabulary",
+      "relevance_floor",
+      "repair_degrade_mode",
+      "repair_max_attempts_per_cut",
+      "repair_max_cuts_per_episode",
+      "repair_max_paid_attempts_per_episode",
+      "repair_unrepairable_park_ratio",
+      "repair_unshippable_park_ratio",
+      "retrieval_call_budget",
+      "retrieval_fee_estimate_usd",
+      "stock_on_below_floor",
+      "stock_on_topic_action",
+      "stock_text_screen",
+      "stock_vision_gate",
+      "visual_relevance_vision_cap"
+    ],
+    "ranges": {
+      "max_artifact_cuts": {
+        "min": 0
+      },
+      "loc_call_budget": {
+        "min": 0
+      },
+      "retrieval_call_budget": {
+        "min": 0
+      },
+      "retrieval_fee_estimate_usd": {
+        "min": 0
+      },
+      "craft_phash_hamming_max": {
+        "min": 0,
+        "max": 64
+      },
+      "craft_rhythm_band_ratio": {
+        "min": 0,
+        "max": 1
+      },
+      "craft_rhythm_run_min": {
+        "min": 2
+      },
+      "craft_hook_window_s": {
+        "min": 0,
+        "max": 30
+      },
+      "craft_min_luma_variance": {
+        "min": 0
+      },
+      "craft_vision_batch_cap_usd": {
+        "min": 0
+      },
+      "craft_vision_estimated_batch_cost_usd": {
+        "min": 0
+      },
+      "craft_vision_proximity_window_sec": {
+        "min": 0
+      }
+    },
+    "owner": "pipeline",
+    "source": "pipeline.config.SOURCING_KEYS"
   },
   "script": {
-    "values": ["bombast_max_outbursts"],
-    "ranges": {"bombast_max_outbursts": {"min": 0, "nullable": true}},
-    "owner": "pipeline", "source": "pipeline.config.SCRIPT_KEYS"
+    "values": [
+      "bombast_max_outbursts"
+    ],
+    "ranges": {
+      "bombast_max_outbursts": {
+        "min": 0,
+        "nullable": true
+      }
+    },
+    "owner": "pipeline",
+    "source": "pipeline.config.SCRIPT_KEYS"
   },
-  "qa_dimensions": {"values": ["beat_pacing", "editing", "hook", "rendering", "script", "visual_relevance", "vo_delivery"], "owner": "pipeline", "source": "pipeline.vocabularies.QA_DIMENSIONS"},
-  "humanization_keys": {"values": ["breath_dashes", "eq", "filler_rate", "pitch_semitones", "pronunciation_extra", "stutter_rate"], "owner": "pipeline", "source": "pipeline.vocabularies.HUMANIZATION_KEYS"}
+  "qa_dimensions": {
+    "values": [
+      "beat_pacing",
+      "editing",
+      "hook",
+      "rendering",
+      "script",
+      "visual_relevance",
+      "vo_delivery"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.vocabularies.QA_DIMENSIONS"
+  },
+  "humanization_keys": {
+    "values": [
+      "breath_dashes",
+      "eq",
+      "filler_rate",
+      "pitch_semitones",
+      "pronunciation_extra",
+      "stutter_rate"
+    ],
+    "owner": "pipeline",
+    "source": "pipeline.vocabularies.HUMANIZATION_KEYS"
+  },
+  "source_commit": "163ec93"
 }

@@ -18,6 +18,7 @@ export type FailureClassId =
   | "llm_schema"
   | "audio_mastering"
   | "editor_band"
+  | "caption_audit"
   | "cost_guard_panel"
   | "ffmpeg"
   | "abandoned"
@@ -60,6 +61,12 @@ export function classifyFailure(error: string | null | undefined): FailureClassI
   if (text.includes("cost-guard (pre_spend_panel)")) return "cost_guard_panel";
   if (text.includes("word_count")) return "script_word_count";
   if (text.includes("ffmpeg")) return "ffmpeg";
+  if (
+    text.includes("caption numeral mismatch") ||
+    text.includes("unaudited vendor-recognised captions")
+  ) {
+    return "caption_audit";
+  }
 
   if (
     (text.includes("did not finish in") && text.includes("polls")) ||
@@ -112,6 +119,8 @@ export function failureClassLabel(id: FailureClassId): string {
       return "Audio failed the loudness floor";
     case "editor_band":
       return "Edit failed a pacing/duplication check";
+    case "caption_audit":
+      return "Captions failed numeral audit";
     case "cost_guard_panel":
       return "Stopped by the pre-spend review panel";
     case "ffmpeg":
@@ -189,4 +198,3 @@ export function summarizeFailures(
     }))
     .sort((a, b) => (b.count - a.count) || a.classId.localeCompare(b.classId));
 }
-

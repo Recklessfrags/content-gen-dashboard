@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { classifyFailure, resolveTerminalState, summarizeFailures } from "@/lib/failureClass";
+import {
+  classifyFailure,
+  failureClassLabel,
+  resolveTerminalState,
+  summarizeFailures,
+} from "@/lib/failureClass";
 
 describe("classifyFailure", () => {
   const samples = {
@@ -47,6 +52,10 @@ describe("classifyFailure", () => {
     expect(classifyFailure(`${samples.unhandled} word_count 214 outside 130-195`)).toBe(
       "unhandled_exception",
     );
+  });
+
+  it("labels caption-audit failures", () => {
+    expect(failureClassLabel("caption_audit")).toBe("Captions failed numeral audit");
   });
 });
 
@@ -127,4 +136,3 @@ describe("summarizeFailures", () => {
     expect(rows[0].stages).toEqual(["a-stage", "z-stage"]);
   });
 });
-
