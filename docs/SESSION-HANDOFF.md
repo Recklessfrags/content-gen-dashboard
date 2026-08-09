@@ -13,7 +13,7 @@ Operator stated (verbatim intent): *"for now I'll pay for the users' renders, bu
 
 ---
 
-## 🔚 CLOSE-OUT 2026-08-09 (simplification-redo session) — SPEC A moves 1+3+4+6 BUILT on branch `claude/proceed-anxytx` (NOT yet merged to default)
+## 🔚 CLOSE-OUT 2026-08-09 (simplification-redo session) — SPEC A moves 1+3+4+6 BUILT — MERGED TO DEFAULT `d3cf2f3` (2026-08-09, operator go): production now carries moves 1/3/4/6 + the contract-sync chain + D5 advisories; register rows P34/P38/P47 are now TRUE in production
 
 > **Same-day addendum:** move 6 shipped too (`bffc8fa`) — global Basic/Advanced toggle +
 > `UiModeContext`/`lib/uiMode` deleted; each surface (dossier editor, CastingStudioPanel,
