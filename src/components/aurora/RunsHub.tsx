@@ -67,6 +67,7 @@ export type RunsHubProps = {
   error: string | null;
   onRetry: () => void;
   onBack: () => void;
+  onReviewApprovals?: () => void;
   loadDiagnostics: (episodeId: string) => Promise<RunDiagnosticsResult>;
   loadReliability: () => Promise<ReliabilityResult>;
 };
@@ -83,6 +84,7 @@ export function RunsHub({
   error,
   onRetry,
   onBack,
+  onReviewApprovals,
   loadDiagnostics,
   loadReliability,
 }: RunsHubProps) {
@@ -212,6 +214,7 @@ export function RunsHub({
                         card={card}
                         latestStage={card.episodeId ? latestStageByEpisode[card.episodeId] : undefined}
                         loadDiagnostics={loadDiagnostics}
+                        onReviewApprovals={onReviewApprovals}
                       />
                     ))}
                   </div>
@@ -365,10 +368,12 @@ function RunCard({
   card,
   latestStage,
   loadDiagnostics,
+  onReviewApprovals,
 }: {
   card: RunCardVM;
   latestStage?: string;
   loadDiagnostics: RunsHubProps["loadDiagnostics"];
+  onReviewApprovals: RunsHubProps["onReviewApprovals"];
 }) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<DiagnosticsState>({ loading: false, error: null, receipts: null });
@@ -386,6 +391,7 @@ function RunCard({
       ? { state: card.terminalState, source: card.terminalStateSource }
       : resolveTerminalState(card.parkKindColumn, card.error)
     : null;
+  const needsApprovalReview = parkKind === "fact" || parkKind === "spend" || parkKind === "publish";
 
   const runDiagnostics = useCallback(async () => {
     if (card.episodeId === null || inFlightRef.current) return;
@@ -454,6 +460,12 @@ function RunCard({
             {plainLanguage("final_stage")} · {stageLabel(card.finalStage)}
           </p>
         </div>
+      ) : null}
+
+      {needsApprovalReview && onReviewApprovals ? (
+        <button type="button" className="btn ghost compact" onClick={onReviewApprovals}>
+          Review approvals →
+        </button>
       ) : null}
 
       {card.error ? (

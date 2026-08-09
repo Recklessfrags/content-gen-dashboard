@@ -1,6 +1,5 @@
 export type HubKey =
   | "channels"
-  | "actions"
   | "overview"
   | "characters"
   | "ideas"
@@ -14,7 +13,6 @@ export type AppScope =
 
 export const HUB_KEYS = [
   "channels",
-  "actions",
   "overview",
   "characters",
   "ideas",

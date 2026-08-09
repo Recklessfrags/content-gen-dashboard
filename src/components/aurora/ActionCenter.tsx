@@ -19,7 +19,7 @@ type ActionCenterPark = {
   error: string | null;
 };
 
-type ActionCenterProps = {
+export type ActionCenterProps = {
   jobs: QueueJob[];
   erroredJobs?: QueueJob[];
   parkById: Record<QueueJob["id"], ActionCenterPark>;
@@ -30,8 +30,8 @@ type ActionCenterProps = {
   onConfirm: () => void;
   onCancel: () => void;
   canPublish: (job: QueueJob) => boolean;
-  onBack: () => void;
-  onOpenRevealPreview: () => void;
+  onBack?: () => void;
+  headingLevel?: 1 | 2;
   statusLabel: (job: QueueJob) => string;
   factClaims?: FactClaim[] | null;
   factClaimsLoading?: boolean;
@@ -50,12 +50,13 @@ export function ActionCenter({
   onCancel,
   canPublish,
   onBack,
-  onOpenRevealPreview,
+  headingLevel = 1,
   statusLabel,
   factClaims,
   factClaimsLoading = false,
   factClaimsError = null,
 }: ActionCenterProps) {
+  const Heading = headingLevel === 2 ? "h2" : "h1";
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const previousPendingRef = useRef<typeof pending>(pending);
 
@@ -78,7 +79,7 @@ export function ActionCenter({
           <p className="text-mono dim" style={{ fontSize: "0.875rem", marginBottom: "0.5rem" }}>
             // ACTION CENTER
           </p>
-          <h1 id="action-center-title" className="text-display" style={{ fontSize: "2.5rem" }}>
+          <Heading id="action-center-title" className="text-display" style={{ fontSize: "2.5rem" }}>
             {jobs.length > 0 ? (
               <>
                 <span className="au-pulse-dot" />
@@ -87,16 +88,15 @@ export function ActionCenter({
             ) : (
               "All clear"
             )}
-          </h1>
+          </Heading>
         </div>
-        <div className="approval-actions">
-          <button type="button" className="btn btn-secondary" onClick={onOpenRevealPreview}>
-            Preview reveal approvals
-          </button>
-          <button type="button" className="action-button" onClick={onBack}>
-            Back to Channels
-          </button>
-        </div>
+        {onBack ? (
+          <div className="approval-actions">
+            <button type="button" className="action-button" onClick={onBack}>
+              Back to Channels
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {jobs.length === 0 ? (
@@ -134,7 +134,6 @@ export function ActionCenter({
                     isStale={isStale}
                     publishAllowed={publishAllowed}
                     onRequest={handleRequest}
-                    onOpenRevealPreview={onOpenRevealPreview}
                   />
                 </div>
 
@@ -250,14 +249,12 @@ function PrimaryAction({
   isStale,
   publishAllowed,
   onRequest,
-  onOpenRevealPreview,
 }: {
   job: QueueJob;
   park: ActionCenterPark | undefined;
   isStale: boolean;
   publishAllowed: boolean;
   onRequest: TriggeredActionRequest;
-  onOpenRevealPreview: () => void;
 }) {
   if (isStale) {
     return (
@@ -315,11 +312,7 @@ function PrimaryAction({
   }
 
   if (park?.kind === "reveal") {
-    return (
-      <button className="btn compact" type="button" onClick={onOpenRevealPreview}>
-        Review reveals
-      </button>
-    );
+    return null;
   }
 
   return (

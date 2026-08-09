@@ -50,7 +50,6 @@ import {
 import type { GeneratedCharacter } from "@/lib/castingCharacter";
 import { AuroraShell } from "./aurora/AuroraShell";
 import { useUiMode } from "./aurora/UiModeContext";
-import { ActionCenter } from "./aurora/ActionCenter";
 import { HubLanding } from "./aurora/HubLanding";
 import { CharactersHub } from "./aurora/CharactersHub";
 import type { ChannelCardVM } from "./aurora/ChannelsHub";
@@ -1702,17 +1701,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
     return formatUsd(total);
   }, [costReceiptsError, costReceiptsLoaded, costReceiptsLoading, costStats.episodeCosts]);
-  const hubActionItems = useMemo(
-    () =>
-      actionableJobs.slice(0, 2).map((job) => ({
-        id: job.id,
-        title: job.channel ?? job.food,
-        detail: job.channel
-          ? `${JOB_STATUS_LABELS[classifyJobStatus(job.status)]} · ${job.food}`
-          : JOB_STATUS_LABELS[classifyJobStatus(job.status)],
-      })),
-    [actionableJobs],
-  );
   const charactersHubProps = useMemo<CharactersHubProps>(
     () => ({
       cards: charactersHubCards,
@@ -1946,6 +1934,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         void fetchJobs();
       },
       onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
+      onReviewApprovals: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
       loadDiagnostics: loadRunDiagnostics,
       loadReliability: loadWorkerReliability,
     }),
@@ -1962,7 +1951,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const auroraNav = {
     activeKey:
       scope.kind === "workspace" ||
-      scope.hub === "actions" ||
       scope.hub === "overview" ||
       scope.hub === "reveal"
         ? "channels"
@@ -2006,9 +1994,20 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       inFlightRuns,
     },
     actions: {
-      pendingCount: actionableJobs.length,
-      items: hubActionItems,
-      onReviewAll: () => navigate({ kind: "hub", hub: "actions" }),
+      jobs: actionableJobs,
+      erroredJobs,
+      parkById: jobParkById,
+      loadDiagnostics: loadRunDiagnostics,
+      pending: pendingQueueAction,
+      submitting: queueActionSubmitting,
+      onRequest: requestQueueAction,
+      onConfirm: confirmQueueAction,
+      onCancel: cancelQueueAction,
+      canPublish: (job: QueueJob) => publishSourceEpisodeId(job) !== null,
+      statusLabel: (job: QueueJob) => JOB_STATUS_LABELS[classifyJobStatus(job.status)],
+      factClaims: factClaimsState.claims,
+      factClaimsLoading: factClaimsState.loading,
+      factClaimsError: factClaimsState.error,
     },
     operatorInitials,
     signOutSlot,
@@ -2553,34 +2552,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       <>
         {globalOverlays}
         <HubLanding {...hubLandingProps} />
-      </>
-    );
-  }
-
-  if (scope.kind === "hub" && scope.hub === "actions") {
-    return (
-      <>
-        {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
-          <ActionCenter
-            jobs={actionableJobs}
-            erroredJobs={erroredJobs}
-            parkById={jobParkById}
-            loadDiagnostics={loadRunDiagnostics}
-            pending={pendingQueueAction}
-            submitting={queueActionSubmitting}
-            onRequest={requestQueueAction}
-            onConfirm={confirmQueueAction}
-            onCancel={cancelQueueAction}
-            canPublish={(job) => publishSourceEpisodeId(job) !== null}
-            onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
-            onOpenRevealPreview={() => navigate({ kind: "hub", hub: "reveal" })}
-            statusLabel={(job) => JOB_STATUS_LABELS[classifyJobStatus(job.status)]}
-            factClaims={factClaimsState.claims}
-            factClaimsLoading={factClaimsState.loading}
-            factClaimsError={factClaimsState.error}
-          />
-        </AuroraShell>
       </>
     );
   }

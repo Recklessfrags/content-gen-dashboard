@@ -28,10 +28,7 @@ describe("parseScope", () => {
       scope: { kind: "hub", hub: "channels" },
       canonicalize: false,
     });
-    expect(parseScope("?hub=actions")).toEqual({
-      scope: { kind: "hub", hub: "actions" },
-      canonicalize: false,
-    });
+    expect(parseScope("?hub=actions")).toEqual({ scope: defaultHubScope, canonicalize: true });
     expect(parseScope("?hub=overview")).toEqual({
       scope: { kind: "hub", hub: "overview" },
       canonicalize: false,
@@ -122,8 +119,8 @@ describe("scope serialization", () => {
   });
 
   it("builds a URL with pathname, canonical search, and optional hash", () => {
-    expect(scopeToUrl({ kind: "hub", hub: "actions" }, "/control", "#queue")).toBe(
-      "/control?hub=actions#queue",
+    expect(scopeToUrl({ kind: "hub", hub: "review" }, "/control", "#queue")).toBe(
+      "/control?hub=review#queue",
     );
   });
 });
@@ -133,7 +130,7 @@ describe("scope comparison helpers", () => {
     expect(scopesEqual({ kind: "hub", hub: "channels" }, { kind: "hub", hub: "channels" })).toBe(
       true,
     );
-    expect(scopesEqual({ kind: "hub", hub: "channels" }, { kind: "hub", hub: "actions" })).toBe(
+    expect(scopesEqual({ kind: "hub", hub: "channels" }, { kind: "hub", hub: "review" })).toBe(
       false,
     );
     expect(
