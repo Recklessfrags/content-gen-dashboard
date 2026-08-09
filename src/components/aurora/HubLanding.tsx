@@ -17,6 +17,7 @@ export type HubLandingProps = {
     activeRuns: number;
     spend30d: string | null;
     inFlightRuns: { id: string; episodeId: string | null; title: string }[];
+    onOpenCostCenter: () => void;
   };
   actions: ActionCenterProps;
   operatorInitials?: string;
@@ -72,6 +73,14 @@ export function HubLanding({
             <p className="text-display accent text-mono" style={{ fontSize: "2.5rem" }}>
               {glance.spend30d ?? "--"}
             </p>
+            <button
+              type="button"
+              className="btn ghost compact text-mono"
+              style={{ marginTop: "0.75rem" }}
+              onClick={glance.onOpenCostCenter}
+            >
+              View global cost center →
+            </button>
           </div>
         </article>
       </section>

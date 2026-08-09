@@ -60,7 +60,6 @@ import type {
 import { IdeasHub } from "./aurora/IdeasHub";
 import type { IdeasHubProps } from "./aurora/IdeasHub";
 import { ReviewHub } from "./aurora/ReviewHub";
-import { RevealHub } from "./aurora/RevealHub";
 import { RunsHub } from "./aurora/RunsHub";
 import type {
   ReliabilityResult,
@@ -71,13 +70,6 @@ import type {
 import { RunCostEstimate } from "./aurora/RunCostEstimate";
 import { computeWorkerReliability } from "@/lib/workerReliability";
 import { MOCK_REVIEW_FIXTURES } from "@/lib/renderReview";
-import {
-  buildJobsRevealPatch,
-  buildRevealApprovalRow,
-  parseRevealAuditorResult,
-  type RevealDecisionMap,
-  type RevealFixture,
-} from "@/lib/revealApproval";
 import { CastingStudioPanel } from "./controlroom/CastingStudioPanel";
 import { CharacterGenerator } from "./controlroom/CharacterGenerator";
 import { ChannelProfilesPanel } from "./controlroom/ChannelProfilesPanel";
@@ -85,7 +77,6 @@ import { CompareDialog } from "./controlroom/CompareDialog";
 import { CostBoxDashboard } from "./controlroom/CostBoxDashboard";
 import { EnqueueIdeaPanel } from "./controlroom/EnqueueIdeaPanel";
 import { HistoryDrawer } from "./controlroom/HistoryDrawer";
-import { OverviewDashboard } from "./controlroom/OverviewDashboard";
 import { VisualIdentityPanel } from "./controlroom/VisualIdentityPanel";
 import {
   DEFAULT_HUB,
@@ -159,16 +150,6 @@ function isApprovalParkKind(
     parkKind === "reveal"
   );
 }
-
-function isMissingRevealColumnsError(error: { code?: string; message?: string }) {
-  const message = error.message?.toLowerCase() ?? "";
-  return (
-    error.code === "42703" ||
-    error.code === "PGRST204" ||
-    (message.includes("column") && message.includes("reveal"))
-  );
-}
-
 
 const IDEA_STATUS_OPTIONS: IdeaStatus[] = ["backlog", "active", "used"];
 const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
@@ -483,21 +464,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     [chars],
   );
   const [jobParkById, setJobParkById] = useState<Record<number, JobParkResolution>>({});
-  const [revealFixtures, setRevealFixtures] = useState<RevealFixture[]>([]);
-  const [revealFixturesLoading, setRevealFixturesLoading] = useState(true);
-  const [revealFixturesError, setRevealFixturesError] = useState<string | null>(null);
-  const revealParkedJobs = jobs.filter(
-    (job) =>
-      classifyJobStatus(job.status) === "ready_for_review" &&
-      jobParkById[job.id]?.kind === "reveal" &&
-      Boolean(job.episode_id),
-  );
-  const revealJobSignature = revealParkedJobs
-    .map((job) => `${job.id}:${job.episode_id}`)
-    .sort()
-    .join(",");
-  const revealParkedJobsRef = useRef(revealParkedJobs);
-  revealParkedJobsRef.current = revealParkedJobs;
   const [activeEnqueueIdeaId, setActiveEnqueueIdeaId] = useState<string | null>(null);
   const [castingOpen, setCastingOpen] = useState(false);
   const [castingSuggestedPersona, setCastingSuggestedPersona] = useState<string | null>(null);
@@ -576,56 +542,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 2200);
   }, []);
-  const submitRevealDecisions = useCallback(
-    async (episodeId: string, decisions: RevealDecisionMap) => {
-      const rows = Object.entries(decisions).map(([revealId, decision]) =>
-        buildRevealApprovalRow(episodeId, revealId, decision),
-      );
-      if (rows.length === 0) {
-        throw new Error("Decide each reveal before submitting.");
-      }
-
-      const { error: auditError } = await supabase.from("reveal_approvals").insert(rows);
-      if (auditError) {
-        throw new Error(`Could not record reveal decisions: ${auditError.message}`);
-      }
-
-      if (process.env.NEXT_PUBLIC_REVEAL_WRITE_ENABLED !== "true") {
-        showFlash(
-          "Recorded your decision — resume activates when the pipeline's reveal columns land.",
-        );
-        return;
-      }
-
-      const patch = buildJobsRevealPatch(decisions);
-      const { data: updatedJobs, error: jobError } = await supabase
-        .from("jobs")
-        .update(patch as never)
-        .eq("episode_id", episodeId)
-        .eq("park_kind", "reveal")
-        .select("id")
-        .returns<Array<{ id: number }>>();
-
-      if (jobError && isMissingRevealColumnsError(jobError)) {
-        showFlash(
-          "Recorded your decision — resume activates when the pipeline's reveal columns land.",
-        );
-        return;
-      }
-      if (jobError) {
-        throw new Error(`Decision recorded, but pipeline resume failed: ${jobError.message}`);
-      }
-      if (!updatedJobs || updatedJobs.length === 0) {
-        throw new Error("Decision recorded, but no parked reveal job was updated.");
-      }
-      if (updatedJobs.length > 1) {
-        throw new Error("Multiple parked reveal jobs matched — resolve before resuming.");
-      }
-
-      showFlash("Reveal decisions recorded and pipeline resume activated.");
-    },
-    [showFlash, supabase],
-  );
   const writeIdeaJobMap = async ({
     key,
     ideaId,
@@ -756,84 +672,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }
     return undefined;
   }, [jobParkById, jobs, supabase]);
-
-  useEffect(() => {
-    if (jobsLoading) {
-      setRevealFixturesLoading(true);
-      return undefined;
-    }
-    if (jobsError) {
-      setRevealFixtures([]);
-      setRevealFixturesError(jobsError);
-      setRevealFixturesLoading(false);
-      return undefined;
-    }
-
-    const revealJobs = revealParkedJobsRef.current;
-    let cancelled = false;
-
-    if (revealJobs.length === 0) {
-      setRevealFixtures([]);
-      setRevealFixturesError(null);
-      setRevealFixturesLoading(false);
-      return undefined;
-    }
-
-    setRevealFixturesLoading(true);
-    setRevealFixturesError(null);
-    void Promise.allSettled(
-      revealJobs.map(async (job): Promise<RevealFixture | null> => {
-        const episodeId = job.episode_id as string;
-        const { data, error } = await supabase
-          .from("receipts")
-          .select("result,seq")
-          .eq("episode_id", episodeId)
-          .eq("stage", "reveal_auditor")
-          .order("seq", { ascending: false })
-          .limit(1)
-          .returns<Array<Pick<Receipt, "result" | "seq">>>();
-
-        if (error) throw error;
-        if (!data?.[0]) return null;
-        return {
-          id: episodeId,
-          title: job.food,
-          channel: job.channel ?? "Channel not set",
-          reveals: parseRevealAuditorResult(data[0].result),
-        };
-      }),
-    )
-      .then((results) => {
-        if (cancelled) return;
-
-        const fixtures = results.flatMap((result) =>
-          result.status === "fulfilled" && result.value ? [result.value] : [],
-        );
-        const failures = results.filter(
-          (result): result is PromiseRejectedResult => result.status === "rejected",
-        );
-
-        if (failures.length > 0) {
-          console.warn("Some parked reveal batches could not be loaded.", failures);
-        }
-
-        setRevealFixtures(fixtures);
-        setRevealFixturesError(
-          fixtures.length === 0 && failures.length > 0
-            ? failures[0].reason instanceof Error
-              ? failures[0].reason.message
-              : "Could not load parked reveals."
-            : null,
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setRevealFixturesLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [jobParkById, jobsError, jobsLoading, revealJobSignature, supabase]);
 
   const active = chars.find((c) => c.id === activeId) ?? null;
   const activeChannelProfile = active
@@ -1949,12 +1787,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     ],
   );
   const auroraNav = {
-    activeKey:
-      scope.kind === "workspace" ||
-      scope.hub === "overview" ||
-      scope.hub === "reveal"
-        ? "channels"
-        : scope.hub,
+    activeKey: scope.kind === "workspace" ? "channels" : scope.hub,
     onNavigate: (key: "channels" | "characters" | "ideas" | "runs" | "review") =>
       navigate({ kind: "hub", hub: key }),
   } as const;
@@ -1992,6 +1825,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       activeRuns,
       spend30d,
       inFlightRuns,
+      onOpenCostCenter: () => setCostCenterOpen(true),
     },
     actions: {
       jobs: actionableJobs,
@@ -2648,60 +2482,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             fixtures={MOCK_REVIEW_FIXTURES}
             onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
           />
-        </AuroraShell>
-      </>
-    );
-  }
-
-  if (scope.kind === "hub" && scope.hub === "reveal") {
-    return (
-      <>
-        {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
-          <RevealHub
-            fixtures={revealFixtures}
-            loading={revealFixturesLoading}
-            error={revealFixturesError}
-            onSubmit={submitRevealDecisions}
-            onBack={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
-          />
-        </AuroraShell>
-      </>
-    );
-  }
-
-  if (scope.kind === "hub" && scope.hub === "overview") {
-    return (
-      <>
-        {globalOverlays}
-        <AuroraShell operatorInitials={operatorInitials} signOutSlot={signOutSlot} nav={auroraNav}>
-          <div className="overview-hub scoped">
-            <div className="overview-hub__head">
-              <div>
-                <p className="text-mono dim" style={{ fontSize: "0.875rem", marginBottom: "0.5rem" }}>
-                  {scopeToSearch({ kind: "hub", hub: "overview" })}
-                </p>
-                <h1 id="system-overview-title" className="text-display" style={{ fontSize: "2.5rem" }}>
-                  System Overview
-                </h1>
-              </div>
-              <button
-                type="button"
-                className="action-button"
-                onClick={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
-              >
-                Back to Channels
-              </button>
-            </div>
-            <OverviewDashboard
-              chars={chars}
-              ideas={ideas}
-              episodes={episodes}
-              costStats={costStats}
-              costReceiptsLoading={costReceiptsLoading}
-              costReceiptsError={costReceiptsError}
-            />
-          </div>
         </AuroraShell>
       </>
     );

@@ -29,10 +29,7 @@ describe("parseScope", () => {
       canonicalize: false,
     });
     expect(parseScope("?hub=actions")).toEqual({ scope: defaultHubScope, canonicalize: true });
-    expect(parseScope("?hub=overview")).toEqual({
-      scope: { kind: "hub", hub: "overview" },
-      canonicalize: false,
-    });
+    expect(parseScope("?hub=overview")).toEqual({ scope: defaultHubScope, canonicalize: true });
     expect(parseScope("?hub=characters")).toEqual({
       scope: { kind: "hub", hub: "characters" },
       canonicalize: false,
@@ -49,10 +46,7 @@ describe("parseScope", () => {
       scope: { kind: "hub", hub: "review" },
       canonicalize: false,
     });
-    expect(parseScope("?hub=reveal")).toEqual({
-      scope: { kind: "hub", hub: "reveal" },
-      canonicalize: false,
-    });
+    expect(parseScope("?hub=reveal")).toEqual({ scope: defaultHubScope, canonicalize: true });
     expect(parseScope("?hub=bogus")).toEqual({ scope: defaultHubScope, canonicalize: true });
   });
 
@@ -104,9 +98,9 @@ describe("scope serialization", () => {
 
   it("is idempotent for canonical hub and workspace scopes", () => {
     const scopes: AppScope[] = [
-      { kind: "hub", hub: "overview" },
+      { kind: "hub", hub: "characters" },
       { kind: "hub", hub: "review" },
-      { kind: "hub", hub: "reveal" },
+      { kind: "hub", hub: "runs" },
       { kind: "workspace", channel: "weird_food", tab: "character" },
     ];
 
