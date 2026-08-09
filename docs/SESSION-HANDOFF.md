@@ -25,6 +25,19 @@ Operator stated (verbatim intent): *"for now I'll pay for the users' renders, bu
 > unification, own slice) left. Also this session, pipeline side: the parked P56
 > `visual_source` fix was landed on the pipeline's `claude/proceed-anxytx` with both review
 > findings resolved (see that repo's handoff).
+>
+> **Second addendum — the UNMERGED contract-sync chain is landed (`61c01a7`).** The pipeline
+> problem register marked P34/P38-coverage/P47 CLOSED citing dashboard commits
+> (`a81f73d`, `ecf371e`, `e3a21fb`, …) that **never reached the dashboard default branch** —
+> production still probed the never-written `below_floor_cuts` key. The full 8-commit chain
+> (`0199aa3..7f08d28` from `origin/claude/archival-query-stock-fallback-826gff`: the
+> `below_floor_notice` recognition + derived reasons, the generic 20-vocabulary parity
+> tripwire, `caption_audit` failure class, SOURCING_KEYS 5→50 + consumption map, vocab
+> re-syncs through pipeline `163ec93`) is merged onto `claude/proceed-anxytx`. Every
+> re-sync's pipeline target verified an ancestor of pipeline `main`; a fresh cross-repo
+> vocabulary diff against today's pipeline `main` = **NO DRIFT**; merged gates: tsc clean ·
+> **435/435 vitest** · next build green. Register statuses become true only when this
+> branch merges to default — same merge that ships the simplification moves.
 
 ### Shipped (4 commits on `claude/proceed-anxytx`, frozen spec `docs/slices/slice-simplification-moves-134.md`)
 - **Move 1 — one approval queue** (`59dcb07`): the full `ActionCenter` (real rows, confirm
