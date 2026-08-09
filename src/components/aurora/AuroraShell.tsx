@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 
 import { applyTheme, getStoredTheme, toggleTheme } from "@/lib/theme";
 import type { AuroraTheme } from "@/lib/theme";
-import { useUiMode } from "./UiModeContext";
 
 type AuroraShellProps = {
   children: ReactNode;
@@ -34,7 +33,6 @@ export function AuroraShell({
   nav,
 }: AuroraShellProps) {
   const [theme, setTheme] = useState<AuroraTheme>("dark");
-  const { mode, setMode } = useUiMode();
 
   useEffect(() => {
     const storedTheme = getStoredTheme();
@@ -49,7 +47,7 @@ export function AuroraShell({
   const nextTheme = theme === "dark" ? "light" : "dark";
 
   return (
-    <div className="aurora-app" data-aurora-shell="true" data-theme={theme} data-ui-mode={mode}>
+    <div className="aurora-app" data-aurora-shell="true" data-theme={theme}>
       <div className="aurora-container" aria-hidden="true" />
       <svg className="noise-overlay" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <filter id="noiseFilter">
@@ -72,28 +70,6 @@ export function AuroraShell({
             <div className="wordmark-text text-display">Control Room</div>
           </div>
           <div className="header-actions">
-            <div
-              className="mode-toggle"
-              role="group"
-              aria-label="Detail level"
-            >
-              <button
-                type="button"
-                className={"mode-toggle-option" + (mode === "basic" ? " is-active" : "")}
-                aria-pressed={mode === "basic"}
-                onClick={() => setMode("basic")}
-              >
-                Basic
-              </button>
-              <button
-                type="button"
-                className={"mode-toggle-option" + (mode === "advanced" ? " is-active" : "")}
-                aria-pressed={mode === "advanced"}
-                onClick={() => setMode("advanced")}
-              >
-                Advanced
-              </button>
-            </div>
             <button
               type="button"
               className="theme-toggle"

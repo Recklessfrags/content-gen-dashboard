@@ -1,4 +1,4 @@
-# Slice: Simplification redo — moves 1 + 3 + 4 (frozen spec)
+# Slice: Simplification redo — moves 1 + 3 + 4 + 6 (frozen spec)
 
 From the 2026-08-07 close-out (SPEC A, operator-requested "make it easier to use").
 Three moves, **each its own reviewed commit**. Dashboard-only; no migrations, no
@@ -83,6 +83,26 @@ Target:
 3. The Cost tab's "View global cost center" affordance is replaced by the Home
    glance entry point added in move 3.5 (land move 3 before move 4, or note the
    temporary orphan inside the same session — both moves ship together here).
+
+## Move 6 — retire the global Basic/Advanced toggle (added 2026-08-09)
+
+One good default (basic), advanced controls behind the LOCAL "show advanced"
+affordances that already exist — the global header toggle and its context go.
+
+1. Delete `src/components/aurora/UiModeContext.tsx` + `src/lib/uiMode.ts`; remove
+   `UiModeProvider` from `src/app/page.tsx`; remove the header mode-toggle block,
+   `useUiMode` import, and `data-ui-mode` attribute from `AuroraShell.tsx` (no CSS
+   references it).
+2. `CastingStudioPanel` + `ChannelProfilesPanel`: replace the `basicMode` /
+   `onShowAdvanced` props with internal `useState(false)` reveal state; the
+   existing "show advanced" buttons flip it locally. `castingControlVisibility`
+   keeps its signature (fed `!showAdvanced`). Remove the props at every call site.
+3. ControlRoom dossier editor: `showAdvancedFields` becomes local state
+   (default false); its "Show advanced settings" button and the
+   CharacterGenerator `onGenerated` handler (which must keep revealing the
+   generated bible detail) set it true.
+4. The stored localStorage preference dies with the context — acceptable: basic
+   is the ruled default; advanced is a per-visit, per-panel reveal.
 
 ## Acceptance gates (measured on the real artifact)
 

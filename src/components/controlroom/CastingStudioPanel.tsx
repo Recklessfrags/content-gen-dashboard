@@ -85,8 +85,6 @@ type CastingStudioPanelProps = {
   restoreFocusRef: React.RefObject<HTMLButtonElement | null>;
   variant?: "modal" | "inline";
   suggestedPersonaChipId?: string | null;
-  basicMode?: boolean;
-  onShowAdvanced?: () => void;
 };
 
 const GUIDANCE_PRESETS: ReadonlyArray<{ label: string; value: number }> = [
@@ -141,12 +139,12 @@ export function purgeCreatedVoiceId(
   }
 }
 
-export function castingControlVisibility(basicMode: boolean) {
+export function castingControlVisibility(basic: boolean) {
   return {
-    kit: !basicMode,
-    previewEditor: !basicMode,
-    guidance: !basicMode,
-    resetToPicks: !basicMode,
+    kit: !basic,
+    previewEditor: !basic,
+    guidance: !basic,
+    resetToPicks: !basic,
     tournament: true,
   } as const;
 }
@@ -167,11 +165,10 @@ export function CastingStudioPanel({
   restoreFocusRef,
   variant = "modal",
   suggestedPersonaChipId = null,
-  basicMode = false,
-  onShowAdvanced,
 }: CastingStudioPanelProps) {
   const inline = variant === "inline";
-  const visibleControls = castingControlVisibility(basicMode);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const visibleControls = castingControlVisibility(!showAdvanced);
   const suggestedPersonaRef = useRef(suggestedPersonaChipId);
   const panelRef = useRef<HTMLElement>(null);
   const firstFieldRef = useRef<HTMLButtonElement>(null);
@@ -1458,8 +1455,12 @@ export function CastingStudioPanel({
             </section>
           )}
 
-          {basicMode && (
-            <button type="button" className="show-advanced-btn" onClick={onShowAdvanced}>
+          {!showAdvanced && (
+            <button
+              type="button"
+              className="show-advanced-btn"
+              onClick={() => setShowAdvanced(true)}
+            >
               Show all casting controls
             </button>
           )}

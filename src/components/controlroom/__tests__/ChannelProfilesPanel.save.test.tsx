@@ -140,6 +140,9 @@ describe("ChannelProfilesPanel saves", () => {
       />,
     );
 
+    await user.click(
+      await screen.findByRole("button", { name: "Show advanced settings" }),
+    );
     const routing = await screen.findByRole("textbox", {
       name: /Footage routing/i,
     });
@@ -202,6 +205,9 @@ describe("ChannelProfilesPanel saves", () => {
       />,
     );
 
+    await user.click(
+      await screen.findByRole("button", { name: "Show advanced settings" }),
+    );
     const routing = await screen.findByRole("textbox", {
       name: /Footage routing/i,
     });
@@ -232,6 +238,9 @@ describe("ChannelProfilesPanel saves", () => {
       />,
     );
 
+    await user.click(
+      await screen.findByRole("button", { name: "Show advanced settings" }),
+    );
     const routing = await screen.findByRole("textbox", {
       name: /Footage routing/i,
     });

@@ -49,7 +49,6 @@ import {
 } from "@/lib/types";
 import type { GeneratedCharacter } from "@/lib/castingCharacter";
 import { AuroraShell } from "./aurora/AuroraShell";
-import { useUiMode } from "./aurora/UiModeContext";
 import { HubLanding } from "./aurora/HubLanding";
 import { CharactersHub } from "./aurora/CharactersHub";
 import type { ChannelCardVM } from "./aurora/ChannelsHub";
@@ -414,7 +413,7 @@ function DiscardChangesDialog({
 
 export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const supabase = useMemo(() => createClient(), []);
-  const { advanced: uiAdvanced, setMode: setUiMode } = useUiMode();
+  const [dossierAdvanced, setDossierAdvanced] = useState(false);
   const {
     episodes,
     loading: episodesLoading,
@@ -1896,8 +1895,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           showFlash={showFlash}
           restoreFocusRef={castingTriggerRef}
           suggestedPersonaChipId={modalSuggestedPersonaChipId}
-          basicMode={!uiAdvanced}
-          onShowAdvanced={() => setUiMode("advanced")}
         />
       )}
       {visualCastingOpen && active && (
@@ -1977,9 +1974,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const renderDossierEditor = (createHandler: () => void): ReactNode => {
     const mobileRosterNode = renderMobileRoster(createHandler);
-    // Basic mode keeps the high-leverage user seeds (name, concept, voice, gold-standard
+    // The default view keeps the high-leverage user seeds (name, concept, voice, gold-standard
     // lines) and tucks the auto-drafted bible detail behind "Show advanced settings".
-    const showAdvancedFields = uiAdvanced;
+    const showAdvancedFields = dossierAdvanced;
 
     if (active && displayedActive) {
       return (
@@ -2067,7 +2064,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 concept={active.concept}
                 onGenerated={(generated) => {
                   if (applyGeneratedCharacterDraft(active, generated, applySnapshot)) {
-                    setUiMode("advanced");
+                    setDossierAdvanced(true);
                   }
                 }}
               />
@@ -2155,7 +2152,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               <button
                 type="button"
                 className="show-advanced-btn"
-                onClick={() => setUiMode("advanced")}
+                onClick={() => setDossierAdvanced(true)}
               >
                 Show advanced settings
               </button>
@@ -2365,8 +2362,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                 error={channelProfilesError}
                 onRefetch={refetchChannelProfiles}
                 createOnly
-                basicMode={!uiAdvanced}
-                onShowAdvanced={() => setUiMode("advanced")}
                 onUseInCasting={handleUseInCasting}
                 onCreated={(channel) => {
                   setNewChannelOpen(false);
@@ -2679,8 +2674,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                         onCharacterPatched={patchCharacter}
                         showFlash={showFlash}
                         restoreFocusRef={inlineCastingRestoreRef}
-                        basicMode={!uiAdvanced}
-                        onShowAdvanced={() => setUiMode("advanced")}
                       />
                     </div>
                   </>
@@ -2802,8 +2795,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
                   error={channelProfilesError}
                   onRefetch={refetchChannelProfiles}
                   scopedChannel={scope.channel}
-                  basicMode={!uiAdvanced}
-                  onShowAdvanced={() => setUiMode("advanced")}
                   onUseInCasting={handleUseInCasting}
                   onDeleted={() => navigate({ kind: "hub", hub: DEFAULT_HUB })}
                 />

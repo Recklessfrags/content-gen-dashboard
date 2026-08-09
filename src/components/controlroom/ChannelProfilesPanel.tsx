@@ -70,12 +70,6 @@ type ChannelProfilesPanelProps = {
   /** Fired after a successful delete (scoped workspace) so the parent can navigate
    *  away from the now-deleted channel. */
   onDeleted?: () => void;
-  /** Basic view: keep the high-leverage user seeds (channel, name, concept, character)
-   *  and hide the auto-drafted/defaulted detail behind "Show advanced settings".
-   *  Defaults to false (show everything) — the legacy shell never passes it. */
-  basicMode?: boolean;
-  /** Called by the "Show advanced settings" button in basic mode (flips global mode). */
-  onShowAdvanced?: () => void;
   onUseInCasting?: (characterId: string, chipId: string) => void;
 };
 
@@ -253,10 +247,9 @@ export function ChannelProfilesPanel({
   createOnly,
   onCreated,
   onDeleted,
-  basicMode = false,
-  onShowAdvanced,
   onUseInCasting,
 }: ChannelProfilesPanelProps) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
   const [creating, setCreating] = useState<boolean>(Boolean(autoStartNew) || Boolean(createOnly));
@@ -1025,7 +1018,7 @@ export function ChannelProfilesPanel({
                       ))}
                     </select>
                   </div>
-                  {!basicMode && (
+                  {showAdvanced && (
                     <div className="field">
                       <label htmlFor="channel-profile-voice-archetype">
                         <span className="eyebrow">Voice archetype</span>
@@ -1052,7 +1045,7 @@ export function ChannelProfilesPanel({
                 </div>
               </section>
 
-              {!basicMode && (
+              {showAdvanced && (
               <>
               <section
                 className="channel-profile-section"
@@ -1403,11 +1396,11 @@ export function ChannelProfilesPanel({
               </section>
               </>
               )}
-              {basicMode && (
+              {!showAdvanced && (
                 <button
                   type="button"
                   className="show-advanced-btn"
-                  onClick={onShowAdvanced}
+                  onClick={() => setShowAdvanced(true)}
                 >
                   Show advanced settings
                 </button>
