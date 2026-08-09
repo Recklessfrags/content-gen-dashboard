@@ -50,7 +50,7 @@ describe("parseScope", () => {
     expect(parseScope("?hub=bogus")).toEqual({ scope: defaultHubScope, canonicalize: true });
   });
 
-  it("defaults missing workspace tab to production and canonicalizes", () => {
+  it("defaults missing workspace tab to guidelines and canonicalizes", () => {
     expect(parseScope("?channel=weird_food")).toEqual({
       scope: { kind: "workspace", channel: "weird_food", tab: DEFAULT_TAB },
       canonicalize: true,
@@ -58,13 +58,24 @@ describe("parseScope", () => {
   });
 
   it("parses valid workspace tabs", () => {
-    expect(parseScope("?channel=weird_food&tab=cost")).toEqual({
-      scope: { kind: "workspace", channel: "weird_food", tab: "cost" },
+    expect(parseScope("?channel=weird_food&tab=character")).toEqual({
+      scope: { kind: "workspace", channel: "weird_food", tab: "character" },
       canonicalize: false,
     });
   });
 
-  it("defaults invalid workspace tab to production and canonicalizes", () => {
+  it("canonicalizes removed workspace tabs to guidelines", () => {
+    expect(parseScope("?channel=weird_food&tab=production")).toEqual({
+      scope: { kind: "workspace", channel: "weird_food", tab: DEFAULT_TAB },
+      canonicalize: true,
+    });
+    expect(parseScope("?channel=weird_food&tab=cost")).toEqual({
+      scope: { kind: "workspace", channel: "weird_food", tab: DEFAULT_TAB },
+      canonicalize: true,
+    });
+  });
+
+  it("defaults invalid workspace tab to guidelines and canonicalizes", () => {
     expect(parseScope("?channel=weird_food&tab=bogus")).toEqual({
       scope: { kind: "workspace", channel: "weird_food", tab: DEFAULT_TAB },
       canonicalize: true,
@@ -72,7 +83,7 @@ describe("parseScope", () => {
   });
 
   it("redirects unknown channels to the channels hub when known channels are provided", () => {
-    expect(parseScope("?channel=ghost&tab=cost", { knownChannels: ["weird_food"] })).toEqual({
+    expect(parseScope("?channel=ghost&tab=guidelines", { knownChannels: ["weird_food"] })).toEqual({
       scope: defaultHubScope,
       canonicalize: true,
     });
@@ -129,14 +140,14 @@ describe("scope comparison helpers", () => {
     );
     expect(
       scopesEqual(
-        { kind: "workspace", channel: "weird_food", tab: "production" },
-        { kind: "workspace", channel: "weird_food", tab: "production" },
+        { kind: "workspace", channel: "weird_food", tab: "character" },
+        { kind: "workspace", channel: "weird_food", tab: "character" },
       ),
     ).toBe(true);
     expect(
       scopesEqual(
-        { kind: "workspace", channel: "weird_food", tab: "production" },
-        { kind: "workspace", channel: "weird_food", tab: "cost" },
+        { kind: "workspace", channel: "weird_food", tab: "character" },
+        { kind: "workspace", channel: "weird_food", tab: "guidelines" },
       ),
     ).toBe(false);
   });
@@ -148,14 +159,14 @@ describe("scope comparison helpers", () => {
       isSameScope("?channel=weird_food", {
         kind: "workspace",
         channel: "weird_food",
-        tab: "production",
+        tab: "guidelines",
       }),
     ).toBe(false);
     expect(
-      isSameScope("?channel=weird_food&tab=production", {
+      isSameScope("?channel=weird_food&tab=guidelines", {
         kind: "workspace",
         channel: "weird_food",
-        tab: "production",
+        tab: "guidelines",
       }),
     ).toBe(true);
   });

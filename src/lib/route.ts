@@ -4,7 +4,7 @@ export type HubKey =
   | "ideas"
   | "runs"
   | "review";
-export type WorkspaceTab = "production" | "character" | "guidelines" | "cost";
+export type WorkspaceTab = "character" | "guidelines";
 export type AppScope =
   | { kind: "hub"; hub: HubKey }
   | { kind: "workspace"; channel: string; tab: WorkspaceTab };
@@ -17,13 +17,11 @@ export const HUB_KEYS = [
   "review",
 ] as const satisfies readonly HubKey[];
 export const WORKSPACE_TABS = [
-  "production",
   "character",
   "guidelines",
-  "cost",
 ] as const satisfies readonly WorkspaceTab[];
 export const DEFAULT_HUB: HubKey = "channels";
-export const DEFAULT_TAB: WorkspaceTab = "production";
+export const DEFAULT_TAB: WorkspaceTab = "guidelines";
 
 type ParseScopeOptions = {
   knownChannels?: string[];

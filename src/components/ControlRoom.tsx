@@ -161,10 +161,8 @@ const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
 type FactClaimsResult = { claims: FactClaim[]; error: string | null };
 
 const WORKSPACE_TAB_LABELS: Record<WorkspaceTab, string> = {
-  production: "Production",
   character: "Character",
   guidelines: "Guidelines",
-  cost: "Cost",
 };
 
 
@@ -511,10 +509,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workspaceTabRefs = useRef<Record<WorkspaceTab, HTMLButtonElement | null>>({
-    production: null,
     character: null,
     guidelines: null,
-    cost: null,
   });
   const enqueueButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const lastEnqueueTriggerRef = useRef<string | null>(null);
@@ -2501,19 +2497,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         : null;
     const activeTabId = workspaceTabId(scope.tab);
     const activePanelId = workspacePanelId(scope.tab);
-    const renderDeferredWorkspacePanel = (title: string) => (
-      <div className="deferred-panel">
-        <div>
-          <h3 className="text-title" style={{ marginBottom: "0.5rem" }}>
-            {title}
-          </h3>
-          <p className="dim text-body" style={{ maxWidth: "500px", margin: "0 auto" }}>
-            Per-channel production appears once the pipeline tags jobs with a channel. Until then, use the global
-            Action Center and Runs.
-          </p>
-        </div>
-      </div>
-    );
 
     return (
       <>
@@ -2590,177 +2573,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             aria-labelledby={activeTabId}
             style={{ marginTop: "1.5rem" }}
           >
-            {scope.tab === "production" &&
-              (() => {
-                const items = [
-                  {
-                    key: "guidelines",
-                    label: "Channel guidelines set",
-                    done: Boolean(channelProfile?.description?.trim()),
-                    action: "Set guidelines",
-                    onClick: () => activateWorkspaceTab(scope.channel, "guidelines"),
-                  },
-                  {
-                    key: "character",
-                    label: "Character assigned",
-                    done: Boolean(channelProfile?.character_id),
-                    action: "Assign character",
-                    onClick: () => activateWorkspaceTab(scope.channel, "character"),
-                  },
-                  {
-                    key: "voice",
-                    label: "Voice cast & locked",
-                    done: Boolean(castChar && isCast(castChar)),
-                    action: "Cast a voice",
-                    onClick: () => activateWorkspaceTab(scope.channel, "character"),
-                  },
-                  {
-                    key: "visual",
-                    label: "Visual identity locked",
-                    done: Boolean(castChar && isVisuallyCast(castChar)),
-                    action: "Set visual identity",
-                    onClick: () => activateWorkspaceTab(scope.channel, "character"),
-                  },
-                ];
-                const doneCount = items.filter((item) => item.done).length;
-                const ready = doneCount === items.length;
-
-                return (
-                  <>
-                    <article className="glass-panel">
-                      <div className="panel-header">
-                        <h2 className="text-title" style={{ fontSize: "1.25rem" }}>
-                          Production Readiness
-                        </h2>
-                        <span className="text-mono dim" style={{ fontSize: "0.875rem" }}>
-                          {doneCount}/{items.length} complete
-                        </span>
-                      </div>
-                      {ready ? (
-                        <div
-                          className="advisory-box"
-                          role="status"
-                          style={{ borderColor: "var(--success)" }}
-                        >
-                          <span
-                            aria-hidden="true"
-                            style={{ color: "var(--success)", fontSize: "1.1rem" }}
-                          >
-                            ✓
-                          </span>
-                          <div>
-                            <h3
-                              className="text-title"
-                              style={{
-                                color: "var(--success)",
-                                fontSize: "0.9rem",
-                                marginBottom: "0.25rem",
-                              }}
-                            >
-                              Production-ready
-                            </h3>
-                            <p className="text-body dim" style={{ fontSize: "0.875rem" }}>
-                              This channel has everything the dashboard owns. Per-channel
-                              production runs arrive once the pipeline tags jobs with a channel.
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <p
-                          className="text-body dim"
-                          style={{ fontSize: "0.875rem", marginBottom: "1rem" }}
-                        >
-                          Complete the dashboard-owned prerequisites below before this channel
-                          can produce.
-                        </p>
-                      )}
-                      <ul
-                        style={{
-                          listStyle: "none",
-                          margin: "1rem 0 0",
-                          padding: 0,
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "0.75rem",
-                        }}
-                      >
-                        {items.map((item) => (
-                          <li
-                            key={item.key}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "0.75rem",
-                              padding: "0.75rem 1rem",
-                              borderRadius: "var(--radius-sm)",
-                              background: "var(--surface-0)",
-                              border: "1px solid var(--border-soft)",
-                            }}
-                          >
-                            <span
-                              aria-hidden="true"
-                              style={{
-                                flexShrink: 0,
-                                width: "22px",
-                                height: "22px",
-                                borderRadius: "50%",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: "0.8rem",
-                                fontWeight: 700,
-                                color: item.done ? "var(--text-inverse)" : "var(--text-muted)",
-                                background: item.done ? "var(--success)" : "transparent",
-                                border: item.done ? "none" : "2px solid var(--border-strong)",
-                              }}
-                            >
-                              {item.done ? "✓" : ""}
-                            </span>
-                            <span
-                              className="text-body"
-                              style={{
-                                flex: 1,
-                                color: item.done ? "var(--text-main)" : "var(--text-dim)",
-                              }}
-                            >
-                              {item.label}
-                            </span>
-                            {item.done ? (
-                              <span
-                                className="text-mono"
-                                style={{ fontSize: "0.75rem", color: "var(--success)" }}
-                              >
-                                DONE
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                className="text-mono accent"
-                                onClick={item.onClick}
-                                style={{
-                                  background: "transparent",
-                                  border: 0,
-                                  cursor: "pointer",
-                                  fontSize: "0.8rem",
-                                  padding: 0,
-                                }}
-                              >
-                                {item.action} →
-                              </button>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </article>
-                    <div style={{ marginTop: "1.5rem" }}>
-                      {renderDeferredWorkspacePanel(
-                        "Per-channel production is pending pipeline data",
-                      )}
-                    </div>
-                  </>
-                );
-              })()}
-
             {scope.tab === "character" &&
               (loading ? (
                 <article className="glass-panel au-empty">
@@ -2998,39 +2810,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
               </article>
             )}
 
-            {scope.tab === "cost" && (
-              <div className="deferred-panel">
-                <svg
-                  className="deferred-icon"
-                  width="32"
-                  height="32"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <line x1="12" y1="1" x2="12" y2="23" />
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                </svg>
-                <div>
-                  <h3 className="text-title" style={{ marginBottom: "0.5rem" }}>
-                    Per-channel costs aren&apos;t available yet
-                  </h3>
-                  <p
-                    className="dim text-body"
-                    style={{ maxWidth: "500px", margin: "0 auto 1.5rem" }}
-                  >
-                    Costs are tracked globally right now, not per channel. Per-channel spend breakdowns are coming soon.
-                  </p>
-                  <button className="btn" type="button" onClick={() => setCostCenterOpen(true)}>
-                    View global cost center →
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </AuroraShell>
       </>
