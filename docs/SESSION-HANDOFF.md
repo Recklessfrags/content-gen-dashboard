@@ -13,7 +13,18 @@ Operator stated (verbatim intent): *"for now I'll pay for the users' renders, bu
 
 ---
 
-## 🔚 CLOSE-OUT 2026-08-09 (simplification-redo session) — SPEC A moves 1+3+4 BUILT on branch `claude/proceed-anxytx` (NOT yet merged to default)
+## 🔚 CLOSE-OUT 2026-08-09 (simplification-redo session) — SPEC A moves 1+3+4+6 BUILT on branch `claude/proceed-anxytx` (NOT yet merged to default)
+
+> **Same-day addendum:** move 6 shipped too (`bffc8fa`) — global Basic/Advanced toggle +
+> `UiModeContext`/`lib/uiMode` deleted; each surface (dossier editor, CastingStudioPanel,
+> ChannelProfilesPanel) owns a local default-basic "show advanced" reveal; the character
+> generator still auto-reveals. Gemini pass: 1 finding refuted (dossier button IS guarded),
+> the focus/ARIA disclosure items are pre-existing pattern traits → recorded as one residual
+> a11y follow-up (keep the reveal button mounted, `aria-expanded`, move focus on reveal —
+> same family as the queue-confirm focus note below). SPEC A now has only move 5 (casting
+> unification, own slice) left. Also this session, pipeline side: the parked P56
+> `visual_source` fix was landed on the pipeline's `claude/proceed-anxytx` with both review
+> findings resolved (see that repo's handoff).
 
 ### Shipped (4 commits on `claude/proceed-anxytx`, frozen spec `docs/slices/slice-simplification-moves-134.md`)
 - **Move 1 — one approval queue** (`59dcb07`): the full `ActionCenter` (real rows, confirm
