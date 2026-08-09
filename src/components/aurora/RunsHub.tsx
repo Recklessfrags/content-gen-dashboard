@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderPlayer } from "@/components/aurora/RenderPlayer";
 import { RenderProgress } from "@/components/aurora/RenderProgress";
 import { useRenderProgress } from "@/lib/hooks/useRenderProgress";
-import { isInFlightStatus, type JobStatus } from "@/lib/jobs";
+import { isActionableStatus, isInFlightStatus, type JobStatus } from "@/lib/jobs";
 import { plainLanguage, stageLabel } from "@/lib/plainLanguage";
 import {
   classifyFailure,
@@ -391,7 +391,7 @@ function RunCard({
       ? { state: card.terminalState, source: card.terminalStateSource }
       : resolveTerminalState(card.parkKindColumn, card.error)
     : null;
-  const needsApprovalReview = parkKind === "fact" || parkKind === "spend" || parkKind === "publish";
+  const needsApprovalReview = isActionableStatus(card.status);
 
   const runDiagnostics = useCallback(async () => {
     if (card.episodeId === null || inFlightRef.current) return;
