@@ -1179,6 +1179,17 @@ export function ChannelProfilesPanel({
                       </select>
                     </div>
                   </div>
+                  <p className="hint">
+                    {isDefaultProfile && (
+                      <>
+                        This is the fallback profile — these dials apply to every job that has no channel.
+                        <br />
+                      </>
+                    )}
+                    Intensity limit “Aggressive” unlocks the Tier-2 engagement levers; “Standard” denies them.
+                    <br />
+                    The pipeline fails safe: any unrecognized value is treated as the strictest setting.
+                  </p>
                 </fieldset>
               </section>
 
