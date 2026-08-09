@@ -13,6 +13,50 @@ Operator stated (verbatim intent): *"for now I'll pay for the users' renders, bu
 
 ---
 
+## 🔚 CLOSE-OUT 2026-08-09 (simplification-redo session) — SPEC A moves 1+3+4 BUILT on branch `claude/proceed-anxytx` (NOT yet merged to default)
+
+### Shipped (4 commits on `claude/proceed-anxytx`, frozen spec `docs/slices/slice-simplification-moves-134.md`)
+- **Move 1 — one approval queue** (`59dcb07`): the full `ActionCenter` (real rows, confirm
+  flow, errored/stuck, RenderPlayer) now renders on Home in place of the teaser; the hidden
+  `?hub=actions` hub is gone (deep links canonicalize to Home, destination preserved);
+  reveal-parked rows keep chip+explanation but lose the dead-end button; approval-parked
+  run cards gain ONE "Review approvals →" pointer to Home.
+- **Move 3 — dead rooms retired** (`8bea565`): `overview` + `reveal` out of `HUB_KEYS`;
+  `RevealHub.tsx` + `OverviewDashboard.tsx` deleted (`lib/revealApproval.ts` + test KEPT —
+  they encode the ruled-B reveal-row contract); **Global cost center gained a Home glance
+  entry point** (it would otherwise have been orphaned by move 4 — its only entry was the
+  Cost tab); nav `activeKey` now maps 1:1 (`workspace → channels`, else `scope.hub`).
+- **Move 4 — tab strip collapsed** (`946621c`): workspace tabs = Character + Guidelines;
+  `DEFAULT_TAB = "guidelines"`; Production (readiness checklist + deferred panel) and Cost
+  (placeholder) removed; old tab deep links canonicalize.
+- **Review fold** (`68d3d36`): the Runs pointer now uses `isActionableStatus` — literally
+  the queue-membership predicate — after Gemini caught the narrower park-kind version.
+
+### Process + gates
+Built through Codex (3 move prompts + 2 fix prompts); gates on the real artifact: tsc
+clean · **409/409 vitest** · `next build` green, after every move. Gemini
+(`gemini-3.1-pro-preview`, adversarial) returned 2 BLOCKER / 2 SHOULD / 1 NIT — **4 of 5
+refuted against reality** (TS4014 claim vs green tsc; polling-yanks-confirm vs
+`enabled: !overlayOpen`; focus-drop is pre-existing unchanged behavior; tabindex derives
+from `WORKSPACE_TABS`), 1 folded (the predicate). Verify-reviewer-findings rule earned
+its cost again.
+
+### Residuals / next
+- **Branch state:** work sits on `claude/proceed-anxytx` (session-designated branch).
+  Merge to default `claude/new-session-3l99vs` after an operator/next-session eyeball of
+  the Vercel preview — dashboard-only + gate-green + cross-vendor-PASS, so standing
+  self-merge delegation applies once previewed.
+- **Eyeball on preview:** ActionCenter now sits inside `.hero-grid` (2fr) next to System
+  Glance (1fr); with a long queue Home pushes ChannelsHub down — check it reads well at
+  412px/1440px. Focus-after-confirm falls to body when a row unmounts (pre-existing;
+  small a11y follow-up: fall back to the queue heading).
+- **Remaining SPEC A moves:** 5 (unify casting — own slice) and 6 (retire Basic/Advanced
+  toggle). The ControlRoom.tsx split stays the durable fix.
+- **SPEC B (per-user isolation)** untouched this session — Phase 1 (characters+ideas RLS)
+  still the next safe slice; Phase 2 still needs the paired pipeline change.
+
+---
+
 ## 🔚 CLOSE-OUT 2026-08-07 (dashboard UX + auth + generator session) — what shipped, and the two big one-shot specs (SIMPLIFICATION REDO + PER-USER ISOLATION) ready for the next session
 
 ### Shipped this session (all on default branch `claude/new-session-3l99vs`)
