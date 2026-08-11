@@ -13,6 +13,15 @@ Operator stated (verbatim intent): *"for now I'll pay for the users' renders, bu
 
 ---
 
+## 🔚 CLOSE-OUT 2026-08-11 (coordinator session, dashboard half) — move-5 SPEC landed (build-ready, reviewed) · SPEC B Phase 1 CLOSED as already-true · monetization group spec DRAFT awaiting ack
+
+- **SPEC A move 5 (casting unification) is SPEC'D, not built:** `docs/slices/slice-casting-unification-move5.md` — one wizard flow at `?hub=characters` reusing the existing panels inline; zero schema change; moves 5.0–5.7 cheapest-first; Gemini adversarial rounds 1–3 PASS (round-1 P0s: variant-prop lifecycle + step-4 null-channel dead end — both fixed with an explicit build-order contract and a channel-picker/finish-without-attaching mode; round-2: shell↔panel completion callbacks + `initialCharacterId` seed added). **Open Qs for operator: Q2 (preset audio previews — rec: text-only now), Q3 (demo-clip hosting — rec: `render-assets` bucket), Q4 (channel-type card list). Architect Q1 answered in-spec: treat move 5.6 (`channel_profiles` write) as PS-GO, self-merge the rest. Q5 answered with verified evidence** (pipeline reads neither `treatment` nor `reference_image_url`; Mad Dog continuity is pipeline-side — the avatar gate is a dashboard-only advisory and correct).
+- **SPEC B Phase 1 (characters+ideas RLS) is CLOSED — it was ALREADY TRUE:** live `pg_policies` shows owner-scoped policies (all four commands, both tables) since `0001_init`; RLS enabled; 0 null owners (9 characters / 4 ideas); corroborated by the 2026-07-01 audit page. The 2026-08-07 claim that characters/ideas were unscoped was WRONG for those two tables (it holds for `channel_profiles`/`jobs`/`episodes`/`receipts`). **Phase 2 (owner on channel_profiles+jobs + derived RLS + the paired pipeline owner-aware lookup) remains real and is the actual next isolation slice.** HQ correction posted 2026-08-11.
+- **Pipeline-side changes to know:** `receipts.evidence` on `entertainment_judge` rows now carries an optional `judge_cost` key (pipeline main `eed316f`; HQ heads-up posted; contract text in pipeline `data-contract.md`) — readers must treat it as optional. And `channel_profiles` has a PROPOSED `monetization` group (spec DRAFT on pipeline main `c8541ca`, HQ page "MONETIZATION Phase-0") — **dashboard ack requested; editor build only after operator ratification.**
+- Rotation: the 2026-08-07 close-out (incl. the original SPEC A/SPEC B definitions) moved verbatim to `docs/handoff-archive/SESSION-HANDOFF-archive-2026H1.md`.
+
+---
+
 ## 🔚 CLOSE-OUT 2026-08-09 (simplification-redo session) — SPEC A moves 1+3+4+6 BUILT — MERGED TO DEFAULT `d3cf2f3` (2026-08-09, operator go): production now carries moves 1/3/4/6 + the contract-sync chain + D5 advisories; register rows P34/P38/P47 are now TRUE in production
 
 > **Same-day addendum:** move 6 shipped too (`bffc8fa`) — global Basic/Advanced toggle +
@@ -78,49 +87,6 @@ its cost again.
   toggle). The ControlRoom.tsx split stays the durable fix.
 - **SPEC B (per-user isolation)** untouched this session — Phase 1 (characters+ideas RLS)
   still the next safe slice; Phase 2 still needs the paired pipeline change.
-
----
-
-## 🔚 CLOSE-OUT 2026-08-07 (dashboard UX + auth + generator session) — what shipped, and the two big one-shot specs (SIMPLIFICATION REDO + PER-USER ISOLATION) ready for the next session
-
-### Shipped this session (all on default branch `claude/new-session-3l99vs`)
-- **Google OAuth + fail-closed beta allowlist** (`7ec2da2`). Unset `DASHBOARD_ALLOWED_EMAILS` admits ONLY the operator floor (`DASHBOARD_OPERATOR_EMAIL`, default `cameronnicodemus@gmail.com`); requires `email_confirmed_at`; no user-email trim; `NEXT_PUBLIC_SITE_URL` preferred over forwarded host. **Operator setup to activate:** enable Google provider in Supabase Auth + add prod `/auth/callback` to its redirect allowlist; set `DASHBOARD_ALLOWED_EMAILS` (beta emails) + `NEXT_PUBLIC_SITE_URL` in Vercel. (`BUILD-NOTES-D3.md`.)
-- **Honest video progress bar + plain-language pass.** `src/lib/renderProgress.ts` (9-stage ladder researcher→distribution, monotonic furthest-step, "Step N of 9 · <plain label>", NO fake %/ETA), `src/lib/hooks/useRenderProgress.ts` (5s refetch, 100-id chunk, entertainment_judge excluded), `src/lib/plainLanguage.ts` (park_kind→"Waiting on you", verdict→"Result", receipts→"What happened", below_floor→"Low-quality shots flagged", final_stage→"Stopped at", terminal_state/failure_class→"Why it stopped"). Two-lens reviewed; monotonic + polling fixes folded.
-- **AI character generator** (`1ac4dea`). `character-proxy` edge function LIVE (verify_jwt on; Claude Opus draft_character tool; anti-real-person prompt; advisory-only, never writes a character), migration `dash_0013_character_usage` APPLIED + probe-verified (25/user/day cap, mirrors dash_0009), `src/lib/castingCharacter.ts` + `CharacterGenerator.tsx` in the create flow, confirm-before-overwrite. Operator note: optionally set `CHARACTER_PROXY_ALLOWED_ORIGINS` to the prod URL (CORS hardening; works without it).
-
-### ⭐ ONE-SHOT SPEC A — THE SIMPLIFICATION REDO (operator-requested "make it easier to use")
-Diagnosis + visual proposal artifact: **the dashboard grew to 12 destinations + ~8 overlays** (5 nav + 3 hidden hubs Actions/Overview/Reveal + a 4-tab channel workspace with 2 "coming soon" tabs), still leaked jargon (now fixed by the plain-language pass = **move 2 DONE**), approvals appear in 3 places, and it's all inside one **3,246-line `src/components/ControlRoom.tsx` god-component**. Remaining moves, cheapest-first, each its own reviewed commit:
-1. **One approval queue** — fold the 3 approval surfaces (landing `HubLanding.tsx` Action Center panel, hidden `aurora/ActionCenter.tsx` hub, and the copy inside `aurora/RunsHub.tsx`) into ONE canonical queue on Home. Reuse the shared `QueueActionDialog`/`FactClaimsReviewSection`; remove the duplicate render sites. (high payoff / low effort)
-3. **Retire dead rooms** — remove the `Reveal` hub (flag-gated `NEXT_PUBLIC_REVEAL_WRITE_ENABLED` + `MOCK_REVIEW_FIXTURES`, near-dead) and fold `Overview` into Home; drop them from `route.ts` HUB_KEYS + `AuroraShell` NAV and the `ControlRoom.tsx:~1930-1940` nav-highlight remap so the nav stops pointing at pages it won't admit you're on. (high / low)
-4. **Drop the "coming soon" tabs** — the per-channel workspace `Production` + `Cost` tabs are deferred placeholders (`ControlRoom.tsx:~2708-2966, 3205-3237`); collapse the 4-tab strip to the 2 that hold real content until the others do. (med / low)
-5. **Unify casting into one flow** — casting is scattered across `CharactersHub` grid + `CastingStudioPanel.tsx` (voice) + `VisualIdentityPanel.tsx` (image) + the workspace Guidelines tab (channel link). Walk it as one path: pick character → voice → face → attach to channel. (high / med — spec on its own)
-6. **Remove the global Basic/Advanced toggle** (`AuroraShell.tsx:74-108`, `UiModeContext`) — pick one good default, put rare advanced controls behind a local "more options". (med / low)
-Structural note (not a move, but the reason it sprawled): the god-component has no seam that makes adding a place cost anything — a later ControlRoom.tsx split is the durable fix. Recommend executing moves 1+3+4 first (one afternoon, mostly surface), then 5 as its own slice.
-
-### ⭐ ONE-SHOT SPEC B — PER-USER ISOLATION (operator ratified: "no user shares channels"; operator still pays)
-Goal: beta users see only THEIR OWN channels/characters/ideas/renders; operator keeps everything; global spend cap stays (operator pays). **Operator DECISION locked: each user gets their own channels — `channel_profiles` becomes per-user, duplicate names allowed.** Backfill target = the one existing user `e5503683-2826-4168-bee2-7811e6e21f40`.
-
-| table | today | change |
-|---|---|---|
-| `characters` | has `owner` (9 rows, all operator, 0 null) | RLS scope `owner=auth.uid()` — **Phase 1, safe now** |
-| `ideas` | has `owner` (4 rows, all operator) | RLS scope — **Phase 1** |
-| `channel_profiles` | keyed by `channel` text, 5 rows, NO owner | add `owner`, backfill operator, unique `(owner, channel)`; keep a GLOBAL `default` row (owner NULL) so new users get a working default — **Phase 2** |
-| `jobs` | 149 rows, NO owner | add `owner`, backfill operator; enqueue stamps `auth.uid()`; RLS own-rows — **Phase 2** |
-| `episodes`,`receipts` | keyed by episode_id, NO owner | **no new column** — RLS derives via `EXISTS(job with same episode_id AND owner=auth.uid())` — **Phase 2** |
-
-**Why the worker is unaffected:** the pipeline uses the **service-role key which bypasses RLS** (verified: `worker.py` + `channel_profiles.py` use `SUPABASE_SERVICE_KEY`). RLS never touches it.
-**THE CROSS-TEAM PIECE (Phase 2 is NOT dashboard-only):** the pipeline resolves a channel by NAME today (`reels-content-generation/src/pipeline/channel_profiles.py:73 load_channel_profile(channel)` matches `row.channel == requested`). With per-user channels that's ambiguous — the pipeline MUST resolve by `(owner, channel)`, so `jobs` carries `owner`, the worker passes `job.owner`, and `load_channel_profile(channel, owner)` filters by owner (falling back to the global default row). This needs a paired pipeline change + a Coordination Log heads-up (shared tables `jobs`/`channel_profiles`/`episodes`/`receipts`). Land the dashboard + pipeline halves together or a render could load the wrong user's channel config.
-**Sequencing:** Phase 1 (characters+ideas RLS) is safe, dashboard-only, do first. Phase 2 (channel_profiles+jobs owner + derived episode/receipt RLS + the pipeline owner-aware lookup) is the coordinated slice — expand/contract: add nullable owner → backfill → pipeline reads owner → enforce RLS + `(owner,channel)` unique. Per-user API keys + billing are LATER (BYO-keys step), not this slice.
-
-### Channel-type DEMO GALLERY in the create flow (operator idea, 2026-08-07)
-Before a (beta/subscription) user creates a channel, show a **gallery of channel-type cards, each with a short looping demo reel** + a one-line "what it's good for". Serves onboarding, sets the quality bar, and drives subscription conversion. **The demo clips already exist / are being built** — the pipeline's prototype reels are the seed content: `stickwick_procedural.mp4`, `datachan_sugar_ranking.mp4` (real sourced episode), `sim_plinko_race.mp4`, plus food/dark-history/persona samples. Dashboard build: a `ChannelTypeGallery` in the "New channel" surface (§ simplification move — this is part of the channel-creation flow, not a new global hub). Each card: type name, demo video, blurb, "Use this type" → into the (required-fields) create flow. Store demo clips as static assets (or a `channel_types` reference table). Pairs naturally with the required-field markers work.
-
-### Caption on/off per channel (operator, 2026-08-07)
-Burned-in caption toggle per channel — captured pipeline-side as a `craft_dials.captions` (on|off, default on) on the channel-profile object (`reels-content-generation` `channel-profile-object.md` §3a). Dashboard surface: a simple toggle in the channel workspace Guidelines tab alongside the other craft dials.
-
-### Queued small follow-ups (either session)
-- **Bring-your-own character image** — upload ALREADY EXISTS (`VisualIdentityPanel.tsx` → private `character-refs` bucket via `castingVisual.ts:uploadRefImage`, accepts png/jpeg/webp, locks `reference_image_url`). Gap: the copy says "generate elsewhere then upload"; reframe to welcome **selfies/drawings**, and **add HEIC/HEIF** so iPhone photos work. Flag (operator-owned, publish-time): the locked "original character, no identifiable real person" rule — a real-person selfie on a published character is a likeness question; upload freely, surface a quiet note at publish, don't restrict uploads.
-- **Required-field markers in the character studio** — operator model = TWO TIERS: *Required to save* = Name (codename), Concept, Bible-with-content (the bible starts EMPTY `{}` and is creator-filled — NOT auto-generated; the "describe" step only makes the voice description); *Required to use* = locked Voice, plus a Reference image ONLY for visual-continuity channels (never for voice-only characters like Fine Print). Show done-vs-needed; don't nag food characters for an image.
 
 ---
 
