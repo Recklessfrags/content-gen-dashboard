@@ -509,13 +509,150 @@ export function buildChannelProfilePipelinePatch(
   return patch;
 }
 
+// ---------------------------------------------------------------------------
+// channel_profiles.raw — dashboard-owned / pipeline-read shared-surface container
+// ---------------------------------------------------------------------------
+// `raw` is a single jsonb column (migration dash_0014, UNAPPLIED/operator-gated)
+// holding channel-generic config the dashboard drives. The dashboard edits three
+// sub-keys today; a fourth (`visual_style`) is HELD (pipeline-incoming — the editor
+// never writes it, and every write below preserves it). See docs/contracts/data-contract.md.
+//
+// SAFETY — raw.lexicon.substitutions is ADVISORY register data ONLY. It CANNOT weaken,
+// disable, or override the universal advertiser-safety floor. The dashboard performs NO
+// floor enforcement here (it would falsely imply authority); the pipeline
+// (src/pipeline/lexicon.py resolve_channel_lexicon) is the sole authority and silently
+// drops any substitution whose source OR replacement hits the floor. This editor is a
+// labeled advisory pass-through, never a floor-override control.
+
+/** The canonical CTA sub-key name. Coordinator PIN pending final cross-repo confirmation:
+ *  the pipeline (prompts.py) reads `cta_target` → `cta` → `call_to_action` in that order,
+ *  so writing `cta_target` is accepted today. See the contract's CTA note. */
+export const CTA_TARGET_KEY = "cta_target" as const;
+
+/** One editable substitution pair. Persisted shape is an OBJECT map {from: to}, so on
+ *  build a later row with a duplicate `from` wins and blank rows are dropped. */
+export type RawSubstitutionRow = { from: string; to: string };
+
+/** Only the raw sub-keys the dashboard edits. `undefined` = not touched (preserved). */
+export type ChannelRawEdits = {
+  hashtags?: string[];
+  ctaTarget?: string;
+  lexiconSubstitutions?: RawSubstitutionRow[];
+};
+
+export type ChannelRawMerge = {
+  stored: Json | null;
+  edits: ChannelRawEdits;
+};
+
+export function hasChannelRawEdits(edits: ChannelRawEdits): boolean {
+  return (
+    edits.hashtags !== undefined ||
+    edits.ctaTarget !== undefined ||
+    edits.lexiconSubstitutions !== undefined
+  );
+}
+
+export function parseChannelRaw(json: Json | null | undefined): JsonRecord {
+  return isJsonRecord(json ?? null) ? (json as JsonRecord) : {};
+}
+
+export function parseRawHashtags(json: Json | null | undefined): string[] {
+  return parseStringArray(parseChannelRaw(json).hashtags ?? []);
+}
+
+/** Read-compat: prefers cta_target, then the legacy cta / call_to_action aliases the
+ *  pipeline also accepts, so an existing row authored under another name still displays. */
+export function parseRawCtaTarget(json: Json | null | undefined): string {
+  const raw = parseChannelRaw(json);
+  for (const key of [CTA_TARGET_KEY, "cta", "call_to_action"] as const) {
+    const value = raw[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+export function parseRawLexiconSubstitutions(
+  json: Json | null | undefined,
+): RawSubstitutionRow[] {
+  const lexicon = parseChannelRaw(json).lexicon;
+  const substitutions = isJsonRecord(lexicon ?? null)
+    ? (lexicon as JsonRecord).substitutions
+    : undefined;
+  if (!isJsonRecord(substitutions ?? null)) return [];
+  return Object.entries(substitutions as JsonRecord)
+    .filter(
+      ([from, to]) => typeof from === "string" && typeof to === "string",
+    )
+    .map(([from, to]) => ({ from, to: to as string }));
+}
+
+/** Rows → {from: to} object map: trim, drop rows missing either side, later row wins. */
+export function buildSubstitutionMap(
+  rows: RawSubstitutionRow[],
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const row of rows) {
+    const from = row.from.trim();
+    const to = row.to.trim();
+    if (!from || !to) continue;
+    map[from] = to;
+  }
+  return map;
+}
+
+/** Shallow-merge the edited sub-keys over the stored raw object. Un-edited sub-keys —
+ *  crucially the HELD `visual_style` and any future pipeline-written keys — are carried
+ *  through from `stored` untouched. Editing an empty value CLEARS that sub-key. */
+export function buildChannelRaw(
+  stored: Json | null,
+  edits: ChannelRawEdits,
+): JsonRecord {
+  const base: JsonRecord = { ...parseChannelRaw(stored) };
+
+  if (edits.hashtags !== undefined) {
+    const hashtags = edits.hashtags.map((h) => h.trim()).filter(Boolean);
+    if (hashtags.length) base.hashtags = hashtags;
+    else delete base.hashtags;
+  }
+
+  if (edits.ctaTarget !== undefined) {
+    const cta = edits.ctaTarget.trim();
+    if (cta) base[CTA_TARGET_KEY] = cta;
+    else delete base[CTA_TARGET_KEY];
+  }
+
+  if (edits.lexiconSubstitutions !== undefined) {
+    const substitutions = buildSubstitutionMap(edits.lexiconSubstitutions);
+    const lexicon: JsonRecord = isJsonRecord(base.lexicon ?? null)
+      ? { ...(base.lexicon as JsonRecord) }
+      : {};
+    if (Object.keys(substitutions).length) lexicon.substitutions = substitutions;
+    else delete lexicon.substitutions;
+    if (Object.keys(lexicon).length) base.lexicon = lexicon;
+    else delete base.lexicon;
+  }
+
+  return base;
+}
+
 // Pipeline-owned groups are omitted unless a rendered field was edited. When a
 // field is edited during creation, merge it over the create-time stored object.
 // Existing rows use buildChannelProfilePipelinePatch + the server-side RPC so a
 // mount-time snapshot can never overwrite a concurrent pipeline setting.
+//
+// `rawMerge` follows the SAME omit-preserves discipline: when no raw sub-key was
+// edited (`hasChannelRawEdits` is false) the result carries NO `raw` key, so the
+// upsert leaves the stored container untouched. When a sub-key IS edited we write the
+// FULL merged container (preserving un-edited siblings incl. the HELD visual_style).
+// NOTE: the merge uses the mount-time snapshot of `raw`; this is safe today because
+// every raw sub-key the dashboard writes is dashboard-owned and visual_style is not yet
+// pipeline-written. When visual_style becomes pipeline-written, move raw to a
+// server-side shallow-merge RPC (like merge_channel_profile_patch) — see the contract.
 export function buildChannelProfileUpsert(
   input: ChannelProfileUpsertInput,
   pipelineMerge?: ChannelProfilePipelineMerge,
+  rawMerge?: ChannelRawMerge,
 ): TablesInsert<"channel_profiles"> {
   const pipelinePatch = buildChannelProfilePipelinePatch(
     pipelineMerge?.edits ?? {},
@@ -566,6 +703,12 @@ export function buildChannelProfileUpsert(
       ...storedObject(pipelineMerge?.stored.research_profile ?? null),
       anchor_type: researchEdits.anchor_type,
     };
+  }
+
+  // Omit `raw` entirely unless a raw sub-key was actually edited — omitting it makes the
+  // upsert preserve the stored container (the locked safety property).
+  if (rawMerge && hasChannelRawEdits(rawMerge.edits)) {
+    result.raw = buildChannelRaw(rawMerge.stored, rawMerge.edits);
   }
 
   return result;

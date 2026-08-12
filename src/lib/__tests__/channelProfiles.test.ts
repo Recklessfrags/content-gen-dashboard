@@ -7,8 +7,15 @@ import {
 import {
   buildChannelProfilePipelinePatch,
   buildChannelProfileUpsert,
+  buildChannelRaw,
+  buildSubstitutionMap,
+  CTA_TARGET_KEY,
   defaultChannelProfile,
+  hasChannelRawEdits,
   joinListInput,
+  parseRawCtaTarget,
+  parseRawHashtags,
+  parseRawLexiconSubstitutions,
   parseEngagementPosture,
   parseResearchProfile,
   parseShortSeconds,
@@ -760,5 +767,120 @@ describe("buildChannelProfileUpsert", () => {
     ).toThrow(
       "sourcing.escalation_ladder must contain only: archival, pixabay; sourcing.archival_providers must contain only: internet_archive, loc, wikimedia_commons",
     );
+  });
+});
+
+describe("channel_profiles.raw shared-surface", () => {
+  const storedRawWithHeldVisualStyle = {
+    visual_style: { preset: "noir", palette: ["#000"] },
+    lexicon: { substitutions: { colour: "color" } },
+    hashtags: ["#old"],
+    [CTA_TARGET_KEY]: "old cta",
+  };
+
+  describe("parse helpers", () => {
+    it("reads hashtags / cta / substitutions off the raw container", () => {
+      expect(parseRawHashtags(storedRawWithHeldVisualStyle)).toEqual(["#old"]);
+      expect(parseRawCtaTarget(storedRawWithHeldVisualStyle)).toBe("old cta");
+      expect(parseRawLexiconSubstitutions(storedRawWithHeldVisualStyle)).toEqual([
+        { from: "colour", to: "color" },
+      ]);
+    });
+
+    it("reads legacy cta / call_to_action aliases when cta_target is absent", () => {
+      expect(parseRawCtaTarget({ cta: "legacy" })).toBe("legacy");
+      expect(parseRawCtaTarget({ call_to_action: "older" })).toBe("older");
+    });
+
+    it("is null/shape-safe", () => {
+      expect(parseRawHashtags(null)).toEqual([]);
+      expect(parseRawCtaTarget(undefined)).toBe("");
+      expect(parseRawLexiconSubstitutions({ lexicon: "nope" })).toEqual([]);
+    });
+  });
+
+  describe("buildSubstitutionMap", () => {
+    it("trims, drops blank rows, and lets a later duplicate win", () => {
+      expect(
+        buildSubstitutionMap([
+          { from: " colour ", to: " color " },
+          { from: "", to: "x" },
+          { from: "y", to: "" },
+          { from: "gray", to: "grey" },
+          { from: "gray", to: "greyer" },
+        ]),
+      ).toEqual({ colour: "color", gray: "greyer" });
+    });
+  });
+
+  describe("buildChannelProfileUpsert raw handling — SAFETY: omit preserves the column", () => {
+    it("omits `raw` entirely when no rawMerge is supplied", () => {
+      const result = buildChannelProfileUpsert(profileInput());
+      expect("raw" in result).toBe(false);
+    });
+
+    it("omits `raw` when a rawMerge is supplied but no sub-key was edited", () => {
+      const result = buildChannelProfileUpsert(profileInput(), undefined, {
+        stored: storedRawWithHeldVisualStyle,
+        edits: {},
+      });
+      // No `raw` key => the upsert leaves the stored container untouched (preserved).
+      expect("raw" in result).toBe(false);
+      expect(hasChannelRawEdits({})).toBe(false);
+    });
+
+    it("editing ONE sub-key preserves the HELD visual_style and all un-edited siblings", () => {
+      const result = buildChannelProfileUpsert(profileInput(), undefined, {
+        stored: storedRawWithHeldVisualStyle,
+        edits: { hashtags: ["#new", "#fresh"] },
+      });
+      expect(result.raw).toEqual({
+        // visual_style is pipeline-incoming + HELD — it must survive a dashboard write.
+        visual_style: { preset: "noir", palette: ["#000"] },
+        lexicon: { substitutions: { colour: "color" } },
+        hashtags: ["#new", "#fresh"],
+        [CTA_TARGET_KEY]: "old cta",
+      });
+    });
+
+    it("writes the edited container when creating a fresh profile (stored raw = null)", () => {
+      const result = buildChannelProfileUpsert(profileInput(), undefined, {
+        stored: null,
+        edits: {
+          hashtags: ["#a"],
+          ctaTarget: "follow for more",
+          lexiconSubstitutions: [{ from: "colour", to: "color" }],
+        },
+      });
+      expect(result.raw).toEqual({
+        hashtags: ["#a"],
+        [CTA_TARGET_KEY]: "follow for more",
+        lexicon: { substitutions: { colour: "color" } },
+      });
+    });
+
+    it("clearing a sub-key removes only it and preserves the rest", () => {
+      const result = buildChannelProfileUpsert(profileInput(), undefined, {
+        stored: storedRawWithHeldVisualStyle,
+        edits: { ctaTarget: "  ", lexiconSubstitutions: [] },
+      });
+      expect(result.raw).toEqual({
+        visual_style: { preset: "noir", palette: ["#000"] },
+        hashtags: ["#old"],
+      });
+      expect(result.raw).not.toHaveProperty(CTA_TARGET_KEY);
+      expect(result.raw).not.toHaveProperty("lexicon");
+    });
+  });
+
+  describe("buildChannelRaw", () => {
+    it("deep-merges lexicon without dropping other lexicon keys", () => {
+      expect(
+        buildChannelRaw(
+          { lexicon: { substitutions: { a: "b" }, note: "keep-me" } },
+          { lexiconSubstitutions: [{ from: "c", to: "d" }] },
+        ),
+      ).toEqual({ lexicon: { substitutions: { c: "d" }, note: "keep-me" } });
+    });
   });
 });

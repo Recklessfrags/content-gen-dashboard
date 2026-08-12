@@ -171,6 +171,78 @@ the **service role** (bypasses RLS).
 `arousal_ceiling`) are **stored, not yet enforced** — the worker-read + ADR-005 tiering are
 later pipeline work. The editor surfaces them as "stored — not yet active" until then.
 
+**Live columns not yet driven by the editor (regen 2026-08-12):** the live table also carries
+`editing` jsonb null and `script` jsonb null. They are in `database.types.ts` for schema
+accuracy but the dashboard neither reads nor writes them; every upsert omits them (preserved).
+
+### `channel_profiles.raw` — shared-surface container (NEW; migration `dash_0014`, UNAPPLIED)
+
+Channel-generic config that lets a NON-food channel drive its own distribution copy and
+word register. Modeled as a **single `raw` jsonb column** (`not null default '{}'`) so the
+"omit-preserves" safety property protects one object and future shared keys need no further
+migration. **Dashboard owns it; the pipeline reads only.** The editor exposes it under the
+channel's "Distribution & register" advanced section.
+
+Sub-keys the editor writes today:
+
+| sub-key | shape | notes |
+|---|---|---|
+| `raw.lexicon.substitutions` | jsonb **object** `{ "<source>": "<replacement>", … }` | **ADVISORY register data ONLY.** See the safety note below. |
+| `raw.hashtags` | jsonb array of strings | distribution tags; pipeline caps count per platform, blank ⇒ neutral defaults |
+| `raw.cta_target` | text | default call-to-action target — **see the CTA pin note** |
+
+Sub-key the pipeline will read but the editor does **NOT** write (HELD):
+
+| sub-key | status |
+|---|---|
+| `raw.visual_style` | **HELD — pipeline has not built it.** No UI. The editor never writes it and every upsert **preserves** it. ⚠️ Do **NOT** conflate with `characters.visual_style` (an unrelated casting free-text field on the `characters` table). |
+
+**SAFETY — the advisory floor is non-negotiable.** `raw.lexicon.substitutions` **cannot
+weaken, disable, reorder, or narrow the universal advertiser-safety floor.** It is register
+tuning over the pipeline's own generated copy, never a floor-override control. The pipeline
+(`src/pipeline/lexicon.py::resolve_channel_lexicon`) is the sole authority: it applies the
+floor AFTER substitution and **silently rejects any pair whose source OR replacement text
+would breach the floor**. The dashboard performs NO floor enforcement of its own (doing so
+would falsely imply authority) — the editor is a labeled advisory pass-through, and the UI
+says so.
+
+**Omit-preserves safety property (locked by test).** The base upsert builder
+(`buildChannelProfileUpsert`) emits **no `raw` key** unless a raw sub-key was actually
+edited this session. Because the editor uses `.upsert(…, { onConflict: "channel" })`,
+omitting the column leaves the stored container untouched. When a sub-key IS edited, the
+builder writes the **full merged container** (`buildChannelRaw`), shallow-merging the edit
+over the mount-time snapshot so un-edited siblings — including the HELD `visual_style` —
+survive. This mirrors how `packaging`/`engagement_posture` (other dashboard-owned jsonb)
+are snapshot-upserted. **Follow-up (gated):** when `visual_style` becomes *pipeline-written*,
+move raw writes to a server-side shallow-merge RPC (like `merge_channel_profile_patch`) so a
+mount-time snapshot can never clobber a concurrent pipeline write.
+
+**CTA field-name PIN (coordinator, pending final confirmation).** The canonical CTA sub-key
+is pinned to **`cta_target`**. The pipeline (`src/pipeline/prompts.py`) accepts
+`cta_target` → `cta` → `call_to_action` in that order, so `cta_target` is read today; the
+editor reads all three aliases for display but writes only `cta_target`. **Flag for
+ratification:** confirm `cta_target` as the single cross-repo name and retire the aliases.
+
+**`jobs.park_kind` — new terminal member.** The P24 channel-lexicon block introduces a new
+`jobs.park_kind` value (a lexicon/register terminal block reason). `park_kind` is an open
+`text` column (`string | null` in types), so no type change is required; readers must treat
+the vocabulary as open and not switch exhaustively on it. (The park-kind vocabulary tripwire
+lives in `pipeline-vocabularies.json`; sync it when the pipeline finalizes the member name.)
+
+> **⚠️ CROSS-REPO READ-PATH MISMATCH — MUST resolve before applying `dash_0014` / going
+> live.** The pipeline currently reads these keys as **top-level row keys** off its
+> whole-row `ChannelProfile.raw = dict(row)` field — `raw.get("lexicon")`
+> (`lexicon.py:77`), `raw.get("hashtags")` (`distribution.py:82`), `raw.get("cta_target")`
+> (`prompts.py:405`). A **nested `raw` jsonb column** (this design) is read as
+> `dict(row)["raw"]`, so `dict(row).get("lexicon")` returns `None` and the config silently
+> no-ops. Verified against pipeline `main` (`31f2dfd`) + the live schema (no `raw` column
+> exists yet; the P24 lexicon work is still WIP/unposted). **Resolution options for the
+> coordinator:** (a) point the pipeline reads at the nested container
+> (`profile.raw.get("raw", {}).get(…)`), or (b) drop the container and use flat top-level
+> columns (`lexicon`/`hashtags`/`cta_target`) matching the current pipeline reads and the
+> existing flat-column convention. This slice builds option (a) per the DASHBOARD brief and
+> flags (b) as the alternative — **needs coordinator ratification before landing.**
+
 ---
 
 ## `voice_templates` — dashboard-owned (operation-global config)

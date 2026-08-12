@@ -14,6 +14,7 @@ const existingProfile: ChannelProfile = {
   created_at: "2026-08-01T00:00:00.000Z",
   description: "Primary-source history",
   display_name: "History",
+  editing: null,
   engagement_posture: {
     claim_discipline: "fact_first",
     arousal_ceiling: "conservative",
@@ -22,10 +23,12 @@ const existingProfile: ChannelProfile = {
   length_target: { short_s: 75 },
   packaging: {},
   platforms: [],
+  raw: {},
   research_profile: {
     anchor_type: "declassified_primary_doc",
     thesis: "pipeline-owned",
   },
+  script: null,
   source_ladder: ["archival"],
   sourcing: {
     escalation_ladder: ["archival"],

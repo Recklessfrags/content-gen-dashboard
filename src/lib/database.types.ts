@@ -116,6 +116,13 @@ export type Database = {
         Relationships: []
       }
       channel_profiles: {
+        // NOTE: `editing` and `script` are LIVE columns (jsonb, nullable) not driven by
+        // the dashboard editor today — added here to match the live schema (regen
+        // 2026-08-12). `raw` is the NEW dashboard-owned / pipeline-read shared-surface
+        // container (see docs/contracts/data-contract.md "channel_profiles.raw"); it is
+        // NOT YET LIVE — it lands via migration supabase/migrations/dash_0014 (UNAPPLIED,
+        // operator-gated). It is typed here so the editor + helpers can drive it once the
+        // migration is applied. Omitting `raw` from an upsert preserves the stored column.
         Row: {
           channel: string
           character: string | null
@@ -123,12 +130,15 @@ export type Database = {
           created_at: string
           description: string
           display_name: string
+          editing: Json | null
           engagement_posture: Json
           fact_anchor: string
           length_target: Json
           packaging: Json
           platforms: Json
+          raw: Json
           research_profile: Json | null
+          script: Json | null
           source_ladder: Json
           sourcing: Json | null
           treatment: string
@@ -142,12 +152,15 @@ export type Database = {
           created_at?: string
           description?: string
           display_name?: string
+          editing?: Json | null
           engagement_posture?: Json
           fact_anchor?: string
           length_target?: Json
           packaging?: Json
           platforms?: Json
+          raw?: Json
           research_profile?: Json | null
+          script?: Json | null
           source_ladder?: Json
           sourcing?: Json | null
           treatment?: string
@@ -161,12 +174,15 @@ export type Database = {
           created_at?: string
           description?: string
           display_name?: string
+          editing?: Json | null
           engagement_posture?: Json
           fact_anchor?: string
           length_target?: Json
           packaging?: Json
           platforms?: Json
+          raw?: Json
           research_profile?: Json | null
+          script?: Json | null
           source_ladder?: Json
           sourcing?: Json | null
           treatment?: string
@@ -663,12 +679,15 @@ export type Database = {
           created_at: string
           description: string
           display_name: string
+          editing: Json | null
           engagement_posture: Json
           fact_anchor: string
           length_target: Json
           packaging: Json
           platforms: Json
+          raw: Json
           research_profile: Json | null
+          script: Json | null
           source_ladder: Json
           sourcing: Json | null
           treatment: string
