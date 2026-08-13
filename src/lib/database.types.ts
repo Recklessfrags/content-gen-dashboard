@@ -118,25 +118,27 @@ export type Database = {
       channel_profiles: {
         // NOTE: `editing` and `script` are LIVE columns (jsonb, nullable) not driven by
         // the dashboard editor today — added here to match the live schema (regen
-        // 2026-08-12). `raw` is the NEW dashboard-owned / pipeline-read shared-surface
-        // container (see docs/contracts/data-contract.md "channel_profiles.raw"); it is
-        // NOT YET LIVE — it lands via migration supabase/migrations/dash_0014 (UNAPPLIED,
-        // operator-gated). It is typed here so the editor + helpers can drive it once the
-        // migration is applied. Omitting `raw` from an upsert preserves the stored column.
+        // 2026-08-12). `cta_target` (text), `hashtags` (jsonb), and `lexicon` (jsonb) are
+        // the NEW dashboard-owned / pipeline-read FLAT distribution+register columns. They
+        // are NOT YET LIVE — they land via migration supabase/migrations/dash_0014
+        // (UNAPPLIED, operator-gated). Typed here so the editor + helpers can drive them
+        // once applied. Each is independent: omitting a column from an upsert preserves it.
         Row: {
           channel: string
           character: string | null
           character_id: string | null
           created_at: string
+          cta_target: string | null
           description: string
           display_name: string
           editing: Json | null
           engagement_posture: Json
           fact_anchor: string
+          hashtags: Json
           length_target: Json
+          lexicon: Json
           packaging: Json
           platforms: Json
-          raw: Json
           research_profile: Json | null
           script: Json | null
           source_ladder: Json
@@ -150,15 +152,17 @@ export type Database = {
           character?: string | null
           character_id?: string | null
           created_at?: string
+          cta_target?: string | null
           description?: string
           display_name?: string
           editing?: Json | null
           engagement_posture?: Json
           fact_anchor?: string
+          hashtags?: Json
           length_target?: Json
+          lexicon?: Json
           packaging?: Json
           platforms?: Json
-          raw?: Json
           research_profile?: Json | null
           script?: Json | null
           source_ladder?: Json
@@ -172,15 +176,17 @@ export type Database = {
           character?: string | null
           character_id?: string | null
           created_at?: string
+          cta_target?: string | null
           description?: string
           display_name?: string
           editing?: Json | null
           engagement_posture?: Json
           fact_anchor?: string
+          hashtags?: Json
           length_target?: Json
+          lexicon?: Json
           packaging?: Json
           platforms?: Json
-          raw?: Json
           research_profile?: Json | null
           script?: Json | null
           source_ladder?: Json
@@ -677,15 +683,17 @@ export type Database = {
           character: string | null
           character_id: string | null
           created_at: string
+          cta_target: string | null
           description: string
           display_name: string
           editing: Json | null
           engagement_posture: Json
           fact_anchor: string
+          hashtags: Json
           length_target: Json
+          lexicon: Json
           packaging: Json
           platforms: Json
-          raw: Json
           research_profile: Json | null
           script: Json | null
           source_ladder: Json

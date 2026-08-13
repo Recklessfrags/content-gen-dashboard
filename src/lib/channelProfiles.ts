@@ -510,74 +510,53 @@ export function buildChannelProfilePipelinePatch(
 }
 
 // ---------------------------------------------------------------------------
-// channel_profiles.raw — dashboard-owned / pipeline-read shared-surface container
+// channel_profiles distribution + register — dashboard-owned / pipeline-read
+// FLAT top-level columns (migration dash_0014, UNAPPLIED/operator-gated)
 // ---------------------------------------------------------------------------
-// `raw` is a single jsonb column (migration dash_0014, UNAPPLIED/operator-gated)
-// holding channel-generic config the dashboard drives. The dashboard edits three
-// sub-keys today; a fourth (`visual_style`) is HELD (pipeline-incoming — the editor
-// never writes it, and every write below preserves it). See docs/contracts/data-contract.md.
+// VERIFIED cross-repo: the pipeline reads these as TOP-LEVEL row columns off
+// ChannelProfile.raw = dict(row) — `lexicon` (lexicon.py:77), `hashtags`
+// (distribution.py:82), `cta_target` (prompts.py:405). So they are three independent
+// columns, NOT a nested `raw` container. Because they are separate columns, an upsert
+// that edits one and omits the others leaves the others untouched (partial-column
+// update semantics) — that is the locked safety property. `visual_style` is HELD
+// (pipeline has not built it): no column, no UI. See docs/contracts/data-contract.md.
 //
-// SAFETY — raw.lexicon.substitutions is ADVISORY register data ONLY. It CANNOT weaken,
+// SAFETY — the `lexicon` column is ADVISORY register data ONLY. It CANNOT weaken,
 // disable, or override the universal advertiser-safety floor. The dashboard performs NO
 // floor enforcement here (it would falsely imply authority); the pipeline
 // (src/pipeline/lexicon.py resolve_channel_lexicon) is the sole authority and silently
 // drops any substitution whose source OR replacement hits the floor. This editor is a
 // labeled advisory pass-through, never a floor-override control.
 
-/** The canonical CTA sub-key name. Coordinator PIN pending final cross-repo confirmation:
- *  the pipeline (prompts.py) reads `cta_target` → `cta` → `call_to_action` in that order,
- *  so writing `cta_target` is accepted today. See the contract's CTA note. */
-export const CTA_TARGET_KEY = "cta_target" as const;
+/** One editable substitution pair. The `lexicon.substitutions` column is an OBJECT map
+ *  {from: to}, so on build a later row with a duplicate `from` wins and blank rows drop. */
+export type LexiconSubstitutionRow = { from: string; to: string };
 
-/** One editable substitution pair. Persisted shape is an OBJECT map {from: to}, so on
- *  build a later row with a duplicate `from` wins and blank rows are dropped. */
-export type RawSubstitutionRow = { from: string; to: string };
-
-/** Only the raw sub-keys the dashboard edits. `undefined` = not touched (preserved). */
-export type ChannelRawEdits = {
+/** Only the distribution/register columns the dashboard edits. `undefined` = not touched
+ *  (omitted from the upsert → the existing column is preserved). */
+export type ChannelDistributionEdits = {
   hashtags?: string[];
   ctaTarget?: string;
-  lexiconSubstitutions?: RawSubstitutionRow[];
+  lexiconSubstitutions?: LexiconSubstitutionRow[];
 };
 
-export type ChannelRawMerge = {
-  stored: Json | null;
-  edits: ChannelRawEdits;
-};
-
-export function hasChannelRawEdits(edits: ChannelRawEdits): boolean {
-  return (
-    edits.hashtags !== undefined ||
-    edits.ctaTarget !== undefined ||
-    edits.lexiconSubstitutions !== undefined
-  );
+export function parseChannelHashtags(json: Json | null | undefined): string[] {
+  return parseStringArray(json ?? []);
 }
 
-export function parseChannelRaw(json: Json | null | undefined): JsonRecord {
-  return isJsonRecord(json ?? null) ? (json as JsonRecord) : {};
+/** The `cta_target` text column (coordinator PIN). The pipeline reads
+ *  cta_target → cta → call_to_action, so writing `cta_target` is accepted today. */
+export function parseChannelCtaTarget(
+  value: Json | null | undefined,
+): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
-export function parseRawHashtags(json: Json | null | undefined): string[] {
-  return parseStringArray(parseChannelRaw(json).hashtags ?? []);
-}
-
-/** Read-compat: prefers cta_target, then the legacy cta / call_to_action aliases the
- *  pipeline also accepts, so an existing row authored under another name still displays. */
-export function parseRawCtaTarget(json: Json | null | undefined): string {
-  const raw = parseChannelRaw(json);
-  for (const key of [CTA_TARGET_KEY, "cta", "call_to_action"] as const) {
-    const value = raw[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return "";
-}
-
-export function parseRawLexiconSubstitutions(
+export function parseChannelLexiconSubstitutions(
   json: Json | null | undefined,
-): RawSubstitutionRow[] {
-  const lexicon = parseChannelRaw(json).lexicon;
-  const substitutions = isJsonRecord(lexicon ?? null)
-    ? (lexicon as JsonRecord).substitutions
+): LexiconSubstitutionRow[] {
+  const substitutions = isJsonRecord(json ?? null)
+    ? (json as JsonRecord).substitutions
     : undefined;
   if (!isJsonRecord(substitutions ?? null)) return [];
   return Object.entries(substitutions as JsonRecord)
@@ -589,7 +568,7 @@ export function parseRawLexiconSubstitutions(
 
 /** Rows → {from: to} object map: trim, drop rows missing either side, later row wins. */
 export function buildSubstitutionMap(
-  rows: RawSubstitutionRow[],
+  rows: LexiconSubstitutionRow[],
 ): Record<string, string> {
   const map: Record<string, string> = {};
   for (const row of rows) {
@@ -601,39 +580,10 @@ export function buildSubstitutionMap(
   return map;
 }
 
-/** Shallow-merge the edited sub-keys over the stored raw object. Un-edited sub-keys —
- *  crucially the HELD `visual_style` and any future pipeline-written keys — are carried
- *  through from `stored` untouched. Editing an empty value CLEARS that sub-key. */
-export function buildChannelRaw(
-  stored: Json | null,
-  edits: ChannelRawEdits,
-): JsonRecord {
-  const base: JsonRecord = { ...parseChannelRaw(stored) };
-
-  if (edits.hashtags !== undefined) {
-    const hashtags = edits.hashtags.map((h) => h.trim()).filter(Boolean);
-    if (hashtags.length) base.hashtags = hashtags;
-    else delete base.hashtags;
-  }
-
-  if (edits.ctaTarget !== undefined) {
-    const cta = edits.ctaTarget.trim();
-    if (cta) base[CTA_TARGET_KEY] = cta;
-    else delete base[CTA_TARGET_KEY];
-  }
-
-  if (edits.lexiconSubstitutions !== undefined) {
-    const substitutions = buildSubstitutionMap(edits.lexiconSubstitutions);
-    const lexicon: JsonRecord = isJsonRecord(base.lexicon ?? null)
-      ? { ...(base.lexicon as JsonRecord) }
-      : {};
-    if (Object.keys(substitutions).length) lexicon.substitutions = substitutions;
-    else delete lexicon.substitutions;
-    if (Object.keys(lexicon).length) base.lexicon = lexicon;
-    else delete base.lexicon;
-  }
-
-  return base;
+/** The `lexicon` column shape the pipeline reads: { substitutions: {from: to} }. An
+ *  empty set writes { substitutions: {} } (an explicit "no substitutions" clear). */
+export function buildLexiconColumn(rows: LexiconSubstitutionRow[]): JsonRecord {
+  return { substitutions: buildSubstitutionMap(rows) };
 }
 
 // Pipeline-owned groups are omitted unless a rendered field was edited. When a
@@ -641,18 +591,16 @@ export function buildChannelRaw(
 // Existing rows use buildChannelProfilePipelinePatch + the server-side RPC so a
 // mount-time snapshot can never overwrite a concurrent pipeline setting.
 //
-// `rawMerge` follows the SAME omit-preserves discipline: when no raw sub-key was
-// edited (`hasChannelRawEdits` is false) the result carries NO `raw` key, so the
-// upsert leaves the stored container untouched. When a sub-key IS edited we write the
-// FULL merged container (preserving un-edited siblings incl. the HELD visual_style).
-// NOTE: the merge uses the mount-time snapshot of `raw`; this is safe today because
-// every raw sub-key the dashboard writes is dashboard-owned and visual_style is not yet
-// pipeline-written. When visual_style becomes pipeline-written, move raw to a
-// server-side shallow-merge RPC (like merge_channel_profile_patch) — see the contract.
+// `distributionEdits` follows the omit-preserves discipline column-by-column: each of
+// {hashtags, cta_target, lexicon} is written ONLY if it was edited this session; an
+// un-edited column is left off the upsert payload entirely, so partial-column update
+// semantics preserve its stored value. Because these are three independent columns
+// (not a shared container), editing one never touches the others — and the HELD
+// `visual_style` has no column here and is never written.
 export function buildChannelProfileUpsert(
   input: ChannelProfileUpsertInput,
   pipelineMerge?: ChannelProfilePipelineMerge,
-  rawMerge?: ChannelRawMerge,
+  distributionEdits?: ChannelDistributionEdits,
 ): TablesInsert<"channel_profiles"> {
   const pipelinePatch = buildChannelProfilePipelinePatch(
     pipelineMerge?.edits ?? {},
@@ -705,10 +653,19 @@ export function buildChannelProfileUpsert(
     };
   }
 
-  // Omit `raw` entirely unless a raw sub-key was actually edited — omitting it makes the
-  // upsert preserve the stored container (the locked safety property).
-  if (rawMerge && hasChannelRawEdits(rawMerge.edits)) {
-    result.raw = buildChannelRaw(rawMerge.stored, rawMerge.edits);
+  // Write each distribution/register column ONLY if it was edited — an un-edited column is
+  // omitted from the payload so the upsert preserves its stored value (the locked property).
+  if (distributionEdits?.hashtags !== undefined) {
+    result.hashtags = distributionEdits.hashtags
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+  }
+  if (distributionEdits?.ctaTarget !== undefined) {
+    const cta = distributionEdits.ctaTarget.trim();
+    result.cta_target = cta ? cta : null;
+  }
+  if (distributionEdits?.lexiconSubstitutions !== undefined) {
+    result.lexicon = buildLexiconColumn(distributionEdits.lexiconSubstitutions);
   }
 
   return result;

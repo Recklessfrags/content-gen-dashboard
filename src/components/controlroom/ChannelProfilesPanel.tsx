@@ -21,18 +21,18 @@ import {
   parseLengthTarget,
   parsePackaging,
   parsePlatforms,
-  parseRawCtaTarget,
-  parseRawHashtags,
-  parseRawLexiconSubstitutions,
+  parseChannelCtaTarget,
+  parseChannelHashtags,
+  parseChannelLexiconSubstitutions,
   resolvePipelineMerge,
   parseSourceLadder,
   splitListInput,
   parseShortSeconds,
   type ChannelProfile,
   type ChannelProfilePipelineEdits,
-  type ChannelRawEdits,
+  type ChannelDistributionEdits,
   type ChannelProfileUpsertInput,
-  type RawSubstitutionRow,
+  type LexiconSubstitutionRow,
   type ResearchAnchorType,
 } from "@/lib/channelProfiles";
 import {
@@ -102,7 +102,7 @@ type FormState = {
   escalationLadder: string;
   archivalProviders: string;
   researchAnchorType: string;
-  // channel_profiles.raw shared-surface sub-keys (dashboard-editable)
+  // channel_profiles distribution + register columns (dashboard-editable)
   hashtags: string;
   ctaTarget: string;
   lexiconSubstitutions: SubstitutionEditRow[];
@@ -110,7 +110,7 @@ type FormState = {
 
 // UI-only editable row: a stable `id` gives each row a React key that survives mid-list
 // add/remove (the persisted shape is just {from,to}; `id` is stripped on save).
-type SubstitutionEditRow = RawSubstitutionRow & { id: string };
+type SubstitutionEditRow = LexiconSubstitutionRow & { id: string };
 let substitutionRowSeq = 0;
 const nextSubstitutionRowId = () => `sub-${(substitutionRowSeq += 1)}`;
 
@@ -119,9 +119,9 @@ type PipelineField =
   | "archivalProviders"
   | "researchAnchorType";
 
-// Which raw sub-keys the operator touched this session — only touched keys are written,
-// so an untouched save omits `raw` entirely and the stored container is preserved.
-type RawField = "hashtags" | "ctaTarget" | "lexicon";
+// Which distribution/register columns the operator touched this session — only touched
+// columns are written, so an untouched save omits them and their stored values are preserved.
+type DistributionField = "hashtags" | "ctaTarget" | "lexicon";
 
 type ProposalField = {
   key: keyof FormState;
@@ -250,12 +250,11 @@ function profileToForm(
       profile.research_profile,
       "anchor_type",
     ),
-    hashtags: joinListInput(parseRawHashtags(profile.raw)),
-    ctaTarget: parseRawCtaTarget(profile.raw),
-    lexiconSubstitutions: parseRawLexiconSubstitutions(profile.raw).map((row) => ({
-      ...row,
-      id: nextSubstitutionRowId(),
-    })),
+    hashtags: joinListInput(parseChannelHashtags(profile.hashtags)),
+    ctaTarget: parseChannelCtaTarget(profile.cta_target),
+    lexiconSubstitutions: parseChannelLexiconSubstitutions(profile.lexicon).map(
+      (row) => ({ ...row, id: nextSubstitutionRowId() }),
+    ),
   };
 }
 
@@ -291,7 +290,7 @@ export function ChannelProfilesPanel({
   const [pipelineEdits, setPipelineEdits] = useState<Set<PipelineField>>(
     new Set(),
   );
-  const [rawEdits, setRawEdits] = useState<Set<RawField>>(new Set());
+  const [distEdits, setDistEdits] = useState<Set<DistributionField>>(new Set());
   const hydratedChannelRef = useRef<string | null>(null);
 
   const selectedProfile = useMemo(
@@ -392,7 +391,7 @@ export function ChannelProfilesPanel({
       hydratedChannelRef.current = nextProfile.channel;
       setForm(profileToForm(nextProfile, characters));
       setPipelineEdits(new Set());
-      setRawEdits(new Set());
+      setDistEdits(new Set());
     }
   }, [characters, creating, loading, profiles, scopedChannel, selectedProfile]);
 
@@ -429,28 +428,28 @@ export function ChannelProfilesPanel({
     [updateForm],
   );
 
-  const markRawEdit = useCallback((field: RawField) => {
-    setRawEdits((current) => new Set(current).add(field));
+  const markDistEdit = useCallback((field: DistributionField) => {
+    setDistEdits((current) => new Set(current).add(field));
   }, []);
 
   const updateHashtags = useCallback(
     (value: string) => {
       updateForm("hashtags", value);
-      markRawEdit("hashtags");
+      markDistEdit("hashtags");
     },
-    [markRawEdit, updateForm],
+    [markDistEdit, updateForm],
   );
 
   const updateCtaTarget = useCallback(
     (value: string) => {
       updateForm("ctaTarget", value);
-      markRawEdit("ctaTarget");
+      markDistEdit("ctaTarget");
     },
-    [markRawEdit, updateForm],
+    [markDistEdit, updateForm],
   );
 
   const updateSubstitutionRow = useCallback(
-    (index: number, patch: Partial<RawSubstitutionRow>) => {
+    (index: number, patch: Partial<LexiconSubstitutionRow>) => {
       setForm((current) =>
         current
           ? {
@@ -461,9 +460,9 @@ export function ChannelProfilesPanel({
             }
           : current,
       );
-      markRawEdit("lexicon");
+      markDistEdit("lexicon");
     },
-    [markRawEdit],
+    [markDistEdit],
   );
 
   const addSubstitutionRow = useCallback(() => {
@@ -478,8 +477,8 @@ export function ChannelProfilesPanel({
           }
         : current,
     );
-    markRawEdit("lexicon");
-  }, [markRawEdit]);
+    markDistEdit("lexicon");
+  }, [markDistEdit]);
 
   const removeSubstitutionRow = useCallback(
     (index: number) => {
@@ -493,9 +492,9 @@ export function ChannelProfilesPanel({
             }
           : current,
       );
-      markRawEdit("lexicon");
+      markDistEdit("lexicon");
     },
-    [markRawEdit],
+    [markDistEdit],
   );
 
   const updateCharacter = useCallback(
@@ -707,15 +706,15 @@ export function ChannelProfilesPanel({
         setNotice({ message: pipelineMerge.reason, error: true });
         return;
       }
-      const rawFormEdits: ChannelRawEdits = {};
-      if (rawEdits.has("hashtags")) {
-        rawFormEdits.hashtags = splitListInput(form.hashtags);
+      const distributionEdits: ChannelDistributionEdits = {};
+      if (distEdits.has("hashtags")) {
+        distributionEdits.hashtags = splitListInput(form.hashtags);
       }
-      if (rawEdits.has("ctaTarget")) {
-        rawFormEdits.ctaTarget = form.ctaTarget;
+      if (distEdits.has("ctaTarget")) {
+        distributionEdits.ctaTarget = form.ctaTarget;
       }
-      if (rawEdits.has("lexicon")) {
-        rawFormEdits.lexiconSubstitutions = form.lexiconSubstitutions.map(
+      if (distEdits.has("lexicon")) {
+        distributionEdits.lexiconSubstitutions = form.lexiconSubstitutions.map(
           ({ from, to }) => ({ from, to }),
         );
       }
@@ -724,10 +723,7 @@ export function ChannelProfilesPanel({
         pipelineMerge.creating
           ? { stored: pipelineMerge.stored, edits: pipelineConfigEdits }
           : undefined,
-        {
-          stored: pipelineMerge.creating ? null : (selectedProfile?.raw ?? null),
-          edits: rawFormEdits,
-        },
+        distributionEdits,
       );
       if (!pipelineMerge.creating) {
         const patch = buildChannelProfilePipelinePatch(pipelineConfigEdits);
@@ -782,7 +778,7 @@ export function ChannelProfilesPanel({
         ),
       );
       setPipelineEdits(new Set());
-      setRawEdits(new Set());
+      setDistEdits(new Set());
       await onRefetch();
       setNotice({ message: "Channel profile saved." });
       if (lastApplied) {

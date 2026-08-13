@@ -7,15 +7,13 @@ import {
 import {
   buildChannelProfilePipelinePatch,
   buildChannelProfileUpsert,
-  buildChannelRaw,
+  buildLexiconColumn,
   buildSubstitutionMap,
-  CTA_TARGET_KEY,
   defaultChannelProfile,
-  hasChannelRawEdits,
   joinListInput,
-  parseRawCtaTarget,
-  parseRawHashtags,
-  parseRawLexiconSubstitutions,
+  parseChannelCtaTarget,
+  parseChannelHashtags,
+  parseChannelLexiconSubstitutions,
   parseEngagementPosture,
   parseResearchProfile,
   parseShortSeconds,
@@ -770,36 +768,26 @@ describe("buildChannelProfileUpsert", () => {
   });
 });
 
-describe("channel_profiles.raw shared-surface", () => {
-  const storedRawWithHeldVisualStyle = {
-    visual_style: { preset: "noir", palette: ["#000"] },
-    lexicon: { substitutions: { colour: "color" } },
-    hashtags: ["#old"],
-    [CTA_TARGET_KEY]: "old cta",
-  };
-
+describe("channel_profiles distribution + register (flat columns)", () => {
   describe("parse helpers", () => {
-    it("reads hashtags / cta / substitutions off the raw container", () => {
-      expect(parseRawHashtags(storedRawWithHeldVisualStyle)).toEqual(["#old"]);
-      expect(parseRawCtaTarget(storedRawWithHeldVisualStyle)).toBe("old cta");
-      expect(parseRawLexiconSubstitutions(storedRawWithHeldVisualStyle)).toEqual([
-        { from: "colour", to: "color" },
-      ]);
-    });
-
-    it("reads legacy cta / call_to_action aliases when cta_target is absent", () => {
-      expect(parseRawCtaTarget({ cta: "legacy" })).toBe("legacy");
-      expect(parseRawCtaTarget({ call_to_action: "older" })).toBe("older");
+    it("reads each flat column into form shape", () => {
+      expect(parseChannelHashtags(["#a", "#b"])).toEqual(["#a", "#b"]);
+      expect(parseChannelCtaTarget(" follow for more ")).toBe("follow for more");
+      expect(
+        parseChannelLexiconSubstitutions({ substitutions: { colour: "color" } }),
+      ).toEqual([{ from: "colour", to: "color" }]);
     });
 
     it("is null/shape-safe", () => {
-      expect(parseRawHashtags(null)).toEqual([]);
-      expect(parseRawCtaTarget(undefined)).toBe("");
-      expect(parseRawLexiconSubstitutions({ lexicon: "nope" })).toEqual([]);
+      expect(parseChannelHashtags(null)).toEqual([]);
+      expect(parseChannelCtaTarget(null)).toBe("");
+      expect(parseChannelCtaTarget(undefined)).toBe("");
+      expect(parseChannelLexiconSubstitutions("nope")).toEqual([]);
+      expect(parseChannelLexiconSubstitutions({ substitutions: "bad" })).toEqual([]);
     });
   });
 
-  describe("buildSubstitutionMap", () => {
+  describe("buildSubstitutionMap / buildLexiconColumn", () => {
     it("trims, drops blank rows, and lets a later duplicate win", () => {
       expect(
         buildSubstitutionMap([
@@ -811,76 +799,67 @@ describe("channel_profiles.raw shared-surface", () => {
         ]),
       ).toEqual({ colour: "color", gray: "greyer" });
     });
+
+    it("wraps the map in the pipeline's { substitutions } shape (empty stays empty)", () => {
+      expect(buildLexiconColumn([{ from: "a", to: "b" }])).toEqual({
+        substitutions: { a: "b" },
+      });
+      expect(buildLexiconColumn([])).toEqual({ substitutions: {} });
+    });
   });
 
-  describe("buildChannelProfileUpsert raw handling — SAFETY: omit preserves the column", () => {
-    it("omits `raw` entirely when no rawMerge is supplied", () => {
+  describe("buildChannelProfileUpsert — SAFETY: an un-edited column is omitted (preserved)", () => {
+    it("omits all three columns when no distributionEdits are supplied", () => {
       const result = buildChannelProfileUpsert(profileInput());
-      expect("raw" in result).toBe(false);
+      expect("hashtags" in result).toBe(false);
+      expect("cta_target" in result).toBe(false);
+      expect("lexicon" in result).toBe(false);
     });
 
-    it("omits `raw` when a rawMerge is supplied but no sub-key was edited", () => {
+    it("omits all three columns when distributionEdits is empty", () => {
+      const result = buildChannelProfileUpsert(profileInput(), undefined, {});
+      expect("hashtags" in result).toBe(false);
+      expect("cta_target" in result).toBe(false);
+      expect("lexicon" in result).toBe(false);
+    });
+
+    it("editing ONLY hashtags writes hashtags and OMITS cta_target + lexicon", () => {
       const result = buildChannelProfileUpsert(profileInput(), undefined, {
-        stored: storedRawWithHeldVisualStyle,
-        edits: {},
+        hashtags: [" #new ", "", "#fresh"],
       });
-      // No `raw` key => the upsert leaves the stored container untouched (preserved).
-      expect("raw" in result).toBe(false);
-      expect(hasChannelRawEdits({})).toBe(false);
+      expect(result.hashtags).toEqual(["#new", "#fresh"]);
+      // The un-edited columns must not appear in the payload — the upsert preserves them.
+      expect("cta_target" in result).toBe(false);
+      expect("lexicon" in result).toBe(false);
     });
 
-    it("editing ONE sub-key preserves the HELD visual_style and all un-edited siblings", () => {
+    it("editing ONLY cta_target writes it and OMITS hashtags + lexicon", () => {
       const result = buildChannelProfileUpsert(profileInput(), undefined, {
-        stored: storedRawWithHeldVisualStyle,
-        edits: { hashtags: ["#new", "#fresh"] },
+        ctaTarget: " follow for more ",
       });
-      expect(result.raw).toEqual({
-        // visual_style is pipeline-incoming + HELD — it must survive a dashboard write.
-        visual_style: { preset: "noir", palette: ["#000"] },
-        lexicon: { substitutions: { colour: "color" } },
-        hashtags: ["#new", "#fresh"],
-        [CTA_TARGET_KEY]: "old cta",
-      });
+      expect(result.cta_target).toBe("follow for more");
+      expect("hashtags" in result).toBe(false);
+      expect("lexicon" in result).toBe(false);
     });
 
-    it("writes the edited container when creating a fresh profile (stored raw = null)", () => {
+    it("editing ONLY lexicon writes it and OMITS hashtags + cta_target", () => {
       const result = buildChannelProfileUpsert(profileInput(), undefined, {
-        stored: null,
-        edits: {
-          hashtags: ["#a"],
-          ctaTarget: "follow for more",
-          lexiconSubstitutions: [{ from: "colour", to: "color" }],
-        },
+        lexiconSubstitutions: [{ from: "colour", to: "color" }],
       });
-      expect(result.raw).toEqual({
-        hashtags: ["#a"],
-        [CTA_TARGET_KEY]: "follow for more",
-        lexicon: { substitutions: { colour: "color" } },
-      });
+      expect(result.lexicon).toEqual({ substitutions: { colour: "color" } });
+      expect("hashtags" in result).toBe(false);
+      expect("cta_target" in result).toBe(false);
     });
 
-    it("clearing a sub-key removes only it and preserves the rest", () => {
+    it("clearing an edited column is an explicit write (null / empty), not an omission", () => {
       const result = buildChannelProfileUpsert(profileInput(), undefined, {
-        stored: storedRawWithHeldVisualStyle,
-        edits: { ctaTarget: "  ", lexiconSubstitutions: [] },
+        ctaTarget: "   ",
+        lexiconSubstitutions: [],
       });
-      expect(result.raw).toEqual({
-        visual_style: { preset: "noir", palette: ["#000"] },
-        hashtags: ["#old"],
-      });
-      expect(result.raw).not.toHaveProperty(CTA_TARGET_KEY);
-      expect(result.raw).not.toHaveProperty("lexicon");
-    });
-  });
-
-  describe("buildChannelRaw", () => {
-    it("deep-merges lexicon without dropping other lexicon keys", () => {
-      expect(
-        buildChannelRaw(
-          { lexicon: { substitutions: { a: "b" }, note: "keep-me" } },
-          { lexiconSubstitutions: [{ from: "c", to: "d" }] },
-        ),
-      ).toEqual({ lexicon: { substitutions: { c: "d" }, note: "keep-me" } });
+      // Editing-to-empty is a deliberate clear (distinct from omitting an untouched column).
+      expect(result.cta_target).toBeNull();
+      expect(result.lexicon).toEqual({ substitutions: {} });
+      expect("hashtags" in result).toBe(false);
     });
   });
 });
