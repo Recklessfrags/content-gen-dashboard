@@ -509,13 +509,98 @@ export function buildChannelProfilePipelinePatch(
   return patch;
 }
 
+// ---------------------------------------------------------------------------
+// channel_profiles distribution + register — dashboard-owned / pipeline-read
+// FLAT top-level columns (migration dash_0014, UNAPPLIED/operator-gated)
+// ---------------------------------------------------------------------------
+// VERIFIED cross-repo: the pipeline reads these as TOP-LEVEL row columns off
+// ChannelProfile.raw = dict(row) — `lexicon` (lexicon.py:77), `hashtags`
+// (distribution.py:82), `cta_target` (prompts.py:405). So they are three independent
+// columns, NOT a nested `raw` container. Because they are separate columns, an upsert
+// that edits one and omits the others leaves the others untouched (partial-column
+// update semantics) — that is the locked safety property. `visual_style` is HELD
+// (pipeline has not built it): no column, no UI. See docs/contracts/data-contract.md.
+//
+// SAFETY — the `lexicon` column is ADVISORY register data ONLY. It CANNOT weaken,
+// disable, or override the universal advertiser-safety floor. The dashboard performs NO
+// floor enforcement here (it would falsely imply authority); the pipeline
+// (src/pipeline/lexicon.py resolve_channel_lexicon) is the sole authority and silently
+// drops any substitution whose source OR replacement hits the floor. This editor is a
+// labeled advisory pass-through, never a floor-override control.
+
+/** One editable substitution pair. The `lexicon.substitutions` column is an OBJECT map
+ *  {from: to}, so on build a later row with a duplicate `from` wins and blank rows drop. */
+export type LexiconSubstitutionRow = { from: string; to: string };
+
+/** Only the distribution/register columns the dashboard edits. `undefined` = not touched
+ *  (omitted from the upsert → the existing column is preserved). */
+export type ChannelDistributionEdits = {
+  hashtags?: string[];
+  ctaTarget?: string;
+  lexiconSubstitutions?: LexiconSubstitutionRow[];
+};
+
+export function parseChannelHashtags(json: Json | null | undefined): string[] {
+  return parseStringArray(json ?? []);
+}
+
+/** The `cta_target` text column (coordinator PIN). The pipeline reads
+ *  cta_target → cta → call_to_action, so writing `cta_target` is accepted today. */
+export function parseChannelCtaTarget(
+  value: Json | null | undefined,
+): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function parseChannelLexiconSubstitutions(
+  json: Json | null | undefined,
+): LexiconSubstitutionRow[] {
+  const substitutions = isJsonRecord(json ?? null)
+    ? (json as JsonRecord).substitutions
+    : undefined;
+  if (!isJsonRecord(substitutions ?? null)) return [];
+  return Object.entries(substitutions as JsonRecord)
+    .filter(
+      ([from, to]) => typeof from === "string" && typeof to === "string",
+    )
+    .map(([from, to]) => ({ from, to: to as string }));
+}
+
+/** Rows → {from: to} object map: trim, drop rows missing either side, later row wins. */
+export function buildSubstitutionMap(
+  rows: LexiconSubstitutionRow[],
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const row of rows) {
+    const from = row.from.trim();
+    const to = row.to.trim();
+    if (!from || !to) continue;
+    map[from] = to;
+  }
+  return map;
+}
+
+/** The `lexicon` column shape the pipeline reads: { substitutions: {from: to} }. An
+ *  empty set writes { substitutions: {} } (an explicit "no substitutions" clear). */
+export function buildLexiconColumn(rows: LexiconSubstitutionRow[]): JsonRecord {
+  return { substitutions: buildSubstitutionMap(rows) };
+}
+
 // Pipeline-owned groups are omitted unless a rendered field was edited. When a
 // field is edited during creation, merge it over the create-time stored object.
 // Existing rows use buildChannelProfilePipelinePatch + the server-side RPC so a
 // mount-time snapshot can never overwrite a concurrent pipeline setting.
+//
+// `distributionEdits` follows the omit-preserves discipline column-by-column: each of
+// {hashtags, cta_target, lexicon} is written ONLY if it was edited this session; an
+// un-edited column is left off the upsert payload entirely, so partial-column update
+// semantics preserve its stored value. Because these are three independent columns
+// (not a shared container), editing one never touches the others — and the HELD
+// `visual_style` has no column here and is never written.
 export function buildChannelProfileUpsert(
   input: ChannelProfileUpsertInput,
   pipelineMerge?: ChannelProfilePipelineMerge,
+  distributionEdits?: ChannelDistributionEdits,
 ): TablesInsert<"channel_profiles"> {
   const pipelinePatch = buildChannelProfilePipelinePatch(
     pipelineMerge?.edits ?? {},
@@ -566,6 +651,21 @@ export function buildChannelProfileUpsert(
       ...storedObject(pipelineMerge?.stored.research_profile ?? null),
       anchor_type: researchEdits.anchor_type,
     };
+  }
+
+  // Write each distribution/register column ONLY if it was edited — an un-edited column is
+  // omitted from the payload so the upsert preserves its stored value (the locked property).
+  if (distributionEdits?.hashtags !== undefined) {
+    result.hashtags = distributionEdits.hashtags
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+  }
+  if (distributionEdits?.ctaTarget !== undefined) {
+    const cta = distributionEdits.ctaTarget.trim();
+    result.cta_target = cta ? cta : null;
+  }
+  if (distributionEdits?.lexiconSubstitutions !== undefined) {
+    result.lexicon = buildLexiconColumn(distributionEdits.lexiconSubstitutions);
   }
 
   return result;

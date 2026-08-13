@@ -7,8 +7,13 @@ import {
 import {
   buildChannelProfilePipelinePatch,
   buildChannelProfileUpsert,
+  buildLexiconColumn,
+  buildSubstitutionMap,
   defaultChannelProfile,
   joinListInput,
+  parseChannelCtaTarget,
+  parseChannelHashtags,
+  parseChannelLexiconSubstitutions,
   parseEngagementPosture,
   parseResearchProfile,
   parseShortSeconds,
@@ -760,5 +765,101 @@ describe("buildChannelProfileUpsert", () => {
     ).toThrow(
       "sourcing.escalation_ladder must contain only: archival, pixabay; sourcing.archival_providers must contain only: internet_archive, loc, wikimedia_commons",
     );
+  });
+});
+
+describe("channel_profiles distribution + register (flat columns)", () => {
+  describe("parse helpers", () => {
+    it("reads each flat column into form shape", () => {
+      expect(parseChannelHashtags(["#a", "#b"])).toEqual(["#a", "#b"]);
+      expect(parseChannelCtaTarget(" follow for more ")).toBe("follow for more");
+      expect(
+        parseChannelLexiconSubstitutions({ substitutions: { colour: "color" } }),
+      ).toEqual([{ from: "colour", to: "color" }]);
+    });
+
+    it("is null/shape-safe", () => {
+      expect(parseChannelHashtags(null)).toEqual([]);
+      expect(parseChannelCtaTarget(null)).toBe("");
+      expect(parseChannelCtaTarget(undefined)).toBe("");
+      expect(parseChannelLexiconSubstitutions("nope")).toEqual([]);
+      expect(parseChannelLexiconSubstitutions({ substitutions: "bad" })).toEqual([]);
+    });
+  });
+
+  describe("buildSubstitutionMap / buildLexiconColumn", () => {
+    it("trims, drops blank rows, and lets a later duplicate win", () => {
+      expect(
+        buildSubstitutionMap([
+          { from: " colour ", to: " color " },
+          { from: "", to: "x" },
+          { from: "y", to: "" },
+          { from: "gray", to: "grey" },
+          { from: "gray", to: "greyer" },
+        ]),
+      ).toEqual({ colour: "color", gray: "greyer" });
+    });
+
+    it("wraps the map in the pipeline's { substitutions } shape (empty stays empty)", () => {
+      expect(buildLexiconColumn([{ from: "a", to: "b" }])).toEqual({
+        substitutions: { a: "b" },
+      });
+      expect(buildLexiconColumn([])).toEqual({ substitutions: {} });
+    });
+  });
+
+  describe("buildChannelProfileUpsert — SAFETY: an un-edited column is omitted (preserved)", () => {
+    it("omits all three columns when no distributionEdits are supplied", () => {
+      const result = buildChannelProfileUpsert(profileInput());
+      expect("hashtags" in result).toBe(false);
+      expect("cta_target" in result).toBe(false);
+      expect("lexicon" in result).toBe(false);
+    });
+
+    it("omits all three columns when distributionEdits is empty", () => {
+      const result = buildChannelProfileUpsert(profileInput(), undefined, {});
+      expect("hashtags" in result).toBe(false);
+      expect("cta_target" in result).toBe(false);
+      expect("lexicon" in result).toBe(false);
+    });
+
+    it("editing ONLY hashtags writes hashtags and OMITS cta_target + lexicon", () => {
+      const result = buildChannelProfileUpsert(profileInput(), undefined, {
+        hashtags: [" #new ", "", "#fresh"],
+      });
+      expect(result.hashtags).toEqual(["#new", "#fresh"]);
+      // The un-edited columns must not appear in the payload — the upsert preserves them.
+      expect("cta_target" in result).toBe(false);
+      expect("lexicon" in result).toBe(false);
+    });
+
+    it("editing ONLY cta_target writes it and OMITS hashtags + lexicon", () => {
+      const result = buildChannelProfileUpsert(profileInput(), undefined, {
+        ctaTarget: " follow for more ",
+      });
+      expect(result.cta_target).toBe("follow for more");
+      expect("hashtags" in result).toBe(false);
+      expect("lexicon" in result).toBe(false);
+    });
+
+    it("editing ONLY lexicon writes it and OMITS hashtags + cta_target", () => {
+      const result = buildChannelProfileUpsert(profileInput(), undefined, {
+        lexiconSubstitutions: [{ from: "colour", to: "color" }],
+      });
+      expect(result.lexicon).toEqual({ substitutions: { colour: "color" } });
+      expect("hashtags" in result).toBe(false);
+      expect("cta_target" in result).toBe(false);
+    });
+
+    it("clearing an edited column is an explicit write (null / empty), not an omission", () => {
+      const result = buildChannelProfileUpsert(profileInput(), undefined, {
+        ctaTarget: "   ",
+        lexiconSubstitutions: [],
+      });
+      // Editing-to-empty is a deliberate clear (distinct from omitting an untouched column).
+      expect(result.cta_target).toBeNull();
+      expect(result.lexicon).toEqual({ substitutions: {} });
+      expect("hashtags" in result).toBe(false);
+    });
   });
 });

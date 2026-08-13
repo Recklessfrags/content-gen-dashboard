@@ -171,6 +171,66 @@ the **service role** (bypasses RLS).
 `arousal_ceiling`) are **stored, not yet enforced** — the worker-read + ADR-005 tiering are
 later pipeline work. The editor surfaces them as "stored — not yet active" until then.
 
+**Live columns not yet driven by the editor (regen 2026-08-12):** the live table also carries
+`editing` jsonb null and `script` jsonb null. They are in `database.types.ts` for schema
+accuracy but the dashboard neither reads nor writes them; every upsert omits them (preserved).
+
+### Distribution + register columns (NEW; migration `dash_0014`, UNAPPLIED)
+
+Channel-generic config that lets a NON-food channel drive its own distribution copy and word
+register. Modeled as **three independent FLAT top-level columns** — **not** a nested `raw`
+container. > **Verified:** the pipeline reads these as top-level row columns off
+`ChannelProfile.raw = dict(row)` (`channel_profiles.py:61`) — `lexicon` (`lexicon.py:77`),
+`hashtags` (`distribution.py:82`), `cta_target`→`cta`→`call_to_action` (`prompts.py:405`);
+a nested `raw` column would read as `dict(row).get("lexicon") == None` → silent no-op, so the
+flat shape is the correct contract (confirmed against pipeline `main` + live schema).
+**Dashboard owns them; the pipeline reads only.** The editor exposes them under the channel's
+"Distribution & register" advanced section.
+
+Columns the editor writes today:
+
+| column | type | notes |
+|---|---|---|
+| `lexicon` | jsonb `not null default '{}'`, shape `{ "substitutions": { "<source>": "<replacement>", … } }` | **ADVISORY register data ONLY.** See the safety note below. |
+| `hashtags` | jsonb `not null default '[]'` (array of strings) | distribution tags; pipeline caps count per platform, blank ⇒ neutral defaults |
+| `cta_target` | text null | default call-to-action target — **see the CTA pin note** |
+
+Column the pipeline will read but the editor does **NOT** add or write (HELD):
+
+| column | status |
+|---|---|
+| `visual_style` | **HELD — pipeline has not built it.** No column, no UI. ⚠️ Do **NOT** conflate with `characters.visual_style` (an unrelated casting free-text field on the `characters` table). |
+
+**SAFETY — the advisory floor is non-negotiable.** The `lexicon` column **cannot weaken,
+disable, reorder, or narrow the universal advertiser-safety floor.** It is register tuning
+over the pipeline's own generated copy, never a floor-override control. The pipeline
+(`src/pipeline/lexicon.py::resolve_channel_lexicon`) is the sole authority: it applies the
+floor AFTER substitution and **silently rejects any pair whose source OR replacement text
+would breach the floor**. The dashboard performs NO floor enforcement of its own (doing so
+would falsely imply authority) — the editor is a labeled advisory pass-through, and the UI
+says so.
+
+**Omit-preserves safety property (locked by test).** The upsert builder
+(`buildChannelProfileUpsert`) writes each of `hashtags`/`cta_target`/`lexicon` **only if it
+was edited this session**; an un-edited column is left off the payload. Because the editor
+uses `.upsert(…, { onConflict: "channel" })`, an omitted column keeps its stored value
+(partial-column update semantics). Because these are three independent columns, editing one
+never touches the others — and the HELD `visual_style` has no column here, so it can never be
+written. Editing a column to empty is an explicit clear (`cta_target → null`,
+`lexicon → { substitutions: {} }`), distinct from omitting an untouched column. This matches
+how `packaging`/`engagement_posture` (other dashboard-owned columns) are snapshot-upserted.
+
+**CTA field-name PIN (coordinator, pending final confirmation).** The canonical CTA column is
+pinned to **`cta_target`**. The pipeline (`src/pipeline/prompts.py`) reads
+`cta_target` → `cta` → `call_to_action` in that order, so `cta_target` is read today. **Flag
+for ratification:** confirm `cta_target` as the single cross-repo name.
+
+**`jobs.park_kind` — new terminal member.** The P24 channel-lexicon block introduces a new
+`jobs.park_kind` value (a lexicon/register terminal block reason). `park_kind` is an open
+`text` column (`string | null` in types), so no type change is required; readers must treat
+the vocabulary as open and not switch exhaustively on it. (The park-kind vocabulary tripwire
+lives in `pipeline-vocabularies.json`; sync it when the pipeline finalizes the member name.)
+
 ---
 
 ## `voice_templates` — dashboard-owned (operation-global config)

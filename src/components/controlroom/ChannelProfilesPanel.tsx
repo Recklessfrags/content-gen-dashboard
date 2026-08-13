@@ -21,13 +21,18 @@ import {
   parseLengthTarget,
   parsePackaging,
   parsePlatforms,
+  parseChannelCtaTarget,
+  parseChannelHashtags,
+  parseChannelLexiconSubstitutions,
   resolvePipelineMerge,
   parseSourceLadder,
   splitListInput,
   parseShortSeconds,
   type ChannelProfile,
   type ChannelProfilePipelineEdits,
+  type ChannelDistributionEdits,
   type ChannelProfileUpsertInput,
+  type LexiconSubstitutionRow,
   type ResearchAnchorType,
 } from "@/lib/channelProfiles";
 import {
@@ -97,12 +102,26 @@ type FormState = {
   escalationLadder: string;
   archivalProviders: string;
   researchAnchorType: string;
+  // channel_profiles distribution + register columns (dashboard-editable)
+  hashtags: string;
+  ctaTarget: string;
+  lexiconSubstitutions: SubstitutionEditRow[];
 };
+
+// UI-only editable row: a stable `id` gives each row a React key that survives mid-list
+// add/remove (the persisted shape is just {from,to}; `id` is stripped on save).
+type SubstitutionEditRow = LexiconSubstitutionRow & { id: string };
+let substitutionRowSeq = 0;
+const nextSubstitutionRowId = () => `sub-${(substitutionRowSeq += 1)}`;
 
 type PipelineField =
   | "escalationLadder"
   | "archivalProviders"
   | "researchAnchorType";
+
+// Which distribution/register columns the operator touched this session — only touched
+// columns are written, so an untouched save omits them and their stored values are preserved.
+type DistributionField = "hashtags" | "ctaTarget" | "lexicon";
 
 type ProposalField = {
   key: keyof FormState;
@@ -231,6 +250,11 @@ function profileToForm(
       profile.research_profile,
       "anchor_type",
     ),
+    hashtags: joinListInput(parseChannelHashtags(profile.hashtags)),
+    ctaTarget: parseChannelCtaTarget(profile.cta_target),
+    lexiconSubstitutions: parseChannelLexiconSubstitutions(profile.lexicon).map(
+      (row) => ({ ...row, id: nextSubstitutionRowId() }),
+    ),
   };
 }
 
@@ -266,6 +290,7 @@ export function ChannelProfilesPanel({
   const [pipelineEdits, setPipelineEdits] = useState<Set<PipelineField>>(
     new Set(),
   );
+  const [distEdits, setDistEdits] = useState<Set<DistributionField>>(new Set());
   const hydratedChannelRef = useRef<string | null>(null);
 
   const selectedProfile = useMemo(
@@ -366,6 +391,7 @@ export function ChannelProfilesPanel({
       hydratedChannelRef.current = nextProfile.channel;
       setForm(profileToForm(nextProfile, characters));
       setPipelineEdits(new Set());
+      setDistEdits(new Set());
     }
   }, [characters, creating, loading, profiles, scopedChannel, selectedProfile]);
 
@@ -400,6 +426,75 @@ export function ChannelProfilesPanel({
       setPipelineEdits((current) => new Set(current).add(key));
     },
     [updateForm],
+  );
+
+  const markDistEdit = useCallback((field: DistributionField) => {
+    setDistEdits((current) => new Set(current).add(field));
+  }, []);
+
+  const updateHashtags = useCallback(
+    (value: string) => {
+      updateForm("hashtags", value);
+      markDistEdit("hashtags");
+    },
+    [markDistEdit, updateForm],
+  );
+
+  const updateCtaTarget = useCallback(
+    (value: string) => {
+      updateForm("ctaTarget", value);
+      markDistEdit("ctaTarget");
+    },
+    [markDistEdit, updateForm],
+  );
+
+  const updateSubstitutionRow = useCallback(
+    (index: number, patch: Partial<LexiconSubstitutionRow>) => {
+      setForm((current) =>
+        current
+          ? {
+              ...current,
+              lexiconSubstitutions: current.lexiconSubstitutions.map((row, i) =>
+                i === index ? { ...row, ...patch } : row,
+              ),
+            }
+          : current,
+      );
+      markDistEdit("lexicon");
+    },
+    [markDistEdit],
+  );
+
+  const addSubstitutionRow = useCallback(() => {
+    setForm((current) =>
+      current
+        ? {
+            ...current,
+            lexiconSubstitutions: [
+              ...current.lexiconSubstitutions,
+              { id: nextSubstitutionRowId(), from: "", to: "" },
+            ],
+          }
+        : current,
+    );
+    markDistEdit("lexicon");
+  }, [markDistEdit]);
+
+  const removeSubstitutionRow = useCallback(
+    (index: number) => {
+      setForm((current) =>
+        current
+          ? {
+              ...current,
+              lexiconSubstitutions: current.lexiconSubstitutions.filter(
+                (_row, i) => i !== index,
+              ),
+            }
+          : current,
+      );
+      markDistEdit("lexicon");
+    },
+    [markDistEdit],
   );
 
   const updateCharacter = useCallback(
@@ -611,11 +706,24 @@ export function ChannelProfilesPanel({
         setNotice({ message: pipelineMerge.reason, error: true });
         return;
       }
+      const distributionEdits: ChannelDistributionEdits = {};
+      if (distEdits.has("hashtags")) {
+        distributionEdits.hashtags = splitListInput(form.hashtags);
+      }
+      if (distEdits.has("ctaTarget")) {
+        distributionEdits.ctaTarget = form.ctaTarget;
+      }
+      if (distEdits.has("lexicon")) {
+        distributionEdits.lexiconSubstitutions = form.lexiconSubstitutions.map(
+          ({ from, to }) => ({ from, to }),
+        );
+      }
       const built = buildChannelProfileUpsert(
         formToInput(form),
         pipelineMerge.creating
           ? { stored: pipelineMerge.stored, edits: pipelineConfigEdits }
           : undefined,
+        distributionEdits,
       );
       if (!pipelineMerge.creating) {
         const patch = buildChannelProfilePipelinePatch(pipelineConfigEdits);
@@ -670,6 +778,7 @@ export function ChannelProfilesPanel({
         ),
       );
       setPipelineEdits(new Set());
+      setDistEdits(new Set());
       await onRefetch();
       setNotice({ message: "Channel profile saved." });
       if (lastApplied) {
@@ -1297,6 +1406,110 @@ export function ChannelProfilesPanel({
                     </p>
                   )}
                 </div>
+              </section>
+
+              <section
+                className="channel-profile-section"
+                aria-labelledby="channel-profile-distribution-heading"
+              >
+                <h3
+                  id="channel-profile-distribution-heading"
+                  className="text-title channel-profile-section-title"
+                >
+                  Distribution &amp; register
+                </h3>
+                <p className="hint">
+                  Channel-generic distribution copy and an advisory word-register list. Saving an edit
+                  preserves other stored settings that are not shown here.
+                </p>
+                <div className="grid2">
+                  <Field
+                    id="channel-profile-hashtags"
+                    label="Hashtags"
+                    hint="Newline or comma list. The pipeline caps the count per platform; leave blank for neutral defaults."
+                    value={form.hashtags}
+                    onChange={updateHashtags}
+                    rows={4}
+                    mono
+                  />
+                  <Field
+                    id="channel-profile-cta-target"
+                    label="Call to action"
+                    hint="The channel's default call-to-action target (e.g. “follow for more” or a destination). Optional."
+                    value={form.ctaTarget}
+                    onChange={updateCtaTarget}
+                    rows={2}
+                  />
+                </div>
+
+                <fieldset className="channel-profile-fieldset">
+                  <legend className="eyebrow">
+                    Word substitutions — advisory (not a safety control)
+                  </legend>
+                  <p className="hint">
+                    Optional register tuning: rewrite a word or phrase to an approved alternative in
+                    generated copy. This is <strong>advisory data only</strong>. It <strong>cannot
+                    weaken, disable, or override the universal advertiser-safety floor</strong> — the
+                    pipeline enforces the floor after substitution and silently drops any pair whose
+                    original or replacement text would breach it. It is never a way to allow unsafe
+                    wording.
+                  </p>
+                  {form.lexiconSubstitutions.length === 0 ? (
+                    <p className="hint">No substitutions configured.</p>
+                  ) : (
+                    <ul className="channel-substitution-list">
+                      {form.lexiconSubstitutions.map((row, index) => (
+                        <li key={row.id} className="channel-substitution-row grid2">
+                          <div className="field">
+                            <label htmlFor={`channel-substitution-from-${index}`}>
+                              <span className="eyebrow">Replace</span>
+                            </label>
+                            <input
+                              id={`channel-substitution-from-${index}`}
+                              type="text"
+                              value={row.from}
+                              onChange={(event) =>
+                                updateSubstitutionRow(index, { from: event.target.value })
+                              }
+                            />
+                          </div>
+                          <div className="field">
+                            <label htmlFor={`channel-substitution-to-${index}`}>
+                              <span className="eyebrow">With</span>
+                            </label>
+                            <input
+                              id={`channel-substitution-to-${index}`}
+                              type="text"
+                              value={row.to}
+                              onChange={(event) =>
+                                updateSubstitutionRow(index, { to: event.target.value })
+                              }
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-ghost channel-substitution-remove"
+                            onClick={() => removeSubstitutionRow(index)}
+                            aria-label={`Remove substitution ${index + 1}`}
+                          >
+                            Remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={addSubstitutionRow}
+                  >
+                    Add substitution
+                  </button>
+                  <p className="hint">
+                    Blank rows and duplicate “replace” terms are dropped on save (a later duplicate
+                    wins). Matching is case-insensitive and whole-word in the pipeline.
+                  </p>
+                </fieldset>
               </section>
 
               <section

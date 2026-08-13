@@ -138,6 +138,14 @@ body{font-family:var(--body)}
 .dials-inert legend{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:0 6px}
 .dials-inert > .hint{margin:2px 0 14px;color:var(--paper-dim);font-family:var(--mono);font-size:12px}
 .channel-number-field{max-width:260px}
+.channel-profile-fieldset{border:1px solid var(--line);border-radius:3px;
+  padding:14px 14px 16px;margin:18px 0 0}
+.channel-profile-fieldset > legend{padding:0 6px}
+.channel-profile-fieldset > .hint{margin:2px 0 12px}
+.channel-substitution-list{list-style:none;margin:0 0 12px;padding:0;
+  display:flex;flex-direction:column;gap:10px}
+.channel-substitution-row{align-items:end;gap:10px}
+.channel-substitution-remove{white-space:nowrap}
 
 .savebar{position:sticky;bottom:0;background:var(--ink);
   padding:18px 34px;display:flex;align-items:center;gap:14px;border-top:1px solid var(--line);
