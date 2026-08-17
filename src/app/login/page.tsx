@@ -8,10 +8,14 @@ const initial: AuthState = {};
 
 export default function LoginPage() {
   return (
-    <div className="login-wrap">
-      <Suspense fallback={null}>
-        <LoginForm />
-      </Suspense>
+    <div className="aurora-app login-aurora">
+      <div className="aurora-backdrop" />
+      <div className="aurora-noise" />
+      <div className="login-aurora__wrap">
+        <Suspense fallback={null}>
+          <LoginForm />
+        </Suspense>
+      </div>
     </div>
   );
 }
@@ -28,19 +32,29 @@ function LoginForm() {
         : undefined;
 
   return (
-    <div className="login-card">
-      <h1 className="brandline">
-        Control<b>·</b>Room
-      </h1>
-      <p className="tagline">Sign in to run the operation.</p>
+    <div className="glass-panel login-aurora__card">
+      <header className="login-aurora__head">
+        <h1 className="text-display login-aurora__brand">
+          Control<span aria-hidden="true">·</span>Room
+        </h1>
+        <p className="text-body login-aurora__tagline">
+          Sign in to run the operation.
+        </p>
+      </header>
+
       <form action={signInWithGoogle}>
-        <button className="btn ghost" type="submit">
+        <button className="btn btn-secondary login-aurora__btn" type="submit">
           Sign in with Google
         </button>
       </form>
-      <form action={formAction}>
-        <label htmlFor="email">
-          <span className="lbl">Email</span>
+
+      <div className="login-aurora__divider" role="separator">
+        <span>or</span>
+      </div>
+
+      <form action={formAction} className="login-aurora__form">
+        <div className="field">
+          <label htmlFor="email">Email</label>
           <input
             id="email"
             type="email"
@@ -51,9 +65,9 @@ function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-        </label>
-        <label htmlFor="password">
-          <span className="lbl">Password</span>
+        </div>
+        <div className="field">
+          <label htmlFor="password">Password</label>
           <input
             id="password"
             type="password"
@@ -61,18 +75,23 @@ function LoginForm() {
             autoComplete="current-password"
             required
           />
-        </label>
-        <button className="btn" type="submit" disabled={pending}>
+        </div>
+        <button
+          className="btn btn-primary login-aurora__btn"
+          type="submit"
+          disabled={pending}
+        >
           {pending ? "Working…" : "Sign in"}
         </button>
       </form>
+
       {state.error && (
-        <div className="err" role="alert" aria-live="assertive">
+        <div className="login-aurora__err" role="alert" aria-live="assertive">
           {state.error}
         </div>
       )}
       {oauthError && (
-        <div className="err" role="alert" aria-live="assertive">
+        <div className="login-aurora__err" role="alert" aria-live="assertive">
           {oauthError}
         </div>
       )}

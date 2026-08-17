@@ -4370,3 +4370,124 @@
 @media (prefers-reduced-motion: reduce) {
   .aurora-app .render-player__toggle:active { transform: none; }
 }
+
+/* ==========================================================================
+   SIGN-IN (T8) — the login route was still on the pre-redesign globals.css
+   card (.login-wrap/.login-card). Those tokens (--ink-2/--paper-dim/--stamp)
+   are declared once on :root with NO light-theme override, so sign-in stayed
+   hard-dark while every other page followed the theme toggle. Rebuilt on the
+   aurora tokens below, so it tracks light/dark like the rest of the app.
+   ========================================================================== */
+.aurora-app.login-aurora {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.aurora-app .login-aurora__wrap {
+  width: 100%;
+  max-width: 26rem;
+}
+
+.aurora-app .login-aurora__card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.aurora-app .login-aurora__head {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.aurora-app .login-aurora__brand {
+  font-size: 1.75rem;
+  color: var(--text-main);
+}
+
+.aurora-app .login-aurora__brand span {
+  color: var(--accent);
+  margin: 0 0.1em;
+}
+
+.aurora-app .login-aurora__tagline {
+  font-size: 0.875rem;
+  color: var(--text-dim);
+}
+
+.aurora-app .login-aurora__btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Rule with a centred label, drawn from tokens so it flips with the theme. */
+.aurora-app .login-aurora__divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.aurora-app .login-aurora__divider::before,
+.aurora-app .login-aurora__divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+}
+
+.aurora-app .login-aurora__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.aurora-app .login-aurora__card .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.aurora-app .login-aurora__card .field label {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+
+.aurora-app .login-aurora__card .field input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+  border-radius: var(--radius-sm);
+}
+
+.aurora-app .login-aurora__card .field input::placeholder {
+  color: var(--text-muted);
+}
+
+.aurora-app .login-aurora__card .field input:focus {
+  outline: none;
+  border-color: var(--border-glow);
+  box-shadow: 0 0 0 2px var(--border-glow);
+  background: var(--surface-2);
+}
+
+/* --danger-fg is the on-tint TEXT token; --danger is for fills/borders only. */
+.aurora-app .login-aurora__err {
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 0.625rem 0.75rem;
+  font-size: 0.8125rem;
+  text-align: center;
+}
