@@ -690,27 +690,12 @@ body{font-family:var(--body)}
 .toast--error{border-left-color:var(--stamp)}
 @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
-/* ── login ── */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
-  background:radial-gradient(120% 120% at 50% 0%,var(--ink-2),var(--ink) 70%)}
-.login-card{width:100%;max-width:380px;background:var(--ink-2);border:1px solid var(--line-soft);
-  border-radius:5px;padding:32px 30px}
-.login-card .brandline{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.03em;
-  text-transform:uppercase;text-align:center;margin:0}
-.login-card .brandline b{color:var(--stamp)}
-.login-card .tagline{text-align:center;color:var(--paper-dim);font-size:12.5px;margin:8px 0 24px}
-.login-card label{display:block;margin-bottom:14px}
-.login-card .lbl{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--paper-dim);display:block;margin-bottom:6px}
-.login-card input{width:100%;background:var(--ink-3);border:1px solid var(--line-soft);border-radius:3px;
-  padding:11px 13px;font-size:14px}
-.login-card input:focus{border-color:var(--stamp-deep)}
-.login-card input:focus-visible{outline:3px solid var(--focus-ring);outline-offset:3px;border-radius:2px}
-.login-card .btn{width:100%;justify-content:center;text-align:center;margin-top:6px;padding:12px}
-.login-card .err{color:var(--stamp);font-family:var(--mono);font-size:12px;margin-top:14px;text-align:center}
-.login-card .toggle{background:none;border:none;color:var(--paper-dim);font-size:12px;
-  text-align:center;width:100%;margin-top:16px;text-decoration:underline}
-.login-card .toggle:hover{color:var(--paper)}
+/* ── login ── removed 2026-08-17 (T8). The sign-in view moved to the aurora
+   design system (`.login-aurora*` in aurora.css); these rules styled
+   .login-wrap/.login-card/.brandline/.lbl/.toggle, none of which any component
+   renders any more (verified: 0 references across src/**). They were dark-only
+   by construction — their tokens (--ink-2/--paper-dim/--stamp/--line-soft) have
+   no [data-theme="light"] override — which is what T8 fixed. */
 
 @media (max-width:880px){
   .roster{display:none}
