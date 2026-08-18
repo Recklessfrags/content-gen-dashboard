@@ -11,6 +11,7 @@ import {
   buildSubstitutionMap,
   defaultChannelProfile,
   joinListInput,
+  parseChannelAiDisclosure,
   parseChannelCtaTarget,
   parseChannelHashtags,
   parseChannelLexiconSubstitutions,
@@ -861,5 +862,54 @@ describe("channel_profiles distribution + register (flat columns)", () => {
       expect(result.lexicon).toEqual({ substitutions: {} });
       expect("hashtags" in result).toBe(false);
     });
+  });
+});
+
+describe("parseChannelAiDisclosure", () => {
+  // The pipeline (distribution._ai_disclosure_enabled) reads ONLY an explicit boolean and
+  // defaults to ON. The dashboard must agree, or the toggle would show a state the
+  // pipeline does not act on.
+  it("reads an explicit boolean", () => {
+    expect(parseChannelAiDisclosure(true)).toBe(true);
+    expect(parseChannelAiDisclosure(false)).toBe(false);
+  });
+
+  it.each([null, undefined, "false", "true", 0, 1, [], {}] as const)(
+    "defaults to on for a non-boolean value (%p)",
+    (value) => {
+      expect(parseChannelAiDisclosure(value as never)).toBe(true);
+    },
+  );
+});
+
+describe("buildChannelProfileUpsert — ai_disclosure", () => {
+  const base = {
+    channel: "food",
+    description: "d",
+    display_name: "Food",
+    fact_anchor: "fda_standard_of_identity",
+    treatment: "archival_documentary",
+  };
+
+  it("omits the column when the toggle was not touched, preserving the stored value", () => {
+    const built = buildChannelProfileUpsert(base, undefined, { hashtags: ["a"] });
+    expect("ai_disclosure" in built).toBe(false);
+  });
+
+  it("writes false when the operator turns it off", () => {
+    const built = buildChannelProfileUpsert(base, undefined, { aiDisclosure: false });
+    expect(built.ai_disclosure).toBe(false);
+  });
+
+  it("writes true when the operator turns it back on", () => {
+    const built = buildChannelProfileUpsert(base, undefined, { aiDisclosure: true });
+    expect(built.ai_disclosure).toBe(true);
+  });
+
+  it("does not disturb the other independent distribution columns", () => {
+    const built = buildChannelProfileUpsert(base, undefined, { aiDisclosure: false });
+    expect("hashtags" in built).toBe(false);
+    expect("cta_target" in built).toBe(false);
+    expect("lexicon" in built).toBe(false);
   });
 });

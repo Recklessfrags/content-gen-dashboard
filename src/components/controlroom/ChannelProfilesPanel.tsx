@@ -21,6 +21,7 @@ import {
   parseLengthTarget,
   parsePackaging,
   parsePlatforms,
+  parseChannelAiDisclosure,
   parseChannelCtaTarget,
   parseChannelHashtags,
   parseChannelLexiconSubstitutions,
@@ -106,6 +107,7 @@ type FormState = {
   hashtags: string;
   ctaTarget: string;
   lexiconSubstitutions: SubstitutionEditRow[];
+  aiDisclosure: boolean;
 };
 
 // UI-only editable row: a stable `id` gives each row a React key that survives mid-list
@@ -121,7 +123,7 @@ type PipelineField =
 
 // Which distribution/register columns the operator touched this session — only touched
 // columns are written, so an untouched save omits them and their stored values are preserved.
-type DistributionField = "hashtags" | "ctaTarget" | "lexicon";
+type DistributionField = "hashtags" | "ctaTarget" | "lexicon" | "aiDisclosure";
 
 type ProposalField = {
   key: keyof FormState;
@@ -251,6 +253,7 @@ function profileToForm(
       "anchor_type",
     ),
     hashtags: joinListInput(parseChannelHashtags(profile.hashtags)),
+    aiDisclosure: parseChannelAiDisclosure(profile.ai_disclosure),
     ctaTarget: parseChannelCtaTarget(profile.cta_target),
     lexiconSubstitutions: parseChannelLexiconSubstitutions(profile.lexicon).map(
       (row) => ({ ...row, id: nextSubstitutionRowId() }),
@@ -436,6 +439,14 @@ export function ChannelProfilesPanel({
     (value: string) => {
       updateForm("hashtags", value);
       markDistEdit("hashtags");
+    },
+    [markDistEdit, updateForm],
+  );
+
+  const updateAiDisclosure = useCallback(
+    (value: boolean) => {
+      updateForm("aiDisclosure", value);
+      markDistEdit("aiDisclosure");
     },
     [markDistEdit, updateForm],
   );
@@ -712,6 +723,9 @@ export function ChannelProfilesPanel({
       }
       if (distEdits.has("ctaTarget")) {
         distributionEdits.ctaTarget = form.ctaTarget;
+      }
+      if (distEdits.has("aiDisclosure")) {
+        distributionEdits.aiDisclosure = form.aiDisclosure;
       }
       if (distEdits.has("lexicon")) {
         distributionEdits.lexiconSubstitutions = form.lexiconSubstitutions.map(
@@ -1441,6 +1455,21 @@ export function ChannelProfilesPanel({
                     rows={2}
                   />
                 </div>
+
+                <label className="casting-toggle">
+                  <input
+                    id="channel-profile-ai-disclosure"
+                    type="checkbox"
+                    checked={form.aiDisclosure}
+                    onChange={(event) => updateAiDisclosure(event.target.checked)}
+                  />
+                  <span>Label posts as AI-generated</span>
+                </label>
+                <p className="hint">
+                  Claims each platform&apos;s native AI-content flag when this channel publishes.
+                  On by default. This is a labelling preference only — turning it off never
+                  blocks or parks a job, and neither does leaving it on.
+                </p>
 
                 <fieldset className="channel-profile-fieldset">
                   <legend className="eyebrow">

@@ -124,6 +124,7 @@ export type Database = {
         // (UNAPPLIED, operator-gated). Typed here so the editor + helpers can drive them
         // once applied. Each is independent: omitting a column from an upsert preserves it.
         Row: {
+          ai_disclosure: boolean
           channel: string
           character: string | null
           character_id: string | null
@@ -148,6 +149,7 @@ export type Database = {
           voice_archetype: string | null
         }
         Insert: {
+          ai_disclosure?: boolean
           channel: string
           character?: string | null
           character_id?: string | null
@@ -172,6 +174,7 @@ export type Database = {
           voice_archetype?: string | null
         }
         Update: {
+          ai_disclosure?: boolean
           channel?: string
           character?: string | null
           character_id?: string | null

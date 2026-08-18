@@ -538,10 +538,24 @@ export type ChannelDistributionEdits = {
   hashtags?: string[];
   ctaTarget?: string;
   lexiconSubstitutions?: LexiconSubstitutionRow[];
+  aiDisclosure?: boolean;
 };
 
 export function parseChannelHashtags(json: Json | null | undefined): string[] {
   return parseStringArray(json ?? []);
+}
+
+/** The `ai_disclosure` toggle (migration dash_0015). Whether this channel claims the
+ *  platforms' native AI-content flag at publish. NEVER a gate — the pipeline records it
+ *  on the distribution plan and parks nothing over it (operator ruling 2026-08-18).
+ *
+ *  Defaults to TRUE for anything that is not an explicit boolean, mirroring the pipeline
+ *  (`distribution._ai_disclosure_enabled`): a missing, null, or non-boolean value is not
+ *  a decision to stop disclosing, and the two readers must not disagree about that. */
+export function parseChannelAiDisclosure(
+  value: Json | null | undefined,
+): boolean {
+  return typeof value === "boolean" ? value : true;
 }
 
 /** The `cta_target` text column (coordinator PIN). The pipeline reads
@@ -592,7 +606,8 @@ export function buildLexiconColumn(rows: LexiconSubstitutionRow[]): JsonRecord {
 // mount-time snapshot can never overwrite a concurrent pipeline setting.
 //
 // `distributionEdits` follows the omit-preserves discipline column-by-column: each of
-// {hashtags, cta_target, lexicon} is written ONLY if it was edited this session; an
+// {hashtags, cta_target, lexicon, ai_disclosure} is written ONLY if it was edited this
+// session; an
 // un-edited column is left off the upsert payload entirely, so partial-column update
 // semantics preserve its stored value. Because these are three independent columns
 // (not a shared container), editing one never touches the others — and the HELD
@@ -666,6 +681,9 @@ export function buildChannelProfileUpsert(
   }
   if (distributionEdits?.lexiconSubstitutions !== undefined) {
     result.lexicon = buildLexiconColumn(distributionEdits.lexiconSubstitutions);
+  }
+  if (distributionEdits?.aiDisclosure !== undefined) {
+    result.ai_disclosure = distributionEdits.aiDisclosure;
   }
 
   return result;

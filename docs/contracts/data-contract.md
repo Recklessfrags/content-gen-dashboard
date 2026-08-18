@@ -175,7 +175,7 @@ later pipeline work. The editor surfaces them as "stored — not yet active" unt
 `editing` jsonb null and `script` jsonb null. They are in `database.types.ts` for schema
 accuracy but the dashboard neither reads nor writes them; every upsert omits them (preserved).
 
-### Distribution + register columns (NEW; migration `dash_0014`, UNAPPLIED)
+### Distribution + register columns (migrations `dash_0014`, `dash_0015` — both APPLIED)
 
 Channel-generic config that lets a NON-food channel drive its own distribution copy and word
 register. Modeled as **three independent FLAT top-level columns** — **not** a nested `raw`
@@ -194,12 +194,25 @@ Columns the editor writes today:
 | `lexicon` | jsonb `not null default '{}'`, shape `{ "substitutions": { "<source>": "<replacement>", … } }` | **ADVISORY register data ONLY.** See the safety note below. |
 | `hashtags` | jsonb `not null default '[]'` (array of strings) | distribution tags; pipeline caps count per platform, blank ⇒ neutral defaults |
 | `cta_target` | text null | default call-to-action target — **see the CTA pin note** |
+| `ai_disclosure` | boolean `not null default true` | whether this channel claims each platform's native AI-content flag at publish — **never a gate**, see below |
 
 Column the pipeline will read but the editor does **NOT** add or write (HELD):
 
 | column | status |
 |---|---|
 | `visual_style` | **HELD — pipeline has not built it.** No column, no UI. ⚠️ Do **NOT** conflate with `characters.visual_style` (an unrelated casting free-text field on the `characters` table). |
+
+**The AI-disclosure toggle is a labelling preference, NEVER a gate** (operator ruling,
+2026-08-18: *"we don't need to worry about the ai disclosure tag being mandatory, it should
+just be a toggle in the dashboard, never a reason to park a job."*). The pipeline reads it in
+`distribution._ai_disclosure_enabled`, records it on `DistributionPlan.ai_disclosure`, and
+parks nothing over it in either Distribution or Assembly. **Both readers default to ON for
+anything that is not an explicit boolean** — a missing, null, or non-boolean value is not a
+decision to stop disclosing, and `parseChannelAiDisclosure` mirrors the pipeline exactly so
+the toggle can never show a state the pipeline does not act on. Known gap: nothing yet
+transmits the flag to the platforms (publishing goes through Buffer, which carries text +
+media only), so this records the decision rather than enforcing it — see
+`docs/measurements/t52-ai-disclosure-2026-08-18.md` in the pipeline repo.
 
 **SAFETY — the advisory floor is non-negotiable.** The `lexicon` column **cannot weaken,
 disable, reorder, or narrow the universal advertiser-safety floor.** It is register tuning
@@ -211,8 +224,8 @@ would falsely imply authority) — the editor is a labeled advisory pass-through
 says so.
 
 **Omit-preserves safety property (locked by test).** The upsert builder
-(`buildChannelProfileUpsert`) writes each of `hashtags`/`cta_target`/`lexicon` **only if it
-was edited this session**; an un-edited column is left off the payload. Because the editor
+(`buildChannelProfileUpsert`) writes each of `hashtags`/`cta_target`/`lexicon`/`ai_disclosure`
+**only if it was edited this session**; an un-edited column is left off the payload. Because the editor
 uses `.upsert(…, { onConflict: "channel" })`, an omitted column keeps its stored value
 (partial-column update semantics). Because these are three independent columns, editing one
 never touches the others — and the HELD `visual_style` has no column here, so it can never be

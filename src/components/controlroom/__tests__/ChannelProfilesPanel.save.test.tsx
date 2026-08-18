@@ -8,6 +8,7 @@ import { ChannelProfilesPanel } from "@/components/controlroom/ChannelProfilesPa
 import type { ChannelProfile } from "@/lib/channelProfiles";
 
 const existingProfile: ChannelProfile = {
+  ai_disclosure: true,
   channel: "history",
   character: null,
   character_id: null,
@@ -87,6 +88,50 @@ describe("ChannelProfilesPanel saves", () => {
     expect(insertPayload).not.toHaveProperty("research_profile");
     expect(upsert).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("saves the AI-disclosure toggle only when the operator touches it", async () => {
+    // Operator ruling 2026-08-18: the AI-content label is a labelling preference, never a
+    // gate. It must round-trip through the save path, and an untouched toggle must stay
+    // OFF the payload so the stored value is preserved (the locked partial-update property).
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    const upsert = vi.fn().mockResolvedValue({ error: null });
+    const rpc = vi.fn().mockResolvedValue({ data: [existingProfile], error: null });
+    const from = vi.fn(() => ({ insert, upsert }));
+    const user = userEvent.setup();
+
+    render(
+      <ChannelProfilesPanel
+        supabase={{ from, rpc } as never}
+        profiles={[existingProfile]}
+        loading={false}
+        error={null}
+        onRefetch={vi.fn()}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: /show advanced settings/i }),
+    );
+    const toggle = await screen.findByRole("checkbox", {
+      name: /label posts as ai-generated/i,
+    });
+    // Stored value is true, so the control hydrates on.
+    expect(toggle).toBeChecked();
+
+    // Saving without touching it must not write the column at all.
+    await user.click(screen.getByRole("button", { name: "Save channel" }));
+    await waitFor(() => expect(upsert).toHaveBeenCalledTimes(1));
+    expect(upsert.mock.calls[0][0]).not.toHaveProperty("ai_disclosure");
+
+    // Turning it off writes exactly false.
+    await user.click(toggle);
+    expect(toggle).not.toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Save channel" }));
+    await waitFor(() => expect(upsert).toHaveBeenCalledTimes(2));
+    expect(upsert.mock.calls[1][0]).toEqual(
+      expect.objectContaining({ ai_disclosure: false }),
+    );
   });
 
   it("rejects an edited channel identity before any RPC or upsert", async () => {
