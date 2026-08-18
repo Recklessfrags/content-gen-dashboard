@@ -4801,6 +4801,8 @@
 .aurora-app .au-step-node.is-running { color: var(--status-running); }
 .aurora-app .au-step-node.is-parked { color: var(--warn); }
 .aurora-app .au-step-node.is-failed { color: var(--danger-fg); }
+.aurora-app .au-step-node.is-skipped { color: var(--text-dim); }
+.aurora-app .au-step-node.is-skipped .au-step-node__mark { border-color: transparent; }
 .aurora-app .au-step-node.is-parked .au-step-node__mark { border-radius: 4px; }
 
 @media (max-width: 640px) {

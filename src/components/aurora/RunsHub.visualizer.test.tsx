@@ -80,9 +80,43 @@ describe("RunsHub step track", () => {
     const track = screen.getByRole("list", { name: "Progress for Topic 1" });
     expect(within(track).getAllByRole("listitem")).toHaveLength(11);
     expect(within(track).queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Checking the facts: passed, 3 attempts")).toHaveTextContent("3");
-    expect(screen.getByLabelText("Writing the script: waiting on you")).toHaveClass("is-parked");
-    expect(screen.getByLabelText("Lexicon: not reached")).toHaveClass("is-pending");
+    expect(screen.getByRole("listitem", { name: "Checking the facts: passed, 3 attempts" })).toHaveTextContent("3");
+    expect(screen.getByRole("listitem", { name: "Writing the script: waiting on you" })).toHaveClass("is-parked");
+    expect(screen.getByRole("listitem", { name: "Lexicon: not reached" })).toHaveClass("is-pending");
+  });
+
+  it("announces each non-interactive node from visually hidden text", () => {
+    render(<RunsHub {...baseProps} cards={[{ ...card(1, "running"), attemptsByStage: { researcher: 1 } }]} />);
+
+    const node = screen.getByRole("listitem", { name: "Researching the topic: running" });
+    expect(node).not.toHaveAttribute("aria-label");
+    const hiddenLabel = within(node).getByText("Researching the topic: running");
+    expect(hiddenLabel).toHaveClass("sr-only");
+    expect(node).toHaveAttribute("aria-labelledby", hiddenLabel.id);
+    expect(node).not.toHaveAttribute("tabindex");
+  });
+
+  it("marks a receipt gap before editor as skipped without claiming later stages were reached", () => {
+    const job47: RunCardVM = {
+      ...card(47, "running"),
+      attemptsByStage: {
+        researcher: 1,
+        fact_check: 1,
+        gate: 1,
+        script_writer: 1,
+        visual_router: 1,
+        voice_direction: 1,
+        editor: 1,
+      },
+    };
+    render(<RunsHub {...baseProps} cards={[job47]} />);
+
+    const skipped = screen.getByRole("listitem", { name: "Lexicon: skipped" });
+    expect(skipped).toHaveClass("is-skipped");
+    expect(skipped).toHaveTextContent("—");
+    expect(screen.getByRole("listitem", { name: "Assembling the video: not reached" })).toHaveClass("is-pending");
+    expect(screen.getByRole("listitem", { name: "Virality: not reached" })).toHaveClass("is-pending");
+    expect(screen.getByRole("listitem", { name: "Publishing: not reached" })).toHaveClass("is-pending");
   });
 
   it("never claims receipt-free distribution passed for a done run", () => {
@@ -94,7 +128,7 @@ describe("RunsHub step track", () => {
 
     expect(screen.getByRole("listitem", { name: "Publishing: not reached" })).toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: "Researching the topic: passed" })).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { name: "Checking the facts: not reached" })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: "Checking the facts: skipped" })).toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: "Writing the script: passed" })).toBeInTheDocument();
   });
 

@@ -36,6 +36,78 @@ const baseProps = {
 afterEach(cleanup);
 
 describe("RunsHub archive controls", () => {
+  it("keeps lifecycle counts and rendered rows scoped to the selected channel", async () => {
+    const user = userEvent.setup();
+    render(
+      <RunsHub
+        {...baseProps}
+        cards={[
+          card(1, "ready_for_review", "dark_history"),
+          card(2, "done", "dark_history"),
+          card(3, "ready_for_review", "weird_food"),
+          card(4, "running", "weird_food"),
+          card(5, "done", "weird_food"),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "dark_history (1)" }));
+
+    expect(screen.getByRole("tab", { name: /Parked 1/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /In flight 0/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Finished 1/ })).toBeInTheDocument();
+    expect(screen.getByText("Run 1")).toBeInTheDocument();
+    expect(screen.queryByText("Run 3")).not.toBeInTheDocument();
+  });
+
+  it("keeps every lifecycle-scoped channel facet available after selecting one", async () => {
+    const user = userEvent.setup();
+    render(
+      <RunsHub
+        {...baseProps}
+        cards={[
+          card(1, "ready_for_review", "dark_history"),
+          card(2, "ready_for_review", "weird_food"),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "dark_history (1)" }));
+
+    expect(screen.getByRole("button", { name: "All channels (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "dark_history (1)" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "weird_food (1)" })).toBeInTheDocument();
+  });
+
+  it("auto-opens a non-empty lifecycle from the same channel-scoped set as its counts", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <RunsHub
+        {...baseProps}
+        cards={[
+          card(1, "ready_for_review", "dark_history"),
+          card(2, "ready_for_review", "weird_food"),
+        ]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "dark_history (1)" }));
+
+    rerender(
+      <RunsHub
+        {...baseProps}
+        cards={[
+          card(3, "done", "dark_history"),
+          card(4, "ready_for_review", "weird_food"),
+        ]}
+      />,
+    );
+
+    expect(await screen.findByRole("tab", { name: /Finished 1/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /Parked 0/ })).toBeInTheDocument();
+    expect(screen.getByText("Run 3")).toBeInTheDocument();
+    expect(screen.queryByText("Run 4")).not.toBeInTheDocument();
+  });
+
   it("omits the per-row archive action for queued and running jobs", () => {
     render(
       <RunsHub

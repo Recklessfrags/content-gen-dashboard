@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { JobArchiveControls } from "@/components/aurora/JobArchiveControls";
 import { RenderPlayer } from "@/components/aurora/RenderPlayer";
 import { useRenderProgress } from "@/lib/hooks/useRenderProgress";
@@ -130,33 +130,39 @@ export function RunsHub({
   const [channelKey, setChannelKey] = useState<string>(ALL_CHANNELS_KEY);
   const viewCards = showArchived ? archivedCards : cards;
 
+  const availableChannelFacets = useMemo(() => channelFacets(viewCards), [viewCards]);
+  const effectiveChannelKey = availableChannelFacets.some((facet) => facet.key === channelKey)
+    ? channelKey
+    : ALL_CHANNELS_KEY;
+  const channelFiltered = useMemo(
+    () => viewCards.filter((card) => cardMatchesChannel(card, effectiveChannelKey)),
+    [effectiveChannelKey, viewCards],
+  );
+
   const counts = useMemo(
     () =>
-      viewCards.reduce<Record<RunLifecycle, number>>(
+      channelFiltered.reduce<Record<RunLifecycle, number>>(
         (current, card) => {
           current[lifecycleForRun(card)] += 1;
           return current;
         },
         { parked: 0, in_flight: 0, finished: 0 },
       ),
-    [viewCards],
+    [channelFiltered],
   );
 
   useEffect(() => {
-    if (!loading && !tabChosen) setLifecycle(defaultLifecycle(viewCards));
-  }, [loading, tabChosen, viewCards]);
+    if (!loading && !tabChosen) setLifecycle(defaultLifecycle(channelFiltered));
+  }, [channelFiltered, loading, tabChosen]);
 
   const lifecycleCards = useMemo(
     () => viewCards.filter((card) => lifecycleForRun(card) === lifecycle),
     [lifecycle, viewCards],
   );
   const facets = useMemo(() => channelFacets(lifecycleCards), [lifecycleCards]);
-  const effectiveChannelKey = facets.some((facet) => facet.key === channelKey)
-    ? channelKey
-    : ALL_CHANNELS_KEY;
-  const channelFiltered = useMemo(
-    () => lifecycleCards.filter((card) => cardMatchesChannel(card, effectiveChannelKey)),
-    [effectiveChannelKey, lifecycleCards],
+  const renderedCards = useMemo(
+    () => channelFiltered.filter((card) => lifecycleForRun(card) === lifecycle),
+    [channelFiltered, lifecycle],
   );
   const inFlightEpisodeIds = useMemo(
     () =>
@@ -167,7 +173,7 @@ export function RunsHub({
   );
   const latestStageByEpisode = useRenderProgress(inFlightEpisodeIds);
 
-  const showEmpty = !loading && error === null && channelFiltered.length === 0;
+  const showEmpty = !loading && error === null && renderedCards.length === 0;
 
   return (
     <section className="runs-hub scoped" aria-labelledby="runs-hub-title">
@@ -202,7 +208,7 @@ export function RunsHub({
         <JobArchiveControls
           activeCount={cards.length}
           archivedCount={archivedCards.length}
-          currentJobs={channelFiltered.flatMap((card) =>
+          currentJobs={renderedCards.flatMap((card) =>
             card.jobId === undefined || (!showArchived && isActionableStatus(card.status))
               ? []
               : [{ id: card.jobId, status: lifecycleForRun(card) === "in_flight" ? "running" : card.status }],
@@ -210,8 +216,12 @@ export function RunsHub({
           noun="run"
           showArchived={showArchived}
           onShowArchivedChange={(nextShowArchived) => {
+            const nextCards = nextShowArchived ? archivedCards : cards;
+            const nextChannelKey = channelFacets(nextCards).some((facet) => facet.key === channelKey)
+              ? channelKey
+              : ALL_CHANNELS_KEY;
             setShowArchived(nextShowArchived);
-            setLifecycle(defaultLifecycle(nextShowArchived ? archivedCards : cards));
+            setLifecycle(defaultLifecycle(nextCards.filter((card) => cardMatchesChannel(card, nextChannelKey))));
             setTabChosen(false);
           }}
           onArchive={onArchiveJobs}
@@ -268,9 +278,9 @@ export function RunsHub({
         </div>
       ) : null}
 
-      {!loading && error === null && channelFiltered.length > 0 ? (
+      {!loading && error === null && renderedCards.length > 0 ? (
         <div className="runs-hub__list" aria-label={`${lifecycleLabel(lifecycle)} runs`}>
-          {channelFiltered.map((card) => (
+          {renderedCards.map((card) => (
             <RunCard
               key={card.id}
               card={card}
@@ -327,18 +337,22 @@ function StepTrack({
   card: RunCardVM;
   latestStage?: string;
 }) {
+  const labelIdPrefix = useId();
+
   return (
     <ol className="au-step-track" aria-label={`Progress for ${card.title}`}>
       {RUN_STAGES.map((stage) => {
         const state = stepState(card, stage.id, latestStage);
         const attemptCount = card.attemptsByStage?.[stage.id] ?? 0;
         const label = `${stageLabel(stage.id)}: ${stepStateLabel(state)}${attemptCount > 1 ? `, ${attemptCount} attempts` : ""}`;
+        const labelId = `${labelIdPrefix}-${stage.id}`;
         return (
           <li
             key={stage.id}
             className={`au-step-node is-${state}`}
-            aria-label={label}
+            aria-labelledby={labelId}
           >
+            <span id={labelId} className="sr-only">{label}</span>
             <span className="au-step-node__mark" aria-hidden="true">
               {stepGlyph(state, attemptCount)}
             </span>
@@ -350,7 +364,7 @@ function StepTrack({
   );
 }
 
-type StepState = "passed" | "parked" | "running" | "failed" | "pending";
+type StepState = "passed" | "parked" | "running" | "failed" | "skipped" | "pending";
 
 function stepState(
   card: RunCardVM,
@@ -371,7 +385,7 @@ function stepState(
   );
   const stageIndex = RUN_STAGES.findIndex((item) => item.id === stage);
 
-  if (!receiptStages.has(stage)) return "pending";
+  if (!receiptStages.has(stage)) return stageIndex < currentIndex ? "skipped" : "pending";
   if (stageIndex < currentIndex) return "passed";
   if (stageIndex > currentIndex || currentIndex < 0) return "pending";
   if (lifecycleForRun(card) === "parked") return "parked";
@@ -384,6 +398,7 @@ function stepStateLabel(state: StepState): string {
   if (state === "parked") return "waiting on you";
   if (state === "running") return "running";
   if (state === "failed") return "failed";
+  if (state === "skipped") return "skipped";
   return "not reached";
 }
 
@@ -393,6 +408,7 @@ function stepGlyph(state: StepState, attemptCount: number): string {
   if (state === "parked") return "◆";
   if (state === "running") return "◉";
   if (state === "failed") return "×";
+  if (state === "skipped") return "—";
   return "○";
 }
 
