@@ -1138,6 +1138,82 @@
 .aurora-app .au-below-floor { margin-top: 0.75rem; }
 .aurora-app .au-below-floor ul { margin: 0.35rem 0 0; padding-left: 1.25rem; }
 
+/* --- Action Center: grouped, collapsed approvals -------------------------- */
+/* One tap-target per decision. Everything secondary lives inside the row body, so a
+   three-figure backlog stays scannable on a phone instead of being a wall of repeated
+   copy. Row heights are deliberately uniform: scanning beats decorating here. */
+
+.aurora-app .au-approval-group { margin-bottom: 1.75rem; }
+.aurora-app .au-approval-group:last-of-type { margin-bottom: 0; }
+
+.aurora-app .au-approval-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.aurora-app .au-approval-group-title { font-size: 0.875rem; margin: 0; }
+.aurora-app .au-approval-free { font-size: 0.875rem; }
+
+.aurora-app .au-approval + .au-approval { border-top: 1px solid var(--border-soft); }
+
+.aurora-app .au-approval-summary {
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.aurora-app .au-approval-summary:hover { background: var(--surface-2); }
+.aurora-app .au-approval-summary:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+
+.aurora-app .au-approval-ident {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0; /* lets the topic ellipsize instead of shoving the price off-row */
+}
+
+/* The topic is the only thing that tells two rows apart, so it gets the room —
+   but it must not push the amount or the caret out of the viewport. */
+.aurora-app .au-approval-topic {
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aurora-app .au-approval-sub { font-size: 0.8125rem; }
+
+.aurora-app .au-approval-value {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.aurora-app .au-approval-value .cost-readout { font-size: 1rem; }
+.aurora-app .au-approval-caret { color: var(--text-secondary); font-size: 0.75rem; }
+
+.aurora-app .au-approval-body {
+  display: grid;
+  gap: 0.625rem;
+  padding: 0.25rem 0 1rem;
+}
+
+.aurora-app .au-approval-body > p { margin: 0; }
+
 .aurora-app .approval-actions {
   display: flex;
   gap: 0.5rem;

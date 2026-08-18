@@ -59,6 +59,9 @@ export function ActionCenter({
   const Heading = headingLevel === 2 ? "h2" : "h1";
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const previousPendingRef = useRef<typeof pending>(pending);
+  // One row open at a time: with a three-figure backlog, an accordion that lets every
+  // row stay open just rebuilds the wall of text this screen was redesigned to remove.
+  const [expandedId, setExpandedId] = useState<QueueJob["id"] | null>(null);
 
   useEffect(() => {
     if (previousPendingRef.current && !pending) {
@@ -102,57 +105,107 @@ export function ActionCenter({
       {jobs.length === 0 ? (
         <div className="glass-panel au-empty">All clear - no approvals awaiting.</div>
       ) : (
-        <div className="glass-panel" role="list" aria-label="Approvals awaiting action">
-          {jobs.map((job) => {
-            const park = parkById[job.id];
-            const pendingForRow = pending?.job.id === job.id ? pending : null;
-            const publishAllowed = canPublish(job);
-            const isStale = job.status?.trim().toLowerCase() === "stale";
-            const hasSpend = typeof job.spend === "number" && job.spend > 0;
+        groupApprovals(jobs, parkById).map((group) => (
+          <section
+            className="au-approval-group"
+            key={group.key}
+            aria-labelledby={`approval-group-${group.key}`}
+          >
+            <div className="au-approval-group-head">
+              <p
+                id={`approval-group-${group.key}`}
+                className="text-mono dim au-approval-group-title"
+              >
+                // {group.title} ({group.jobs.length})
+              </p>
+              {group.total !== null ? (
+                <span className="cost-readout">{formatUsd(group.total)} held</span>
+              ) : group.key === "fact" ? (
+                <span className="dim au-approval-free">No cost to approve</span>
+              ) : null}
+            </div>
 
-            return (
-              <article className="approval-row" role="listitem" key={job.id}>
-                <div className="approval-context">
-                  <strong className="text-title">{job.channel ?? job.food}</strong>
-                  <div className="au-action-meta">
-                    {job.channel ? <span className="status-chip">{job.channel}</span> : null}
-                    <span>{statusLabel(job)}</span>
-                    <span>{formatCreatedAt(job.created_at)}</span>
-                  </div>
-                  <p className="dim">{parkLine(job, park)}</p>
-                  <ParkContext job={job} park={park} loadDiagnostics={loadDiagnostics} />
-                  {hasSpend ? (
-                    <div className="cost-readout">Spend: {formatUsd(job.spend ?? 0)}</div>
-                  ) : null}
-                  {job.episode_id ? <RenderPlayer episodeId={job.episode_id} /> : null}
-                </div>
+            <div className="glass-panel" role="list" aria-label={group.title}>
+              {group.jobs.map((job) => {
+                const park = parkById[job.id];
+                const pendingForRow = pending?.job.id === job.id ? pending : null;
+                const publishAllowed = canPublish(job);
+                const isStale = job.status?.trim().toLowerCase() === "stale";
+                const hasSpend = typeof job.spend === "number" && job.spend > 0;
+                const isOpen = expandedId === job.id || pendingForRow !== null;
+                const bodyId = `approval-body-${job.id}`;
 
-                <div className="approval-actions">
-                  <PrimaryAction
-                    job={job}
-                    park={park}
-                    isStale={isStale}
-                    publishAllowed={publishAllowed}
-                    onRequest={handleRequest}
-                  />
-                </div>
+                return (
+                  <article className="au-approval" role="listitem" key={job.id}>
+                    <button
+                      type="button"
+                      className="au-approval-summary"
+                      aria-expanded={isOpen}
+                      aria-controls={bodyId}
+                      onClick={() => setExpandedId(isOpen ? null : job.id)}
+                    >
+                      <span className="au-approval-ident">
+                        <span className="text-title au-approval-topic">
+                          {job.food ?? job.channel ?? `Run ${job.id}`}
+                        </span>
+                        <span className="dim au-approval-sub">
+                          {[job.channel, shortWhen(job.created_at)]
+                            .filter(Boolean)
+                            .join(" \u00b7 ")}
+                        </span>
+                      </span>
+                      <span className="au-approval-value">
+                        {hasSpend ? (
+                          <span className="cost-readout">{formatUsd(job.spend ?? 0)}</span>
+                        ) : (
+                          <span className="dim">&mdash;</span>
+                        )}
+                        <span className="au-approval-caret" aria-hidden="true">
+                          {isOpen ? "\u25be" : "\u25b8"}
+                        </span>
+                      </span>
+                    </button>
 
-                {pendingForRow ? (
-                  <InlineConfirm
-                    job={pendingForRow.job}
-                    action={pendingForRow.action}
-                    submitting={submitting}
-                    onCancel={onCancel}
-                    onConfirm={onConfirm}
-                    factClaims={factClaims}
-                    factClaimsLoading={factClaimsLoading}
-                    factClaimsError={factClaimsError}
-                  />
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
+                    <div id={bodyId} hidden={!isOpen} className="au-approval-body">
+                      <div className="au-action-meta">
+                        <span>{statusLabel(job)}</span>
+                        <span>{formatCreatedAt(job.created_at)}</span>
+                      </div>
+                      <p className="dim">{parkLine(job, park)}</p>
+                      <ParkContext job={job} park={park} loadDiagnostics={loadDiagnostics} />
+                      {job.episode_id && groupShowsRender(group.key) ? (
+                        <RenderPlayer episodeId={job.episode_id} />
+                      ) : null}
+
+                      <div className="approval-actions">
+                        <PrimaryAction
+                          job={job}
+                          park={park}
+                          isStale={isStale}
+                          publishAllowed={publishAllowed}
+                          onRequest={handleRequest}
+                        />
+                      </div>
+
+                      {pendingForRow ? (
+                        <InlineConfirm
+                          job={pendingForRow.job}
+                          action={pendingForRow.action}
+                          submitting={submitting}
+                          onCancel={onCancel}
+                          onConfirm={onConfirm}
+                          factClaims={factClaims}
+                          factClaimsLoading={factClaimsLoading}
+                          factClaimsError={factClaimsError}
+                        />
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ))
       )}
 
       {erroredJobs.length > 0 ? (
@@ -231,6 +284,83 @@ function ParkContext({ job, park, loadDiagnostics }: {
       </div> : null}
     </div>
   );
+}
+
+// --- triage -----------------------------------------------------------------
+//
+// The operator drives this on a phone, and the backlog runs into three figures. Sorted
+// only by time, 107 near-identical rows are unreadable: the decision TYPE is what
+// changes what he has to think about (money vs. a free fact call), so that is what the
+// screen is grouped by. Money first, because it is the only group with a cost, and the
+// ones we could not classify last, because they are the only ones he must open before
+// acting — the copy in `parkLine` is explicit that approving spend is only right for a
+// spend hold.
+
+type ApprovalGroupKey = "spend" | "fact" | "publish" | "reveal" | "unknown";
+
+const APPROVAL_GROUPS: Array<{ key: ApprovalGroupKey; title: string }> = [
+  { key: "spend", title: "SPEND APPROVALS" },
+  { key: "fact", title: "FACT CALLS" },
+  { key: "publish", title: "PUBLISH" },
+  { key: "reveal", title: "REVEAL SIGN-OFF" },
+  { key: "unknown", title: "NEEDS A LOOK" },
+];
+
+function groupApprovals(
+  jobs: QueueJob[],
+  parkById: Record<QueueJob["id"], ActionCenterPark>,
+): Array<{ key: ApprovalGroupKey; title: string; jobs: QueueJob[]; total: number | null }> {
+  const buckets = new Map<ApprovalGroupKey, QueueJob[]>();
+  for (const job of jobs) {
+    const park = parkById[job.id];
+    // A row still being classified is not "unknown" — it just has not resolved yet.
+    // Bucketing it with the genuinely-unclassifiable ones would tell the operator to
+    // go investigate something that is about to answer for itself.
+    const key: ApprovalGroupKey = park?.loading
+      ? "unknown"
+      : ((park?.kind ?? "unknown") as ApprovalGroupKey);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(job);
+    else buckets.set(key, [job]);
+  }
+
+  return APPROVAL_GROUPS.filter((group) => (buckets.get(group.key)?.length ?? 0) > 0).map(
+    (group) => {
+      const groupJobs = buckets.get(group.key) ?? [];
+      return {
+        ...group,
+        jobs: groupJobs,
+        // Only the money group carries a total, and it is what has ALREADY been spent
+        // on these runs — not a forecast of what approving them will cost.
+        total:
+          group.key === "spend"
+            ? groupJobs.reduce(
+                (sum, job) => sum + (typeof job.spend === "number" ? job.spend : 0),
+                0,
+              )
+            : null,
+      };
+    },
+  );
+}
+
+/** A render only exists once a run has got far enough to make one. Mounting the player
+ *  on a spend or fact hold just renders "No render available for this episode." */
+function groupShowsRender(key: ApprovalGroupKey): boolean {
+  return key === "publish" || key === "reveal";
+}
+
+/** Collapsed rows need a time, not just a topic: the same topic legitimately appears
+ *  many times over (re-runs of one episode), so the topic alone does not identify a row. */
+function shortWhen(createdAt: string): string {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function parkChip(job: QueueJob, park: ActionCenterPark | undefined): string {
