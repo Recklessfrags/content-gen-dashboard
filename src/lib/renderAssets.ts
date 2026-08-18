@@ -10,20 +10,58 @@ export function renderVideoUrl(episodeId: string): string | null {
   return `${supabaseUrl}/storage/v1/object/public/render-assets/${encodeURIComponent(normalizedEpisodeId)}/mastered.mp4`;
 }
 
-const renderAvailabilityByEpisode = new Map<string, Promise<boolean>>();
+export type RenderAvailability = "exists" | "missing" | "unknown";
+
+const MISSING_RENDER_TTL_MS = 30_000;
+
+type CachedRenderAvailability = {
+  result: Exclude<RenderAvailability, "unknown">;
+  expiresAt: number | null;
+};
+
+const renderAvailabilityByEpisode = new Map<string, CachedRenderAvailability>();
+const renderProbeByEpisode = new Map<string, Promise<RenderAvailability>>();
 
 /** Confirms that an episode's public render exists without downloading video data. */
-export function renderVideoExists(episodeId: string): Promise<boolean> {
+export function renderVideoExists(episodeId: string): Promise<RenderAvailability> {
   const normalizedEpisodeId = episodeId.trim();
   const videoUrl = renderVideoUrl(normalizedEpisodeId);
-  if (!videoUrl) return Promise.resolve(false);
+  if (!videoUrl) return Promise.resolve("missing");
 
   const cached = renderAvailabilityByEpisode.get(normalizedEpisodeId);
-  if (cached) return cached;
+  if (cached && (cached.expiresAt === null || cached.expiresAt > Date.now())) {
+    return Promise.resolve(cached.result);
+  }
+  if (cached) renderAvailabilityByEpisode.delete(normalizedEpisodeId);
 
-  const probe = fetch(videoUrl, { method: "HEAD" })
-    .then((response) => response.ok)
-    .catch(() => false);
-  renderAvailabilityByEpisode.set(normalizedEpisodeId, probe);
+  const inFlightProbe = renderProbeByEpisode.get(normalizedEpisodeId);
+  if (inFlightProbe) return inFlightProbe;
+
+  const probe = Promise.resolve()
+    .then(() => fetch(videoUrl, { method: "HEAD" }))
+    .then(
+      (response): RenderAvailability => (response.ok ? "exists" : "missing"),
+      (): RenderAvailability => "unknown",
+    )
+    .then((result) => {
+      if (result === "exists") {
+        renderAvailabilityByEpisode.set(normalizedEpisodeId, {
+          result,
+          expiresAt: null,
+        });
+      } else if (result === "missing") {
+        renderAvailabilityByEpisode.set(normalizedEpisodeId, {
+          result,
+          expiresAt: Date.now() + MISSING_RENDER_TTL_MS,
+        });
+      }
+      return result;
+    })
+    .finally(() => {
+      if (renderProbeByEpisode.get(normalizedEpisodeId) === probe) {
+        renderProbeByEpisode.delete(normalizedEpisodeId);
+      }
+    });
+  renderProbeByEpisode.set(normalizedEpisodeId, probe);
   return probe;
 }

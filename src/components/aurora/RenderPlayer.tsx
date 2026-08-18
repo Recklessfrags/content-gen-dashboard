@@ -1,18 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { renderVideoExists, renderVideoUrl } from "@/lib/renderAssets";
+import {
+  renderVideoExists,
+  renderVideoUrl,
+  type RenderAvailability,
+} from "@/lib/renderAssets";
+
+type ConfirmedAvailability = {
+  result: RenderAvailability;
+  videoUrl: string;
+};
 
 export function RenderPlayer({ episodeId }: { episodeId: string }) {
   const [open, setOpen] = useState(false);
-  const [confirmedVideoUrl, setConfirmedVideoUrl] = useState<string | null>(null);
+  const [playbackFailed, setPlaybackFailed] = useState(false);
+  const [confirmedAvailability, setConfirmedAvailability] =
+    useState<ConfirmedAvailability | null>(null);
   const videoUrl = renderVideoUrl(episodeId);
 
   useEffect(() => {
     let mounted = true;
 
-    void renderVideoExists(episodeId).then((exists) => {
-      if (mounted && exists) setConfirmedVideoUrl(videoUrl);
+    setOpen(false);
+    setPlaybackFailed(false);
+    setConfirmedAvailability(null);
+
+    void renderVideoExists(episodeId).then((result) => {
+      if (mounted && videoUrl) setConfirmedAvailability({ result, videoUrl });
     });
 
     return () => {
@@ -20,7 +35,13 @@ export function RenderPlayer({ episodeId }: { episodeId: string }) {
     };
   }, [episodeId, videoUrl]);
 
-  if (!videoUrl || confirmedVideoUrl !== videoUrl) return null;
+  if (
+    !videoUrl ||
+    confirmedAvailability?.videoUrl !== videoUrl ||
+    confirmedAvailability.result === "missing"
+  ) {
+    return null;
+  }
 
   return (
     <div className="render-player">
@@ -28,7 +49,10 @@ export function RenderPlayer({ episodeId }: { episodeId: string }) {
         type="button"
         className="render-player__toggle"
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          if (!open) setPlaybackFailed(false);
+          setOpen((current) => !current);
+        }}
       >
         Watch render <span aria-hidden="true">{open ? "▾" : "▸"}</span>
       </button>
@@ -40,7 +64,11 @@ export function RenderPlayer({ episodeId }: { episodeId: string }) {
             playsInline
             preload="metadata"
             src={videoUrl}
+            onError={() => setPlaybackFailed(true)}
           />
+          {playbackFailed ? (
+            <p role="alert">The render could not be loaded. Try again shortly.</p>
+          ) : null}
         </div>
       ) : null}
     </div>

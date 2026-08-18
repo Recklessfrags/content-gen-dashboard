@@ -1813,7 +1813,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         episodes.map((episode) => [
           episode.episode_id,
           {
-            finalStage: episode.final_stage ?? null,
             message: episode.message ?? null,
           },
         ]),
@@ -1829,9 +1828,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         const episodeParkReason = job.episode_id
           ? (episodeParkReasonById.get(job.episode_id) ?? null)
           : null;
-        const parkedFinalStage = isParked ? (episodeParkReason?.finalStage ?? null) : null;
-        const finalStage =
-          isFailure && parkedFinalStage === null ? (episodeParkReason?.finalStage ?? null) : parkedFinalStage;
         const terminalStateResult = isFailure ? resolveTerminalState(job.park_kind, job.error) : null;
         return {
           id: String(job.id),
@@ -1855,7 +1851,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           failureClass: isFailure ? classifyFailure(job.error) : null,
           terminalState: isFailure ? terminalStateResult?.state ?? null : null,
           terminalStateSource: isFailure ? terminalStateResult?.source ?? null : null,
-          finalStage,
           attemptsByStage: job.episode_id
             ? runAttemptsByEpisode.get(job.episode_id)
             : undefined,

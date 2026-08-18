@@ -64,6 +64,7 @@ describe("RunsHub plain-language defaults", () => {
       spend: null,
       error: null,
       needsAttention: false,
+      attemptsByStage: { researcher: 1, editor: 1 },
     };
 
     render(
@@ -81,7 +82,8 @@ describe("RunsHub plain-language defaults", () => {
     expect(screen.queryByText("Finished video")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: /Finished 1/ }));
     expect(screen.getByText("Finished video")).toBeInTheDocument();
-    expect(screen.getAllByRole("listitem", { name: /: passed$/ })).toHaveLength(11);
+    expect(screen.getByRole("listitem", { name: "Editing the cut: passed" })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: "Publishing: not reached" })).toBeInTheDocument();
   });
 
   it("represents the final failed stage on the track without restoring the old stopped-at box", () => {
@@ -96,7 +98,7 @@ describe("RunsHub plain-language defaults", () => {
       spend: null,
       error: "Pipeline stopped",
       needsAttention: false,
-      finalStage: "voice_direction",
+      attemptsByStage: { researcher: 1, voice_direction: 1 },
     };
 
     render(

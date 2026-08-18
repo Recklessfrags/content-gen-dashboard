@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { JobArchiveControls } from "@/components/aurora/JobArchiveControls";
+import { RenderPlayer } from "@/components/aurora/RenderPlayer";
 import { useRenderProgress } from "@/lib/hooks/useRenderProgress";
 import { isActionableStatus, type JobArchiveMutationResult, type JobStatus } from "@/lib/jobs";
 import { stageLabel } from "@/lib/plainLanguage";
@@ -61,7 +62,6 @@ export type RunCardVM = {
   failureClass?: FailureClassId | null;
   terminalState?: TerminalState | null;
   terminalStateSource?: TerminalStateSource | null;
-  finalStage?: string | null;
   attemptsByStage?: Partial<Record<RunStage, number>>;
   parkReason?: string | null;
   belowFloorCuts?: string[];
@@ -128,24 +128,24 @@ export function RunsHub({
   const [lifecycle, setLifecycle] = useState<RunLifecycle>(() => defaultLifecycle(cards));
   const [tabChosen, setTabChosen] = useState(false);
   const [channelKey, setChannelKey] = useState<string>(ALL_CHANNELS_KEY);
+  const viewCards = showArchived ? archivedCards : cards;
 
   const counts = useMemo(
     () =>
-      cards.reduce<Record<RunLifecycle, number>>(
+      viewCards.reduce<Record<RunLifecycle, number>>(
         (current, card) => {
           current[lifecycleForRun(card)] += 1;
           return current;
         },
         { parked: 0, in_flight: 0, finished: 0 },
       ),
-    [cards],
+    [viewCards],
   );
 
   useEffect(() => {
-    if (!loading && !tabChosen) setLifecycle(defaultLifecycle(cards));
-  }, [cards, loading, tabChosen]);
+    if (!loading && !tabChosen) setLifecycle(defaultLifecycle(viewCards));
+  }, [loading, tabChosen, viewCards]);
 
-  const viewCards = showArchived ? archivedCards : cards;
   const lifecycleCards = useMemo(
     () => viewCards.filter((card) => lifecycleForRun(card) === lifecycle),
     [lifecycle, viewCards],
@@ -209,7 +209,11 @@ export function RunsHub({
           )}
           noun="run"
           showArchived={showArchived}
-          onShowArchivedChange={setShowArchived}
+          onShowArchivedChange={(nextShowArchived) => {
+            setShowArchived(nextShowArchived);
+            setLifecycle(defaultLifecycle(nextShowArchived ? archivedCards : cards));
+            setTabChosen(false);
+          }}
           onArchive={onArchiveJobs}
           onUnarchive={onUnarchiveJobs}
         />
@@ -311,6 +315,7 @@ function RunCard({
       </div>
 
       <StepTrack card={card} latestStage={latestStage} />
+      {card.episodeId ? <RenderPlayer episodeId={card.episodeId} /> : null}
     </article>
   );
 }
@@ -352,17 +357,26 @@ function stepState(
   stage: RunStage,
   latestStage?: string,
 ): StepState {
-  const finalStage = isRunStage(card.finalStage) ? card.finalStage.trim().toLowerCase() as RunStage : null;
-  const currentStage = isRunStage(latestStage) ? latestStage.trim().toLowerCase() as RunStage : finalStage;
-  const currentIndex = currentStage ? RUN_STAGES.findIndex((item) => item.id === currentStage) : -1;
+  const receiptStages = new Set<RunStage>();
+  for (const item of RUN_STAGES) {
+    if ((card.attemptsByStage?.[item.id] ?? 0) > 0) receiptStages.add(item.id);
+  }
+  // The in-flight poll is also receipt-backed and can be fresher than the cost
+  // receipt snapshot loaded with the card.
+  if (isRunStage(latestStage)) receiptStages.add(latestStage.trim().toLowerCase() as RunStage);
+
+  const currentIndex = RUN_STAGES.reduce(
+    (furthest, item, index) => receiptStages.has(item.id) ? index : furthest,
+    -1,
+  );
   const stageIndex = RUN_STAGES.findIndex((item) => item.id === stage);
 
-  if (card.status === "done") return "passed";
+  if (!receiptStages.has(stage)) return "pending";
   if (stageIndex < currentIndex) return "passed";
   if (stageIndex > currentIndex || currentIndex < 0) return "pending";
   if (lifecycleForRun(card) === "parked") return "parked";
   if (lifecycleForRun(card) === "in_flight") return "running";
-  return "failed";
+  return isFailedRun(card) ? "failed" : "passed";
 }
 
 function stepStateLabel(state: StepState): string {

@@ -2,62 +2,115 @@
 
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { RenderPlayer } from "@/components/aurora/RenderPlayer";
+
+const stateUpdateTracker = vi.hoisted(() => ({ enabled: false, count: 0 }));
+
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  const trackedUseState = ((initialState?: unknown) => {
+    const [value, setValue] = actual.useState(initialState);
+    const trackedSetValue: typeof setValue = (nextValue) => {
+      if (stateUpdateTracker.enabled) stateUpdateTracker.count += 1;
+      setValue(nextValue);
+    };
+    return [value, trackedSetValue];
+  }) as typeof actual.useState;
+
+  return { ...actual, useState: trackedUseState };
+});
 
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+  stateUpdateTracker.enabled = false;
+  stateUpdateTracker.count = 0;
 });
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
 
 describe("RenderPlayer", () => {
-  it("renders no DOM at all when the render does not exist", async () => {
+  it("occupies no space when the render is definitively missing", async () => {
     const head = vi.fn().mockResolvedValue({ ok: false });
     vi.stubGlobal("fetch", head);
 
-    const { container } = render(<RenderPlayer episodeId="missing-render" />);
+    const { container } = render(<RenderPlayer episodeId="player-missing" />);
 
-    expect(container).toBeEmptyDOMElement();
     await waitFor(() => expect(head).toHaveBeenCalledOnce());
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
-  it("shows the watch button only after HEAD confirms the render exists", async () => {
+  it("shows the watch button after the probe confirms the render exists", async () => {
     let finishHead: ((response: { ok: boolean }) => void) | undefined;
     const head = vi.fn().mockImplementation(
-      () => new Promise<{ ok: boolean }>((resolve) => {
-        finishHead = resolve;
-      }),
+      () =>
+        new Promise<{ ok: boolean }>((resolve) => {
+          finishHead = resolve;
+        }),
     );
     vi.stubGlobal("fetch", head);
 
-    const { container } = render(<RenderPlayer episodeId="available-render" />);
+    const { container } = render(<RenderPlayer episodeId="player-exists" />);
 
     expect(container).toBeEmptyDOMElement();
-    await waitFor(() => expect(head).toHaveBeenCalledWith(
-      "https://example.supabase.co/storage/v1/object/public/render-assets/available-render/mastered.mp4",
-      { method: "HEAD" },
-    ));
-    expect(screen.queryByRole("button", { name: /watch render/i })).toBeNull();
-
+    await waitFor(() =>
+      expect(head).toHaveBeenCalledWith(
+        "https://example.supabase.co/storage/v1/object/public/render-assets/player-exists/mastered.mp4",
+        { method: "HEAD" },
+      ),
+    );
     finishHead?.({ ok: true });
 
     expect(await screen.findByRole("button", { name: /watch render/i })).toBeVisible();
   });
 
-  it("shares one probe between repeated mounts of the same episode", async () => {
+  it("keeps an unknown render available and reports a genuine playback failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
+
+    render(<RenderPlayer episodeId="player-unknown" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /watch render/i }));
+    const video = document.querySelector("video");
+    expect(video).not.toBeNull();
+    fireEvent.error(video as HTMLVideoElement);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not be loaded/i);
+  });
+
+  it("makes a render visible after the negative-cache TTL lapses", async () => {
+    let now = 2_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const head = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: true });
+    vi.stubGlobal("fetch", head);
+
+    const first = render(<RenderPlayer episodeId="player-negative-ttl" />);
+    await waitFor(() => expect(head).toHaveBeenCalledOnce());
+    await waitFor(() => expect(first.container).toBeEmptyDOMElement());
+    first.unmount();
+
+    now += 30_001;
+    render(<RenderPlayer episodeId="player-negative-ttl" />);
+
+    expect(await screen.findByRole("button", { name: /watch render/i })).toBeVisible();
+    expect(head).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares one probe between simultaneous players for the same episode", async () => {
     const head = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", head);
 
     render(
       <>
-        <RenderPlayer episodeId="shared-render" />
-        <RenderPlayer episodeId="shared-render" />
+        <RenderPlayer episodeId="player-shared-probe" />
+        <RenderPlayer episodeId="player-shared-probe" />
       </>,
     );
 
@@ -65,15 +118,56 @@ describe("RenderPlayer", () => {
     expect(head).toHaveBeenCalledOnce();
   });
 
-  it("treats a failed probe as no render without surfacing an error", async () => {
-    const head = vi.fn().mockRejectedValue(new Error("network unavailable"));
+  it("does not update component state after unmounting during a probe", async () => {
+    let finishHead: ((response: { ok: boolean }) => void) | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(
+        () =>
+          new Promise<{ ok: boolean }>((resolve) => {
+            finishHead = resolve;
+          }),
+      ),
+    );
+
+    const player = render(<RenderPlayer episodeId="player-unmount" />);
+    await waitFor(() => expect(finishHead).toBeTypeOf("function"));
+    player.unmount();
+    stateUpdateTracker.enabled = true;
+
+    await act(async () => {
+      finishHead?.({ ok: true });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(stateUpdateTracker.count).toBe(0);
+  });
+
+  it("ignores an older probe result after the episode changes", async () => {
+    let finishOldProbe: ((response: { ok: boolean }) => void) | undefined;
+    const head = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ ok: boolean }>((resolve) => {
+            finishOldProbe = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({ ok: true });
     vi.stubGlobal("fetch", head);
 
-    const { container } = render(<RenderPlayer episodeId="failed-probe" />);
-
-    expect(container).toBeEmptyDOMElement();
+    const player = render(<RenderPlayer episodeId="player-old-episode" />);
     await waitFor(() => expect(head).toHaveBeenCalledOnce());
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
-    expect(screen.queryByText(/no render|error|unavailable/i)).toBeNull();
+    player.rerender(<RenderPlayer episodeId="player-new-episode" />);
+    expect(await screen.findByRole("button", { name: /watch render/i })).toBeVisible();
+
+    await act(async () => {
+      finishOldProbe?.({ ok: false });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("button", { name: /watch render/i })).toBeVisible();
   });
 });

@@ -210,6 +210,22 @@ and/or a pipeline dependency. **None are started.** Priority is the operator's t
   the operator is actively viewing** Queue/Runs (pauses on hidden tab / other views /
   open overlays) — the idle-query concern this item flagged is addressed by gating,
   not by a slower interval (≈0 idle queries; ratified with bridge-counted requests).
+- **🔴 43 finished renders exist and the operator can reach only 3 of them (NEW 2026-08-18, measured).**
+  `render-assets` holds **43 `mastered.mp4` objects** (cottage-cheese, hindenburg, acoustic-kitty,
+  molasses-flood, pistol-shrimp, printer-ink, honey-in-tombs — 8MB to 58MB each). Only **3** still
+  correspond to a surviving `jobs` row (362, 365, 366 — all `error` at distribution, all archived).
+  The other **40 are orphaned**: their job rows were deleted in the T5 cleanup, and every Runs surface
+  is driven by `jobs`, so those videos are invisible in the UI even though the files are intact and
+  the `episodes` rows survive. This is the visible half of the same durability problem recorded as
+  **T57** in the pipeline repo (deleting `jobs` rows loses history that lives nowhere else).
+  Directly relevant to the operator's *"I want to clear the dashboard and start working from it"* —
+  clearing the run list should not mean losing sight of finished work.
+  **Fix shape (not started, needs a spec):** a Library view keyed on `episodes` + a storage listing
+  rather than on `jobs`, so a render outlives the queue row that produced it. Cheap because both
+  sources already exist and are read-only; no schema change, no shared-surface change.
+  **Lesson for the archive feature:** archiving is soft (`job_archive`) and loses nothing — deleting
+  is what strands artifacts. Prefer archive over delete for any future bulk cleanup.
+
 - **Tier-3 ROI table** — furthest out; needs videos published live **and** a per-platform
   analytics-ingestion service (OAuth + sync). Deferred (keep OAuth integrations out of the
   app; a no-code dump to a sheet is the low-ops stopgap when data exists).
