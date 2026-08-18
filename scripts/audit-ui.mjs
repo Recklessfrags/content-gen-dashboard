@@ -10,6 +10,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { chromium } from "playwright";
+import { assertTrackGeometry } from "./audit-ui-geometry.mjs";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const PORT = Number.parseInt(process.env.AUDIT_PORT || "4319", 10);
@@ -234,7 +235,7 @@ async function main() {
       );
     }
   } else {
-    console.log("run-track geometry skipped — no run track is present");
+    console.log("run-track geometry skipped - unverified: no run track is present");
   }
   await trackContext.close();
 
@@ -243,12 +244,6 @@ async function main() {
   console.log(`report + screenshots in ${OUT}`);
   await browser.close().catch(() => {});
   server?.kill?.("SIGKILL");
-  const failedGeometry = trackGeometry.find((geometry) => geometry.count !== 11 || !geometry.allVisible);
-  if (failedGeometry) {
-    throw new Error(
-      `run track geometry failed at ${failedGeometry.viewportWidth}px: `
-      + `${failedGeometry.count} nodes, bounds ${failedGeometry.minLeft}..${failedGeometry.maxRight}`,
-    );
-  }
+  assertTrackGeometry(trackGeometry);
 }
 main().catch((e) => { console.error(e); server?.kill?.("SIGKILL"); process.exit(1); });

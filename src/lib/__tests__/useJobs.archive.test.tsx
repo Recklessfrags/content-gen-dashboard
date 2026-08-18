@@ -94,6 +94,26 @@ describe("useJobs archive preference", () => {
     expect(result.current.jobs.map((row) => row.id)).toEqual([1, 2]);
   });
 
+  it("requires an explicit deliberate option before archiving a ready-for-review row", async () => {
+    const query = archiveClient({ jobs: [job(1, "ready_for_review")] });
+    const { result } = renderHook(() => useJobs(query.client as never));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      expect(await result.current.archiveJobs([1])).toMatchObject({ affected: 0, skipped: 1 });
+      expect(await result.current.archiveJobs([1], { allowReadyForReview: true })).toMatchObject({
+        affected: 1,
+        skipped: 0,
+      });
+    });
+
+    expect(query.upsert).toHaveBeenCalledOnce();
+    expect(query.upsert).toHaveBeenCalledWith(
+      [{ job_id: 1 }],
+      { onConflict: "job_id,owner", ignoreDuplicates: true },
+    );
+  });
+
   it("unarchive restores a row to the default list", async () => {
     const query = archiveClient({
       jobs: [job(1)],

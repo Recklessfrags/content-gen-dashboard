@@ -41,10 +41,22 @@ describe("renderVideoExists", () => {
     await expect(renderVideoExists("probe-exists")).resolves.toBe("exists");
   });
 
-  it("returns missing for a received non-ok response", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+  it.each([400, 404])("returns missing for HTTP %i", async (status) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status, type: "basic" }));
 
-    await expect(renderVideoExists("probe-missing")).resolves.toBe("missing");
+    await expect(renderVideoExists(`probe-missing-${status}`)).resolves.toBe("missing");
+  });
+
+  it.each([401, 403, 429, 500, 503])("returns unknown for HTTP %i", async (status) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status, type: "basic" }));
+
+    await expect(renderVideoExists(`probe-unknown-${status}`)).resolves.toBe("unknown");
+  });
+
+  it("returns unknown for an opaque response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 0, type: "opaque" }));
+
+    await expect(renderVideoExists("probe-opaque")).resolves.toBe("unknown");
   });
 
   it("returns unknown when the probe rejects", async () => {
@@ -58,8 +70,8 @@ describe("renderVideoExists", () => {
     vi.spyOn(Date, "now").mockImplementation(() => now);
     const head = vi
       .fn()
-      .mockResolvedValueOnce({ ok: false })
-      .mockResolvedValueOnce({ ok: true });
+      .mockResolvedValueOnce({ ok: false, status: 404, type: "basic" })
+      .mockResolvedValueOnce({ ok: true, status: 200, type: "basic" });
     vi.stubGlobal("fetch", head);
 
     await expect(renderVideoExists("negative-ttl")).resolves.toBe("missing");

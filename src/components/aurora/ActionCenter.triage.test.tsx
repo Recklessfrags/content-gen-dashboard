@@ -151,7 +151,7 @@ describe("ActionCenter triage", () => {
 
   it("states a missing render inside an opened publish approval", async () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404, type: "basic" }));
     const user = userEvent.setup();
     render(
       <ActionCenter
@@ -297,14 +297,17 @@ describe("ActionCenter triage", () => {
 
     await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
     const approvalRow = screen.getAllByRole("listitem")[0];
-    expect(within(approvalRow).getByRole("button", { name: "Archive" })).toHaveClass("ghost");
+    const approvalArchive = within(approvalRow).getByRole("button", { name: "Archive" });
+    expect(approvalArchive).toHaveClass("ghost");
+    await user.click(approvalArchive);
+    expect(onArchiveJobs).toHaveBeenCalledWith([1], { allowReadyForReview: true });
 
     const errorRow = screen.getAllByRole("listitem")[1];
     await user.click(within(errorRow).getByRole("button", { name: "Archive" }));
-    expect(onArchiveJobs).toHaveBeenCalledWith([2]);
+    expect(onArchiveJobs).toHaveBeenCalledWith([2], { allowReadyForReview: true });
   });
 
-  it("bulk-archives only the selected decision group", async () => {
+  it("does not bulk-archive a selected approval decision group", async () => {
     const user = userEvent.setup();
     const onArchiveJobs = vi.fn().mockResolvedValue({
       ok: true,
@@ -333,12 +336,11 @@ describe("ActionCenter triage", () => {
     );
 
     const factGroup = screen.getByText(/\/\/ FACT CALLS \(1\)/).closest("section")!;
-    await user.click(within(factGroup).getByRole("button", { name: "Archive 1 item" }));
-    await user.click(within(factGroup).getByRole("button", { name: "Archive 1" }));
+    expect(within(factGroup).getByRole("button", { name: "Archive 0 items" })).toBeDisabled();
+    expect(within(factGroup).getByText(/approval pending/)).toBeInTheDocument();
+    await user.click(within(factGroup).getByRole("button", { name: "Archive 0 items" }));
 
-    expect(onArchiveJobs).toHaveBeenCalledOnce();
-    expect(onArchiveJobs).toHaveBeenCalledWith([12]);
-    expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([11, 13, 14]));
+    expect(onArchiveJobs).not.toHaveBeenCalled();
   });
 
   it("bulk-archiving errored jobs leaves pending spend approvals and stale work untouched", async () => {

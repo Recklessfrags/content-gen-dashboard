@@ -32,6 +32,7 @@ import {
   publishSourceEpisodeId,
   reenqueueApprovalThenArchiveParent,
   resolveParkKind,
+  type JobArchiveOptions,
   type JobEnqueueInput,
 } from "@/lib/jobs";
 import { resolveTerminalState } from "@/lib/failureClass";
@@ -553,8 +554,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 2200);
   }, []);
-  const handleArchiveJobs = useCallback(async (jobIds: readonly number[]) => {
-    const result = await archiveJobs(jobIds);
+  const handleArchiveJobs = useCallback(async (
+    jobIds: readonly number[],
+    options?: JobArchiveOptions,
+  ) => {
+    const result = await archiveJobs(jobIds, options);
     if (!result.ok) {
       showFlash(`Could not archive ${jobIds.length === 1 ? "run" : "runs"} — ${result.error}`, true);
     } else if (result.affected > 0) {
@@ -1327,7 +1331,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           const result = await supabase.from("jobs").insert(payload);
           return { error: result.error };
         },
-        () => archiveJobs([job.id]),
+        () => archiveJobs([job.id], { allowReadyForReview: true }),
       );
       error = outcome.reenqueueError;
       archiveWarning = approvalParentArchiveWarning(outcome.archiveResult);

@@ -203,10 +203,7 @@ export function RunsHub({
               ? []
               : [{
                   id: card.jobId,
-                  status:
-                    lifecycleForRun(card) === "in_flight"
-                      ? "running"
-                      : (card.rawStatus ?? card.status),
+                  status: card.rawStatus ?? card.status,
                 }],
           )}
           noun="run"
@@ -227,7 +224,7 @@ export function RunsHub({
 
       <WorkerReliabilityPanel loadReliability={loadReliability} />
 
-      {facets.length > 2 ? (
+      {facets.length > 2 || effectiveChannelKey !== ALL_CHANNELS_KEY ? (
         <div className="runs-hub__filters runs-hub__filter--channel" role="group" aria-label="Filter by channel">
           {facets.map((facet) => (
             <button
@@ -403,7 +400,7 @@ function stepStateLabel(state: StepState): string {
   if (state === "passed") return "passed";
   if (state === "parked") return "waiting on you";
   if (state === "running") return "running";
-  if (state === "failed") return "failed";
+  if (state === "failed") return "stopped here";
   if (state === "skipped") return "not recorded";
   return "not reached";
 }

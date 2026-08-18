@@ -36,7 +36,7 @@ afterEach(() => {
 
 describe("RenderPlayer", () => {
   it("occupies no space when the render is definitively missing", async () => {
-    const head = vi.fn().mockResolvedValue({ ok: false });
+    const head = vi.fn().mockResolvedValue({ ok: false, status: 404, type: "basic" });
     vi.stubGlobal("fetch", head);
 
     const { container } = render(<RenderPlayer episodeId="player-missing" />);
@@ -46,7 +46,7 @@ describe("RenderPlayer", () => {
   });
 
   it("states that an approval render is missing after the probe finishes", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404, type: "basic" }));
 
     const { container } = render(<RenderPlayer episodeId="approval-missing" variant="approval" />);
 
@@ -114,7 +114,7 @@ describe("RenderPlayer", () => {
     vi.spyOn(Date, "now").mockImplementation(() => now);
     const head = vi
       .fn()
-      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: false, status: 404, type: "basic" })
       .mockResolvedValueOnce({ ok: true });
     vi.stubGlobal("fetch", head);
 

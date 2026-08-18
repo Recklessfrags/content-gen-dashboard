@@ -40,7 +40,13 @@ export function renderVideoExists(episodeId: string): Promise<RenderAvailability
   const probe = Promise.resolve()
     .then(() => fetch(videoUrl, { method: "HEAD" }))
     .then(
-      (response): RenderAvailability => (response.ok ? "exists" : "missing"),
+      (response): RenderAvailability => {
+        if (response.ok) return "exists";
+        if (response.type !== "opaque" && (response.status === 400 || response.status === 404)) {
+          return "missing";
+        }
+        return "unknown";
+      },
       (): RenderAvailability => "unknown",
     )
     .then((result) => {

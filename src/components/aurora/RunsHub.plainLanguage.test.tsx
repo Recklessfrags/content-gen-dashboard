@@ -83,7 +83,7 @@ describe("RunsHub plain-language defaults", () => {
     expect(screen.getByRole("listitem", { name: "Publishing: not reached" })).toBeInTheDocument();
   });
 
-  it("represents the final failed stage on the track without restoring the old stopped-at box", () => {
+  it("marks the last receipted stage as where progress stopped without claiming that stage failed", () => {
     const card: RunCardVM = {
       id: "job-stopped",
       episodeId: "ep-stopped",
@@ -108,7 +108,7 @@ describe("RunsHub plain-language defaults", () => {
       />,
     );
 
-    expect(screen.getByRole("listitem", { name: "Recording the voiceover: failed" })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: "Recording the voiceover: stopped here" })).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Stopped at");
     expect(document.body).not.toHaveTextContent("Why it stopped");
   });

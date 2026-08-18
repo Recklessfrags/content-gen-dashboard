@@ -4,11 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import {
   canArchiveJob,
   partitionArchivableJobs,
+  type JobArchiveOptions,
   type JobArchiveMutationResult,
   type QueueJob,
 } from "@/lib/jobs";
 
-type ArchiveMutation = (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
+type ArchiveMutation = (
+  jobIds: readonly number[],
+  options?: JobArchiveOptions,
+) => Promise<JobArchiveMutationResult>;
 
 export type JobArchiveControlsProps = {
   activeCount: number;
@@ -109,12 +113,19 @@ export function JobArchiveBulkControl({
     [currentJobs],
   );
   const affectedCount = showArchived ? currentJobs.length : archivable.length;
+  const targetIdentity = useMemo(
+    () => (showArchived ? currentJobs : archivable)
+      .map((job) => job.id)
+      .sort((left, right) => left - right)
+      .join(","),
+    [archivable, currentJobs, showArchived],
+  );
   const skippedStatusCopy = describeSkippedStatuses(skipped);
 
   useEffect(() => {
     setConfirming(false);
     setWriteError(null);
-  }, [showArchived]);
+  }, [showArchived, targetIdentity]);
 
   const runBulkAction = async () => {
     if (submitting || affectedCount === 0) return;
@@ -219,7 +230,9 @@ export function JobArchiveRowButton({
       onClick={async () => {
         if (submitting || (!showArchived && !canArchiveJob(job))) return;
         setSubmitting(true);
-        const result = showArchived ? await onUnarchive([job.id]) : await onArchive([job.id]);
+        const result = showArchived
+          ? await onUnarchive([job.id])
+          : await onArchive([job.id], { allowReadyForReview: true });
         if (!result.ok) setSubmitting(false);
       }}
     >
@@ -237,6 +250,8 @@ function describeSkippedStatuses(
 ): string {
   const statuses = [...new Set(jobs.map((job) => job.status))];
   return `${statuses.length === 1 ? "status" : "statuses"} ${statuses
-    .map((status) => `“${status}”`)
+    .map((status) => status.trim().toLowerCase() === "ready_for_review"
+      ? "“ready for review — approval pending”"
+      : `“${status}”`)
     .join(", ")}`;
 }

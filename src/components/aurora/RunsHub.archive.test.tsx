@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/hooks/useRenderProgress", () => ({ useRenderProgress: () => ({}) }));
 
+import { JobArchiveBulkControl } from "@/components/aurora/JobArchiveControls";
 import { RunsHub, type RunCardVM } from "@/components/aurora/RunsHub";
 
 function card(jobId: number, status: RunCardVM["status"], channel: string): RunCardVM {
@@ -76,6 +77,25 @@ describe("RunsHub archive controls", () => {
     expect(screen.getByRole("button", { name: "All channels (2)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "dark_history (1)" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "weird_food (1)" })).toBeInTheDocument();
+  });
+
+  it("keeps the active channel filter and its off-switch visible when it becomes the only facet", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <RunsHub
+        {...baseProps}
+        cards={[
+          card(1, "ready_for_review", "dark_history"),
+          card(2, "ready_for_review", "weird_food"),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "dark_history (1)" }));
+    rerender(<RunsHub {...baseProps} cards={[card(1, "ready_for_review", "dark_history")]} />);
+
+    expect(screen.getByRole("button", { name: "All channels (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "dark_history (1)" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("clears a channel outside the next lifecycle so every tab keeps honest counts and rows", async () => {
@@ -173,6 +193,45 @@ describe("RunsHub archive controls", () => {
     const row = screen.getByText("Run 135").closest("article");
     expect(within(row as HTMLElement).queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Archive 0 runs" })).toBeDisabled();
+    expect(screen.getByText(/1 run with status “awaiting_spend_approval” cannot be archived/)).toBeInTheDocument();
+  });
+
+  it("cannot bulk-archive a ready-for-review row from the default Parked tab", async () => {
+    const user = userEvent.setup();
+    const onArchiveJobs = vi.fn();
+    render(
+      <RunsHub
+        {...baseProps}
+        cards={[card(1, "ready_for_review", "alpha")]}
+        onArchiveJobs={onArchiveJobs}
+        onUnarchiveJobs={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: /Parked 1/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Archive 0 runs" })).toBeDisabled();
+    expect(screen.getByText(/1 run with status “ready for review — approval pending” cannot be archived/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Archive 0 runs" }));
+    expect(onArchiveJobs).not.toHaveBeenCalled();
+  });
+
+  it("closes a pending bulk confirmation when its target set changes", async () => {
+    const user = userEvent.setup();
+    const props = {
+      noun: "run",
+      showArchived: false,
+      onArchive: vi.fn(),
+      onUnarchive: vi.fn(),
+    };
+    const { rerender } = render(
+      <JobArchiveBulkControl {...props} currentJobs={[{ id: 1, status: "done" }]} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Archive 1 run" }));
+    expect(screen.getByRole("group", { name: "Confirm archive" })).toBeInTheDocument();
+
+    rerender(<JobArchiveBulkControl {...props} currentJobs={[{ id: 2, status: "done" }]} />);
+    expect(screen.queryByRole("group", { name: "Confirm archive" })).not.toBeInTheDocument();
   });
 
   it("bulk archive is scoped to the selected finished lifecycle", async () => {

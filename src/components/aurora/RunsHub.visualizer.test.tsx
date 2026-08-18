@@ -146,8 +146,8 @@ describe("RunsHub step track", () => {
 
   it.each([
     ["no_op", undefined, "researcher", "Researching the topic: passed"],
-    ["stale", undefined, "editor", "Editing the cut: failed"],
-    ["queued", "abandoned", "voice_direction", "Recording the voiceover: failed"],
+    ["stale", undefined, "editor", "Editing the cut: stopped here"],
+    ["queued", "abandoned", "voice_direction", "Recording the voiceover: stopped here"],
   ] as const)("shows receipt-backed progress for %s runs", (status, rawStatus, furthestStage, terminalLabel) => {
     const receiptBacked: RunCardVM = {
       ...card(1, status),

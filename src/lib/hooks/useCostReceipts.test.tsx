@@ -10,6 +10,7 @@ import { useAllCostReceipts, useCostReceipts } from "@/lib/hooks/useCostReceipts
 vi.mock("@/lib/hooks/useRenderProgress", () => ({ useRenderProgress: () => ({}) }));
 
 type QueryResult = { data: CostReceipt[]; error: null };
+const SERVER_ROW_CAP = 500;
 
 function receipt(episodeId: string, seq: number, stage: string): CostReceipt {
   return {
@@ -38,7 +39,10 @@ function mockSupabase(rows: CostReceipt[]) {
     }
     range(from: number, to: number) {
       rangeCalls.push([from, to]);
-      return Promise.resolve({ data: this.filteredRows().slice(from, to + 1), error: null });
+      return Promise.resolve({
+        data: this.filteredRows().slice(from, Math.min(to + 1, from + SERVER_ROW_CAP)),
+        error: null,
+      });
     }
     then<TResult1 = QueryResult, TResult2 = never>(
       onfulfilled?: ((value: QueryResult) => TResult1 | PromiseLike<TResult1>) | null,
@@ -112,7 +116,7 @@ describe("useCostReceipts scoped paging", () => {
     expect(screen.getByRole("listitem", { name: "Researching the topic: passed" })).toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: "Editing the cut: waiting on you" })).toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: "Publishing: not reached" })).toBeInTheDocument();
-    expect(mock.inCalls).toEqual([["episode-365"]]);
+    expect(mock.inCalls).toEqual([["episode-365"], ["episode-365"]]);
   });
 
   it("continues after an exactly-full API page instead of silently truncating", async () => {
@@ -125,7 +129,7 @@ describe("useCostReceipts scoped paging", () => {
 
     expect(result.current.error).toBeNull();
     expect(result.current.costReceipts).toHaveLength(1_001);
-    expect(mock.rangeCalls).toEqual([[0, 999], [1_000, 1_999]]);
+    expect(mock.rangeCalls).toEqual([[0, 999], [500, 1_499], [1_000, 1_999], [1_001, 2_000]]);
   });
 
   it("explicitly paginates the full cost roll-up consumer", async () => {
@@ -139,6 +143,6 @@ describe("useCostReceipts scoped paging", () => {
 
     expect(result.current.costReceipts).toHaveLength(1_001);
     expect(mock.inCalls).toHaveLength(0);
-    expect(mock.rangeCalls).toEqual([[0, 999], [1_000, 1_999]]);
+    expect(mock.rangeCalls).toEqual([[0, 999], [500, 1_499], [1_000, 1_999], [1_001, 2_000]]);
   });
 });

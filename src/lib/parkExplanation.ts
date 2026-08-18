@@ -107,7 +107,9 @@ export function extractBelowFloorCuts(value: unknown): BelowFloorCut[] {
     for (const [key, child] of Object.entries(node as Record<string, unknown>)) {
       if (["below_floor_cuts", "below_floor_notice"].includes(key.toLowerCase())) {
         if (key.toLowerCase() === "below_floor_notice" && child && typeof child === "object") {
-          visitCuts((child as Record<string, unknown>).cuts);
+          const notice = child as Record<string, unknown>;
+          visitCuts(notice.cut_ids);
+          visitCuts(notice.cuts);
         } else visitCuts(child);
       }
       else walk(child);

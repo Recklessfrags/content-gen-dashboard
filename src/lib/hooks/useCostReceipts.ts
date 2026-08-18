@@ -13,7 +13,8 @@ async function fetchReceiptBatch(
 ): Promise<CostReceipt[]> {
   const rows: CostReceipt[] = [];
 
-  for (let from = 0; ; from += RECEIPT_PAGE_SIZE) {
+  let from = 0;
+  for (;;) {
     let query = supabase
       .from("receipts")
       .select("episode_id,seq,provider,stage,spend_so_far");
@@ -29,9 +30,10 @@ async function fetchReceiptBatch(
 
     const page = data ?? [];
     rows.push(...page);
-    // A full page is not treated as completion: it may be PostgREST's max_rows
-    // boundary, so the next explicit range must confirm whether more rows exist.
-    if (page.length < RECEIPT_PAGE_SIZE) return rows;
+    // The server may cap a requested range below our page size. Advance by what
+    // it actually returned and let an empty page prove completion.
+    if (page.length === 0) return rows;
+    from += page.length;
   }
 }
 
