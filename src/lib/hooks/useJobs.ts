@@ -19,11 +19,26 @@ type FetchMode = "refetch" | "poll";
 type SupabaseClient = ReturnType<typeof createClient>;
 type JobArchiveRow = Pick<Tables<"job_archive">, "job_id" | "archived_at">;
 type ArchiveByJobId = Map<number, string>;
+type PendingArchiveMutations = {
+  archives: Map<number, string>;
+  unarchives: Set<number>;
+};
+
+function layerPendingArchiveMutations(
+  archiveByJobId: ArchiveByJobId,
+  pending: PendingArchiveMutations,
+) {
+  const next = new Map(archiveByJobId);
+  for (const [jobId, archivedAt] of pending.archives) next.set(jobId, archivedAt);
+  for (const jobId of pending.unarchives) next.delete(jobId);
+  return next;
+}
 
 async function fetchJobs(
   supabase: SupabaseClient,
   requestRef: { current: number },
   hasJobsRef: { current: boolean },
+  pendingArchiveMutationsRef: { current: PendingArchiveMutations },
   setAllJobs: Dispatch<SetStateAction<QueueJob[]>>,
   setArchiveByJobId: Dispatch<SetStateAction<ArchiveByJobId>>,
   setLoading: Dispatch<SetStateAction<boolean>>,
@@ -58,7 +73,9 @@ async function fetchJobs(
     if (!isPoll) {
       hasJobsRef.current = false;
       setAllJobs([]);
-      setArchiveByJobId(new Map());
+      setArchiveByJobId(
+        layerPendingArchiveMutations(new Map(), pendingArchiveMutationsRef.current),
+      );
     }
     if (isPoll && hasJobsRef.current) return;
     setError(fetchError.message);
@@ -71,7 +88,9 @@ async function fetchJobs(
   );
   hasJobsRef.current = nextJobs.length > 0;
   setAllJobs(nextJobs);
-  setArchiveByJobId(nextArchiveByJobId);
+  setArchiveByJobId(
+    layerPendingArchiveMutations(nextArchiveByJobId, pendingArchiveMutationsRef.current),
+  );
   setError(null);
 }
 
@@ -82,6 +101,10 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
   const [error, setError] = useState<string | null>(null);
   const requestRef = useRef(0);
   const hasJobsRef = useRef(false);
+  const pendingArchiveMutationsRef = useRef<PendingArchiveMutations>({
+    archives: new Map(),
+    unarchives: new Set(),
+  });
 
   const jobs = useMemo(
     () => allJobs.filter((job) => !archiveByJobId.has(job.id)),
@@ -97,6 +120,7 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
       supabase,
       requestRef,
       hasJobsRef,
+      pendingArchiveMutationsRef,
       setAllJobs,
       setArchiveByJobId,
       setLoading,
@@ -110,6 +134,7 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
       supabase,
       requestRef,
       hasJobsRef,
+      pendingArchiveMutationsRef,
       setAllJobs,
       setArchiveByJobId,
       setLoading,
@@ -128,7 +153,12 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
       const { archivable, skipped } = partitionArchivableJobs(requestedJobs);
       const targetIds = archivable
         .map((job) => job.id)
-        .filter((id) => !archiveByJobId.has(id));
+        .filter(
+          (id) =>
+            !archiveByJobId.has(id) &&
+            !pendingArchiveMutationsRef.current.archives.has(id) &&
+            !pendingArchiveMutationsRef.current.unarchives.has(id),
+        );
 
       if (targetIds.length === 0) {
         return { ok: true, affected: 0, skipped: skipped.length, error: null };
@@ -138,6 +168,9 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
       // will see the committed archive row; an earlier one must not undo optimism.
       requestRef.current += 1;
       const optimisticAt = new Date().toISOString();
+      for (const id of targetIds) {
+        pendingArchiveMutationsRef.current.archives.set(id, optimisticAt);
+      }
       setArchiveByJobId((current) => {
         const next = new Map(current);
         for (const id of targetIds) next.set(id, optimisticAt);
@@ -146,6 +179,10 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
 
       const rows = targetIds.map((jobId) => ({ job_id: jobId }));
       const { error: writeError } = await supabase.from("job_archive").insert(rows);
+      // A poll may have read before this write settled but not resolved yet. Invalidate
+      // that request before removing the pending overlay so its stale snapshot cannot win.
+      requestRef.current += 1;
+      for (const id of targetIds) pendingArchiveMutationsRef.current.archives.delete(id);
 
       if (writeError) {
         setArchiveByJobId((current) => {
@@ -175,7 +212,12 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
 
   const unarchiveJobs = useCallback(
     async (jobIds: readonly number[]): Promise<JobArchiveMutationResult> => {
-      const targetIds = [...new Set(jobIds)].filter((id) => archiveByJobId.has(id));
+      const targetIds = [...new Set(jobIds)].filter(
+        (id) =>
+          archiveByJobId.has(id) &&
+          !pendingArchiveMutationsRef.current.archives.has(id) &&
+          !pendingArchiveMutationsRef.current.unarchives.has(id),
+      );
       if (targetIds.length === 0) {
         return { ok: true, affected: 0, skipped: 0, error: null };
       }
@@ -187,6 +229,7 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
           return archivedAt ? [[id, archivedAt] as const] : [];
         }),
       );
+      for (const id of targetIds) pendingArchiveMutationsRef.current.unarchives.add(id);
       setArchiveByJobId((current) => {
         const next = new Map(current);
         for (const id of targetIds) next.delete(id);
@@ -197,6 +240,8 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
         .from("job_archive")
         .delete()
         .in("job_id", targetIds);
+      requestRef.current += 1;
+      for (const id of targetIds) pendingArchiveMutationsRef.current.unarchives.delete(id);
 
       if (writeError) {
         setArchiveByJobId((current) => {

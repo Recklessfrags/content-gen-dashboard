@@ -5,9 +5,10 @@
 -- jobs.id, so future pipeline cleanup cannot be blocked or cascaded here.
 
 create table public.job_archive (
-  job_id      bigint      primary key,
+  job_id      bigint      not null,
   owner       uuid        not null default auth.uid(),
-  archived_at timestamptz not null default now()
+  archived_at timestamptz not null default now(),
+  primary key (job_id, owner)
 );
 
 alter table public.job_archive enable row level security;

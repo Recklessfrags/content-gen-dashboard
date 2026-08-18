@@ -151,6 +151,8 @@ function isApprovalParkKind(
   );
 }
 
+const PARK_RECEIPT_QUERY_CONCURRENCY = 4;
+
 const IDEA_STATUS_OPTIONS: IdeaStatus[] = ["backlog", "active", "used"];
 const IDEA_STATUS_LABELS: Record<IdeaStatus, string> = {
   backlog: "Backlog",
@@ -624,7 +626,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, [fetchCharacters, fetchIdeas]);
 
   useEffect(() => {
-    const readyJobs = jobs.filter((job) => {
+    const readyJobs = [...jobs, ...archivedJobs].filter((job) => {
       const status = classifyJobStatus(job.status);
       if (status !== "ready_for_review") return false;
 
@@ -639,38 +641,41 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
     if (readyJobs.length === 0) return undefined;
 
+    const parkResolutions = readyJobs.map((job) => ({
+      job,
+      columnKind: resolveParkKind(job.park_kind, null),
+    }));
+    const receiptFallbackJobs = parkResolutions
+      .filter(({ job, columnKind }) => columnKind === "unknown" && job.episode_id)
+      .map(({ job }) => job);
     setJobParkById((current) => {
       const next = { ...current };
-      for (const job of readyJobs) {
-        next[job.id] = { kind: "unknown", loading: true, stage: null, error: null };
+      for (const { job, columnKind } of parkResolutions) {
+        if (columnKind !== "unknown") {
+          next[job.id] = { kind: columnKind, loading: false, stage: null, error: null };
+        } else if (!job.episode_id) {
+          next[job.id] = { kind: "unknown", loading: false, stage: null, error: null };
+        } else {
+          next[job.id] = { kind: "unknown", loading: true, stage: null, error: null };
+        }
       }
       return next;
     });
 
-    for (const job of readyJobs) {
-      const columnKind = resolveParkKind(job.park_kind, null);
-      if (columnKind !== "unknown") {
-        setJobParkById((current) => ({
-          ...current,
-          [job.id]: { kind: columnKind, loading: false, stage: null, error: null },
-        }));
-        continue;
-      }
-
-      if (!job.episode_id) {
-        setJobParkById((current) => ({
-          ...current,
-          [job.id]: { kind: "unknown", loading: false, stage: null, error: null },
-        }));
-        continue;
-      }
-
-      const episodeId = job.episode_id;
-      void (async () => {
+    // Old rows without an authoritative park_kind need a receipts fallback. Resolve
+    // those with a small worker pool so opening a large archive does not fan out a
+    // three-figure burst of queries; the loading guard above keeps rerenders/polls from
+    // enqueuing the same job again while this pool is working.
+    let nextFallbackIndex = 0;
+    const resolveReceiptFallbacks = async () => {
+      while (nextFallbackIndex < receiptFallbackJobs.length) {
+        const job = receiptFallbackJobs[nextFallbackIndex];
+        nextFallbackIndex += 1;
+        if (!job.episode_id) continue;
         const { data, error } = await supabase
           .from("receipts")
           .select("stage,seq")
-          .eq("episode_id", episodeId)
+          .eq("episode_id", job.episode_id)
           .order("seq", { ascending: false })
           .limit(1)
           .returns<Array<Pick<Receipt, "stage" | "seq">>>();
@@ -685,10 +690,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             error: error?.message ?? null,
           },
         }));
-      })();
+      }
+    };
+    for (
+      let worker = 0;
+      worker < Math.min(PARK_RECEIPT_QUERY_CONCURRENCY, receiptFallbackJobs.length);
+      worker += 1
+    ) {
+      void resolveReceiptFallbacks();
     }
     return undefined;
-  }, [jobParkById, jobs, supabase]);
+  }, [archivedJobs, jobParkById, jobs, supabase]);
 
   const active = chars.find((c) => c.id === activeId) ?? null;
   const activeChannelProfile = active

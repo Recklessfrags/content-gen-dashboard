@@ -107,4 +107,33 @@ describe("useJobs archive preference", () => {
     expect(result.current.jobs.map((row) => row.id)).toEqual([1]);
     expect(result.current.archivedJobs).toHaveLength(0);
   });
+
+  it("does not resurrect an optimistically archived row when a poll resolves mid-mutation", async () => {
+    let settleInsert: ((result: { error: null }) => void) | undefined;
+    const pendingInsert = new Promise<{ error: null }>((resolve) => {
+      settleInsert = resolve;
+    });
+    const query = archiveClient({ jobs: [job(1)] });
+    query.insert.mockReturnValueOnce(pendingInsert);
+    const { result } = renderHook(() => useJobs(query.client as never));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+
+    let mutation: ReturnType<typeof result.current.archiveJobs> | undefined;
+    act(() => {
+      mutation = result.current.archiveJobs([1]);
+    });
+    await waitFor(() => expect(result.current.archivedJobs.map((row) => row.id)).toEqual([1]));
+
+    await act(async () => {
+      await result.current.poll();
+    });
+
+    expect(result.current.jobs).toHaveLength(0);
+    expect(result.current.archivedJobs.map((row) => row.id)).toEqual([1]);
+
+    await act(async () => {
+      settleInsert?.({ error: null });
+      await mutation;
+    });
+  });
 });
