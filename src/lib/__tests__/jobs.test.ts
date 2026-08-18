@@ -478,12 +478,15 @@ describe("job status helpers", () => {
 
     expect(isInFlightStatus("queued")).toBe(true);
     expect(isInFlightStatus("running")).toBe(true);
+    expect(isInFlightStatus("Running")).toBe(true);
+    expect(isInFlightStatus(" running ")).toBe(true);
     expect(isInFlightStatus("done")).toBe(false);
   });
 
   it("archives unknown terminal statuses while refusing only raw queued and running", () => {
     expect(canArchiveJob({ status: "queued" })).toBe(false);
     expect(canArchiveJob({ status: "running" })).toBe(false);
+    expect(canArchiveJob({ status: " Running " })).toBe(false);
     expect(canArchiveJob({ status: "abandoned" })).toBe(true);
     expect(canArchiveJob({ status: "future_terminal" })).toBe(true);
   });

@@ -106,7 +106,7 @@ describe("ActionCenter triage", () => {
     const summary = screen.getByRole("button", { expanded: false });
     // The money action is absent from the DOM, not merely hidden by an attribute
     // that author CSS can override in a real browser.
-    expect(screen.queryByRole("button", { name: /approve spend & continue/i })).toBeNull();
+    expect(document.querySelectorAll(".au-approval-body")).toHaveLength(0);
 
     await user.click(summary);
 

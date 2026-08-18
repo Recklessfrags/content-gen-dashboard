@@ -178,9 +178,10 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
       });
 
       const rows = targetIds.map((jobId) => ({ job_id: jobId }));
-      const { error: writeError } = await supabase
+      const { data: writtenRows, error: writeError } = await supabase
         .from("job_archive")
-        .upsert(rows, { onConflict: "job_id,owner", ignoreDuplicates: true });
+        .upsert(rows, { onConflict: "job_id,owner", ignoreDuplicates: true })
+        .select("job_id");
       // A poll may have read before this write settled but not resolved yet. Invalidate
       // that request before removing the pending overlay so its stale snapshot cannot win.
       requestRef.current += 1;
@@ -204,7 +205,7 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
 
       return {
         ok: true,
-        affected: targetIds.length,
+        affected: writtenRows?.length ?? 0,
         skipped: skipped.length,
         error: null,
       };
@@ -238,10 +239,11 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
         return next;
       });
 
-      const { error: writeError } = await supabase
+      const { data: writtenRows, error: writeError } = await supabase
         .from("job_archive")
         .delete()
-        .in("job_id", targetIds);
+        .in("job_id", targetIds)
+        .select("job_id");
       requestRef.current += 1;
       for (const id of targetIds) pendingArchiveMutationsRef.current.unarchives.delete(id);
 
@@ -254,7 +256,7 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
         return { ok: false, affected: 0, skipped: 0, error: writeError.message };
       }
 
-      return { ok: true, affected: targetIds.length, skipped: 0, error: null };
+      return { ok: true, affected: writtenRows?.length ?? 0, skipped: 0, error: null };
     },
     [archiveByJobId, supabase],
   );

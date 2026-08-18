@@ -35,7 +35,8 @@ export function isTerminalStatus(status: JobStatus): boolean {
 }
 
 export function isInFlightStatus(status: string | null | undefined): boolean {
-  return status === "queued" || status === "running";
+  const normalized = status?.trim().toLowerCase();
+  return normalized === "queued" || normalized === "running";
 }
 
 export type JobArchiveMutationResult = {

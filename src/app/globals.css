@@ -9,6 +9,7 @@
   --display:'Oswald',sans-serif; --body:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;padding:0;background:var(--ink);color:var(--paper)}
 [data-theme='dark']{color-scheme:dark}
 [data-theme='light']{color-scheme:light}

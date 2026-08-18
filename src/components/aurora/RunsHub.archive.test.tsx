@@ -54,16 +54,16 @@ describe("RunsHub archive controls", () => {
     }
   });
 
-  it("offers archive for a terminal status unknown to the dashboard", async () => {
+  it("keeps an unknown pipeline status out of the default bulk archive", async () => {
     const user = userEvent.setup();
-    const abandoned = card(135, "queued", "alpha");
-    abandoned.rawStatus = "abandoned";
-    abandoned.statusLabel = "abandoned";
+    const awaitingApproval = card(135, "queued", "alpha");
+    awaitingApproval.rawStatus = "awaiting_spend_approval";
+    awaitingApproval.statusLabel = "awaiting_spend_approval";
 
     render(
       <RunsHub
         {...baseProps}
-        cards={[abandoned]}
+        cards={[awaitingApproval]}
         onArchiveJobs={vi.fn()}
         onUnarchiveJobs={vi.fn()}
       />,
@@ -73,7 +73,7 @@ describe("RunsHub archive controls", () => {
     await user.click(screen.getByRole("button", { name: /Done · 1/ }));
     const row = screen.getByText("Run 135").closest("article");
     expect(within(row as HTMLElement).getByRole("button", { name: "Archive" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Archive 1 run" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Archive 0 runs" })).toBeDisabled();
   });
 
   it("default bulk archive excludes approvals and names the skipped status", async () => {

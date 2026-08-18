@@ -147,7 +147,7 @@ export function RunsHub({
           currentJobs={channelFiltered.flatMap((card) =>
             card.jobId === undefined || (!showArchived && isActionableStatus(card.status))
               ? []
-              : [{ id: card.jobId, status: card.rawStatus ?? card.status }],
+              : [{ id: card.jobId, status: card.status }],
           )}
           noun="run"
           showArchived={showArchived}
