@@ -43,12 +43,30 @@ Per channel, and overall, over a selectable window (default: all time, plus a 7-
 with a toggle to include them. Counting a deliberate experiment as waste would discredit the
 readout the first time someone checked it.
 
-### R3 — Be honest about the denominator
-"Delivered" must be defined from the data, not assumed — today only 2 jobs carry `status='done'`
-and both have null spend, so a naive "spend per delivered video" reads as a division by zero and
-overstates the problem. State the terminal-state definition in the UI next to the number, and
-prefer *spend per topic* and *runs per topic* as the headline, since neither depends on a
-contested definition of "delivered".
+### R3 — There is NO delivered state today. Do not invent one. (AMENDED after round one)
+
+The first draft said "define it from the data". Reviewing the build against the data showed the
+data cannot define it, and both candidate definitions are actively misleading:
+
+| candidate | runs it counts as delivered | why it is wrong |
+|---|---|---|
+| `status = 'done'` | **2**, both with null spend | Reads ~100% of all spend as waste. Discredits the readout on sight. |
+| `episode_id is not null` | **308 of 364 — including 193 that ERRORED** | Counts failures as deliveries. Worse than the first. |
+
+The cause is structural, not a data-quality problem: **publishing is disabled by S7**, so a
+successful run today terminates at `ready_for_review` — waiting for a human, which is not
+delivery. The concept has no referent yet.
+
+So, while S7 holds:
+
+- **Do not show a "spend that never delivered" figure at all.** A ratio whose denominator is
+  undefined is worse than no ratio: it will be read as fact and it is not one.
+- **The headline is spend-per-topic and runs-per-topic**, which need no notion of delivery and
+  carry the whole finding on their own (~16 runs per topic).
+- If a waste-shaped number is wanted, use one that is unambiguously true — e.g. **spend on runs
+  that ended in `error`** — and name it exactly that, never "undelivered".
+- Leave a note in the code that this becomes computable when publishing is enabled, so the next
+  person does not re-derive the same dead end.
 
 ### R4 — Where it lives
 The existing cost view (`CostBoxDashboard`). No new navigation. It is a readout, not a hub.
