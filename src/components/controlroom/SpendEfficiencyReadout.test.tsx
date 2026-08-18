@@ -46,4 +46,19 @@ describe("SpendEfficiencyReadout", () => {
       within(screen.getByText("Spend per topic").closest("article")!).getByText("$6.00 USD"),
     ).toBeInTheDocument();
   });
+
+  it("lets the operator clear the repeat threshold before typing a new value", async () => {
+    const user = userEvent.setup();
+    render(<SpendEfficiencyReadout jobs={jobs} loading={false} error={null} />);
+
+    const threshold = screen.getByRole("spinbutton", {
+      name: "Repeat-lineage run threshold",
+    });
+    await user.clear(threshold);
+    expect(threshold).toHaveValue(null);
+
+    await user.type(threshold, "1");
+    expect(threshold).toHaveValue(1);
+    expect(screen.getByText("More than 1 run")).toBeInTheDocument();
+  });
 });

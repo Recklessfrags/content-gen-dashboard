@@ -54,7 +54,7 @@ describe("RunsHub archive controls", () => {
     }
   });
 
-  it("bulk archive targets only the current channel and reports live skips", async () => {
+  it("bulk archive passes only archivable jobs and reports live skips", async () => {
     const user = userEvent.setup();
     const onArchiveJobs = vi.fn().mockResolvedValue({
       ok: true,
@@ -83,7 +83,7 @@ describe("RunsHub archive controls", () => {
     expect(screen.getByText(/1 live run will be skipped/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Archive 2" }));
 
-    expect(onArchiveJobs).toHaveBeenCalledWith([1, 2, 3]);
+    expect(onArchiveJobs).toHaveBeenCalledWith([1, 2]);
   });
 
   it("shows an archive write failure instead of claiming success", async () => {

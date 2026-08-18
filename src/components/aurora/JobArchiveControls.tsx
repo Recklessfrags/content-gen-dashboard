@@ -51,7 +51,7 @@ export function JobArchiveControls({
     setWriteError(null);
     const result = showArchived
       ? await onUnarchive(currentJobs.map((job) => job.id))
-      : await onArchive(currentJobs.map((job) => job.id));
+      : await onArchive(archivable.map((job) => job.id));
     setSubmitting(false);
     if (!result.ok) {
       setWriteError(result.error ?? `Could not ${showArchived ? "unarchive" : "archive"} ${noun}.`);

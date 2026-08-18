@@ -30,6 +30,9 @@ export function SpendEfficiencyReadout({
   const [repeatThreshold, setRepeatThreshold] = useState(
     DEFAULT_REPEAT_LINEAGE_THRESHOLD,
   );
+  const [repeatThresholdText, setRepeatThresholdText] = useState(
+    String(DEFAULT_REPEAT_LINEAGE_THRESHOLD),
+  );
 
   const channels = useMemo(
     () =>
@@ -122,9 +125,11 @@ export function SpendEfficiencyReadout({
               type="number"
               min="1"
               step="1"
-              value={repeatThreshold}
+              value={repeatThresholdText}
               onChange={(event) => {
-                const next = Number.parseInt(event.target.value, 10);
+                const nextText = event.target.value;
+                setRepeatThresholdText(nextText);
+                const next = Number.parseInt(nextText, 10);
                 if (Number.isFinite(next) && next >= 1) setRepeatThreshold(next);
               }}
             />
