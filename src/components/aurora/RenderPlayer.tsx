@@ -1,14 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { renderVideoUrl } from "@/lib/renderAssets";
+import { useEffect, useState } from "react";
+import { renderVideoExists, renderVideoUrl } from "@/lib/renderAssets";
 
 export function RenderPlayer({ episodeId }: { episodeId: string }) {
   const [open, setOpen] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [confirmedVideoUrl, setConfirmedVideoUrl] = useState<string | null>(null);
   const videoUrl = renderVideoUrl(episodeId);
 
-  if (!videoUrl) return null;
+  useEffect(() => {
+    let mounted = true;
+
+    void renderVideoExists(episodeId).then((exists) => {
+      if (mounted && exists) setConfirmedVideoUrl(videoUrl);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [episodeId, videoUrl]);
+
+  if (!videoUrl || confirmedVideoUrl !== videoUrl) return null;
 
   return (
     <div className="render-player">
@@ -22,20 +34,13 @@ export function RenderPlayer({ episodeId }: { episodeId: string }) {
       </button>
       {open ? (
         <div className="render-player__stage">
-          {failed ? (
-            <p className="render-player__error" role="status">
-              No render available for this episode.
-            </p>
-          ) : (
-            <video
-              className="render-player__video"
-              controls
-              playsInline
-              preload="metadata"
-              src={videoUrl}
-              onError={() => setFailed(true)}
-            />
-          )}
+          <video
+            className="render-player__video"
+            controls
+            playsInline
+            preload="metadata"
+            src={videoUrl}
+          />
         </div>
       ) : null}
     </div>

@@ -480,8 +480,7 @@ function effectivePark(
   };
 }
 
-/** A render only exists once a run has got far enough to make one. Mounting the player
- *  on a spend or fact hold just renders "No render available for this episode." */
+/** A render can only exist once a run has reached one of these stages. */
 function groupShowsRender(key: ApprovalGroupKey): boolean {
   return key === "publish" || key === "reveal";
 }

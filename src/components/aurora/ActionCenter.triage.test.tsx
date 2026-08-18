@@ -143,8 +143,7 @@ describe("ActionCenter triage", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
-    // The old screen mounted this on every card and it usually said
-    // "No render available for this episode."
+    // The old screen mounted this on every card, including stages with no render.
     expect(screen.queryByText(/watch render/i)).not.toBeInTheDocument();
   });
 

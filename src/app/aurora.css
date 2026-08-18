@@ -4854,13 +4854,6 @@
   object-fit: contain;
   background: #000;
 }
-.aurora-app .render-player__error {
-  margin: 0;
-  padding: 1rem;
-  color: var(--text-main);
-  background: var(--surface-2);
-}
-
 @media (max-width: 480px) {
   .aurora-app .render-player__video {
     max-height: min(70vh, calc(100vw - 3rem));
