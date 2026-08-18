@@ -321,11 +321,11 @@ describe("ActionCenter triage", () => {
     expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([11, 13, 14]));
   });
 
-  it("bulk-archiving errored jobs leaves a pending spend approval untouched", async () => {
+  it("bulk-archiving errored jobs leaves pending spend approvals and stale work untouched", async () => {
     const user = userEvent.setup();
     const onArchiveJobs = vi.fn().mockResolvedValue({
       ok: true,
-      affected: 2,
+      affected: 1,
       skipped: 0,
       error: null,
     });
@@ -344,11 +344,12 @@ describe("ActionCenter triage", () => {
     );
 
     const errorGroup = screen.getByRole("heading", { name: "Errored / stuck" }).closest("section")!;
-    await user.click(within(errorGroup).getByRole("button", { name: "Archive 2 items" }));
-    await user.click(within(errorGroup).getByRole("button", { name: "Archive 2" }));
+    expect(within(errorGroup).getByText(/1 item with status “stale” cannot be archived/)).toBeInTheDocument();
+    await user.click(within(errorGroup).getByRole("button", { name: "Archive 1 item" }));
+    await user.click(within(errorGroup).getByRole("button", { name: "Archive 1" }));
 
     expect(onArchiveJobs).toHaveBeenCalledOnce();
-    expect(onArchiveJobs).toHaveBeenCalledWith([22, 23]);
-    expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([21]));
+    expect(onArchiveJobs).toHaveBeenCalledWith([22]);
+    expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([21, 23]));
   });
 });

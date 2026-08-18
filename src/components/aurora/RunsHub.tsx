@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { JobArchiveControls } from "@/components/aurora/JobArchiveControls";
 import { RenderPlayer } from "@/components/aurora/RenderPlayer";
+import { terminalStateLabel, type TerminalState } from "@/lib/failureClass";
 import { useRenderProgress } from "@/lib/hooks/useRenderProgress";
-import { isActionableStatus, type JobArchiveMutationResult, type JobStatus } from "@/lib/jobs";
+import { type JobArchiveMutationResult, type JobStatus } from "@/lib/jobs";
 import { stageLabel } from "@/lib/plainLanguage";
 import { ALL_CHANNELS_KEY, cardMatchesChannel, channelFacets } from "@/lib/runsChannelFilter";
-import type { ParkKind } from "@/lib/parkReason";
 import type { WorkerReliability } from "@/lib/workerReliability";
-import type { FailureClassId, TerminalState, TerminalStateSource } from "@/lib/failureClass";
 
 export const RUN_STAGES = [
   { id: "researcher", short: "res" },
@@ -56,15 +55,8 @@ export type RunCardVM = {
   createdAt: string;
   spend: number | null;
   error: string | null;
-  needsAttention: boolean;
-  parkKind?: ParkKind | null;
-  parkKindColumn?: string | null;
-  failureClass?: FailureClassId | null;
   terminalState?: TerminalState | null;
-  terminalStateSource?: TerminalStateSource | null;
   attemptsByStage?: Partial<Record<RunStage, number>>;
-  parkReason?: string | null;
-  belowFloorCuts?: string[];
 };
 
 export type RunReceiptRow = {
@@ -95,7 +87,6 @@ export type RunsHubProps = {
   error: string | null;
   onRetry: () => void;
   onBack: () => void;
-  onReviewApprovals?: () => void;
   loadReliability: () => Promise<ReliabilityResult>;
   onArchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
   onUnarchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
@@ -130,8 +121,12 @@ export function RunsHub({
   const [channelKey, setChannelKey] = useState<string>(ALL_CHANNELS_KEY);
   const viewCards = showArchived ? archivedCards : cards;
 
-  const availableChannelFacets = useMemo(() => channelFacets(viewCards), [viewCards]);
-  const effectiveChannelKey = availableChannelFacets.some((facet) => facet.key === channelKey)
+  const lifecycleCards = useMemo(
+    () => viewCards.filter((card) => lifecycleForRun(card) === lifecycle),
+    [lifecycle, viewCards],
+  );
+  const facets = useMemo(() => channelFacets(lifecycleCards), [lifecycleCards]);
+  const effectiveChannelKey = facets.some((facet) => facet.key === channelKey)
     ? channelKey
     : ALL_CHANNELS_KEY;
   const channelFiltered = useMemo(
@@ -155,11 +150,6 @@ export function RunsHub({
     if (!loading && !tabChosen) setLifecycle(defaultLifecycle(channelFiltered));
   }, [channelFiltered, loading, tabChosen]);
 
-  const lifecycleCards = useMemo(
-    () => viewCards.filter((card) => lifecycleForRun(card) === lifecycle),
-    [lifecycle, viewCards],
-  );
-  const facets = useMemo(() => channelFacets(lifecycleCards), [lifecycleCards]);
   const renderedCards = useMemo(
     () => channelFiltered.filter((card) => lifecycleForRun(card) === lifecycle),
     [channelFiltered, lifecycle],
@@ -209,9 +199,15 @@ export function RunsHub({
           activeCount={cards.length}
           archivedCount={archivedCards.length}
           currentJobs={renderedCards.flatMap((card) =>
-            card.jobId === undefined || (!showArchived && isActionableStatus(card.status))
+            card.jobId === undefined
               ? []
-              : [{ id: card.jobId, status: lifecycleForRun(card) === "in_flight" ? "running" : card.status }],
+              : [{
+                  id: card.jobId,
+                  status:
+                    lifecycleForRun(card) === "in_flight"
+                      ? "running"
+                      : (card.rawStatus ?? card.status),
+                }],
           )}
           noun="run"
           showArchived={showArchived}
@@ -315,6 +311,7 @@ function RunCard({
       <div className="run-card__head">
         <div className="run-card__identity">
           <h4 className="text-title run-card__title">{card.title}</h4>
+          <span className="status-chip run-card__status">{card.statusLabel}</span>
           {card.spend !== null ? <span className="cost-readout">{formatUsd(card.spend)}</span> : null}
         </div>
         <div className="run-card__meta">
@@ -325,6 +322,15 @@ function RunCard({
       </div>
 
       <StepTrack card={card} latestStage={latestStage} />
+      {lifecycleForRun(card) === "finished" && isFailedRun(card) ? (
+        <details className="run-card__failure">
+          <summary>Failure details</summary>
+          <div className="run-card__failure-body">
+            <p><strong>Outcome:</strong> {terminalStateLabel(card.terminalState ?? "unknown")}</p>
+            <p className="dim">{card.error?.trim() || "No error detail recorded."}</p>
+          </div>
+        </details>
+      ) : null}
       {card.episodeId ? <RenderPlayer episodeId={card.episodeId} /> : null}
     </article>
   );

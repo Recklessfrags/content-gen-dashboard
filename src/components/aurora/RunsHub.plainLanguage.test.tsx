@@ -2,7 +2,8 @@
 
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({ from: vi.fn() }),
@@ -27,9 +28,6 @@ describe("RunsHub plain-language defaults", () => {
       createdAt: "2026-08-07T00:00:00.000Z",
       spend: null,
       error: null,
-      needsAttention: true,
-      parkKind: "unknown",
-      parkKindColumn: "future_hold",
     };
 
     render(
@@ -63,7 +61,6 @@ describe("RunsHub plain-language defaults", () => {
       createdAt: "2026-08-07T00:00:00.000Z",
       spend: null,
       error: null,
-      needsAttention: false,
       attemptsByStage: { researcher: 1, editor: 1 },
     };
 
@@ -97,7 +94,6 @@ describe("RunsHub plain-language defaults", () => {
       createdAt: "2026-08-07T00:00:00.000Z",
       spend: null,
       error: "Pipeline stopped",
-      needsAttention: false,
       attemptsByStage: { researcher: 1, voice_direction: 1 },
     };
 
@@ -115,5 +111,43 @@ describe("RunsHub plain-language defaults", () => {
     expect(screen.getByRole("listitem", { name: "Recording the voiceover: failed" })).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Stopped at");
     expect(document.body).not.toHaveTextContent("Why it stopped");
+  });
+
+  it("keeps status visible and failure detail collapsed until requested", async () => {
+    const user = userEvent.setup();
+    const card: RunCardVM = {
+      id: "job-failed",
+      episodeId: null,
+      title: "Failed video",
+      channel: "history",
+      status: "error",
+      statusLabel: "Error",
+      createdAt: "2026-08-07T00:00:00.000Z",
+      spend: null,
+      error: "Unhandled: worker crashed",
+      terminalState: "crashed",
+    };
+
+    render(
+      <RunsHub
+        cards={[card]}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        onBack={vi.fn()}
+        loadReliability={vi.fn()}
+      />,
+    );
+
+    const article = screen.getByText("Failed video").closest("article") as HTMLElement;
+    expect(article.querySelectorAll(".run-card__status")).toHaveLength(1);
+    expect(article.querySelector(".run-card__status")).toHaveTextContent("Error");
+    const disclosure = screen.getByText("Failure details").closest("details");
+    expect(disclosure).not.toHaveAttribute("open");
+
+    await user.click(screen.getByText("Failure details"));
+    expect(within(article).getByText("Crashed")).toBeVisible();
+    expect(within(article).getByText("Unhandled: worker crashed")).toBeVisible();
+    expect(document.body).not.toHaveTextContent("Stopped at");
   });
 });

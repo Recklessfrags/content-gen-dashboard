@@ -21,7 +21,6 @@ function card(jobId: number, status: RunCardVM["status"], channel: string): RunC
     createdAt: "2026-08-18T00:00:00.000Z",
     spend: null,
     error: null,
-    needsAttention: status === "error",
   };
 }
 
@@ -79,7 +78,38 @@ describe("RunsHub archive controls", () => {
     expect(screen.getByRole("button", { name: "weird_food (1)" })).toBeInTheDocument();
   });
 
-  it("auto-opens a non-empty lifecycle from the same channel-scoped set as its counts", async () => {
+  it("clears a channel outside the next lifecycle so every tab keeps honest counts and rows", async () => {
+    const user = userEvent.setup();
+    render(
+      <RunsHub
+        {...baseProps}
+        cards={[
+          card(1, "done", "grandma"),
+          card(2, "done", "dark_history"),
+          card(3, "ready_for_review", "animal_facts"),
+          card(4, "ready_for_review", "ab_gen_forced"),
+          card(5, "running", "weird_food"),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: /Finished 2/ }));
+    await user.click(screen.getByRole("button", { name: "grandma (1)" }));
+    expect(screen.getByText("Run 1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /Parked 0/ }));
+    expect(screen.getByRole("tab", { name: /Parked 2/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /In flight 1/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Finished 2/ })).toBeInTheDocument();
+    expect(screen.getByText("Run 3")).toBeInTheDocument();
+    expect(screen.getByText("Run 4")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /In flight 1/ }));
+    expect(screen.getByText("Run 5")).toBeInTheDocument();
+    expect(screen.queryByText("Run 1")).not.toBeInTheDocument();
+  });
+
+  it("falls back to all channels when refreshed data removes the selected lifecycle facet", async () => {
     const user = userEvent.setup();
     const { rerender } = render(
       <RunsHub
@@ -102,10 +132,10 @@ describe("RunsHub archive controls", () => {
       />,
     );
 
-    expect(await screen.findByRole("tab", { name: /Finished 1/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: /Parked 0/ })).toBeInTheDocument();
-    expect(screen.getByText("Run 3")).toBeInTheDocument();
-    expect(screen.queryByText("Run 4")).not.toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: /Parked 1/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /Finished 1/ })).toBeInTheDocument();
+    expect(screen.getByText("Run 4")).toBeInTheDocument();
+    expect(screen.queryByText("Run 3")).not.toBeInTheDocument();
   });
 
   it("omits the per-row archive action for queued and running jobs", () => {
@@ -176,6 +206,36 @@ describe("RunsHub archive controls", () => {
 
     expect(onArchiveJobs).toHaveBeenCalledWith([1, 2, 4]);
     expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([5]));
+  });
+
+  it("archives raw finished fallbacks and reports every visible ineligible run", async () => {
+    const user = userEvent.setup();
+    const abandoned = card(3, "queued", "alpha");
+    abandoned.rawStatus = "abandoned";
+    abandoned.statusLabel = "Abandoned";
+    const onArchiveJobs = vi.fn().mockResolvedValue({
+      ok: true,
+      affected: 2,
+      skipped: 0,
+      error: null,
+    });
+
+    render(
+      <RunsHub
+        {...baseProps}
+        cards={[card(1, "done", "alpha"), card(2, "stale", "alpha"), abandoned]}
+        onArchiveJobs={onArchiveJobs}
+        onUnarchiveJobs={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: /Finished 3/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Archive 2 runs" })).toBeEnabled();
+    expect(screen.getByText(/1 run with status “stale” cannot be archived/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Archive 2 runs" }));
+    await user.click(screen.getByRole("button", { name: "Archive 2" }));
+    expect(onArchiveJobs).toHaveBeenCalledWith([1, 3]);
   });
 
   it("shows an archive write failure instead of claiming success", async () => {

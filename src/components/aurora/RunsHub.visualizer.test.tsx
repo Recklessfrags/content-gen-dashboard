@@ -8,7 +8,7 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("@/lib/hooks/useRenderProgress", () => ({ useRenderProgress: () => ({}) }));
 
-import { RunsHub, type RunCardVM } from "@/components/aurora/RunsHub";
+import { lifecycleForRun, RunsHub, type RunCardVM } from "@/components/aurora/RunsHub";
 
 function card(id: number, status: RunCardVM["status"], episodeId = `episode-${id}`): RunCardVM {
   return {
@@ -22,7 +22,6 @@ function card(id: number, status: RunCardVM["status"], episodeId = `episode-${id
     createdAt: "2026-08-18T17:46:00.000Z",
     spend: 0.29,
     error: status === "error" ? "stopped" : null,
-    needsAttention: status === "error" || status === "ready_for_review",
   };
 }
 
@@ -42,6 +41,19 @@ afterEach(() => {
 });
 
 describe("RunsHub corrected lifecycle", () => {
+  it.each([
+    ["queued", "in_flight"],
+    ["running", "in_flight"],
+    ["ready_for_review", "parked"],
+    ["done", "finished"],
+    ["no_op", "finished"],
+    ["error", "finished"],
+    ["stale", "finished"],
+    ["abandoned", "finished"],
+  ] as const)("maps %s runs to the %s lifecycle", (status, lifecycle) => {
+    expect(lifecycleForRun({ status })).toBe(lifecycle);
+  });
+
   it("keeps archive as an orthogonal filter and derives counts and default tab from archived rows", async () => {
     const user = userEvent.setup();
     render(

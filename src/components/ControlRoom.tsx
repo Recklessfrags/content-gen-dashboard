@@ -34,8 +34,7 @@ import {
   resolveParkKind,
   type JobEnqueueInput,
 } from "@/lib/jobs";
-import { classifyFailure, resolveTerminalState } from "@/lib/failureClass";
-import { parseBelowFloorCuts } from "@/lib/parkReason";
+import { resolveTerminalState } from "@/lib/failureClass";
 import { parseFactClaims, type FactClaim } from "@/lib/factClaims";
 import { isCast } from "@/lib/casting";
 import { isVisuallyCast, signedRefImageUrl } from "@/lib/castingVisual";
@@ -1807,27 +1806,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }
     return attempts;
   }, [costReceipts]);
-  const episodeParkReasonById = useMemo(
-    () =>
-      new Map(
-        episodes.map((episode) => [
-          episode.episode_id,
-          {
-            message: episode.message ?? null,
-          },
-        ]),
-      ),
-    [episodes],
-  );
   const mapJobsToRunCards = useCallback(
     (sourceJobs: QueueJob[]): RunCardVM[] =>
       sourceJobs.map((job) => {
         const status = classifyJobStatus(job.status);
-        const isParked = status === "ready_for_review" || (status === "error" && job.park_kind != null);
-        const isFailure = status === "error";
-        const episodeParkReason = job.episode_id
-          ? (episodeParkReasonById.get(job.episode_id) ?? null)
-          : null;
+        const isFailure = status === "error" || status === "stale" || status === "abandoned";
         const terminalStateResult = isFailure ? resolveTerminalState(job.park_kind, job.error) : null;
         return {
           id: String(job.id),
@@ -1844,23 +1827,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           createdAt: job.created_at,
           spend: typeof job.spend === "number" ? job.spend : null,
           error: job.error ?? null,
-          needsAttention:
-            status === "error" || status === "stale" || status === "ready_for_review",
-          parkKind: isParked ? resolveParkKind(job.park_kind, null) : null,
-          parkKindColumn: isParked ? (job.park_kind ?? null) : null,
-          failureClass: isFailure ? classifyFailure(job.error) : null,
           terminalState: isFailure ? terminalStateResult?.state ?? null : null,
-          terminalStateSource: isFailure ? terminalStateResult?.source ?? null : null,
           attemptsByStage: job.episode_id
             ? runAttemptsByEpisode.get(job.episode_id)
             : undefined,
-          parkReason: isParked ? (episodeParkReason?.message ?? null) : null,
-          belowFloorCuts: isParked
-            ? parseBelowFloorCuts(episodeParkReason?.message ?? null)
-            : [],
         };
       }),
-    [episodeParkReasonById, runAttemptsByEpisode],
+    [runAttemptsByEpisode],
   );
   const runsHubCards = useMemo(() => mapJobsToRunCards(jobs), [jobs, mapJobsToRunCards]);
   const archivedRunsHubCards = useMemo(
@@ -1877,7 +1850,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         void fetchJobs();
       },
       onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
-      onReviewApprovals: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
       loadReliability: loadWorkerReliability,
       onArchiveJobs: handleArchiveJobs,
       onUnarchiveJobs: handleUnarchiveJobs,

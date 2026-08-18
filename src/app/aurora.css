@@ -4456,28 +4456,6 @@
   word-break: break-word;
 }
 
-.aurora-app .run-card__failure {
-  background: var(--surface-2);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  padding: 0.65rem 0.85rem;
-}
-.aurora-app .run-card__failure-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-.aurora-app .run-card__failure-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-main);
-}
-.aurora-app .run-card__failure-class-chip { background: var(--surface-3); color: var(--text-main); }
-.aurora-app .run-card__failure-terminal { background: var(--surface-3); color: var(--text-main); }
-.aurora-app .run-card__failure-stage { margin-top: 0.35rem; font-size: 0.8125rem; }
-
 .aurora-app .runs-hub__failure-rollup {
   background: var(--surface-2);
   border: 1px solid var(--border-soft);
@@ -4739,6 +4717,11 @@
   color: var(--text-main);
   font-size: 0.875rem;
 }
+.aurora-app .run-card__status {
+  flex: 0 0 auto;
+  background: var(--surface-3);
+  color: var(--text-main);
+}
 .aurora-app .run-card__meta {
   display: flex;
   gap: 0.4rem;
@@ -4746,6 +4729,23 @@
   font-family: var(--font-mono);
   font-size: 0.7rem;
   line-height: 1.35;
+}
+.aurora-app .run-card__failure {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+.aurora-app .run-card__failure summary {
+  width: fit-content;
+  color: var(--text-main);
+  cursor: pointer;
+  font-weight: 600;
+}
+.aurora-app .run-card__failure-body {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+  padding-left: 1rem;
+  word-break: break-word;
 }
 
 .aurora-app .au-step-track {

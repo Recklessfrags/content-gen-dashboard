@@ -145,7 +145,7 @@ export function JobArchiveBulkControl({
         >
           {showArchived ? "Unarchive" : "Archive"} {affectedCount} {pluralize(noun, affectedCount)}
         </button>
-        {!showArchived && skipped.length > 0 && affectedCount === 0 ? (
+        {!showArchived && skipped.length > 0 ? (
           <span className="dim job-archive-skip-note">
             {skipped.length} {pluralize(noun, skipped.length)} with {skippedStatusCopy} cannot be archived.
           </span>

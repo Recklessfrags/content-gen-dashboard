@@ -10,6 +10,7 @@ export const JOB_STATUSES = [
   "ready_for_review",
   "error",
   "stale",
+  "abandoned",
 ] as const;
 
 export type JobStatus = (typeof JOB_STATUSES)[number];
@@ -22,6 +23,7 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   ready_for_review: "Ready for review",
   error: "Error",
   stale: "Stale",
+  abandoned: "Abandoned",
 };
 
 const JOB_STATUS_SET = new Set<string>(JOB_STATUSES);
@@ -31,7 +33,7 @@ export function isActionableStatus(status: JobStatus): boolean {
 }
 
 export function isTerminalStatus(status: JobStatus): boolean {
-  return status === "done" || status === "no_op" || status === "error";
+  return status === "done" || status === "no_op" || status === "error" || status === "abandoned";
 }
 
 export function isInFlightStatus(status: string | null | undefined): boolean {
@@ -49,7 +51,8 @@ export type JobArchiveMutationResult = {
 export function canArchiveJob(
   job: Pick<QueueJob, "status">,
 ): boolean {
-  return !isInFlightStatus(job.status);
+  const normalized = job.status.trim().toLowerCase();
+  return !isInFlightStatus(normalized) && normalized !== "stale";
 }
 
 export function partitionArchivableJobs<T extends Pick<QueueJob, "id" | "status">>(
