@@ -4,6 +4,7 @@ import {
   buildJobInsert,
   buildPublishApprovalReenqueue,
   buildSpendApprovalReenqueue,
+  reenqueueApprovalThenArchiveParent,
   classifyJobStatus,
   detectParkKind,
   idempotencyKeyFor,
@@ -476,5 +477,54 @@ describe("job status helpers", () => {
     expect(isInFlightStatus("queued")).toBe(true);
     expect(isInFlightStatus("running")).toBe(true);
     expect(isInFlightStatus("done")).toBe(false);
+  });
+});
+
+describe("approval parent archiving", () => {
+  it("archives only after the approval re-enqueue succeeds", async () => {
+    const calls: string[] = [];
+    const result = await reenqueueApprovalThenArchiveParent(
+      async () => {
+        calls.push("reenqueue");
+        return { error: null };
+      },
+      async () => {
+        calls.push("archive");
+        return { ok: true, affected: 1, skipped: 0, error: null };
+      },
+    );
+
+    expect(calls).toEqual(["reenqueue", "archive"]);
+    expect(result).toMatchObject({ reenqueueError: null, archiveResult: { ok: true } });
+  });
+
+  it("keeps a successful approval successful when parent archiving fails", async () => {
+    const result = await reenqueueApprovalThenArchiveParent(
+      async () => ({ error: null }),
+      async () => ({
+        ok: false,
+        affected: 0,
+        skipped: 0,
+        error: "archive unavailable",
+      }),
+    );
+
+    expect(result.reenqueueError).toBeNull();
+    expect(result.archiveResult).toMatchObject({ ok: false, error: "archive unavailable" });
+  });
+
+  it("does not archive when the approval re-enqueue fails", async () => {
+    let archiveCalled = false;
+    const result = await reenqueueApprovalThenArchiveParent(
+      async () => ({ error: "enqueue failed" }),
+      async () => {
+        archiveCalled = true;
+        return { ok: true, affected: 1, skipped: 0, error: null };
+      },
+    );
+
+    expect(result.reenqueueError).toBe("enqueue failed");
+    expect(result.archiveResult).toBeNull();
+    expect(archiveCalled).toBe(false);
   });
 });

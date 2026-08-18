@@ -133,7 +133,7 @@ describe("ActionCenter triage", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { expanded: false }));
+    await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
     // The old screen mounted this on every card and it usually said
     // "No render available for this episode."
     expect(screen.queryByText(/watch render/i)).not.toBeInTheDocument();
@@ -151,5 +151,33 @@ describe("ActionCenter triage", () => {
     // Both land in NEEDS A LOOK, but only because one genuinely is unknown and the
     // other has not resolved yet — the count must not imply two investigations.
     expect(screen.getByText(/\/\/ NEEDS A LOOK \(2\)/)).toBeInTheDocument();
+  });
+
+  it("offers secondary per-row archive actions for approvals and errors", async () => {
+    const user = userEvent.setup();
+    const onArchiveJobs = vi.fn().mockResolvedValue({
+      ok: true,
+      affected: 1,
+      skipped: 0,
+      error: null,
+    });
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 1 })]}
+        erroredJobs={[job({ id: 2, status: "error" })]}
+        parkById={{ 1: park("spend"), 2: park("unknown") }}
+        onArchiveJobs={onArchiveJobs}
+        onUnarchiveJobs={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
+    const approvalRow = screen.getAllByRole("listitem")[0];
+    expect(within(approvalRow).getByRole("button", { name: "Archive" })).toHaveClass("ghost");
+
+    const errorRow = screen.getAllByRole("listitem")[1];
+    await user.click(within(errorRow).getByRole("button", { name: "Archive" }));
+    expect(onArchiveJobs).toHaveBeenCalledWith([2]);
   });
 });

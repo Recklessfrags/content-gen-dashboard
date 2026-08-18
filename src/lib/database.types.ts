@@ -442,6 +442,24 @@ export type Database = {
           },
         ]
       }
+      job_archive: {
+        Row: {
+          archived_at: string
+          job_id: number
+          owner: string
+        }
+        Insert: {
+          archived_at?: string
+          job_id: number
+          owner?: string
+        }
+        Update: {
+          archived_at?: string
+          job_id?: number
+          owner?: string
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           anchor_citation: string | null

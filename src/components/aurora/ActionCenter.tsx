@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { extractBelowFloorCuts, parkExplanation } from "@/lib/parkExplanation";
 import { plainLanguage, stageLabel } from "@/lib/plainLanguage";
 import type { FactClaim } from "@/lib/factClaims";
+import type { JobArchiveMutationResult } from "@/lib/jobs";
 import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
 import type { QueueJob } from "../controlroom/shared";
+import { JobArchiveControls, JobArchiveRowButton } from "./JobArchiveControls";
 import { RenderPlayer } from "./RenderPlayer";
 import type { RunDiagnosticsResult } from "./RunsHub";
 
@@ -22,6 +24,8 @@ type ActionCenterPark = {
 export type ActionCenterProps = {
   jobs: QueueJob[];
   erroredJobs?: QueueJob[];
+  archivedJobs?: QueueJob[];
+  archivedErroredJobs?: QueueJob[];
   parkById: Record<QueueJob["id"], ActionCenterPark>;
   loadDiagnostics?: (episodeId: string) => Promise<RunDiagnosticsResult>;
   pending: { job: QueueJob; action: QueueAction } | null;
@@ -36,11 +40,15 @@ export type ActionCenterProps = {
   factClaims?: FactClaim[] | null;
   factClaimsLoading?: boolean;
   factClaimsError?: string | null;
+  onArchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
+  onUnarchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
 };
 
 export function ActionCenter({
   jobs,
   erroredJobs = [],
+  archivedJobs = [],
+  archivedErroredJobs = [],
   parkById,
   loadDiagnostics,
   pending,
@@ -55,17 +63,26 @@ export function ActionCenter({
   factClaims,
   factClaimsLoading = false,
   factClaimsError = null,
+  onArchiveJobs,
+  onUnarchiveJobs,
 }: ActionCenterProps) {
   const Heading = headingLevel === 2 ? "h2" : "h1";
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
   const previousPendingRef = useRef<typeof pending>(pending);
   // One row open at a time: with a three-figure backlog, an accordion that lets every
   // row stay open just rebuilds the wall of text this screen was redesigned to remove.
   const [expandedId, setExpandedId] = useState<QueueJob["id"] | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const viewJobs = showArchived ? archivedJobs : jobs;
+  const viewErroredJobs = showArchived ? archivedErroredJobs : erroredJobs;
+  const activeCount = jobs.length + erroredJobs.length;
+  const archivedCount = archivedJobs.length + archivedErroredJobs.length;
 
   useEffect(() => {
     if (previousPendingRef.current && !pending) {
-      triggerRef.current?.focus();
+      if (triggerRef.current?.isConnected) triggerRef.current.focus();
+      else headingRef.current?.focus();
     }
     previousPendingRef.current = pending;
   }, [pending]);
@@ -82,8 +99,16 @@ export function ActionCenter({
           <p className="text-mono dim" style={{ fontSize: "0.875rem", marginBottom: "0.5rem" }}>
             // ACTION CENTER
           </p>
-          <Heading id="action-center-title" className="text-display" style={{ fontSize: "2.5rem" }}>
-            {jobs.length > 0 ? (
+          <Heading
+            ref={headingRef}
+            id="action-center-title"
+            className="text-display"
+            style={{ fontSize: "2.5rem" }}
+            tabIndex={-1}
+          >
+            {showArchived ? (
+              `${archivedCount} Archived`
+            ) : jobs.length > 0 ? (
               <>
                 <span className="au-pulse-dot" />
                 {jobs.length} Approvals Awaiting
@@ -102,10 +127,28 @@ export function ActionCenter({
         ) : null}
       </div>
 
-      {jobs.length === 0 ? (
-        <div className="glass-panel au-empty">All clear - no approvals awaiting.</div>
+      {onArchiveJobs && onUnarchiveJobs ? (
+        <JobArchiveControls
+          activeCount={activeCount}
+          archivedCount={archivedCount}
+          currentJobs={[...viewJobs, ...viewErroredJobs]}
+          noun="item"
+          showArchived={showArchived}
+          onShowArchivedChange={(next) => {
+            setExpandedId(null);
+            setShowArchived(next);
+          }}
+          onArchive={onArchiveJobs}
+          onUnarchive={onUnarchiveJobs}
+        />
+      ) : null}
+
+      {viewJobs.length === 0 ? (
+        <div className="glass-panel au-empty">
+          {showArchived ? "No archived approvals." : "All clear - no approvals awaiting."}
+        </div>
       ) : (
-        groupApprovals(jobs, parkById).map((group) => (
+        groupApprovals(viewJobs, parkById).map((group) => (
           <section
             className="au-approval-group"
             key={group.key}
@@ -178,13 +221,23 @@ export function ActionCenter({
                       ) : null}
 
                       <div className="approval-actions">
-                        <PrimaryAction
-                          job={job}
-                          park={park}
-                          isStale={isStale}
-                          publishAllowed={publishAllowed}
-                          onRequest={handleRequest}
-                        />
+                        {!showArchived ? (
+                          <PrimaryAction
+                            job={job}
+                            park={park}
+                            isStale={isStale}
+                            publishAllowed={publishAllowed}
+                            onRequest={handleRequest}
+                          />
+                        ) : null}
+                        {onArchiveJobs && onUnarchiveJobs ? (
+                          <JobArchiveRowButton
+                            job={job}
+                            showArchived={showArchived}
+                            onArchive={onArchiveJobs}
+                            onUnarchive={onUnarchiveJobs}
+                          />
+                        ) : null}
                       </div>
 
                       {pendingForRow ? (
@@ -208,11 +261,11 @@ export function ActionCenter({
         ))
       )}
 
-      {erroredJobs.length > 0 ? (
+      {viewErroredJobs.length > 0 ? (
         <section className="au-error-jobs" aria-labelledby="errored-jobs-title">
           <h2 id="errored-jobs-title" className="text-title">Errored / stuck</h2>
           <div className="glass-panel" role="list" aria-label="Errored or stuck jobs">
-            {erroredJobs.map((job) => {
+            {viewErroredJobs.map((job) => {
               const park = parkById[job.id];
               return (
                 <article className="approval-row" role="listitem" key={job.id}>
@@ -225,6 +278,16 @@ export function ActionCenter({
                     <p className="dim">{parkLine(job, park)}</p>
                     <ParkContext job={job} park={park} loadDiagnostics={loadDiagnostics} />
                     {job.episode_id ? <RenderPlayer episodeId={job.episode_id} /> : null}
+                    {onArchiveJobs && onUnarchiveJobs ? (
+                      <div className="approval-actions">
+                        <JobArchiveRowButton
+                          job={job}
+                          showArchived={showArchived}
+                          onArchive={onArchiveJobs}
+                          onUnarchive={onUnarchiveJobs}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 </article>
               );

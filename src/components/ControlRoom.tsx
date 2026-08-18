@@ -30,6 +30,7 @@ import {
   jobInputFromRow,
   JOB_STATUS_LABELS,
   publishSourceEpisodeId,
+  reenqueueApprovalThenArchiveParent,
   resolveParkKind,
   type JobEnqueueInput,
 } from "@/lib/jobs";
@@ -423,10 +424,13 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   } = useEpisodes(supabase);
   const {
     jobs,
+    archivedJobs,
     loading: jobsLoading,
     error: jobsError,
     refetch: fetchJobs,
     poll: pollJobs,
+    archiveJobs,
+    unarchiveJobs,
   } = useJobs(supabase);
   const {
     costReceipts,
@@ -537,6 +541,24 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 2200);
   }, []);
+  const handleArchiveJobs = useCallback(async (jobIds: readonly number[]) => {
+    const result = await archiveJobs(jobIds);
+    if (!result.ok) {
+      showFlash(`Could not archive ${jobIds.length === 1 ? "run" : "runs"} — ${result.error}`, true);
+    } else if (result.affected > 0) {
+      showFlash(`Archived ${result.affected} ${result.affected === 1 ? "run" : "runs"}.`);
+    }
+    return result;
+  }, [archiveJobs, showFlash]);
+  const handleUnarchiveJobs = useCallback(async (jobIds: readonly number[]) => {
+    const result = await unarchiveJobs(jobIds);
+    if (!result.ok) {
+      showFlash(`Could not unarchive ${jobIds.length === 1 ? "run" : "runs"} — ${result.error}`, true);
+    } else if (result.affected > 0) {
+      showFlash(`Restored ${result.affected} ${result.affected === 1 ? "run" : "runs"}.`);
+    }
+    return result;
+  }, [showFlash, unarchiveJobs]);
   const writeIdeaJobMap = async ({
     key,
     ideaId,
@@ -1254,7 +1276,27 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       return;
     }
 
-    const { error } = await supabase.from("jobs").insert(payload);
+    let error: { message: string } | null;
+    let archiveWarning: string | null = null;
+    if (action === "stale") {
+      ({ error } = await supabase.from("jobs").insert(payload));
+    } else {
+      const outcome = await reenqueueApprovalThenArchiveParent(
+        async () => {
+          const result = await supabase.from("jobs").insert(payload);
+          return { error: result.error };
+        },
+        () => archiveJobs([job.id]),
+      );
+      error = outcome.reenqueueError;
+      if (outcome.archiveResult && !outcome.archiveResult.ok) {
+        archiveWarning = outcome.archiveResult.error ?? "archive write failed";
+        console.error(
+          "Approval succeeded but the parent job could not be archived",
+          outcome.archiveResult.error,
+        );
+      }
+    }
 
     if (error) {
       setQueueActionSubmitting(false);
@@ -1287,20 +1329,24 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
 
     setPendingQueueAction(null);
     setQueueActionSubmitting(false);
-    showFlash(
-      action === "fact"
+    const approvalMessage = action === "fact"
         ? "✓ Facts approved. Job re-entered the pipeline."
         : action === "spend"
         ? "✓ Spend approved. Job re-entered the pipeline."
         : action === "publish"
           ? "✓ Publish approved. Job re-entered the pipeline."
-        : "✓ Stranded job re-queued for execution",
-    );
+        : "✓ Stranded job re-queued for execution";
     await writeIdeaJobMap({
       key: rerunKey,
       ideaId: recoveredIdeaId,
       channel: payload.channel ?? null,
     });
+    showFlash(
+      archiveWarning
+        ? `${approvalMessage} The old run is still visible because archiving failed — ${archiveWarning}`
+        : approvalMessage,
+      archiveWarning !== null,
+    );
     void fetchJobs();
   };
 
@@ -1477,6 +1523,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   const erroredJobs = useMemo(
     () => jobs.filter((job) => classifyJobStatus(job.status) === "error"),
     [jobs],
+  );
+  const archivedActionableJobs = useMemo(
+    () => archivedJobs.filter((job) => isActionableStatus(classifyJobStatus(job.status))),
+    [archivedJobs],
+  );
+  const archivedErroredJobs = useMemo(
+    () => archivedJobs.filter((job) => classifyJobStatus(job.status) === "error"),
+    [archivedJobs],
   );
   const hubChannelCards = useMemo<ChannelCardVM[]>(
     () =>
@@ -1719,9 +1773,9 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       ),
     [episodes],
   );
-  const runsHubCards = useMemo<RunCardVM[]>(
-    () =>
-      jobs.map((job) => {
+  const mapJobsToRunCards = useCallback(
+    (sourceJobs: QueueJob[]): RunCardVM[] =>
+      sourceJobs.map((job) => {
         const status = classifyJobStatus(job.status);
         const isParked = status === "ready_for_review" || (status === "error" && job.park_kind != null);
         const isFailure = status === "error";
@@ -1734,6 +1788,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         const terminalStateResult = isFailure ? resolveTerminalState(job.park_kind, job.error) : null;
         return {
           id: String(job.id),
+          jobId: job.id,
           episodeId: job.episode_id ?? null,
           title: job.food,
           channel: job.channel ?? null,
@@ -1756,11 +1811,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             : [],
         };
       }),
-    [episodeParkReasonById, jobs],
+    [episodeParkReasonById],
+  );
+  const runsHubCards = useMemo(() => mapJobsToRunCards(jobs), [jobs, mapJobsToRunCards]);
+  const archivedRunsHubCards = useMemo(
+    () => mapJobsToRunCards(archivedJobs),
+    [archivedJobs, mapJobsToRunCards],
   );
   const runsHubProps = useMemo<RunsHubProps>(
     () => ({
       cards: runsHubCards,
+      archivedCards: archivedRunsHubCards,
       loading: jobsLoading,
       error: jobsError,
       onRetry: () => {
@@ -1770,9 +1831,14 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       onReviewApprovals: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
       loadDiagnostics: loadRunDiagnostics,
       loadReliability: loadWorkerReliability,
+      onArchiveJobs: handleArchiveJobs,
+      onUnarchiveJobs: handleUnarchiveJobs,
     }),
     [
       fetchJobs,
+      archivedRunsHubCards,
+      handleArchiveJobs,
+      handleUnarchiveJobs,
       jobsError,
       jobsLoading,
       loadRunDiagnostics,
@@ -1825,6 +1891,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     actions: {
       jobs: actionableJobs,
       erroredJobs,
+      archivedJobs: archivedActionableJobs,
+      archivedErroredJobs,
       parkById: jobParkById,
       loadDiagnostics: loadRunDiagnostics,
       pending: pendingQueueAction,
@@ -1837,6 +1905,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       factClaims: factClaimsState.claims,
       factClaimsLoading: factClaimsState.loading,
       factClaimsError: factClaimsState.error,
+      onArchiveJobs: handleArchiveJobs,
+      onUnarchiveJobs: handleUnarchiveJobs,
     },
     operatorInitials,
     signOutSlot,

@@ -1138,6 +1138,54 @@
 .aurora-app .au-below-floor { margin-top: 0.75rem; }
 .aurora-app .au-below-floor ul { margin: 0.35rem 0 0; padding-left: 1.25rem; }
 
+/* Dashboard-owned job archive controls. Archiving is deliberately secondary to
+   approval: these controls use ghost styling and a plain-language confirm. */
+.aurora-app .job-archive-tools {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+.aurora-app .job-archive-view-toggle,
+.aurora-app .job-archive-bulk,
+.aurora-app .job-archive-confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.aurora-app .job-archive-view-toggle .is-active {
+  border-color: var(--accent);
+  color: var(--text-main);
+  background: var(--surface-2);
+}
+
+.aurora-app .job-archive-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.aurora-app .job-archive-confirm p { margin: 0; max-width: 60rem; }
+.aurora-app .job-archive-skip-note { font-size: 0.8125rem; }
+.aurora-app .job-archive-error { margin: 0; color: var(--danger-fg); }
+.aurora-app .job-archive-row-action { flex: 0 0 auto; }
+
+@media (max-width: 640px) {
+  .aurora-app .job-archive-confirm {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .aurora-app .job-archive-confirm-actions button { flex: 1; }
+}
+
 /* --- Action Center: grouped, collapsed approvals -------------------------- */
 /* One tap-target per decision. Everything secondary lives inside the row body, so a
    three-figure backlog stays scannable on a phone instead of being a wall of repeated

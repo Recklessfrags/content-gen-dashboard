@@ -3,8 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderPlayer } from "@/components/aurora/RenderPlayer";
 import { RenderProgress } from "@/components/aurora/RenderProgress";
+import { JobArchiveControls, JobArchiveRowButton } from "@/components/aurora/JobArchiveControls";
 import { useRenderProgress } from "@/lib/hooks/useRenderProgress";
-import { isActionableStatus, isInFlightStatus, type JobStatus } from "@/lib/jobs";
+import {
+  isActionableStatus,
+  isInFlightStatus,
+  type JobArchiveMutationResult,
+  type JobStatus,
+} from "@/lib/jobs";
 import { plainLanguage, stageLabel } from "@/lib/plainLanguage";
 import {
   classifyFailure,
@@ -23,6 +29,7 @@ import type { WorkerReliability } from "@/lib/workerReliability";
 
 export type RunCardVM = {
   id: string;
+  jobId?: number;
   episodeId: string | null;
   title: string;
   channel: string | null;
@@ -63,6 +70,7 @@ export type ReliabilityResult = {
 
 export type RunsHubProps = {
   cards: RunCardVM[];
+  archivedCards?: RunCardVM[];
   loading: boolean;
   error: string | null;
   onRetry: () => void;
@@ -70,6 +78,8 @@ export type RunsHubProps = {
   onReviewApprovals?: () => void;
   loadDiagnostics: (episodeId: string) => Promise<RunDiagnosticsResult>;
   loadReliability: () => Promise<ReliabilityResult>;
+  onArchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
+  onUnarchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
 };
 
 type DiagnosticsState = {
@@ -80,6 +90,7 @@ type DiagnosticsState = {
 
 export function RunsHub({
   cards,
+  archivedCards = [],
   loading,
   error,
   onRetry,
@@ -87,25 +98,29 @@ export function RunsHub({
   onReviewApprovals,
   loadDiagnostics,
   loadReliability,
+  onArchiveJobs,
+  onUnarchiveJobs,
 }: RunsHubProps) {
-  const attentionCount = cards.filter((card) => card.needsAttention).length;
+  const [showArchived, setShowArchived] = useState(false);
+  const viewCards = showArchived ? archivedCards : cards;
+  const attentionCount = viewCards.filter((card) => card.needsAttention).length;
   const [channelKey, setChannelKey] = useState<string>(ALL_CHANNELS_KEY);
   const [groupOpen, setGroupOpen] = useState<Partial<Record<RunGroupKey, boolean>>>({});
-  const facets = useMemo(() => channelFacets(cards), [cards]);
+  const facets = useMemo(() => channelFacets(viewCards), [viewCards]);
   const effectiveChannelKey = facets.some((facet) => facet.key === channelKey) ? channelKey : ALL_CHANNELS_KEY;
   const channelFiltered = useMemo(
-    () => cards.filter((card) => cardMatchesChannel(card, effectiveChannelKey)),
-    [cards, effectiveChannelKey],
+    () => viewCards.filter((card) => cardMatchesChannel(card, effectiveChannelKey)),
+    [viewCards, effectiveChannelKey],
   );
   const groups = useMemo(() => groupRunCards(channelFiltered), [channelFiltered]);
   const inFlightEpisodeIds = useMemo(
-    () => cards.filter((card) => isInFlightStatus(card.status)).flatMap((card) => card.episodeId ? [card.episodeId] : []),
-    [cards],
+    () => viewCards.filter((card) => isInFlightStatus(card.status)).flatMap((card) => card.episodeId ? [card.episodeId] : []),
+    [viewCards],
   );
   const latestStageByEpisode = useRenderProgress(inFlightEpisodeIds);
 
-  const showEmpty = !loading && error === null && cards.length === 0;
-  const showList = !loading && error === null && cards.length > 0;
+  const showEmpty = !loading && error === null && viewCards.length === 0;
+  const showList = !loading && error === null && viewCards.length > 0;
 
   return (
     <section className="runs-hub scoped" aria-labelledby="runs-hub-title">
@@ -115,7 +130,7 @@ export function RunsHub({
             Runs
           </h3>
           <p className="dim" style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}>
-            {cards.length} run{cards.length === 1 ? "" : "s"}
+            {viewCards.length} {showArchived ? "archived " : ""}run{viewCards.length === 1 ? "" : "s"}
             {attentionCount > 0 ? ` · ${attentionCount} need${attentionCount === 1 ? "s" : ""} attention` : ""}
           </p>
         </div>
@@ -123,6 +138,21 @@ export function RunsHub({
           Back to Channels
         </button>
       </div>
+
+      {onArchiveJobs && onUnarchiveJobs ? (
+        <JobArchiveControls
+          activeCount={cards.length}
+          archivedCount={archivedCards.length}
+          currentJobs={channelFiltered.flatMap((card) =>
+            card.jobId === undefined ? [] : [{ id: card.jobId, status: card.status }],
+          )}
+          noun="run"
+          showArchived={showArchived}
+          onShowArchivedChange={setShowArchived}
+          onArchive={onArchiveJobs}
+          onUnarchive={onUnarchiveJobs}
+        />
+      ) : null}
 
       <WorkerReliabilityPanel loadReliability={loadReliability} />
 
@@ -168,8 +198,8 @@ export function RunsHub({
 
       {showEmpty ? (
         <div className="glass-panel au-empty">
-          <p className="text-title">No runs yet</p>
-          <p>Runs appear here once the pipeline picks up queued jobs.</p>
+          <p className="text-title">{showArchived ? "No archived runs" : "No runs yet"}</p>
+          <p>{showArchived ? "Archived runs will appear here." : "Runs appear here once the pipeline picks up queued jobs."}</p>
         </div>
       ) : null}
 
@@ -215,6 +245,9 @@ export function RunsHub({
                         latestStage={card.episodeId ? latestStageByEpisode[card.episodeId] : undefined}
                         loadDiagnostics={loadDiagnostics}
                         onReviewApprovals={onReviewApprovals}
+                        showArchived={showArchived}
+                        onArchiveJobs={onArchiveJobs}
+                        onUnarchiveJobs={onUnarchiveJobs}
                       />
                     ))}
                   </div>
@@ -369,11 +402,17 @@ function RunCard({
   latestStage,
   loadDiagnostics,
   onReviewApprovals,
+  showArchived,
+  onArchiveJobs,
+  onUnarchiveJobs,
 }: {
   card: RunCardVM;
   latestStage?: string;
   loadDiagnostics: RunsHubProps["loadDiagnostics"];
   onReviewApprovals: RunsHubProps["onReviewApprovals"];
+  showArchived: boolean;
+  onArchiveJobs: RunsHubProps["onArchiveJobs"];
+  onUnarchiveJobs: RunsHubProps["onUnarchiveJobs"];
 }) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<DiagnosticsState>({ loading: false, error: null, receipts: null });
@@ -466,6 +505,15 @@ function RunCard({
         <button type="button" className="btn ghost compact" onClick={onReviewApprovals}>
           Review approvals →
         </button>
+      ) : null}
+
+      {card.jobId !== undefined && onArchiveJobs && onUnarchiveJobs ? (
+        <JobArchiveRowButton
+          job={{ id: card.jobId, status: card.status }}
+          showArchived={showArchived}
+          onArchive={onArchiveJobs}
+          onUnarchive={onUnarchiveJobs}
+        />
       ) : null}
 
       {card.error ? (

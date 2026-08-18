@@ -38,6 +38,56 @@ export function isInFlightStatus(status: JobStatus): boolean {
   return status === "queued" || status === "running";
 }
 
+export type JobArchiveMutationResult = {
+  ok: boolean;
+  affected: number;
+  skipped: number;
+  error: string | null;
+};
+
+export function canArchiveJob(
+  job: Pick<QueueJob, "status">,
+): boolean {
+  return !isInFlightStatus(classifyJobStatus(job.status));
+}
+
+export function partitionArchivableJobs<T extends Pick<QueueJob, "id" | "status">>(
+  jobs: readonly T[],
+): { archivable: T[]; skipped: T[] } {
+  const seen = new Set<number>();
+  const archivable: T[] = [];
+  const skipped: T[] = [];
+
+  for (const job of jobs) {
+    if (seen.has(job.id)) continue;
+    seen.add(job.id);
+    (canArchiveJob(job) ? archivable : skipped).push(job);
+  }
+
+  return { archivable, skipped };
+}
+
+/**
+ * Approval is the enqueue. Parent archiving is a follow-up view preference: it
+ * runs only after the enqueue succeeds, and its failure is returned separately
+ * so callers never treat it as a failed or rolled-back approval.
+ */
+export async function reenqueueApprovalThenArchiveParent<TError>(
+  reenqueue: () => Promise<{ error: TError | null }>,
+  archiveParent: () => Promise<JobArchiveMutationResult>,
+): Promise<{
+  reenqueueError: TError | null;
+  archiveResult: JobArchiveMutationResult | null;
+}> {
+  const { error } = await reenqueue();
+  if (error) return { reenqueueError: error, archiveResult: null };
+
+  return {
+    reenqueueError: null,
+    archiveResult: await archiveParent(),
+  };
+}
+
 /**
  * Classifies an arbitrary status string. Unknown values are intentionally mapped
  * to queued so new worker states render as in-flight-ish until the contract is
