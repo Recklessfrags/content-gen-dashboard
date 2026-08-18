@@ -45,6 +45,8 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("ActionCenter triage", () => {
@@ -145,6 +147,24 @@ describe("ActionCenter triage", () => {
     await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
     // The old screen mounted this on every card, including stages with no render.
     expect(screen.queryByText(/watch render/i)).not.toBeInTheDocument();
+  });
+
+  it("states a missing render inside an opened publish approval", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    const user = userEvent.setup();
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 41, episode_id: "approval-card-missing" })]}
+        parkById={{ 41: park("publish") }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
+
+    expect(await screen.findByText("No render is available for this episode.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /watch render/i })).not.toBeInTheDocument();
   });
 
   it("keeps a still-classifying row out of the group that says to go investigate", () => {

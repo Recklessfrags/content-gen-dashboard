@@ -249,7 +249,7 @@ export function ActionCenter({
                       <p className="dim">{parkLine(job, park)}</p>
                       <ParkContext job={job} park={park} loadDiagnostics={loadDiagnostics} />
                       {job.episode_id && groupShowsRender(group.key) ? (
-                        <RenderPlayer episodeId={job.episode_id} />
+                        <RenderPlayer episodeId={job.episode_id} variant="approval" />
                       ) : null}
 
                       <div className="approval-actions">
@@ -318,7 +318,7 @@ export function ActionCenter({
                     </div>
                     <p className="dim">{parkLine(job, park)}</p>
                     <ParkContext job={job} park={park} loadDiagnostics={loadDiagnostics} />
-                    {job.episode_id ? <RenderPlayer episodeId={job.episode_id} /> : null}
+                    {job.episode_id ? <RenderPlayer episodeId={job.episode_id} variant="approval" /> : null}
                     {onArchiveJobs && onUnarchiveJobs ? (
                       <div className="approval-actions">
                         <JobArchiveRowButton

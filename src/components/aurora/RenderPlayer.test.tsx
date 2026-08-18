@@ -45,6 +45,16 @@ describe("RenderPlayer", () => {
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
+  it("states that an approval render is missing after the probe finishes", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+
+    const { container } = render(<RenderPlayer episodeId="approval-missing" variant="approval" />);
+
+    expect(container).toBeEmptyDOMElement();
+    expect(await screen.findByText("No render is available for this episode.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /watch render/i })).not.toBeInTheDocument();
+  });
+
   it("shows the watch button after the probe confirms the render exists", async () => {
     let finishHead: ((response: { ok: boolean }) => void) | undefined;
     const head = vi.fn().mockImplementation(
@@ -69,10 +79,27 @@ describe("RenderPlayer", () => {
     expect(await screen.findByRole("button", { name: /watch render/i })).toBeVisible();
   });
 
-  it("keeps an unknown render available and reports a genuine playback failure", async () => {
+  it.each(["run", "approval"] as const)(
+    "keeps an unknown render reachable in the %s variant and explains the uncertainty",
+    async (variant) => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
+
+      render(<RenderPlayer episodeId={`player-unknown-${variant}`} variant={variant} />);
+
+      expect(
+        await screen.findByText(
+          "Render availability could not be confirmed. You can still try to watch it.",
+        ),
+      ).toBeVisible();
+      expect(screen.getByRole("button", { name: /watch render/i })).toBeVisible();
+      expect(document.querySelector("video")).toBeNull();
+    },
+  );
+
+  it("reports a genuine playback failure through the player's onError backstop", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
 
-    render(<RenderPlayer episodeId="player-unknown" />);
+    render(<RenderPlayer episodeId="player-playback-failure" />);
 
     fireEvent.click(await screen.findByRole("button", { name: /watch render/i }));
     const video = document.querySelector("video");

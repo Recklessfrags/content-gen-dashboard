@@ -404,7 +404,7 @@ function stepStateLabel(state: StepState): string {
   if (state === "parked") return "waiting on you";
   if (state === "running") return "running";
   if (state === "failed") return "failed";
-  if (state === "skipped") return "skipped";
+  if (state === "skipped") return "not recorded";
   return "not reached";
 }
 

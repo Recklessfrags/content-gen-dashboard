@@ -94,7 +94,7 @@ describe("RunsHub step track", () => {
     expect(within(track).queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: "Checking the facts: passed, 3 attempts" })).toHaveTextContent("3");
     expect(screen.getByRole("listitem", { name: "Writing the script: waiting on you" })).toHaveClass("is-parked");
-    expect(screen.getByRole("listitem", { name: "Lexicon: not reached" })).toHaveClass("is-pending");
+    expect(screen.getByRole("listitem", { name: "Checking channel language: not reached" })).toHaveClass("is-pending");
   });
 
   it("announces each non-interactive node from visually hidden text", () => {
@@ -108,7 +108,7 @@ describe("RunsHub step track", () => {
     expect(node).not.toHaveAttribute("tabindex");
   });
 
-  it("marks a receipt gap before editor as skipped without claiming later stages were reached", () => {
+  it("marks a receipt gap before editor as not recorded without claiming later stages were reached", () => {
     const job47: RunCardVM = {
       ...card(47, "running"),
       attemptsByStage: {
@@ -123,11 +123,11 @@ describe("RunsHub step track", () => {
     };
     render(<RunsHub {...baseProps} cards={[job47]} />);
 
-    const skipped = screen.getByRole("listitem", { name: "Lexicon: skipped" });
+    const skipped = screen.getByRole("listitem", { name: "Checking channel language: not recorded" });
     expect(skipped).toHaveClass("is-skipped");
     expect(skipped).toHaveTextContent("—");
     expect(screen.getByRole("listitem", { name: "Assembling the video: not reached" })).toHaveClass("is-pending");
-    expect(screen.getByRole("listitem", { name: "Virality: not reached" })).toHaveClass("is-pending");
+    expect(screen.getByRole("listitem", { name: "Checking audience appeal: not reached" })).toHaveClass("is-pending");
     expect(screen.getByRole("listitem", { name: "Publishing: not reached" })).toHaveClass("is-pending");
   });
 
@@ -140,7 +140,7 @@ describe("RunsHub step track", () => {
 
     expect(screen.getByRole("listitem", { name: "Publishing: not reached" })).toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: "Researching the topic: passed" })).toBeInTheDocument();
-    expect(screen.getByRole("listitem", { name: "Checking the facts: skipped" })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: "Checking the facts: not recorded" })).toBeInTheDocument();
     expect(screen.getByRole("listitem", { name: "Writing the script: passed" })).toBeInTheDocument();
   });
 

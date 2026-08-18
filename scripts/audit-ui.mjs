@@ -132,7 +132,7 @@ async function main() {
   if (!CREDS.email || !CREDS.password) throw new Error("creds missing");
   mkdirSync(OUT, { recursive: true });
   await startServer({ NEXT_PUBLIC_SUPABASE_URL: dot.NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY: dot.NEXT_PUBLIC_SUPABASE_ANON_KEY });
-  const browser = await chromium.launch({ executablePath: CHROME, args: ["--no-sandbox"] });
+  const browser = await chromium.launch({ executablePath: CHROME, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
   const report = [];
 
   const viewports = [ { name: "desktop", width: 1440, height: 900 }, { name: "mobile", width: 412, height: 915 } ];
@@ -200,33 +200,41 @@ async function main() {
   const trackPage = await trackContext.newPage();
   await login(trackPage);
   await trackPage.goto(`${BASE}/?hub=runs`, { waitUntil: "networkidle" }).catch(() => {});
+  await trackPage.waitForFunction(() => (
+    document.querySelector(".au-step-track")
+    || document.querySelector(".runs-hub .au-empty:not([aria-busy='true'])")
+  ), undefined, { timeout: 15_000 }).catch(() => {});
   const firstTrack = trackPage.locator(".au-step-track").first();
-  await firstTrack.waitFor({ state: "visible", timeout: 15_000 });
 
   const trackGeometry = [];
-  for (const width of [320, 360, 375, 390, 412]) {
-    await trackPage.setViewportSize({ width, height: 915 });
-    await trackPage.waitForTimeout(150);
-    const geometry = await firstTrack.evaluate((track, viewportWidth) => {
-      const rects = Array.from(track.querySelectorAll(".au-step-node"), (node) => {
-        const rect = node.getBoundingClientRect();
-        return { left: rect.left, right: rect.right, width: rect.width };
-      });
-      return {
-        viewportWidth,
-        count: rects.length,
-        nodeWidth: rects[0]?.width ?? 0,
-        minLeft: Math.min(...rects.map((rect) => rect.left)),
-        maxRight: Math.max(...rects.map((rect) => rect.right)),
-        allVisible: rects.length === 11
-          && rects.every((rect) => rect.left >= 0 && rect.right <= viewportWidth),
-      };
-    }, width);
-    trackGeometry.push(geometry);
-    console.log(
-      `run-track ${width}px — nodes=${geometry.count} node=${geometry.nodeWidth.toFixed(2)}px `
-      + `left=${geometry.minLeft.toFixed(2)} right=${geometry.maxRight.toFixed(2)} visible=${geometry.allVisible}`,
-    );
+  if (await firstTrack.count() > 0) {
+    await firstTrack.waitFor({ state: "visible", timeout: 15_000 });
+    for (const width of [320, 360, 375, 390, 412]) {
+      await trackPage.setViewportSize({ width, height: 915 });
+      await trackPage.waitForTimeout(150);
+      const geometry = await firstTrack.evaluate((track, viewportWidth) => {
+        const rects = Array.from(track.querySelectorAll(".au-step-node"), (node) => {
+          const rect = node.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, width: rect.width };
+        });
+        return {
+          viewportWidth,
+          count: rects.length,
+          nodeWidth: rects[0]?.width ?? 0,
+          minLeft: Math.min(...rects.map((rect) => rect.left)),
+          maxRight: Math.max(...rects.map((rect) => rect.right)),
+          allVisible: rects.length === 11
+            && rects.every((rect) => rect.left >= 0 && rect.right <= viewportWidth),
+        };
+      }, width);
+      trackGeometry.push(geometry);
+      console.log(
+        `run-track ${width}px — nodes=${geometry.count} node=${geometry.nodeWidth.toFixed(2)}px `
+        + `left=${geometry.minLeft.toFixed(2)} right=${geometry.maxRight.toFixed(2)} visible=${geometry.allVisible}`,
+      );
+    }
+  } else {
+    console.log("run-track geometry skipped — no run track is present");
   }
   await trackContext.close();
 

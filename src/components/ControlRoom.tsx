@@ -9,7 +9,7 @@ import {
   isDraftCharacterId,
   useCharacters,
 } from "@/lib/hooks/useCharacters";
-import { useCostReceipts } from "@/lib/hooks/useCostReceipts";
+import { useAllCostReceipts, useCostReceipts } from "@/lib/hooks/useCostReceipts";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useEpisodes } from "@/lib/hooks/useEpisodes";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
@@ -434,13 +434,23 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     archiveJobs,
     unarchiveJobs,
   } = useJobs(supabase);
+  const runReceiptEpisodeIds = useMemo(
+    () => [...jobs, ...archivedJobs].flatMap((job) => job.episode_id ? [job.episode_id] : []),
+    [archivedJobs, jobs],
+  );
+  const {
+    costReceipts: runCostReceipts,
+    loading: runCostReceiptsLoading,
+    error: runCostReceiptsError,
+    refetch: fetchRunCostReceipts,
+  } = useCostReceipts(supabase, runReceiptEpisodeIds);
   const {
     costReceipts,
     loading: costReceiptsLoading,
     error: costReceiptsError,
     loaded: costReceiptsLoaded,
     refetch: fetchCostReceipts,
-  } = useCostReceipts(supabase);
+  } = useAllCostReceipts(supabase);
   const {
     profiles: channelProfiles,
     loading: channelProfilesLoading,
@@ -1797,7 +1807,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   }, [supabase]);
   const runAttemptsByEpisode = useMemo(() => {
     const attempts = new Map<string, Partial<Record<RunStage, number>>>();
-    for (const receipt of costReceipts) {
+    for (const receipt of runCostReceipts) {
       const stage = receipt.stage.trim().toLowerCase();
       if (!isRunStage(stage)) continue;
       const episodeAttempts = attempts.get(receipt.episode_id) ?? {};
@@ -1805,7 +1815,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       attempts.set(receipt.episode_id, episodeAttempts);
     }
     return attempts;
-  }, [costReceipts]);
+  }, [runCostReceipts]);
   const mapJobsToRunCards = useCallback(
     (sourceJobs: QueueJob[]): RunCardVM[] =>
       sourceJobs.map((job) => {
@@ -1844,10 +1854,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     () => ({
       cards: runsHubCards,
       archivedCards: archivedRunsHubCards,
-      loading: jobsLoading,
-      error: jobsError,
+      loading: jobsLoading || runCostReceiptsLoading,
+      error: jobsError ?? runCostReceiptsError,
       onRetry: () => {
         void fetchJobs();
+        void fetchRunCostReceipts();
       },
       onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
       loadReliability: loadWorkerReliability,
@@ -1856,6 +1867,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }),
     [
       fetchJobs,
+      fetchRunCostReceipts,
       archivedRunsHubCards,
       handleArchiveJobs,
       handleUnarchiveJobs,
@@ -1863,6 +1875,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       jobsLoading,
       loadWorkerReliability,
       navigate,
+      runCostReceiptsError,
+      runCostReceiptsLoading,
       runsHubCards,
     ],
   );

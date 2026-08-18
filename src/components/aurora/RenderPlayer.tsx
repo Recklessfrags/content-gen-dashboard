@@ -12,7 +12,12 @@ type ConfirmedAvailability = {
   videoUrl: string;
 };
 
-export function RenderPlayer({ episodeId }: { episodeId: string }) {
+type RenderPlayerProps = {
+  episodeId: string;
+  variant?: "run" | "approval";
+};
+
+export function RenderPlayer({ episodeId, variant = "run" }: RenderPlayerProps) {
   const [open, setOpen] = useState(false);
   const [playbackFailed, setPlaybackFailed] = useState(false);
   const [confirmedAvailability, setConfirmedAvailability] =
@@ -35,16 +40,23 @@ export function RenderPlayer({ episodeId }: { episodeId: string }) {
     };
   }, [episodeId, videoUrl]);
 
-  if (
-    !videoUrl ||
-    confirmedAvailability?.videoUrl !== videoUrl ||
-    confirmedAvailability.result === "missing"
-  ) {
+  if (!videoUrl || confirmedAvailability?.videoUrl !== videoUrl) {
     return null;
+  }
+
+  if (confirmedAvailability.result === "missing") {
+    return variant === "approval"
+      ? <p className="render-player__status dim">No render is available for this episode.</p>
+      : null;
   }
 
   return (
     <div className="render-player">
+      {confirmedAvailability.result === "unknown" ? (
+        <p className="render-player__status dim">
+          Render availability could not be confirmed. You can still try to watch it.
+        </p>
+      ) : null}
       <button
         type="button"
         className="render-player__toggle"
