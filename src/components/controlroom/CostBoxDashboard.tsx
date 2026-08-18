@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { budgetStatus, getBudgetTarget, setBudgetTarget } from "@/lib/budget";
 import { stageLabel } from "@/lib/plainLanguage";
+import type { QueueJob } from "@/lib/jobs";
 import type { Episode } from "@/lib/types";
 import { formatUsd, Icon, type CostStats } from "./shared";
+import { SpendEfficiencyReadout } from "./SpendEfficiencyReadout";
 
 function CostSkeleton() {
   return (
@@ -60,18 +62,54 @@ function CostSkeleton() {
   );
 }
 
+function CostViewFrame({
+  status,
+  jobs,
+  jobsLoading,
+  jobsError,
+  children,
+}: {
+  status: string;
+  jobs: readonly QueueJob[];
+  jobsLoading: boolean;
+  jobsError: string | null;
+  children: ReactNode;
+}) {
+  return (
+    <div className="cost" role="region" aria-label="Spend governance workspace">
+      <div className="col-head">
+        <h2>Cost</h2>
+        <span className="count">{status}</span>
+      </div>
+      <div className="cap">
+        <span className="eyebrow">Running spend, highest recorded per episode.</span>
+      </div>
+      <div className="cost-content">
+        <SpendEfficiencyReadout jobs={jobs} loading={jobsLoading} error={jobsError} />
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function CostBoxDashboard({
   episodes,
+  jobs,
   costStats,
   loading,
+  jobsLoading,
   error,
+  jobsError,
   receiptsLoaded,
   onRetry,
 }: {
   episodes: Episode[];
+  jobs: readonly QueueJob[];
   costStats: CostStats;
   loading: boolean;
+  jobsLoading: boolean;
   error: string | null;
+  jobsError: string | null;
   receiptsLoaded: boolean;
   onRetry: () => void;
 }) {
@@ -134,92 +172,81 @@ export function CostBoxDashboard({
 
   if (loading) {
     return (
-      <div className="cost" role="region" aria-label="Spend governance workspace">
-        <div className="col-head">
-          <h2>Cost</h2>
-          <span className="count">loading run details</span>
-        </div>
-        <div className="cost-content">
-          <CostSkeleton />
-        </div>
-      </div>
+      <CostViewFrame
+        status="loading run details"
+        jobs={jobs}
+        jobsLoading={jobsLoading}
+        jobsError={jobsError}
+      >
+        <CostSkeleton />
+      </CostViewFrame>
     );
   }
 
   if (error) {
     return (
-      <div className="cost" role="region" aria-label="Spend governance workspace">
-        <div className="col-head">
-          <h2>Cost</h2>
-          <span className="count">run details unavailable</span>
+      <CostViewFrame
+        status="run details unavailable"
+        jobs={jobs}
+        jobsLoading={jobsLoading}
+        jobsError={jobsError}
+      >
+        <div className="cost-state">
+          <h3>Spend data unavailable</h3>
+          <p>Couldn&apos;t load spend data. Check your connection and retry.</p>
+          <details className="error-details">
+            <summary>Details</summary>
+            {error}
+          </details>
+          <button className="btn" type="button" onClick={onRetry}>
+            Retry
+          </button>
         </div>
-        <div className="cost-content">
-          <div className="cost-state">
-            <h3>Spend data unavailable</h3>
-            <p>Couldn&apos;t load spend data. Check your connection and retry.</p>
-            {error ? (
-              <details className="error-details">
-                <summary>Details</summary>
-                {error}
-              </details>
-            ) : null}
-            <button className="btn" type="button" onClick={onRetry}>
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
+      </CostViewFrame>
     );
   }
 
   if (episodes.length === 0) {
     return (
-      <div className="cost" role="region" aria-label="Spend governance workspace">
-        <div className="col-head">
-          <h2>Cost</h2>
-          <span className="count">no episodes</span>
+      <CostViewFrame
+        status="no episodes"
+        jobs={jobs}
+        jobsLoading={jobsLoading}
+        jobsError={jobsError}
+      >
+        <div className="cost-state">
+          <Icon name="cost" />
+          <h3>No Episodes Yet</h3>
+          <p>Pipeline episodes need to exist before receipt spend can be audited here.</p>
         </div>
-        <div className="cost-content">
-          <div className="cost-state">
-            <Icon name="cost" />
-            <h3>No Episodes Yet</h3>
-            <p>Pipeline episodes need to exist before spend can be audited here.</p>
-          </div>
-        </div>
-      </div>
+      </CostViewFrame>
     );
   }
 
   if (receiptsLoaded && costStats.providerSplit.length === 0) {
     return (
-      <div className="cost" role="region" aria-label="Spend governance workspace">
-        <div className="col-head">
-          <h2>Cost</h2>
-          <span className="count">no run details</span>
+      <CostViewFrame
+        status="no run details"
+        jobs={jobs}
+        jobsLoading={jobsLoading}
+        jobsError={jobsError}
+      >
+        <div className="cost-state">
+          <Icon name="cost" />
+          <h3>No Run Details Logged</h3>
+          <p>Episodes are present, but the pipeline has not reported receipt spend yet.</p>
         </div>
-        <div className="cost-content">
-          <div className="cost-state">
-            <Icon name="cost" />
-            <h3>No Run Details Logged</h3>
-            <p>Episodes are present, but the pipeline has not reported spend details yet.</p>
-          </div>
-        </div>
-      </div>
+      </CostViewFrame>
     );
   }
 
   return (
-    <div className="cost" role="region" aria-label="Spend governance workspace">
-      <div className="col-head">
-        <h2>Cost</h2>
-        <span className="count">read-only spend governance</span>
-      </div>
-
-      <div className="cap">
-        <span className="eyebrow">Running spend, highest recorded per episode.</span>
-      </div>
-
-      <div className="cost-content">
+    <CostViewFrame
+      status="read-only spend governance"
+      jobs={jobs}
+      jobsLoading={jobsLoading}
+      jobsError={jobsError}
+    >
         <div className="cost-disclosure" role="note">
           <span className="disclosure-mark" aria-hidden="true">!</span>
           <div>
@@ -405,7 +432,6 @@ export function CostBoxDashboard({
             </div>
           </section>
         </div>
-      </div>
-    </div>
+    </CostViewFrame>
   );
 }

@@ -2406,9 +2406,12 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
             />
             <CostBoxDashboard
               episodes={episodes}
+              jobs={[...jobs, ...archivedJobs]}
               costStats={costStats}
               loading={costReceiptsLoading}
+              jobsLoading={jobsLoading}
               error={costReceiptsError}
+              jobsError={jobsError}
               receiptsLoaded={costReceiptsLoaded}
               onRetry={() => void fetchCostReceipts()}
             />

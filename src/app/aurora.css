@@ -2527,6 +2527,235 @@
 .aurora-app .cost-center.scoped .cost { background: transparent; }
 .aurora-app .cost-center.scoped .cost-content { padding: 0; overflow: visible; }
 
+/* Spend efficiency: job-level lineage ratios that per-attempt caps cannot show. */
+.aurora-app .cost-center.scoped .spend-efficiency {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+.aurora-app .cost-center.scoped .spend-efficiency__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__head h3,
+.aurora-app .cost-center.scoped .repeat-lineages__head h4,
+.aurora-app .cost-center.scoped .repeat-lineage h5 {
+  margin: 0;
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__head h3 {
+  margin-top: 0.25rem;
+  font-size: 1.5rem;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__head p {
+  margin: 0.35rem 0 0;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(9rem, 1fr)) minmax(13rem, auto);
+  gap: 0.75rem;
+  align-items: end;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__controls select,
+.aurora-app .cost-center.scoped .spend-efficiency__controls input[type="number"] {
+  min-height: 2.5rem;
+  padding: 0.55rem 0.65rem;
+  color: var(--text-main);
+  background: var(--surface-0);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__controls select:hover,
+.aurora-app .cost-center.scoped .spend-efficiency__controls input[type="number"]:hover {
+  border-color: var(--border-strong);
+}
+.aurora-app .cost-center.scoped .spend-efficiency__controls select:focus-visible,
+.aurora-app .cost-center.scoped .spend-efficiency__controls input:focus-visible {
+  border-color: var(--border-glow);
+  outline: 2px solid var(--border-glow);
+  outline-offset: 2px;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__threshold {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__threshold input[type="number"] {
+  width: 4rem;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__controls .spend-efficiency__toggle {
+  min-height: 2.5rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  color: var(--text-main);
+  background: var(--surface-0);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__toggle:hover {
+  border-color: var(--border-strong);
+}
+.aurora-app .cost-center.scoped .spend-efficiency__toggle input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+.aurora-app .cost-center.scoped .spend-efficiency__definition {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  color: var(--text-dim);
+  background: var(--surface-0);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__definition strong,
+.aurora-app .cost-center.scoped .spend-efficiency__definition code {
+  color: var(--text-main);
+}
+.aurora-app .cost-center.scoped .spend-efficiency__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 1rem;
+  background: var(--surface-0);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+}
+.aurora-app .cost-center.scoped .spend-efficiency__metric.is-headline {
+  border-top: 3px solid var(--accent);
+}
+.aurora-app .cost-center.scoped .spend-efficiency__metric > span,
+.aurora-app .cost-center.scoped .spend-efficiency__metric small {
+  color: var(--text-muted);
+}
+.aurora-app .cost-center.scoped .spend-efficiency__metric strong {
+  color: var(--text-main);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  line-height: 1;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__metric small {
+  line-height: 1.4;
+}
+.aurora-app .cost-center.scoped .spend-efficiency__scope,
+.aurora-app .cost-center.scoped .spend-efficiency__state,
+.aurora-app .cost-center.scoped .repeat-lineages__empty {
+  margin: 0;
+  color: var(--text-dim);
+}
+.aurora-app .cost-center.scoped .spend-efficiency__state,
+.aurora-app .cost-center.scoped .repeat-lineages__empty {
+  padding: 1rem;
+  text-align: center;
+  background: var(--surface-0);
+  border: 1px dashed var(--border-soft);
+  border-radius: var(--radius-sm);
+}
+.aurora-app .cost-center.scoped .repeat-lineages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.aurora-app .cost-center.scoped .repeat-lineages__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.aurora-app .cost-center.scoped .repeat-lineages__head span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.aurora-app .cost-center.scoped .repeat-lineages__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.aurora-app .cost-center.scoped .repeat-lineage {
+  min-width: 0;
+  padding: 0.9rem;
+  background: var(--surface-0);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+}
+.aurora-app .cost-center.scoped .repeat-lineage h5 {
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+.aurora-app .cost-center.scoped .repeat-lineage dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  margin: 0.8rem 0 0;
+}
+.aurora-app .cost-center.scoped .repeat-lineage dl > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.aurora-app .cost-center.scoped .repeat-lineage dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+.aurora-app .cost-center.scoped .repeat-lineage dd {
+  margin: 0;
+  color: var(--text-main);
+  font-weight: 650;
+}
+
+@media (max-width: 960px) {
+  .aurora-app .cost-center.scoped .spend-efficiency__controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .aurora-app .cost-center.scoped .spend-efficiency { padding: 1rem; }
+  .aurora-app .cost-center.scoped .spend-efficiency__head,
+  .aurora-app .cost-center.scoped .repeat-lineages__head {
+    flex-direction: column;
+  }
+  .aurora-app .cost-center.scoped .spend-efficiency__controls,
+  .aurora-app .cost-center.scoped .spend-efficiency__metrics,
+  .aurora-app .cost-center.scoped .repeat-lineages__list {
+    grid-template-columns: 1fr;
+  }
+  .aurora-app .cost-center.scoped .repeat-lineage dl {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* shared metric / text mappings */
 .aurora-app .cost-center.scoped .eyebrow,
 .aurora-app .cost-center.scoped .metric-eyebrow,
