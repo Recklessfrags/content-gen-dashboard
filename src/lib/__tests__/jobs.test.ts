@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFactApprovalReenqueue,
+  approvalParentArchiveWarning,
   buildJobInsert,
   buildPublishApprovalReenqueue,
   buildSpendApprovalReenqueue,
+  canArchiveJob,
   reenqueueApprovalThenArchiveParent,
   classifyJobStatus,
   detectParkKind,
@@ -478,9 +480,25 @@ describe("job status helpers", () => {
     expect(isInFlightStatus("running")).toBe(true);
     expect(isInFlightStatus("done")).toBe(false);
   });
+
+  it("archives unknown terminal statuses while refusing only raw queued and running", () => {
+    expect(canArchiveJob({ status: "queued" })).toBe(false);
+    expect(canArchiveJob({ status: "running" })).toBe(false);
+    expect(canArchiveJob({ status: "abandoned" })).toBe(true);
+    expect(canArchiveJob({ status: "future_terminal" })).toBe(true);
+  });
 });
 
 describe("approval parent archiving", () => {
+  it("warns when a successful single-parent archive affects no rows", () => {
+    expect(
+      approvalParentArchiveWarning({ ok: true, affected: 0, skipped: 0, error: null }),
+    ).toBe("archive write affected no rows");
+    expect(
+      approvalParentArchiveWarning({ ok: true, affected: 1, skipped: 0, error: null }),
+    ).toBeNull();
+  });
+
   it("archives only after the approval re-enqueue succeeds", async () => {
     const calls: string[] = [];
     const result = await reenqueueApprovalThenArchiveParent(

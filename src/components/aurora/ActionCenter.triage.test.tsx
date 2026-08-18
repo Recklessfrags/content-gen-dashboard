@@ -104,13 +104,15 @@ describe("ActionCenter triage", () => {
     );
 
     const summary = screen.getByRole("button", { expanded: false });
-    // The per-card paragraph and the action are not in the collapsed row.
-    expect(screen.queryByText(/waiting to avoid unexpected cost/i)).not.toBeVisible();
+    // The money action is absent from the DOM, not merely hidden by an attribute
+    // that author CSS can override in a real browser.
+    expect(screen.queryByRole("button", { name: /approve spend & continue/i })).toBeNull();
 
     await user.click(summary);
 
     expect(screen.getByRole("button", { expanded: true })).toBeInTheDocument();
     expect(screen.getByText(/waiting to avoid unexpected cost/i)).toBeVisible();
+    expect(screen.getByRole("button", { name: /approve spend & continue/i })).toBeInTheDocument();
   });
 
   it("opens only one row at a time", async () => {
@@ -181,6 +183,23 @@ describe("ActionCenter triage", () => {
     const needsALook = screen.getByRole("list", { name: "NEEDS A LOOK" });
     expect(screen.getByText(/\/\/ NEEDS A LOOK \(1\)/)).toBeInTheDocument();
     expect(within(needsALook).getByText("New park kind approval")).toBeInTheDocument();
+  });
+
+  it("offers only the run log for a NEEDS A LOOK row", async () => {
+    const user = userEvent.setup();
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 1, food: "Unclassified approval" })]}
+        parkById={{ 1: park("unknown") }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Unclassified approval/ }));
+
+    expect(screen.getByRole("button", { name: /Open run log/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Approve spend & continue/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Approve facts & continue/i })).toBeNull();
   });
 
   it("moves a classification into NEEDS A LOOK when its timeout elapses", () => {

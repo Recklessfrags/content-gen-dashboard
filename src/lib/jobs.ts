@@ -34,7 +34,7 @@ export function isTerminalStatus(status: JobStatus): boolean {
   return status === "done" || status === "no_op" || status === "error";
 }
 
-export function isInFlightStatus(status: JobStatus): boolean {
+export function isInFlightStatus(status: string | null | undefined): boolean {
   return status === "queued" || status === "running";
 }
 
@@ -48,7 +48,7 @@ export type JobArchiveMutationResult = {
 export function canArchiveJob(
   job: Pick<QueueJob, "status">,
 ): boolean {
-  return !isInFlightStatus(classifyJobStatus(job.status));
+  return !isInFlightStatus(job.status);
 }
 
 export function partitionArchivableJobs<T extends Pick<QueueJob, "id" | "status">>(
@@ -86,6 +86,15 @@ export async function reenqueueApprovalThenArchiveParent<TError>(
     reenqueueError: null,
     archiveResult: await archiveParent(),
   };
+}
+
+export function approvalParentArchiveWarning(
+  result: JobArchiveMutationResult | null,
+): string | null {
+  if (result === null) return null;
+  if (!result.ok) return result.error ?? "archive write failed";
+  if (result.affected === 0) return "archive write affected no rows";
+  return null;
 }
 
 /**

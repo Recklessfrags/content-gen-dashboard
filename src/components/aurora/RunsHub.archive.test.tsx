@@ -54,7 +54,29 @@ describe("RunsHub archive controls", () => {
     }
   });
 
-  it("bulk archive passes only archivable jobs and reports live skips", async () => {
+  it("offers archive for a terminal status unknown to the dashboard", async () => {
+    const user = userEvent.setup();
+    const abandoned = card(135, "queued", "alpha");
+    abandoned.rawStatus = "abandoned";
+    abandoned.statusLabel = "abandoned";
+
+    render(
+      <RunsHub
+        {...baseProps}
+        cards={[abandoned]}
+        onArchiveJobs={vi.fn()}
+        onUnarchiveJobs={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("In progress")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Done · 1/ }));
+    const row = screen.getByText("Run 135").closest("article");
+    expect(within(row as HTMLElement).getByRole("button", { name: "Archive" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Archive 1 run" })).toBeInTheDocument();
+  });
+
+  it("default bulk archive excludes approvals and names the skipped status", async () => {
     const user = userEvent.setup();
     const onArchiveJobs = vi.fn().mockResolvedValue({
       ok: true,
@@ -70,20 +92,21 @@ describe("RunsHub archive controls", () => {
           card(2, "error", "alpha"),
           card(3, "running", "alpha"),
           card(4, "done", "beta"),
+          card(5, "ready_for_review", "beta"),
         ]}
         onArchiveJobs={onArchiveJobs}
         onUnarchiveJobs={vi.fn()}
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "alpha (3)" }));
-    await user.click(screen.getByRole("button", { name: "Archive 2 runs" }));
+    await user.click(screen.getByRole("button", { name: "Archive 3 runs" }));
 
-    expect(screen.getByText(/Hide 2 runs/)).toBeInTheDocument();
-    expect(screen.getByText(/1 live run will be skipped/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Archive 2" }));
+    expect(screen.getByText(/Hide 3 runs/)).toBeInTheDocument();
+    expect(screen.getByText(/1 run with status “running” will be skipped/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Archive 3" }));
 
-    expect(onArchiveJobs).toHaveBeenCalledWith([1, 2]);
+    expect(onArchiveJobs).toHaveBeenCalledWith([1, 2, 4]);
+    expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([5]));
   });
 
   it("shows an archive write failure instead of claiming success", async () => {

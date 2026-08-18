@@ -178,7 +178,9 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
       });
 
       const rows = targetIds.map((jobId) => ({ job_id: jobId }));
-      const { error: writeError } = await supabase.from("job_archive").insert(rows);
+      const { error: writeError } = await supabase
+        .from("job_archive")
+        .upsert(rows, { onConflict: "job_id,owner", ignoreDuplicates: true });
       // A poll may have read before this write settled but not resolved yet. Invalidate
       // that request before removing the pending overlay so its stale snapshot cannot win.
       requestRef.current += 1;

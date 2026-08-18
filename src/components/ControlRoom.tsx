@@ -22,11 +22,11 @@ import {
   buildPublishApprovalReenqueue,
   buildSpendApprovalReenqueue,
   buildJobInsert,
+  approvalParentArchiveWarning,
   classifyJobStatus,
   detectParkKind,
   isActionableStatus,
   isInFlightStatus,
-  isTerminalStatus,
   jobInputFromRow,
   JOB_STATUS_LABELS,
   publishSourceEpisodeId,
@@ -1320,11 +1320,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         () => archiveJobs([job.id]),
       );
       error = outcome.reenqueueError;
-      if (outcome.archiveResult && !outcome.archiveResult.ok) {
-        archiveWarning = outcome.archiveResult.error ?? "archive write failed";
+      archiveWarning = approvalParentArchiveWarning(outcome.archiveResult);
+      if (archiveWarning) {
         console.error(
           "Approval succeeded but the parent job could not be archived",
-          outcome.archiveResult.error,
+          archiveWarning,
         );
       }
     }
@@ -1576,7 +1576,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           return (
             jobChannel !== "" &&
             jobChannel === comparableChannel(profile.channel) &&
-            !isTerminalStatus(classifyJobStatus(job.status))
+            (isInFlightStatus(job.status) ||
+              isActionableStatus(classifyJobStatus(job.status)))
           );
         }).length,
       })),
@@ -1598,7 +1599,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
   );
   const inFlightRuns = useMemo(
     () => jobs
-      .filter((job) => isInFlightStatus(classifyJobStatus(job.status)))
+      .filter((job) => isInFlightStatus(job.status))
       .map((job) => ({
         id: String(job.id),
         episodeId: job.episode_id ?? null,
@@ -1824,7 +1825,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           title: job.food,
           channel: job.channel ?? null,
           status,
-          statusLabel: JOB_STATUS_LABELS[status],
+          rawStatus: job.status,
+          statusLabel:
+            job.status.trim().toLowerCase() === status
+              ? JOB_STATUS_LABELS[status]
+              : job.status.trim() || "Unknown",
           createdAt: job.created_at,
           spend: typeof job.spend === "number" ? job.spend : null,
           error: job.error ?? null,

@@ -2,6 +2,7 @@ import { isInFlightStatus, type JobStatus } from "@/lib/jobs";
 
 type RunGroupCard = {
   status: JobStatus;
+  rawStatus?: string;
   needsAttention: boolean;
 };
 
@@ -22,7 +23,7 @@ const RUN_GROUPS: ReadonlyArray<Omit<RunGroup, "cards">> = [
 
 export function runGroupKeyFor(card: RunGroupCard): RunGroupKey {
   if (card.needsAttention) return "attention";
-  if (isInFlightStatus(card.status)) return "in_progress";
+  if (isInFlightStatus(card.rawStatus ?? card.status)) return "in_progress";
   return "done";
 }
 

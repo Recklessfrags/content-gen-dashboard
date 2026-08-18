@@ -34,6 +34,7 @@ export type RunCardVM = {
   title: string;
   channel: string | null;
   status: JobStatus;
+  rawStatus?: string;
   statusLabel: string;
   createdAt: string;
   spend: number | null;
@@ -114,7 +115,7 @@ export function RunsHub({
   );
   const groups = useMemo(() => groupRunCards(channelFiltered), [channelFiltered]);
   const inFlightEpisodeIds = useMemo(
-    () => viewCards.filter((card) => isInFlightStatus(card.status)).flatMap((card) => card.episodeId ? [card.episodeId] : []),
+    () => viewCards.filter((card) => isInFlightStatus(card.rawStatus ?? card.status)).flatMap((card) => card.episodeId ? [card.episodeId] : []),
     [viewCards],
   );
   const latestStageByEpisode = useRenderProgress(inFlightEpisodeIds);
@@ -144,7 +145,9 @@ export function RunsHub({
           activeCount={cards.length}
           archivedCount={archivedCards.length}
           currentJobs={channelFiltered.flatMap((card) =>
-            card.jobId === undefined ? [] : [{ id: card.jobId, status: card.status }],
+            card.jobId === undefined || (!showArchived && isActionableStatus(card.status))
+              ? []
+              : [{ id: card.jobId, status: card.rawStatus ?? card.status }],
           )}
           noun="run"
           showArchived={showArchived}
@@ -509,7 +512,7 @@ function RunCard({
 
       {card.jobId !== undefined && onArchiveJobs && onUnarchiveJobs ? (
         <JobArchiveRowButton
-          job={{ id: card.jobId, status: card.status }}
+          job={{ id: card.jobId, status: card.rawStatus ?? card.status }}
           showArchived={showArchived}
           onArchive={onArchiveJobs}
           onUnarchive={onUnarchiveJobs}
@@ -552,7 +555,7 @@ function RunCard({
         </div>
       ) : null}
 
-      {isInFlightStatus(card.status) ? <RenderProgress latestStage={latestStage} /> : null}
+      {isInFlightStatus(card.rawStatus ?? card.status) ? <RenderProgress latestStage={latestStage} /> : null}
 
       {card.episodeId ? <RenderPlayer episodeId={card.episodeId} /> : null}
 

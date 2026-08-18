@@ -28,7 +28,7 @@ function archiveClient({
   const jobsReturns = vi.fn().mockResolvedValue({ data: jobs, error: null });
   const jobsOrder = vi.fn(() => ({ returns: jobsReturns }));
   const archiveReturns = vi.fn().mockResolvedValue({ data: archived, error: null });
-  const insert = vi.fn().mockResolvedValue({ error: insertError });
+  const upsert = vi.fn().mockResolvedValue({ error: insertError });
   const deleteIn = vi.fn().mockResolvedValue({ error: deleteError });
   const deleteRows = vi.fn(() => ({ in: deleteIn }));
   const from = vi.fn((table: string) => {
@@ -37,12 +37,12 @@ function archiveClient({
     }
     return {
       select: vi.fn(() => ({ returns: archiveReturns })),
-      insert,
+      upsert,
       delete: deleteRows,
     };
   });
 
-  return { client: { from }, insert, deleteIn };
+  return { client: { from }, upsert, deleteIn };
 }
 
 describe("useJobs archive preference", () => {
@@ -69,7 +69,7 @@ describe("useJobs archive preference", () => {
     });
 
     expect(mutationResult).toMatchObject({ ok: true, affected: 0, skipped: 2 });
-    expect(query.insert).not.toHaveBeenCalled();
+    expect(query.upsert).not.toHaveBeenCalled();
     expect(result.current.jobs.map((row) => row.id)).toEqual([1, 2]);
   });
 
@@ -114,7 +114,7 @@ describe("useJobs archive preference", () => {
       settleInsert = resolve;
     });
     const query = archiveClient({ jobs: [job(1)] });
-    query.insert.mockReturnValueOnce(pendingInsert);
+    query.upsert.mockReturnValueOnce(pendingInsert);
     const { result } = renderHook(() => useJobs(query.client as never));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
 
@@ -135,5 +135,9 @@ describe("useJobs archive preference", () => {
       settleInsert?.({ error: null });
       await mutation;
     });
+    expect(query.upsert).toHaveBeenCalledWith(
+      [{ job_id: 1 }],
+      { onConflict: "job_id,owner", ignoreDuplicates: true },
+    );
   });
 });

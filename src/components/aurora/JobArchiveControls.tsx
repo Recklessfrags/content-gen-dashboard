@@ -109,6 +109,7 @@ export function JobArchiveBulkControl({
     [currentJobs],
   );
   const affectedCount = showArchived ? currentJobs.length : archivable.length;
+  const skippedStatusCopy = describeSkippedStatuses(skipped);
 
   useEffect(() => {
     setConfirming(false);
@@ -146,7 +147,7 @@ export function JobArchiveBulkControl({
         </button>
         {!showArchived && skipped.length > 0 && affectedCount === 0 ? (
           <span className="dim job-archive-skip-note">
-            {skipped.length} live {pluralize(noun, skipped.length)} cannot be archived.
+            {skipped.length} {pluralize(noun, skipped.length)} with {skippedStatusCopy} cannot be archived.
           </span>
         ) : null}
       </div>
@@ -161,7 +162,7 @@ export function JobArchiveBulkControl({
                 Hide {affectedCount} {pluralize(noun, affectedCount)}? Archiving does not approve,
                 reject, cancel, or resolve them. You can bring them back from Archived.
                 {skipped.length > 0
-                  ? ` ${skipped.length} live ${pluralize(noun, skipped.length)} will be skipped.`
+                  ? ` ${skipped.length} ${pluralize(noun, skipped.length)} with ${skippedStatusCopy} will be skipped.`
                   : ""}
               </>
             )}
@@ -229,4 +230,13 @@ export function JobArchiveRowButton({
 
 function pluralize(noun: string, count: number): string {
   return count === 1 ? noun : `${noun}s`;
+}
+
+function describeSkippedStatuses(
+  jobs: readonly Pick<QueueJob, "status">[],
+): string {
+  const statuses = [...new Set(jobs.map((job) => job.status))];
+  return `${statuses.length === 1 ? "status" : "statuses"} ${statuses
+    .map((status) => `“${status}”`)
+    .join(", ")}`;
 }

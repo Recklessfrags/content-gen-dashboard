@@ -5,6 +5,7 @@ import { groupRunCards, runGroupKeyFor, type RunGroupKey } from "@/lib/runsGroup
 type TestCard = {
   id: string;
   status: JobStatus;
+  rawStatus?: string;
   needsAttention: boolean;
 };
 
@@ -30,6 +31,12 @@ describe("runGroupKeyFor", () => {
 
   it("gives needsAttention precedence over status", () => {
     expect(runGroupKeyFor({ status: "done", needsAttention: true })).toBe("attention");
+  });
+
+  it("does not group an unknown terminal raw status as in progress", () => {
+    expect(
+      runGroupKeyFor({ status: "queued", rawStatus: "abandoned", needsAttention: false }),
+    ).toBe("done");
   });
 
   it.each(["done", "no_op", "ready_for_review", "error", "stale"] satisfies JobStatus[])(

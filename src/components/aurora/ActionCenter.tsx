@@ -241,7 +241,7 @@ export function ActionCenter({
                       </span>
                     </button>
 
-                    <div id={bodyId} hidden={!isOpen} className="au-approval-body">
+                    {isOpen ? <div id={bodyId} className="au-approval-body">
                       <div className="au-action-meta">
                         <span>{statusLabel(job)}</span>
                         <span>{formatCreatedAt(job.created_at)}</span>
@@ -284,7 +284,7 @@ export function ActionCenter({
                           factClaimsError={factClaimsError}
                         />
                       ) : null}
-                    </div>
+                    </div> : null}
                   </article>
                 );
               })}
@@ -375,7 +375,7 @@ function ParkContext({ job, park, loadDiagnostics }: {
         {explanation ? <p>{explanation}</p> : null}
       </div>
       <button type="button" className="au-park-disclosure" aria-expanded={open} aria-controls={bodyId} onClick={toggle} disabled={!job.episode_id || !loadDiagnostics}>
-        {plainLanguage("receipts")} {open ? "▾" : "▸"}
+        {open ? "Close run log" : "Open run log"} {open ? "▾" : "▸"}
       </button>
       {open ? <div id={bodyId} className="au-park-log">
         {state.loading ? <p className="dim" aria-busy="true"><span className="spin" aria-hidden="true" /> Loading run log…</p> : null}
@@ -578,6 +578,10 @@ function PrimaryAction({
   }
 
   if (park?.kind === "reveal") {
+    return null;
+  }
+
+  if (park?.kind !== "spend") {
     return null;
   }
 

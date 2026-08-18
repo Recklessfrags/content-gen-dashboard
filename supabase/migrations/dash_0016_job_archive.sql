@@ -4,7 +4,7 @@
 -- unarchive write only this table. There is deliberately no foreign key to
 -- jobs.id, so future pipeline cleanup cannot be blocked or cascaded here.
 
-create table public.job_archive (
+create table if not exists public.job_archive (
   job_id      bigint      not null,
   owner       uuid        not null default auth.uid(),
   archived_at timestamptz not null default now(),
@@ -13,9 +13,12 @@ create table public.job_archive (
 
 alter table public.job_archive enable row level security;
 
+drop policy if exists job_archive_select on public.job_archive;
 create policy job_archive_select on public.job_archive
   for select to authenticated using (owner = auth.uid());
+drop policy if exists job_archive_insert on public.job_archive;
 create policy job_archive_insert on public.job_archive
   for insert to authenticated with check (owner = auth.uid());
+drop policy if exists job_archive_delete on public.job_archive;
 create policy job_archive_delete on public.job_archive
   for delete to authenticated using (owner = auth.uid());
