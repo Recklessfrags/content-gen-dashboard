@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   ActionCenter,
@@ -41,7 +41,11 @@ function park(kind: string, loading = false, loadingSince = loading ? Date.now()
   return { kind, loading, loadingSince, stage: null, error: null } as never;
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("ActionCenter triage", () => {
   it("groups approvals by decision type and totals only the money group", () => {
@@ -179,24 +183,58 @@ describe("ActionCenter triage", () => {
     expect(within(needsALook).getByText("New park kind approval")).toBeInTheDocument();
   });
 
-  it("moves a long-stuck classification into NEEDS A LOOK", () => {
+  it("moves a classification into NEEDS A LOOK when its timeout elapses", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-18T12:00:00.000Z"));
+    const loadingSince = Date.now();
+
     render(
       <ActionCenter
         {...baseProps}
         jobs={[job({ id: 1, food: "Classification timed out" })]}
-        parkById={{
-          1: park(
-            "unknown",
-            true,
-            Date.now() - PARK_CLASSIFICATION_TIMEOUT_MS - 1,
-          ),
-        }}
+        parkById={{ 1: park("unknown", true, loadingSince) }}
       />,
     );
+
+    expect(screen.getByRole("list", { name: "CLASSIFYING" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "NEEDS A LOOK" })).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(PARK_CLASSIFICATION_TIMEOUT_MS + 1);
+    });
 
     const needsALook = screen.getByRole("list", { name: "NEEDS A LOOK" });
     expect(screen.getByText(/\/\/ NEEDS A LOOK \(1\)/)).toBeInTheDocument();
     expect(within(needsALook).getByText("Classification timed out")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "CLASSIFYING" })).not.toBeInTheDocument();
+  });
+
+  it("does not strand a classification that expires between render and scheduling", () => {
+    vi.useFakeTimers();
+    const renderClock = new Date("2026-08-18T12:00:00.000Z").getTime();
+    vi.setSystemTime(renderClock);
+    const expiry = renderClock + 5;
+    const loadingSince = expiry - PARK_CLASSIFICATION_TIMEOUT_MS;
+    vi.spyOn(Date, "now")
+      .mockReturnValueOnce(renderClock)
+      .mockReturnValue(renderClock + 10);
+
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 1, food: "Boundary classification" })]}
+        parkById={{ 1: park("unknown", true, loadingSince) }}
+      />,
+    );
+
+    expect(screen.getByRole("list", { name: "CLASSIFYING" })).toBeInTheDocument();
+
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+
+    const needsALook = screen.getByRole("list", { name: "NEEDS A LOOK" });
+    expect(within(needsALook).getByText("Boundary classification")).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "CLASSIFYING" })).not.toBeInTheDocument();
   });
 

@@ -81,20 +81,19 @@ export function ActionCenter({
   const [classificationNow, setClassificationNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const now = Date.now();
     let nextExpiry = Number.POSITIVE_INFINITY;
 
     for (const job of [...viewJobs, ...viewErroredJobs]) {
       const park = parkById[job.id];
       if (!park?.loading || park.loadingSince === null) continue;
       const expiry = park.loadingSince + PARK_CLASSIFICATION_TIMEOUT_MS;
-      if (expiry > now) nextExpiry = Math.min(nextExpiry, expiry);
+      if (expiry > classificationNow) nextExpiry = Math.min(nextExpiry, expiry);
     }
 
     if (!Number.isFinite(nextExpiry)) return undefined;
     const timeout = window.setTimeout(
       () => setClassificationNow(Date.now()),
-      Math.max(0, nextExpiry - now),
+      Math.max(0, nextExpiry - Date.now()),
     );
     return () => window.clearTimeout(timeout);
   }, [classificationNow, parkById, viewErroredJobs, viewJobs]);
