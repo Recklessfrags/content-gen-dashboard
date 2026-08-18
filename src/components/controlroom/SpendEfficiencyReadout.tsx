@@ -126,6 +126,7 @@ export function SpendEfficiencyReadout({
               min="1"
               step="1"
               value={repeatThresholdText}
+              onBlur={() => setRepeatThresholdText(String(repeatThreshold))}
               onChange={(event) => {
                 const nextText = event.target.value;
                 setRepeatThresholdText(nextText);

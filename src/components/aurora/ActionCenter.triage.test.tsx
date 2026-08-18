@@ -265,4 +265,72 @@ describe("ActionCenter triage", () => {
     await user.click(within(errorRow).getByRole("button", { name: "Archive" }));
     expect(onArchiveJobs).toHaveBeenCalledWith([2]);
   });
+
+  it("bulk-archives only the selected decision group", async () => {
+    const user = userEvent.setup();
+    const onArchiveJobs = vi.fn().mockResolvedValue({
+      ok: true,
+      affected: 1,
+      skipped: 0,
+      error: null,
+    });
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[
+          job({ id: 11, food: "Paid run" }),
+          job({ id: 12, food: "Fact-check run" }),
+          job({ id: 13, food: "Still classifying" }),
+        ]}
+        erroredJobs={[job({ id: 14, status: "error", food: "Broken run" })]}
+        parkById={{
+          11: park("spend"),
+          12: park("fact"),
+          13: park("unknown", true),
+          14: park("unknown"),
+        }}
+        onArchiveJobs={onArchiveJobs}
+        onUnarchiveJobs={vi.fn()}
+      />,
+    );
+
+    const factGroup = screen.getByText(/\/\/ FACT CALLS \(1\)/).closest("section")!;
+    await user.click(within(factGroup).getByRole("button", { name: "Archive 1 item" }));
+    await user.click(within(factGroup).getByRole("button", { name: "Archive 1" }));
+
+    expect(onArchiveJobs).toHaveBeenCalledOnce();
+    expect(onArchiveJobs).toHaveBeenCalledWith([12]);
+    expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([11, 13, 14]));
+  });
+
+  it("bulk-archiving errored jobs leaves a pending spend approval untouched", async () => {
+    const user = userEvent.setup();
+    const onArchiveJobs = vi.fn().mockResolvedValue({
+      ok: true,
+      affected: 2,
+      skipped: 0,
+      error: null,
+    });
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 21, food: "Money already spent" })]}
+        erroredJobs={[
+          job({ id: 22, status: "error", food: "Broken one" }),
+          job({ id: 23, status: "stale", food: "Broken two" }),
+        ]}
+        parkById={{ 21: park("spend"), 22: park("unknown"), 23: park("unknown") }}
+        onArchiveJobs={onArchiveJobs}
+        onUnarchiveJobs={vi.fn()}
+      />,
+    );
+
+    const errorGroup = screen.getByRole("heading", { name: "Errored / stuck" }).closest("section")!;
+    await user.click(within(errorGroup).getByRole("button", { name: "Archive 2 items" }));
+    await user.click(within(errorGroup).getByRole("button", { name: "Archive 2" }));
+
+    expect(onArchiveJobs).toHaveBeenCalledOnce();
+    expect(onArchiveJobs).toHaveBeenCalledWith([22, 23]);
+    expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([21]));
+  });
 });

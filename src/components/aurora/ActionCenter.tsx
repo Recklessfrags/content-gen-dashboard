@@ -7,7 +7,11 @@ import type { FactClaim } from "@/lib/factClaims";
 import type { JobArchiveMutationResult } from "@/lib/jobs";
 import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
 import type { JobParkResolution, QueueJob } from "../controlroom/shared";
-import { JobArchiveControls, JobArchiveRowButton } from "./JobArchiveControls";
+import {
+  JobArchiveBulkControl,
+  JobArchiveRowButton,
+  JobArchiveViewToggle,
+} from "./JobArchiveControls";
 import { RenderPlayer } from "./RenderPlayer";
 import type { RunDiagnosticsResult } from "./RunsHub";
 
@@ -147,19 +151,18 @@ export function ActionCenter({
       </div>
 
       {onArchiveJobs && onUnarchiveJobs ? (
-        <JobArchiveControls
-          activeCount={activeCount}
-          archivedCount={archivedCount}
-          currentJobs={[...viewJobs, ...viewErroredJobs]}
-          noun="item"
-          showArchived={showArchived}
-          onShowArchivedChange={(next) => {
-            setExpandedId(null);
-            setShowArchived(next);
-          }}
-          onArchive={onArchiveJobs}
-          onUnarchive={onUnarchiveJobs}
-        />
+        <div className="job-archive-tools">
+          <JobArchiveViewToggle
+            activeCount={activeCount}
+            archivedCount={archivedCount}
+            noun="item"
+            showArchived={showArchived}
+            onShowArchivedChange={(next) => {
+              setExpandedId(null);
+              setShowArchived(next);
+            }}
+          />
+        </div>
       ) : null}
 
       {viewJobs.length === 0 ? (
@@ -186,6 +189,16 @@ export function ActionCenter({
                 <span className="dim au-approval-free">No cost to approve</span>
               ) : null}
             </div>
+
+            {onArchiveJobs && onUnarchiveJobs ? (
+              <JobArchiveBulkControl
+                currentJobs={group.jobs}
+                noun="item"
+                showArchived={showArchived}
+                onArchive={onArchiveJobs}
+                onUnarchive={onUnarchiveJobs}
+              />
+            ) : null}
 
             <div className="glass-panel" role="list" aria-label={group.title}>
               {group.jobs.map((job) => {
@@ -283,6 +296,15 @@ export function ActionCenter({
       {viewErroredJobs.length > 0 ? (
         <section className="au-error-jobs" aria-labelledby="errored-jobs-title">
           <h2 id="errored-jobs-title" className="text-title">Errored / stuck</h2>
+          {onArchiveJobs && onUnarchiveJobs ? (
+            <JobArchiveBulkControl
+              currentJobs={viewErroredJobs}
+              noun="item"
+              showArchived={showArchived}
+              onArchive={onArchiveJobs}
+              onUnarchive={onUnarchiveJobs}
+            />
+          ) : null}
           <div className="glass-panel" role="list" aria-label="Errored or stuck jobs">
             {viewErroredJobs.map((job) => {
               const park = effectivePark(parkById[job.id], classificationNow);

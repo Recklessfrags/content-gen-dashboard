@@ -21,6 +21,20 @@ export type JobArchiveControlsProps = {
   onUnarchive: ArchiveMutation;
 };
 
+type JobArchiveViewToggleProps = Pick<
+  JobArchiveControlsProps,
+  | "activeCount"
+  | "archivedCount"
+  | "noun"
+  | "showArchived"
+  | "onShowArchivedChange"
+>;
+
+type JobArchiveBulkControlProps = Pick<
+  JobArchiveControlsProps,
+  "currentJobs" | "noun" | "showArchived" | "onArchive" | "onUnarchive"
+>;
+
 export function JobArchiveControls({
   activeCount,
   archivedCount,
@@ -31,6 +45,62 @@ export function JobArchiveControls({
   onArchive,
   onUnarchive,
 }: JobArchiveControlsProps) {
+  return (
+    <div className="job-archive-tools">
+      <JobArchiveViewToggle
+        activeCount={activeCount}
+        archivedCount={archivedCount}
+        noun={noun}
+        showArchived={showArchived}
+        onShowArchivedChange={onShowArchivedChange}
+      />
+      <JobArchiveBulkControl
+        currentJobs={currentJobs}
+        noun={noun}
+        showArchived={showArchived}
+        onArchive={onArchive}
+        onUnarchive={onUnarchive}
+      />
+    </div>
+  );
+}
+
+export function JobArchiveViewToggle({
+  activeCount,
+  archivedCount,
+  noun,
+  showArchived,
+  onShowArchivedChange,
+}: JobArchiveViewToggleProps) {
+  return (
+    <div className="job-archive-view-toggle" role="group" aria-label={`${noun} view`}>
+      <button
+        type="button"
+        className={"btn ghost compact" + (!showArchived ? " is-active" : "")}
+        aria-pressed={!showArchived}
+        onClick={() => onShowArchivedChange(false)}
+      >
+        Active ({activeCount})
+      </button>
+      <button
+        type="button"
+        className={"btn ghost compact" + (showArchived ? " is-active" : "")}
+        aria-pressed={showArchived}
+        onClick={() => onShowArchivedChange(true)}
+      >
+        Archived ({archivedCount})
+      </button>
+    </div>
+  );
+}
+
+export function JobArchiveBulkControl({
+  currentJobs,
+  noun,
+  showArchived,
+  onArchive,
+  onUnarchive,
+}: JobArchiveBulkControlProps) {
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
@@ -61,26 +131,7 @@ export function JobArchiveControls({
   };
 
   return (
-    <div className="job-archive-tools">
-      <div className="job-archive-view-toggle" role="group" aria-label={`${noun} view`}>
-        <button
-          type="button"
-          className={"btn ghost compact" + (!showArchived ? " is-active" : "")}
-          aria-pressed={!showArchived}
-          onClick={() => onShowArchivedChange(false)}
-        >
-          Active ({activeCount})
-        </button>
-        <button
-          type="button"
-          className={"btn ghost compact" + (showArchived ? " is-active" : "")}
-          aria-pressed={showArchived}
-          onClick={() => onShowArchivedChange(true)}
-        >
-          Archived ({archivedCount})
-        </button>
-      </div>
-
+    <div className="job-archive-bulk-section">
       <div className="job-archive-bulk">
         <button
           type="button"

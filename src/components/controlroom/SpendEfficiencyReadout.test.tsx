@@ -61,4 +61,21 @@ describe("SpendEfficiencyReadout", () => {
     expect(threshold).toHaveValue(1);
     expect(screen.getByText("More than 1 run")).toBeInTheDocument();
   });
+
+  it("snaps an out-of-range repeat threshold back to the committed value on blur", async () => {
+    const user = userEvent.setup();
+    render(<SpendEfficiencyReadout jobs={jobs} loading={false} error={null} />);
+
+    const threshold = screen.getByRole("spinbutton", {
+      name: "Repeat-lineage run threshold",
+    });
+    await user.clear(threshold);
+    await user.type(threshold, "0");
+    expect(threshold).toHaveValue(0);
+
+    await user.tab();
+
+    expect(threshold).toHaveValue(3);
+    expect(screen.getByText("More than 3 runs")).toBeInTheDocument();
+  });
 });
