@@ -111,6 +111,29 @@ never override it):
   reference manual stays. This stops the read-first file re-bloating one rule-41 entry
   per session — it had reached ~1,700 lines / ~37K tokens before the 2026-07-07 rotation.
 
+- **L-7 · A regression test must be PROVEN to fail against the bug it guards (2026-08-18)** —
+  asserting that a test "fails before the fix" is not evidence; restoring the defect and
+  watching it go red is. Written after the L-2 reviewer disproved exactly such a claim: the test
+  added specifically to stop the Action Center collapse regressing **passed with the bug put
+  back** — 496/496 green — because `queryByRole` defaults to `hidden: false`, so a `[hidden]`
+  subtree is already outside the a11y tree it queries and the assertion could not tell the two
+  implementations apart. The defect it guarded had shipped through three cross-vendor review
+  rounds and a full suite. **So: when a test exists to prevent a specific defect, revert the fix,
+  run it, record that it failed, restore the fix.** Two rounds of review cannot substitute for
+  one revert.
+
+- **L-8 · UI correctness claims need a real browser, and this repo already has one (2026-08-18)** —
+  `scripts/audit-ui.mjs` logs in, intercepts every Supabase write so nothing persists, renders at
+  1440 and 412, screenshots full-page and runs `getComputedStyle` assertions; its route table
+  already includes `hub-actions`. **One command against the broken branch would have produced a
+  screenshot of 107 fully-expanded approval rows**, each with a live "Approve spend" button, while
+  jsdom reported them collapsed. jsdom honours the `hidden` attribute and never loads
+  `aurora.css`, so it cannot see anything that depends on real cascade, real layout, real timers,
+  or real PostgREST/RLS. **Run the harness for any change to rendering, and add new surfaces to
+  `ratify.mjs`'s `NAV_VIEWS` in the same commit that introduces them.** It needs
+  `RATIFY_EMAIL`/`RATIFY_PASSWORD` in `.env.local`; if those are unavailable, say so explicitly
+  rather than reporting a UI change as verified.
+
 ## Git policy (critical)
 
 - **Codex authors app code but CANNOT commit** (sandbox `.git` is read-only). The
