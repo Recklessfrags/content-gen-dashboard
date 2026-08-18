@@ -155,7 +155,7 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
         const job = allJobs.find((candidate) => candidate.id === id);
         return job ? [job] : [];
       });
-      const { archivable, skipped } = options.allowReadyForReview === true
+      const { archivable, skipped } = options.allowDeliberateDismissal === true
         ? requestedJobs.reduce<{ archivable: QueueJob[]; skipped: QueueJob[] }>(
             (partitioned, job) => {
               (canArchiveJob(job) ? partitioned.archivable : partitioned.skipped).push(job);

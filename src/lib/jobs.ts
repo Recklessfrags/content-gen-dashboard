@@ -49,16 +49,16 @@ export type JobArchiveMutationResult = {
 };
 
 export type JobArchiveOptions = {
-  allowReadyForReview?: boolean;
+  allowDeliberateDismissal?: boolean;
 };
 
 export function canArchiveJob(
   job: Pick<QueueJob, "status">,
 ): boolean {
-  const normalized = job.status.trim().toLowerCase();
-  const classified = classifyJobStatus(normalized);
-  return !isInFlightStatus(classified) && normalized !== "stale";
+  return !isInFlightStatus(job.status);
 }
+
+const BULK_ARCHIVABLE_STATUSES = new Set(["done", "no_op", "error", "abandoned"]);
 
 export function partitionArchivableJobs<T extends Pick<QueueJob, "id" | "status">>(
   jobs: readonly T[],
@@ -70,8 +70,7 @@ export function partitionArchivableJobs<T extends Pick<QueueJob, "id" | "status"
   for (const job of jobs) {
     if (seen.has(job.id)) continue;
     seen.add(job.id);
-    const isReadyForReview = job.status.trim().toLowerCase() === "ready_for_review";
-    const canBulkArchive = canArchiveJob(job) && !isReadyForReview;
+    const canBulkArchive = BULK_ARCHIVABLE_STATUSES.has(job.status.trim().toLowerCase());
     (canBulkArchive ? archivable : skipped).push(job);
   }
 

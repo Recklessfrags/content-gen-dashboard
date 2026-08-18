@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { extractBelowFloorCuts, parkExplanation } from "../parkExplanation";
+import {
+  extractBelowFloorCuts,
+  extractBelowFloorReport,
+  parkExplanation,
+} from "../parkExplanation";
 
 describe("parkExplanation", () => {
   it.each([
@@ -21,13 +25,15 @@ describe("parkExplanation", () => {
 
 describe("extractBelowFloorCuts", () => {
   it("extracts array and keyed per-cut reasons", () => {
-    expect(extractBelowFloorCuts({ result: { below_floor_cuts: [{ cut_id: "cut14", reason: "Too generic" }] }, evidence: { below_floor_cuts: { cut2: { reason: "Low relevance" } } } })).toEqual([
+    const payload = { result: { below_floor_cuts: [{ cut_id: "cut14", reason: "Too generic" }] }, evidence: { below_floor_cuts: { cut2: { reason: "Low relevance" } } } };
+    expect(extractBelowFloorCuts(payload)).toEqual([
       { cut: "cut14", reason: "Too generic" },
       { cut: "cut2", reason: "Low relevance" },
     ]);
+    expect(extractBelowFloorReport(payload).reportedCount).toBe(2);
   });
 
-  it("extracts explained cuts from the production below_floor_notice shape", () => {
+  it("reports the receipt magnitude even when only some flagged ids are listed", () => {
     const payload = {
       below_floor_notice: {
         count: 17,
@@ -35,10 +41,14 @@ describe("extractBelowFloorCuts", () => {
       },
     };
 
-    expect(extractBelowFloorCuts(payload)).toEqual([
-      { cut: "cut19", reason: null },
-      { cut: "cut20", reason: null },
-      { cut: "cut21", reason: null },
-    ]);
+    expect(extractBelowFloorReport(payload)).toEqual({
+      hasData: true,
+      reportedCount: 17,
+      cuts: [
+        { cut: "cut19", reason: null },
+        { cut: "cut20", reason: null },
+        { cut: "cut21", reason: null },
+      ],
+    });
   });
 });

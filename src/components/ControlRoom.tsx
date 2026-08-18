@@ -1331,7 +1331,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           const result = await supabase.from("jobs").insert(payload);
           return { error: result.error };
         },
-        () => archiveJobs([job.id], { allowReadyForReview: true }),
+        () => archiveJobs([job.id], { allowDeliberateDismissal: true }),
       );
       error = outcome.reenqueueError;
       archiveWarning = approvalParentArchiveWarning(outcome.archiveResult);
@@ -1708,9 +1708,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     async (episodeId: string): Promise<RunDiagnosticsResult> => {
       const { data, error } = await supabase
         .from("receipts")
-        .select("seq, stage, verdict, reason, model, provider, iteration, spend_so_far, below_floor_notice:evidence->below_floor_notice")
+        .select("seq, stage, verdict, reason, model, provider, iteration, spend_so_far, result, evidence")
         .eq("episode_id", episodeId)
-        .order("seq", { ascending: true });
+        .order("seq", { ascending: true })
+        .returns<Array<Pick<Receipt, "seq" | "stage" | "verdict" | "reason" | "model" | "provider" | "iteration" | "spend_so_far" | "result" | "evidence">>>();
       if (error) return { receipts: [], error: error.message };
       const receipts = (data ?? []).map((row) => ({
         seq: typeof row.seq === "number" ? row.seq : 0,
@@ -1721,9 +1722,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         provider: row.provider ?? "",
         iteration: typeof row.iteration === "number" ? row.iteration : undefined,
         spendSoFar: typeof row.spend_so_far === "number" ? row.spend_so_far : undefined,
-        evidence: row.below_floor_notice
-          ? { below_floor_notice: row.below_floor_notice }
-          : undefined,
+        result: row.result,
+        evidence: row.evidence,
       }));
       return { receipts, error: null };
     },

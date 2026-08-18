@@ -500,25 +500,30 @@ describe("job status helpers", () => {
     expect(isInFlightStatus("done")).toBe(false);
   });
 
-  it("allows deliberate row dismissal for approvals while default-denying unknown and in-flight statuses", () => {
+  it("allows deliberate row dismissal for every raw status that is not genuinely in flight", () => {
     expect(canArchiveJob({ status: "queued" })).toBe(false);
     expect(canArchiveJob({ status: "running" })).toBe(false);
     expect(canArchiveJob({ status: " Running " })).toBe(false);
     expect(canArchiveJob({ status: "ready_for_review" })).toBe(true);
-    expect(canArchiveJob({ status: "stale" })).toBe(false);
+    expect(canArchiveJob({ status: "stale" })).toBe(true);
     expect(canArchiveJob({ status: "abandoned" })).toBe(true);
-    expect(canArchiveJob({ status: "future_terminal" })).toBe(false);
+    expect(canArchiveJob({ status: "future_terminal" })).toBe(true);
   });
 
-  it("excludes approvals from bulk partitioning", () => {
+  it("default-denies approvals, stale rows, unknown statuses, and in-flight work from bulk", () => {
     const rows = [
       { id: 1, status: "ready_for_review" },
       { id: 2, status: "done" },
+      { id: 3, status: "stale" },
+      { id: 4, status: "future_terminal" },
+      { id: 5, status: "queued" },
+      { id: 6, status: "running" },
+      { id: 7, status: "abandoned" },
     ];
 
     expect(partitionArchivableJobs(rows)).toEqual({
-      archivable: [rows[1]],
-      skipped: [rows[0]],
+      archivable: [rows[1], rows[6]],
+      skipped: [rows[0], rows[2], rows[3], rows[4], rows[5]],
     });
   });
 });

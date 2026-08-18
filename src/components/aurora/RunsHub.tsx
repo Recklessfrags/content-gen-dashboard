@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { JobArchiveControls } from "@/components/aurora/JobArchiveControls";
+import {
+  JobArchiveControls,
+  JobArchiveRowButton,
+} from "@/components/aurora/JobArchiveControls";
 import { RenderPlayer } from "@/components/aurora/RenderPlayer";
 import { terminalStateLabel, type TerminalState } from "@/lib/failureClass";
 import { useRenderProgress } from "@/lib/hooks/useRenderProgress";
-import { type JobArchiveMutationResult, type JobStatus } from "@/lib/jobs";
+import {
+  type JobArchiveMutationResult,
+  type JobArchiveOptions,
+  type JobStatus,
+} from "@/lib/jobs";
 import { stageLabel } from "@/lib/plainLanguage";
 import { ALL_CHANNELS_KEY, cardMatchesChannel, channelFacets } from "@/lib/runsChannelFilter";
 import type { WorkerReliability } from "@/lib/workerReliability";
@@ -88,7 +95,10 @@ export type RunsHubProps = {
   onRetry: () => void;
   onBack: () => void;
   loadReliability: () => Promise<ReliabilityResult>;
-  onArchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
+  onArchiveJobs?: (
+    jobIds: readonly number[],
+    options?: JobArchiveOptions,
+  ) => Promise<JobArchiveMutationResult>;
   onUnarchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
 };
 
@@ -121,11 +131,7 @@ export function RunsHub({
   const [channelKey, setChannelKey] = useState<string>(ALL_CHANNELS_KEY);
   const viewCards = showArchived ? archivedCards : cards;
 
-  const lifecycleCards = useMemo(
-    () => viewCards.filter((card) => lifecycleForRun(card) === lifecycle),
-    [lifecycle, viewCards],
-  );
-  const facets = useMemo(() => channelFacets(lifecycleCards), [lifecycleCards]);
+  const facets = useMemo(() => channelFacets(viewCards), [viewCards]);
   const effectiveChannelKey = facets.some((facet) => facet.key === channelKey)
     ? channelKey
     : ALL_CHANNELS_KEY;
@@ -145,6 +151,10 @@ export function RunsHub({
       ),
     [channelFiltered],
   );
+
+  useEffect(() => {
+    if (channelKey !== effectiveChannelKey) setChannelKey(effectiveChannelKey);
+  }, [channelKey, effectiveChannelKey]);
 
   useEffect(() => {
     if (!loading && !tabChosen) setLifecycle(defaultLifecycle(channelFiltered));
@@ -214,6 +224,7 @@ export function RunsHub({
               ? channelKey
               : ALL_CHANNELS_KEY;
             setShowArchived(nextShowArchived);
+            setChannelKey(nextChannelKey);
             setLifecycle(defaultLifecycle(nextCards.filter((card) => cardMatchesChannel(card, nextChannelKey))));
             setTabChosen(false);
           }}
@@ -278,6 +289,9 @@ export function RunsHub({
               key={card.id}
               card={card}
               latestStage={card.episodeId ? latestStageByEpisode[card.episodeId] : undefined}
+              showArchived={showArchived}
+              onArchive={onArchiveJobs}
+              onUnarchive={onUnarchiveJobs}
             />
           ))}
         </div>
@@ -293,9 +307,15 @@ function lifecycleLabel(lifecycle: RunLifecycle): string {
 function RunCard({
   card,
   latestStage,
+  showArchived,
+  onArchive,
+  onUnarchive,
 }: {
   card: RunCardVM;
   latestStage?: string;
+  showArchived: boolean;
+  onArchive?: RunsHubProps["onArchiveJobs"];
+  onUnarchive?: RunsHubProps["onUnarchiveJobs"];
 }) {
   const cardClass = [
     "glass-panel run-card",
@@ -329,6 +349,16 @@ function RunCard({
         </details>
       ) : null}
       {card.episodeId ? <RenderPlayer episodeId={card.episodeId} /> : null}
+      {card.jobId !== undefined && onArchive && onUnarchive ? (
+        <div className="approval-actions">
+          <JobArchiveRowButton
+            job={{ id: card.jobId, status: card.rawStatus ?? card.status }}
+            showArchived={showArchived}
+            onArchive={onArchive}
+            onUnarchive={onUnarchive}
+          />
+        </div>
+      ) : null}
     </article>
   );
 }

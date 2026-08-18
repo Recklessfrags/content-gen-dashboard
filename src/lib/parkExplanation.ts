@@ -25,11 +25,18 @@ export function parkExplanation(
 }
 
 export type BelowFloorCut = { cut: string; reason: string | null };
+export type BelowFloorReport = {
+  cuts: BelowFloorCut[];
+  hasData: boolean;
+  reportedCount: number;
+};
 
 /** Extracts known below-floor payload shapes without trusting receipt JSON. */
-export function extractBelowFloorCuts(value: unknown): BelowFloorCut[] {
+export function extractBelowFloorReport(value: unknown): BelowFloorReport {
   const found = new Map<string, BelowFloorCut>();
   const seen = new Set<object>();
+  let hasData = false;
+  let reportedCount: number | null = null;
 
   const add = (cut: unknown, reason?: unknown) => {
     if (typeof cut !== "string" && typeof cut !== "number") return;
@@ -106,16 +113,31 @@ export function extractBelowFloorCuts(value: unknown): BelowFloorCut[] {
     }
     for (const [key, child] of Object.entries(node as Record<string, unknown>)) {
       if (["below_floor_cuts", "below_floor_notice"].includes(key.toLowerCase())) {
+        hasData = true;
         if (key.toLowerCase() === "below_floor_notice" && child && typeof child === "object") {
           const notice = child as Record<string, unknown>;
+          if (typeof notice.count === "number" && Number.isFinite(notice.count) && notice.count >= 0) {
+            const count = Math.trunc(notice.count);
+            reportedCount = reportedCount === null ? count : Math.max(reportedCount, count);
+          }
           visitCuts(notice.cut_ids);
           visitCuts(notice.cuts);
         } else visitCuts(child);
+        walk(child);
       }
       else walk(child);
     }
   };
 
   walk(value);
-  return [...found.values()];
+  const cuts = [...found.values()];
+  return {
+    cuts,
+    hasData,
+    reportedCount: reportedCount ?? cuts.length,
+  };
+}
+
+export function extractBelowFloorCuts(value: unknown): BelowFloorCut[] {
+  return extractBelowFloorReport(value).cuts;
 }

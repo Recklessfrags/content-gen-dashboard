@@ -221,6 +221,64 @@ describe("ActionCenter triage", () => {
     expect(screen.queryByRole("button", { name: /Approve facts & continue/i })).toBeNull();
   });
 
+  it("reports the receipt count and distinguishes it from the listed cut ids", async () => {
+    const user = userEvent.setup();
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 1 })]}
+        parkById={{ 1: park("spend") }}
+        loadDiagnostics={vi.fn().mockResolvedValue({
+          error: null,
+          receipts: [{
+            seq: 1,
+            stage: "visual_router",
+            verdict: "park",
+            reason: "Below floor",
+            model: "",
+            provider: "",
+            evidence: { below_floor_notice: { count: 17, cut_ids: ["cut19", "cut20", "cut21"] } },
+          }],
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
+    await user.click(screen.getByRole("button", { name: /Open run log/ }));
+
+    expect(await screen.findByText(/17 flagged, 3 listed/)).toBeInTheDocument();
+    expect(screen.getByText("cut19")).toBeInTheDocument();
+  });
+
+  it("states when the latest receipt records no below-floor data", async () => {
+    const user = userEvent.setup();
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 1 })]}
+        parkById={{ 1: park("spend") }}
+        loadDiagnostics={vi.fn().mockResolvedValue({
+          error: null,
+          receipts: [{
+            seq: 1,
+            stage: "visual_router",
+            verdict: "park",
+            reason: "No payload",
+            model: "",
+            provider: "",
+            result: {},
+            evidence: { unrelated: true },
+          }],
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
+    await user.click(screen.getByRole("button", { name: /Open run log/ }));
+
+    expect(await screen.findByText(/no below-floor data recorded on this receipt/i)).toBeInTheDocument();
+  });
+
   it("moves a classification into NEEDS A LOOK when its timeout elapses", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-18T12:00:00.000Z"));
@@ -300,11 +358,11 @@ describe("ActionCenter triage", () => {
     const approvalArchive = within(approvalRow).getByRole("button", { name: "Archive" });
     expect(approvalArchive).toHaveClass("ghost");
     await user.click(approvalArchive);
-    expect(onArchiveJobs).toHaveBeenCalledWith([1], { allowReadyForReview: true });
+    expect(onArchiveJobs).toHaveBeenCalledWith([1], { allowDeliberateDismissal: true });
 
     const errorRow = screen.getAllByRole("listitem")[1];
     await user.click(within(errorRow).getByRole("button", { name: "Archive" }));
-    expect(onArchiveJobs).toHaveBeenCalledWith([2], { allowReadyForReview: true });
+    expect(onArchiveJobs).toHaveBeenCalledWith([2], { allowDeliberateDismissal: true });
   });
 
   it("does not bulk-archive a selected approval decision group", async () => {
@@ -366,11 +424,14 @@ describe("ActionCenter triage", () => {
     );
 
     const errorGroup = screen.getByRole("heading", { name: "Errored / stuck" }).closest("section")!;
-    expect(within(errorGroup).getByText(/1 item with status “stale” cannot be archived/)).toBeInTheDocument();
+    expect(within(errorGroup).getByText(/1 item is held out of bulk archive.*stale.*Archive it from the row/i)).toBeInTheDocument();
+    const staleRow = within(errorGroup).getAllByRole("listitem")[1];
+    await user.click(within(staleRow).getByRole("button", { name: "Archive" }));
+    expect(onArchiveJobs).toHaveBeenCalledWith([23], { allowDeliberateDismissal: true });
+
     await user.click(within(errorGroup).getByRole("button", { name: "Archive 1 item" }));
     await user.click(within(errorGroup).getByRole("button", { name: "Archive 1" }));
 
-    expect(onArchiveJobs).toHaveBeenCalledOnce();
     expect(onArchiveJobs).toHaveBeenCalledWith([22]);
     expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([21, 23]));
   });

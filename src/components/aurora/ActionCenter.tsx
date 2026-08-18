@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { extractBelowFloorCuts, parkExplanation } from "@/lib/parkExplanation";
+import { extractBelowFloorReport, parkExplanation } from "@/lib/parkExplanation";
 import { plainLanguage, stageLabel } from "@/lib/plainLanguage";
 import type { FactClaim } from "@/lib/factClaims";
-import type { JobArchiveMutationResult } from "@/lib/jobs";
+import type { JobArchiveMutationResult, JobArchiveOptions } from "@/lib/jobs";
 import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
 import type { JobParkResolution, QueueJob } from "../controlroom/shared";
 import {
@@ -44,7 +44,10 @@ export type ActionCenterProps = {
   factClaims?: FactClaim[] | null;
   factClaimsLoading?: boolean;
   factClaimsError?: string | null;
-  onArchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
+  onArchiveJobs?: (
+    jobIds: readonly number[],
+    options?: JobArchiveOptions,
+  ) => Promise<JobArchiveMutationResult>;
   onUnarchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
 };
 
@@ -366,7 +369,9 @@ function ParkContext({ job, park, loadDiagnostics }: {
     if (next && state.receipts === null && !inFlightRef.current) void load();
   };
   const latest = state.receipts?.at(-1);
-  const cuts = latest ? extractBelowFloorCuts({ result: latest.result, evidence: latest.evidence }) : [];
+  const belowFloor = latest
+    ? extractBelowFloorReport({ result: latest.result, evidence: latest.evidence })
+    : null;
 
   return (
     <div className="au-park-context">
@@ -383,7 +388,18 @@ function ParkContext({ job, park, loadDiagnostics }: {
         {latest && !state.loading && !state.error ? <>
           <div className="au-park-receipt-head"><strong>{stageLabel(latest.stage)}</strong><span className="status-chip">{plainLanguage("verdict")}: {latest.verdict || "—"}</span></div>
           {latest.reason ? <p>{latest.reason}</p> : null}
-          {cuts.length ? <div className="au-below-floor"><strong>{plainLanguage("below_floor")}: {cuts.length}</strong><ul>{cuts.map((cut) => <li key={cut.cut}><span>{cut.cut}</span>{cut.reason ? ` — ${cut.reason}` : ""}</li>)}</ul></div> : null}
+          {belowFloor?.hasData ? (
+            <div className="au-below-floor">
+              <strong>
+                {plainLanguage("below_floor")}: {belowFloor.reportedCount !== belowFloor.cuts.length
+                  ? `${belowFloor.reportedCount} flagged, ${belowFloor.cuts.length} listed`
+                  : belowFloor.reportedCount}
+              </strong>
+              {belowFloor.cuts.length > 0 ? (
+                <ul>{belowFloor.cuts.map((cut) => <li key={cut.cut}><span>{cut.cut}</span>{cut.reason ? ` — ${cut.reason}` : ""}</li>)}</ul>
+              ) : null}
+            </div>
+          ) : <p className="dim au-below-floor">No below-floor data recorded on this receipt.</p>}
         </> : null}
       </div> : null}
     </div>

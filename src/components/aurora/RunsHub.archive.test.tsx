@@ -51,7 +51,7 @@ describe("RunsHub archive controls", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "dark_history (1)" }));
+    await user.click(screen.getByRole("button", { name: "dark_history (2)" }));
 
     expect(screen.getByRole("tab", { name: /Parked 1/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: /In flight 0/ })).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe("RunsHub archive controls", () => {
     expect(screen.getByRole("button", { name: "dark_history (1)" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("clears a channel outside the next lifecycle so every tab keeps honest counts and rows", async () => {
+  it("keeps a global channel selected on a zero-row lifecycle so counts, rows, and off-switch agree", async () => {
     const user = userEvent.setup();
     render(
       <RunsHub
@@ -118,18 +118,15 @@ describe("RunsHub archive controls", () => {
     expect(screen.getByText("Run 1")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: /Parked 0/ }));
-    expect(screen.getByRole("tab", { name: /Parked 2/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: /In flight 1/ })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Finished 2/ })).toBeInTheDocument();
-    expect(screen.getByText("Run 3")).toBeInTheDocument();
-    expect(screen.getByText("Run 4")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: /In flight 1/ }));
-    expect(screen.getByText("Run 5")).toBeInTheDocument();
-    expect(screen.queryByText("Run 1")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Parked 0/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /In flight 0/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Finished 1/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "grandma (1)" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText(/No parked runs/)).toBeInTheDocument();
+    expect(document.querySelectorAll("[data-run-id]")).toHaveLength(0);
   });
 
-  it("falls back to all channels when refreshed data removes the selected lifecycle facet", async () => {
+  it("falls back to all channels only when refreshed population removes the selected channel", async () => {
     const user = userEvent.setup();
     const { rerender } = render(
       <RunsHub
@@ -146,16 +143,95 @@ describe("RunsHub archive controls", () => {
       <RunsHub
         {...baseProps}
         cards={[
-          card(3, "done", "dark_history"),
           card(4, "ready_for_review", "weird_food"),
         ]}
       />,
     );
 
     expect(await screen.findByRole("tab", { name: /Parked 1/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: /Finished 1/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Finished 0/ })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Filter by channel" })).not.toBeInTheDocument();
     expect(screen.getByText("Run 4")).toBeInTheDocument();
-    expect(screen.queryByText("Run 3")).not.toBeInTheDocument();
+  });
+
+  it("keeps counts and rendered rows identical across every view, lifecycle, and channel", async () => {
+    const user = userEvent.setup();
+    const active = [
+      card(1, "ready_for_review", "alpha"),
+      card(2, "ready_for_review", "alpha"),
+      card(3, "running", "alpha"),
+      card(4, "done", "alpha"),
+      card(5, "ready_for_review", "beta"),
+      card(6, "done", "beta"),
+      card(7, "error", "beta"),
+    ];
+    const archived = [
+      card(11, "ready_for_review", "alpha"),
+      card(12, "running", "alpha"),
+      card(13, "queued", "alpha"),
+      card(14, "running", "beta"),
+      card(15, "done", "beta"),
+    ];
+    render(
+      <RunsHub
+        {...baseProps}
+        cards={active}
+        archivedCards={archived}
+        onArchiveJobs={vi.fn()}
+        onUnarchiveJobs={vi.fn()}
+      />,
+    );
+
+    const assertScope = async (
+      view: "Active" | "Archived",
+      channel: "All channels" | "alpha" | "beta",
+      expected: Record<"Parked" | "In flight" | "Finished", string[]>,
+    ) => {
+      await user.click(screen.getByRole("button", { name: new RegExp(`^${view} \\(`) }));
+      const total = Object.values(expected).flat().length;
+      await user.click(screen.getByRole("button", { name: `${channel} (${total})` }));
+      expect(screen.getByRole("button", { name: `${channel} (${total})` })).toHaveAttribute("aria-pressed", "true");
+
+      for (const lifecycleLabel of ["Parked", "In flight", "Finished"] as const) {
+        const ids = expected[lifecycleLabel];
+        const tab = screen.getByRole("tab", { name: new RegExp(`^${lifecycleLabel} ${ids.length}$`) });
+        await user.click(tab);
+        expect(tab).toHaveAttribute("aria-selected", "true");
+        expect(screen.getByRole("button", { name: `${channel} (${total})` })).toBeVisible();
+        expect([...document.querySelectorAll<HTMLElement>("[data-run-id]")].map((node) => node.dataset.runId)).toEqual(ids);
+      }
+    };
+
+    await assertScope("Active", "All channels", {
+      Parked: ["1", "2", "5"],
+      "In flight": ["3"],
+      Finished: ["4", "6", "7"],
+    });
+    await assertScope("Active", "alpha", {
+      Parked: ["1", "2"],
+      "In flight": ["3"],
+      Finished: ["4"],
+    });
+    await assertScope("Active", "beta", {
+      Parked: ["5"],
+      "In flight": [],
+      Finished: ["6", "7"],
+    });
+    await assertScope("Archived", "All channels", {
+      Parked: ["11"],
+      "In flight": ["12", "13", "14"],
+      Finished: ["15"],
+    });
+    await assertScope("Archived", "alpha", {
+      Parked: ["11"],
+      "In flight": ["12", "13"],
+      Finished: [],
+    });
+    await assertScope("Archived", "beta", {
+      Parked: [],
+      "In flight": ["14"],
+      Finished: ["15"],
+    });
   });
 
   it("omits the per-row archive action for queued and running jobs", () => {
@@ -173,9 +249,17 @@ describe("RunsHub archive controls", () => {
       expect(row).not.toBeNull();
       expect(within(row as HTMLElement).queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
     }
+    expect(screen.getByText(/2 runs with statuses “queued”, “running” cannot be archived while in flight/i)).toBeInTheDocument();
   });
 
-  it("keeps an unknown pipeline status visible as in-flight and out of archive actions", () => {
+  it("keeps an unknown pipeline status visible as in-flight, held out of bulk, and deliberately dismissible", async () => {
+    const user = userEvent.setup();
+    const onArchiveJobs = vi.fn().mockResolvedValue({
+      ok: true,
+      affected: 1,
+      skipped: 0,
+      error: null,
+    });
     const awaitingApproval = card(135, "queued", "alpha");
     awaitingApproval.rawStatus = "awaiting_spend_approval";
     awaitingApproval.statusLabel = "awaiting_spend_approval";
@@ -184,16 +268,16 @@ describe("RunsHub archive controls", () => {
       <RunsHub
         {...baseProps}
         cards={[awaitingApproval]}
-        onArchiveJobs={vi.fn()}
+        onArchiveJobs={onArchiveJobs}
         onUnarchiveJobs={vi.fn()}
       />,
     );
 
     expect(screen.getByRole("tab", { name: /In flight 1/ })).toHaveAttribute("aria-selected", "true");
-    const row = screen.getByText("Run 135").closest("article");
-    expect(within(row as HTMLElement).queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Archive 0 runs" })).toBeDisabled();
-    expect(screen.getByText(/1 run with status “awaiting_spend_approval” cannot be archived/)).toBeInTheDocument();
+    expect(screen.getByText(/1 run is held out of bulk archive.*awaiting_spend_approval.*Archive it from the row/i)).toBeInTheDocument();
+    await user.click(within(screen.getByText("Run 135").closest("article") as HTMLElement).getByRole("button", { name: "Archive" }));
+    expect(onArchiveJobs).toHaveBeenCalledWith([135], { allowDeliberateDismissal: true });
   });
 
   it("cannot bulk-archive a ready-for-review row from the default Parked tab", async () => {
@@ -210,7 +294,7 @@ describe("RunsHub archive controls", () => {
 
     expect(screen.getByRole("tab", { name: /Parked 1/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: "Archive 0 runs" })).toBeDisabled();
-    expect(screen.getByText(/1 run with status “ready for review — approval pending” cannot be archived/)).toBeInTheDocument();
+    expect(screen.getByText(/1 run is held out of bulk archive.*ready for review — approval pending.*Archive it from the row/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Archive 0 runs" }));
     expect(onArchiveJobs).not.toHaveBeenCalled();
   });
@@ -290,7 +374,7 @@ describe("RunsHub archive controls", () => {
 
     expect(screen.getByRole("tab", { name: /Finished 3/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: "Archive 2 runs" })).toBeEnabled();
-    expect(screen.getByText(/1 run with status “stale” cannot be archived/)).toBeInTheDocument();
+    expect(screen.getByText(/1 run is held out of bulk archive.*stale.*Archive it from the row/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Archive 2 runs" }));
     await user.click(screen.getByRole("button", { name: "Archive 2" }));
