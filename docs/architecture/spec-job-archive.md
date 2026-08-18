@@ -25,23 +25,42 @@ one `useJobs()` fetch. So this is ONE mechanism, not several. Ideas, characters 
 are 4/12/15 rows and get **no** archive plumbing — building it there is machinery for a
 problem that does not exist.
 
-## The mechanism
+## The mechanism — AMENDED 2026-08-18 after Codex blocked on the original
 
-Add **`jobs.archived_at timestamptz null`**. Dashboard-owned, pipeline-ignored.
+**The original spec said: add `jobs.archived_at`. That was wrong, and Codex was right to stop
+rather than work around it.** Verified against the live database:
 
-**Not a `status` value.** `status` is the pipeline's state machine and the dashboard is
-enqueue-only against it (`DIRECTION.md`); writing a new status would put the dashboard inside
-the pipeline's state transitions. A separate nullable column is additive and invisible to the
-worker. Precedent: `spend_approved`, `publish_approved`, `fact_approved`, `reveal_approved`
-are already dashboard-owned operator columns on this pipeline-owned table.
+- RLS on `public.jobs` has exactly two policies — `jobs_read` (SELECT) and `jobs_enqueue`
+  (INSERT, with a strict `with_check` demanding `status='queued'`, no spend, no episode). There
+  is **no UPDATE policy at all.** The browser cannot update `jobs`, by design.
+- That is not an oversight, it is the contract: `DIRECTION.md` says `jobs` is **enqueue-only**
+  to the dashboard. Confirmed in the code — approving a run does **not** update it. It calls
+  `buildSpendApprovalReenqueue` / `buildFactApprovalReenqueue` and **inserts a brand-new job
+  row** carrying the approval flag (`src/lib/jobs.ts`).
 
-**A timestamp, not a boolean.** It records *when*, which makes an accidental mass-archive
-undoable by time window ("unarchive everything archived in the last hour"). A boolean throws
-that away for nothing.
+Codex proposed a session-gated Edge Function to get UPDATE rights. **Rejected.** That punches a
+service-role hole through the enqueue-only contract, and deploys an auth surface, so that the
+operator can hide a row from his own screen. The write is not a pipeline write at all.
 
-**Verified non-interaction with the worker:** `claim_job_under_cap` selects only
-`status = 'queued'` and `status = 'running'` (migration `0025`). Archived rows are parked or
-terminal, so they were never claimable and the column cannot change what the worker picks up.
+**Archive is a VIEW preference, so it lives in a dashboard-owned table.**
+
+```sql
+create table public.job_archive (
+  job_id      bigint      primary key,
+  owner       uuid        not null default auth.uid(),
+  archived_at timestamptz not null default now()
+);
+```
+
+- Archive = INSERT. Unarchive = DELETE. Both are plain, reversible, and need no new policy
+  shape — mirror the `ideas` / `characters` idiom exactly: `select`/`insert`/`delete` for
+  `authenticated` gated on `owner = auth.uid()`.
+- **No foreign key to `jobs.id`.** A hard FK would make a future `jobs` cleanup (like the T5
+  delete) fail or cascade unexpectedly; a stale archive row for a deleted job is harmless and
+  is simply ignored on join.
+- The pipeline never reads this table and cannot be affected by it. `claim_job_under_cap`
+  touches only `status='queued'`/`'running'`, so archived rows were never claimable anyway.
+- Cost of the join: negligible. `jobs` is 21 rows after the T5 cleanup.
 
 ## Semantics — the thing the UI must not get wrong
 
@@ -53,16 +72,17 @@ can bring them back.*
 
 ## Requirements
 
-### R1 — Migration `dash_0016_jobs_archived_at.sql`
-- `alter table public.jobs add column if not exists archived_at timestamptz;`
-- A partial index for the default filter: `create index if not exists jobs_archived_at_idx on public.jobs (archived_at) where archived_at is null;`
-- A `comment on column` recording: dashboard-owned, pipeline-ignored, not a decision.
-- **Do NOT add a CHECK constraint** tying `archived_at` to `status`. The worker updates
-  `status` and knows nothing about this column; a constraint it can trip turns a UI
-  convenience into a production write failure. Enforce the rule in the dashboard (R4) only.
+### R1 — Migration `dash_0016_job_archive.sql`
+- Create `public.job_archive` exactly as above; enable RLS; add `select`/`insert`/`delete`
+  policies for `authenticated` gated on `owner = auth.uid()`, matching the `ideas` policies.
+- No foreign key to `jobs`, for the reason given above.
+- Header comment in the style of `dash_0015_channel_profiles_ai_disclosure.sql`, recording
+  that this is a dashboard-owned VIEW preference and that `jobs` stays enqueue-only.
+- Write the file; **do not apply it.**
 
 ### R2 — Types
-`archived_at: string | null` on the `jobs` Row / Insert / Update in `src/lib/database.types.ts`.
+Add the `job_archive` table to `src/lib/database.types.ts` (Row / Insert / Update) in the
+existing generated style.
 
 ### R3 — Default views exclude archived
 Every job-backed list (approvals, errored/stuck, runs, and the channel-card active-job counts)
@@ -75,8 +95,8 @@ the full set, keep the fetch and filter in one shared selector rather than per-c
   runs list. Secondary styling — it must not compete with the approve action.
 - **A `queued` or `running` job is never archivable.** Those are live pipeline work and
   hiding them would hide in-flight spend. Omit or disable the control for those statuses.
-- Writes `archived_at = now()`; optimistic update is fine, but a failed write must restore
-  the row and surface the error.
+- Archiving inserts into `job_archive`; unarchiving deletes. Optimistic update is fine, but a
+  failed write must restore the row and surface the error.
 
 ### R5 — Mass archive
 - A bulk **Archive** control scoped to **the current filtered view only** — never a global
@@ -97,6 +117,20 @@ Cover, at minimum: default lists exclude archived rows; a `queued`/`running` job
 archived (control absent/disabled *and* the handler refuses); bulk archive affects exactly the
 filtered set and reports skips; unarchive restores a row to the default view; a failed write
 restores the row rather than leaving the UI lying.
+
+### R8 — Archive the parent when an approval re-enqueues it
+
+**This is the root cause of the backlog, found while amending this spec.** Approving does not
+resolve the run it approves — it inserts a *new* job and leaves the parent sitting at
+`ready_for_review` forever. So every approval permanently adds a row to the approvals list. The
+operator reached 107 partly by *doing his job*.
+
+When the dashboard re-enqueues an approval (spend, fact, publish, reveal), it must also archive
+the parent row in the same user action. If the archive write fails, the approval still stands —
+the re-enqueue is the real work and must not be rolled back over a view preference; surface the
+failure and leave the parent visible.
+
+This is what turns the archive from a chore into something that keeps itself clean.
 
 ## Acceptance
 `npx tsc --noEmit` clean, `npm test` green with new tests, `npm run build` passes.
