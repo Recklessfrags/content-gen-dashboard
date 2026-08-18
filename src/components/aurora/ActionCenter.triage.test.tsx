@@ -13,7 +13,6 @@ import type { QueueJob } from "@/components/controlroom/shared";
 
 function job(over: Partial<QueueJob> & { id: number }): QueueJob {
   return {
-    id: over.id,
     channel: "dark_history",
     food: "The Great Molasses Flood of 1919",
     status: "ready_for_review",
