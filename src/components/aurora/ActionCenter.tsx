@@ -355,11 +355,11 @@ function ParkContext({ job, park, loadDiagnostics }: {
 // only by time, 107 near-identical rows are unreadable: the decision TYPE is what
 // changes what he has to think about (money vs. a free fact call), so that is what the
 // screen is grouped by. Money first, because it is the only group with a cost, and the
-// ones we could not classify last, because they are the only ones he must open before
-// acting — the copy in `parkLine` is explicit that approving spend is only right for a
-// spend hold.
+// ones we could not classify near the end, because they are the only ones he must open
+// before acting — the copy in `parkLine` is explicit that approving spend is only right
+// for a spend hold. Rows that are still classifying come last because they need no action.
 
-type ApprovalGroupKey = "spend" | "fact" | "publish" | "reveal" | "unknown";
+type ApprovalGroupKey = "spend" | "fact" | "publish" | "reveal" | "unknown" | "loading";
 
 const APPROVAL_GROUPS: Array<{ key: ApprovalGroupKey; title: string }> = [
   { key: "spend", title: "SPEND APPROVALS" },
@@ -367,7 +367,14 @@ const APPROVAL_GROUPS: Array<{ key: ApprovalGroupKey; title: string }> = [
   { key: "publish", title: "PUBLISH" },
   { key: "reveal", title: "REVEAL SIGN-OFF" },
   { key: "unknown", title: "NEEDS A LOOK" },
+  { key: "loading", title: "CLASSIFYING" },
 ];
+
+const APPROVAL_GROUP_KEYS = new Set<string>(APPROVAL_GROUPS.map(({ key }) => key));
+
+function isApprovalGroupKey(value: string): value is ApprovalGroupKey {
+  return APPROVAL_GROUP_KEYS.has(value);
+}
 
 function groupApprovals(
   jobs: QueueJob[],
@@ -379,9 +386,12 @@ function groupApprovals(
     // A row still being classified is not "unknown" — it just has not resolved yet.
     // Bucketing it with the genuinely-unclassifiable ones would tell the operator to
     // go investigate something that is about to answer for itself.
+    const resolvedKind = park?.kind ?? "unknown";
     const key: ApprovalGroupKey = park?.loading
-      ? "unknown"
-      : ((park?.kind ?? "unknown") as ApprovalGroupKey);
+      ? "loading"
+      : isApprovalGroupKey(resolvedKind)
+        ? resolvedKind
+        : "unknown";
     const bucket = buckets.get(key);
     if (bucket) bucket.push(job);
     else buckets.set(key, [job]);

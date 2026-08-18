@@ -143,14 +143,37 @@ describe("ActionCenter triage", () => {
     render(
       <ActionCenter
         {...baseProps}
-        jobs={[job({ id: 1 }), job({ id: 2 })]}
+        jobs={[
+          job({ id: 1, food: "Classification pending" }),
+          job({ id: 2, food: "Unclassifiable approval" }),
+        ]}
         parkById={{ 1: park("unknown", true), 2: park("unknown") }}
       />,
     );
 
-    // Both land in NEEDS A LOOK, but only because one genuinely is unknown and the
-    // other has not resolved yet — the count must not imply two investigations.
-    expect(screen.getByText(/\/\/ NEEDS A LOOK \(2\)/)).toBeInTheDocument();
+    const classifying = screen.getByRole("list", { name: "CLASSIFYING" });
+    const needsALook = screen.getByRole("list", { name: "NEEDS A LOOK" });
+
+    expect(screen.getByText(/\/\/ CLASSIFYING \(1\)/)).toBeInTheDocument();
+    expect(screen.getByText(/\/\/ NEEDS A LOOK \(1\)/)).toBeInTheDocument();
+    expect(within(classifying).getByText("Classification pending")).toBeInTheDocument();
+    expect(within(classifying).queryByText("Unclassifiable approval")).not.toBeInTheDocument();
+    expect(within(needsALook).getByText("Unclassifiable approval")).toBeInTheDocument();
+    expect(within(needsALook).queryByText("Classification pending")).not.toBeInTheDocument();
+  });
+
+  it("keeps an approval with an unrecognized park kind visible in NEEDS A LOOK", () => {
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 1, food: "New park kind approval" })]}
+        parkById={{ 1: park("future_kind") }}
+      />,
+    );
+
+    const needsALook = screen.getByRole("list", { name: "NEEDS A LOOK" });
+    expect(screen.getByText(/\/\/ NEEDS A LOOK \(1\)/)).toBeInTheDocument();
+    expect(within(needsALook).getByText("New park kind approval")).toBeInTheDocument();
   });
 
   it("offers secondary per-row archive actions for approvals and errors", async () => {
