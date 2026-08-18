@@ -6,7 +6,7 @@ import { plainLanguage, stageLabel } from "@/lib/plainLanguage";
 import type { FactClaim } from "@/lib/factClaims";
 import type { JobArchiveMutationResult } from "@/lib/jobs";
 import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
-import type { QueueJob } from "../controlroom/shared";
+import type { JobParkResolution, QueueJob } from "../controlroom/shared";
 import { JobArchiveControls, JobArchiveRowButton } from "./JobArchiveControls";
 import { RenderPlayer } from "./RenderPlayer";
 import type { RunDiagnosticsResult } from "./RunsHub";
@@ -14,12 +14,12 @@ import type { RunDiagnosticsResult } from "./RunsHub";
 type QueueAction = "fact" | "spend" | "publish" | "stale";
 type TriggeredActionRequest = (job: QueueJob, action: QueueAction, trigger: HTMLButtonElement) => void;
 
-type ActionCenterPark = {
-  kind: "fact" | "spend" | "publish" | "reveal" | "unknown";
-  loading: boolean;
-  stage: string | null;
-  error: string | null;
-};
+type ActionCenterPark = JobParkResolution;
+
+// Receipt fallbacks run through a four-worker queue that can serve a three-figure
+// backlog. Sixty seconds gives that normal queue ample time without letting a hung
+// backend request hide an approval in the no-action CLASSIFYING group indefinitely.
+export const PARK_CLASSIFICATION_TIMEOUT_MS = 60_000;
 
 export type ActionCenterProps = {
   jobs: QueueJob[];
@@ -78,6 +78,26 @@ export function ActionCenter({
   const viewErroredJobs = showArchived ? archivedErroredJobs : erroredJobs;
   const activeCount = jobs.length + erroredJobs.length;
   const archivedCount = archivedJobs.length + archivedErroredJobs.length;
+  const [classificationNow, setClassificationNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const now = Date.now();
+    let nextExpiry = Number.POSITIVE_INFINITY;
+
+    for (const job of [...viewJobs, ...viewErroredJobs]) {
+      const park = parkById[job.id];
+      if (!park?.loading || park.loadingSince === null) continue;
+      const expiry = park.loadingSince + PARK_CLASSIFICATION_TIMEOUT_MS;
+      if (expiry > now) nextExpiry = Math.min(nextExpiry, expiry);
+    }
+
+    if (!Number.isFinite(nextExpiry)) return undefined;
+    const timeout = window.setTimeout(
+      () => setClassificationNow(Date.now()),
+      Math.max(0, nextExpiry - now),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [classificationNow, parkById, viewErroredJobs, viewJobs]);
 
   useEffect(() => {
     if (previousPendingRef.current && !pending) {
@@ -148,7 +168,7 @@ export function ActionCenter({
           {showArchived ? "No archived approvals." : "All clear - no approvals awaiting."}
         </div>
       ) : (
-        groupApprovals(viewJobs, parkById).map((group) => (
+        groupApprovals(viewJobs, parkById, classificationNow).map((group) => (
           <section
             className="au-approval-group"
             key={group.key}
@@ -170,7 +190,7 @@ export function ActionCenter({
 
             <div className="glass-panel" role="list" aria-label={group.title}>
               {group.jobs.map((job) => {
-                const park = parkById[job.id];
+                const park = effectivePark(parkById[job.id], classificationNow);
                 const pendingForRow = pending?.job.id === job.id ? pending : null;
                 const publishAllowed = canPublish(job);
                 const isStale = job.status?.trim().toLowerCase() === "stale";
@@ -266,7 +286,7 @@ export function ActionCenter({
           <h2 id="errored-jobs-title" className="text-title">Errored / stuck</h2>
           <div className="glass-panel" role="list" aria-label="Errored or stuck jobs">
             {viewErroredJobs.map((job) => {
-              const park = parkById[job.id];
+              const park = effectivePark(parkById[job.id], classificationNow);
               return (
                 <article className="approval-row" role="listitem" key={job.id}>
                   <div className="approval-context">
@@ -379,10 +399,11 @@ function isApprovalGroupKey(value: string): value is ApprovalGroupKey {
 function groupApprovals(
   jobs: QueueJob[],
   parkById: Record<QueueJob["id"], ActionCenterPark>,
+  now = Date.now(),
 ): Array<{ key: ApprovalGroupKey; title: string; jobs: QueueJob[]; total: number | null }> {
   const buckets = new Map<ApprovalGroupKey, QueueJob[]>();
   for (const job of jobs) {
-    const park = parkById[job.id];
+    const park = effectivePark(parkById[job.id], now);
     // A row still being classified is not "unknown" — it just has not resolved yet.
     // Bucketing it with the genuinely-unclassifiable ones would tell the operator to
     // go investigate something that is about to answer for itself.
@@ -415,6 +436,27 @@ function groupApprovals(
       };
     },
   );
+}
+
+function effectivePark(
+  park: ActionCenterPark | undefined,
+  now: number,
+): ActionCenterPark | undefined {
+  if (
+    !park?.loading ||
+    park.loadingSince === null ||
+    now - park.loadingSince < PARK_CLASSIFICATION_TIMEOUT_MS
+  ) {
+    return park;
+  }
+
+  return {
+    ...park,
+    kind: "unknown",
+    loading: false,
+    loadingSince: null,
+    error: park.error ?? "Classification timed out.",
+  };
 }
 
 /** A render only exists once a run has got far enough to make one. Mounting the player

@@ -4,7 +4,10 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ActionCenter } from "@/components/aurora/ActionCenter";
+import {
+  ActionCenter,
+  PARK_CLASSIFICATION_TIMEOUT_MS,
+} from "@/components/aurora/ActionCenter";
 import type { QueueJob } from "@/components/controlroom/shared";
 
 // The screen the operator called "too disorganized and cluttered": 100+ approvals in one
@@ -34,8 +37,8 @@ const baseProps = {
   statusLabel: () => "Ready for review",
 };
 
-function park(kind: string, loading = false) {
-  return { kind, loading, stage: null, error: null } as never;
+function park(kind: string, loading = false, loadingSince = loading ? Date.now() : null) {
+  return { kind, loading, loadingSince, stage: null, error: null } as never;
 }
 
 afterEach(cleanup);
@@ -174,6 +177,27 @@ describe("ActionCenter triage", () => {
     const needsALook = screen.getByRole("list", { name: "NEEDS A LOOK" });
     expect(screen.getByText(/\/\/ NEEDS A LOOK \(1\)/)).toBeInTheDocument();
     expect(within(needsALook).getByText("New park kind approval")).toBeInTheDocument();
+  });
+
+  it("moves a long-stuck classification into NEEDS A LOOK", () => {
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 1, food: "Classification timed out" })]}
+        parkById={{
+          1: park(
+            "unknown",
+            true,
+            Date.now() - PARK_CLASSIFICATION_TIMEOUT_MS - 1,
+          ),
+        }}
+      />,
+    );
+
+    const needsALook = screen.getByRole("list", { name: "NEEDS A LOOK" });
+    expect(screen.getByText(/\/\/ NEEDS A LOOK \(1\)/)).toBeInTheDocument();
+    expect(within(needsALook).getByText("Classification timed out")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "CLASSIFYING" })).not.toBeInTheDocument();
   });
 
   it("offers secondary per-row archive actions for approvals and errors", async () => {

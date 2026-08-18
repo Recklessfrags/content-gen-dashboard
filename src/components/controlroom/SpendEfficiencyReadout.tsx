@@ -15,10 +15,6 @@ function formatRatio(value: number | null): string {
   return value === null ? "—" : value.toFixed(1);
 }
 
-function formatShare(value: number | null): string {
-  return value === null ? "—" : `${Math.round(value * 100)}%`;
-}
-
 export function SpendEfficiencyReadout({
   jobs,
   loading,
@@ -147,10 +143,8 @@ export function SpendEfficiencyReadout({
       </div>
 
       <p className="spend-efficiency__definition" role="note">
-        <strong>Delivered terminal state:</strong> <code>status = done</code>. Every other
-        current status is counted as not delivered. The headline ratios do not divide by
-        delivered jobs. Null spend is omitted from spend sums while its run and topic still
-        count.
+        <strong>Scope:</strong> Rows without a topic are excluded because their spend cannot be
+        assigned to a lineage. Null spend contributes $0 while its run and topic still count.
       </p>
 
       {loading ? (
@@ -177,14 +171,6 @@ export function SpendEfficiencyReadout({
               <span>Runs per topic</span>
               <strong>{formatRatio(stats.runsPerTopic)}</strong>
               <small>All runs ÷ distinct topics</small>
-            </article>
-            <article className="spend-efficiency__metric">
-              <span>Spend that never delivered</span>
-              <strong>{formatShare(stats.undeliveredSpendShare)}</strong>
-              <small>
-                {formatUsd(stats.undeliveredSpend)} of {formatUsd(stats.totalSpend)} recorded
-                spend
-              </small>
             </article>
           </div>
 

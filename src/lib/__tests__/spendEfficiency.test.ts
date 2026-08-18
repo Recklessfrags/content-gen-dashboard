@@ -11,7 +11,6 @@ function job(overrides: Partial<SpendEfficiencyJob> = {}): SpendEfficiencyJob {
     episode_id: "episode-1",
     food: "Topic A",
     spend: 1,
-    status: "error",
     ...overrides,
   };
 }
@@ -79,11 +78,26 @@ describe("calculateSpendEfficiency", () => {
     expect(stats.runsPerTopic).toBe(1.5);
   });
 
-  it("uses null instead of dividing by zero", () => {
+  it("excludes empty topics from both spend and run numerators", () => {
     const stats = calculateSpendEfficiency([
-      job({ spend: null, status: "done" }),
+      job({ food: "Topic A", spend: 2 }),
+      job({ food: "", spend: 50, episode_id: "empty-topic" }),
+      job({ food: "   ", spend: 75, episode_id: "whitespace-topic" }),
     ]);
 
-    expect(stats.undeliveredSpendShare).toBeNull();
+    expect(stats).toMatchObject({
+      runCount: 1,
+      topicCount: 1,
+      totalSpend: 2,
+      spendPerTopic: 2,
+      runsPerTopic: 1,
+    });
+  });
+
+  it("uses null ratios when no topic-bearing jobs match", () => {
+    const stats = calculateSpendEfficiency([job({ food: "", spend: 10 })]);
+
+    expect(stats.spendPerTopic).toBeNull();
+    expect(stats.runsPerTopic).toBeNull();
   });
 });

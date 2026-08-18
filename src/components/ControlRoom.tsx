@@ -652,11 +652,29 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       const next = { ...current };
       for (const { job, columnKind } of parkResolutions) {
         if (columnKind !== "unknown") {
-          next[job.id] = { kind: columnKind, loading: false, stage: null, error: null };
+          next[job.id] = {
+            kind: columnKind,
+            loading: false,
+            loadingSince: null,
+            stage: null,
+            error: null,
+          };
         } else if (!job.episode_id) {
-          next[job.id] = { kind: "unknown", loading: false, stage: null, error: null };
+          next[job.id] = {
+            kind: "unknown",
+            loading: false,
+            loadingSince: null,
+            stage: null,
+            error: null,
+          };
         } else {
-          next[job.id] = { kind: "unknown", loading: true, stage: null, error: null };
+          next[job.id] = {
+            kind: "unknown",
+            loading: true,
+            loadingSince: Date.now(),
+            stage: null,
+            error: null,
+          };
         }
       }
       return next;
@@ -686,6 +704,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           [job.id]: {
             kind: error ? "unknown" : detectParkKind(latestStage),
             loading: false,
+            loadingSince: null,
             stage: latestStage,
             error: error?.message ?? null,
           },

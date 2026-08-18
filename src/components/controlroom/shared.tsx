@@ -33,6 +33,7 @@ export type ParkKind = ReturnType<typeof resolveParkKind>;
 export type JobParkResolution = {
   kind: ParkKind;
   loading: boolean;
+  loadingSince: number | null;
   stage: string | null;
   error: string | null;
 };

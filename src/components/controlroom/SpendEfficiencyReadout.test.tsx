@@ -14,7 +14,6 @@ const jobs: SpendEfficiencyJob[] = [
     episode_id: "episode-1",
     food: "Molasses Flood",
     spend: 2,
-    status: "error",
   },
   {
     channel: "ab_hook_a",
@@ -22,7 +21,6 @@ const jobs: SpendEfficiencyJob[] = [
     episode_id: "episode-2",
     food: "Hook experiment",
     spend: 10,
-    status: "done",
   },
 ];
 
@@ -37,6 +35,7 @@ describe("SpendEfficiencyReadout", () => {
     expect(
       within(screen.getByText("Spend per topic").closest("article")!).getByText("$2.00 USD"),
     ).toBeInTheDocument();
+    expect(screen.queryByText("Spend that never delivered")).not.toBeInTheDocument();
 
     await user.click(
       screen.getByRole("checkbox", { name: "Include deliberate ab_* experiments" }),

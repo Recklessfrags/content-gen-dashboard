@@ -1,5 +1,4 @@
 export const DEFAULT_REPEAT_LINEAGE_THRESHOLD = 3;
-export const DELIVERED_JOB_STATUS = "done";
 
 export type SpendEfficiencyWindow = "all" | "7d";
 
@@ -9,7 +8,6 @@ export type SpendEfficiencyJob = {
   episode_id: string | null;
   food: string;
   spend: number | null;
-  status: string;
 };
 
 export type RepeatLineage = {
@@ -25,10 +23,12 @@ export type SpendEfficiencyStats = {
   totalSpend: number;
   spendPerTopic: number | null;
   runsPerTopic: number | null;
-  undeliveredSpend: number;
-  undeliveredSpendShare: number | null;
   repeatLineages: RepeatLineage[];
 };
+
+// A delivery-based efficiency metric becomes computable when publishing is enabled.
+// Until then, ready_for_review is a human wait state rather than delivery, so no current
+// job field can support an honest "undelivered" number.
 
 type SpendEfficiencyOptions = {
   includeAbChannels?: boolean;
@@ -72,6 +72,7 @@ export function calculateSpendEfficiency(
   } = options;
 
   const filteredJobs = jobs.filter((job) => {
+    if (job.food.trim().length === 0) return false;
     if (!includeAbChannels && isAbChannel(job.channel)) return false;
     if (channel !== undefined && job.channel !== channel) return false;
     return isInWindow(job.created_at, window, now);
@@ -82,17 +83,11 @@ export function calculateSpendEfficiency(
     { topic: string; runCount: number; totalSpend: number; episodeIds: Set<string> }
   >();
   let totalSpend = 0;
-  let undeliveredSpend = 0;
 
   for (const job of filteredJobs) {
     const spend = numericSpend(job.spend);
     const topic = job.food.trim();
     totalSpend += spend;
-    if (job.status.trim().toLowerCase() !== DELIVERED_JOB_STATUS) {
-      undeliveredSpend += spend;
-    }
-
-    if (topic.length === 0) continue;
     const lineage = lineages.get(topic) ?? {
       topic,
       runCount: 0,
@@ -127,8 +122,6 @@ export function calculateSpendEfficiency(
     totalSpend,
     spendPerTopic: topicCount > 0 ? totalSpend / topicCount : null,
     runsPerTopic: topicCount > 0 ? filteredJobs.length / topicCount : null,
-    undeliveredSpend,
-    undeliveredSpendShare: totalSpend > 0 ? undeliveredSpend / totalSpend : null,
     repeatLineages,
   };
 }
