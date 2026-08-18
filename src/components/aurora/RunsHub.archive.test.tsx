@@ -30,7 +30,6 @@ const baseProps = {
   error: null,
   onRetry: vi.fn(),
   onBack: vi.fn(),
-  loadDiagnostics: vi.fn(),
   loadReliability: vi.fn(),
 };
 

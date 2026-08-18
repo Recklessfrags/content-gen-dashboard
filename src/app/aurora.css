@@ -4739,18 +4739,6 @@
   color: var(--text-main);
   font-size: 0.875rem;
 }
-.aurora-app .run-card__park-open {
-  min-width: 0;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 0;
-  background: transparent;
-  color: var(--text-main);
-  font-family: var(--font-sans);
-  cursor: pointer;
-}
 .aurora-app .run-card__meta {
   display: flex;
   gap: 0.4rem;
@@ -4765,6 +4753,9 @@
   width: 100%;
   min-width: 0;
   display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .aurora-app .au-step-track::before {
   content: "";
@@ -4790,7 +4781,6 @@
   background: transparent;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  cursor: pointer;
 }
 .aurora-app .au-step-node__mark {
   width: 20px;
@@ -4812,91 +4802,11 @@
 .aurora-app .au-step-node.is-parked { color: var(--warn); }
 .aurora-app .au-step-node.is-failed { color: var(--danger-fg); }
 .aurora-app .au-step-node.is-parked .au-step-node__mark { border-radius: 4px; }
-.aurora-app .au-step-node.is-open .au-step-node__mark { outline: 2px solid var(--accent); outline-offset: 2px; }
-.aurora-app .au-step-node:hover .au-step-node__mark { border-color: currentColor; background: var(--surface-3); }
-
-.aurora-app .au-step-note { font-size: 0.8125rem; }
-.aurora-app .au-step-drawer {
-  display: grid;
-  gap: 0.8rem;
-  padding: 0.9rem;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-}
-.aurora-app .au-step-drawer__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding-bottom: 0.65rem;
-  border-bottom: 1px solid var(--border-soft);
-}
-.aurora-app .au-receipt-meta { margin-top: 0.15rem; color: var(--text-dim); font-size: 0.68rem; overflow-wrap: anywhere; }
-.aurora-app .au-attempt-select { display: grid; gap: 0.2rem; color: var(--text-dim); font-size: 0.7rem; }
-.aurora-app .au-attempt-select select {
-  min-height: 36px;
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
-  color: var(--text-main);
-  font: inherit;
-}
-.aurora-app .au-step-reason { color: var(--text-main); font-size: 0.8125rem; overflow-wrap: anywhere; }
-.aurora-app .au-step-error { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; color: var(--danger-fg); }
-
-.aurora-app .au-script-view,
-.aurora-app .au-claim-ledger,
-.aurora-app .au-source-list,
-.aurora-app .au-platform-list { display: grid; gap: 0.75rem; min-width: 0; }
-.aurora-app .au-script-view { color: var(--text-main); line-height: 1.6; }
-.aurora-app .au-script-view__hook { padding-left: 0.75rem; border-left: 2px solid var(--accent); }
-.aurora-app .au-script-beat { display: grid; gap: 0.25rem; padding-top: 0.6rem; border-top: 1px solid var(--border-soft); }
-.aurora-app .au-script-beat .text-mono { color: var(--text-dim); font-size: 0.68rem; }
-.aurora-app .au-script-beat p { overflow-wrap: anywhere; }
-
-.aurora-app .au-claim,
-.aurora-app .au-platform-row {
-  display: grid;
-  gap: 0.45rem;
-  padding: 0.7rem;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
-}
-.aurora-app .au-claim__head,
-.aurora-app .au-platform-row > div { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
-.aurora-app .au-claim__status { text-transform: uppercase; }
-.aurora-app .au-claim__status.is-green { color: var(--success); background: var(--success-bg); }
-.aurora-app .au-claim__status.is-yellow { color: var(--warn); background: var(--warn-bg); }
-.aurora-app .au-claim__status.is-red { color: var(--danger-fg); background: var(--danger-bg); }
-.aurora-app .au-source-row { display: flex; justify-content: space-between; gap: 0.75rem; min-width: 0; font-size: 0.8125rem; }
-.aurora-app .au-source-row a,
-.aurora-app .au-source-row > span:first-child { min-width: 0; color: var(--accent); overflow-wrap: anywhere; }
-.aurora-app .au-source-row .text-mono { flex: 0 0 auto; color: var(--text-dim); font-size: 0.65rem; }
-.aurora-app .au-allowed-claims,
-.aurora-app .au-platform-row ul { padding-left: 1.2rem; }
-
-.aurora-app .au-virality-score { display: flex; align-items: baseline; gap: 0.6rem; }
-.aurora-app .au-virality-score strong { color: var(--accent); font-size: 2rem; line-height: 1; }
-.aurora-app .au-stage-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem; }
-.aurora-app .au-stage-summary > div { min-width: 0; padding: 0.6rem; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--surface-1); }
-.aurora-app .au-stage-summary dt { color: var(--text-dim); font-size: 0.68rem; }
-.aurora-app .au-stage-summary dd { margin-top: 0.2rem; color: var(--text-main); font-size: 0.85rem; overflow-wrap: anywhere; }
-.aurora-app .au-stage-summary__note { grid-column: 1 / -1; font-size: 0.75rem; }
 
 @media (max-width: 640px) {
   .aurora-app .runs-hub.scoped { margin-top: 2rem; }
   .aurora-app .run-card { padding: 0.85rem 0.75rem; }
   .aurora-app .au-step-track { width: calc(100% + 1.5rem); margin-inline: -0.75rem; }
-  .aurora-app .au-stage-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .aurora-app .au-step-drawer__head { align-items: stretch; flex-direction: column; }
-  .aurora-app .au-attempt-select select { width: 100%; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .aurora-app .au-step-node { transition: none; }
 }
 
 /* Render watch gate: compact disclosure with a constrained portrait-safe stage. */

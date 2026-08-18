@@ -60,16 +60,14 @@ import type {
 import { IdeasHub } from "./aurora/IdeasHub";
 import type { IdeasHubProps } from "./aurora/IdeasHub";
 import { ReviewHub } from "./aurora/ReviewHub";
-import { RunsHub } from "./aurora/RunsHub";
+import { isRunStage, RunsHub } from "./aurora/RunsHub";
 import type {
   ReliabilityResult,
   RunCardVM,
   RunDiagnosticsResult,
   RunStage,
-  RunStageDetailResult,
   RunsHubProps,
 } from "./aurora/RunsHub";
-import { STAGE_DETAIL_SELECTS } from "./aurora/RunsHub";
 import { RunCostEstimate } from "./aurora/RunCostEstimate";
 import { computeWorkerReliability } from "@/lib/workerReliability";
 import { MOCK_REVIEW_FIXTURES } from "@/lib/renderReview";
@@ -1718,26 +1716,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     },
     [supabase],
   );
-  const loadRunStageDetail = useCallback(
-    async (
-      episodeId: string,
-      stage: RunStage,
-      seq: number | null,
-    ): Promise<RunStageDetailResult> => {
-      let query = supabase
-        .from("receipts")
-        .select(STAGE_DETAIL_SELECTS[stage])
-        .eq("episode_id", episodeId)
-        .eq("stage", stage);
-      query = seq === null
-        ? query.order("seq", { ascending: false }).limit(1)
-        : query.eq("seq", seq).limit(1);
-      const { data, error } = await query.returns<Array<Record<string, unknown>>>();
-      if (error) return { payload: null, error: error.message };
-      return { payload: data?.[0] ?? null, error: null };
-    },
-    [supabase],
-  );
   const loadFactClaims = useCallback(
     async (episodeId: string): Promise<FactClaimsResult> => {
       const { data, error } = await supabase
@@ -1818,6 +1796,17 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }));
     return { reliability: computeWorkerReliability(raw), error: null, windowDays };
   }, [supabase]);
+  const runAttemptsByEpisode = useMemo(() => {
+    const attempts = new Map<string, Partial<Record<RunStage, number>>>();
+    for (const receipt of costReceipts) {
+      const stage = receipt.stage.trim().toLowerCase();
+      if (!isRunStage(stage)) continue;
+      const episodeAttempts = attempts.get(receipt.episode_id) ?? {};
+      episodeAttempts[stage] = (episodeAttempts[stage] ?? 0) + 1;
+      attempts.set(receipt.episode_id, episodeAttempts);
+    }
+    return attempts;
+  }, [costReceipts]);
   const episodeParkReasonById = useMemo(
     () =>
       new Map(
@@ -1867,13 +1856,16 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           terminalState: isFailure ? terminalStateResult?.state ?? null : null,
           terminalStateSource: isFailure ? terminalStateResult?.source ?? null : null,
           finalStage,
+          attemptsByStage: job.episode_id
+            ? runAttemptsByEpisode.get(job.episode_id)
+            : undefined,
           parkReason: isParked ? (episodeParkReason?.message ?? null) : null,
           belowFloorCuts: isParked
             ? parseBelowFloorCuts(episodeParkReason?.message ?? null)
             : [],
         };
       }),
-    [episodeParkReasonById],
+    [episodeParkReasonById, runAttemptsByEpisode],
   );
   const runsHubCards = useMemo(() => mapJobsToRunCards(jobs), [jobs, mapJobsToRunCards]);
   const archivedRunsHubCards = useMemo(
@@ -1891,8 +1883,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       },
       onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
       onReviewApprovals: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
-      loadDiagnostics: loadRunDiagnostics,
-      loadStageDetail: loadRunStageDetail,
       loadReliability: loadWorkerReliability,
       onArchiveJobs: handleArchiveJobs,
       onUnarchiveJobs: handleUnarchiveJobs,
@@ -1904,8 +1894,6 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       handleUnarchiveJobs,
       jobsError,
       jobsLoading,
-      loadRunDiagnostics,
-      loadRunStageDetail,
       loadWorkerReliability,
       navigate,
       runsHubCards,

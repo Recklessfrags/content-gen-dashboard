@@ -39,13 +39,12 @@ describe("RunsHub plain-language defaults", () => {
         error={null}
         onRetry={vi.fn()}
         onBack={vi.fn()}
-        loadDiagnostics={vi.fn()}
         loadReliability={vi.fn()}
       />,
     );
 
     expect(screen.getByRole("tab", { name: /Parked 1/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("group", { name: "Steps for A test run" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Progress for A test run" })).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Waiting on you");
     expect(document.body).not.toHaveTextContent("Stopped at");
     expect(document.body).not.toHaveTextContent("Technical details");
@@ -74,16 +73,15 @@ describe("RunsHub plain-language defaults", () => {
         error={null}
         onRetry={vi.fn()}
         onBack={vi.fn()}
-        loadDiagnostics={vi.fn()}
         loadReliability={vi.fn()}
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Editing the cut: running" })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: "Editing the cut: running" })).toBeInTheDocument();
     expect(screen.queryByText("Finished video")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: /Finished 1/ }));
     expect(screen.getByText("Finished video")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /: passed$/ })).toHaveLength(11);
+    expect(screen.getAllByRole("listitem", { name: /: passed$/ })).toHaveLength(11);
   });
 
   it("represents the final failed stage on the track without restoring the old stopped-at box", () => {
@@ -108,12 +106,11 @@ describe("RunsHub plain-language defaults", () => {
         error={null}
         onRetry={vi.fn()}
         onBack={vi.fn()}
-        loadDiagnostics={vi.fn()}
         loadReliability={vi.fn()}
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Recording the voiceover: failed" })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: "Recording the voiceover: failed" })).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("Stopped at");
     expect(document.body).not.toHaveTextContent("Why it stopped");
   });
