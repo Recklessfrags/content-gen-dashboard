@@ -36,6 +36,7 @@ import {
   type JobEnqueueInput,
 } from "@/lib/jobs";
 import { resolveTerminalState } from "@/lib/failureClass";
+import { runsHubStatus } from "@/lib/runsHubState";
 import { parseFactClaims, type FactClaim } from "@/lib/factClaims";
 import { isCast } from "@/lib/casting";
 import { isVisuallyCast, signedRefImageUrl } from "@/lib/castingVisual";
@@ -443,6 +444,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     costReceipts: runCostReceipts,
     loading: runCostReceiptsLoading,
     error: runCostReceiptsError,
+    loaded: runCostReceiptsLoaded,
     refetch: fetchRunCostReceipts,
   } = useCostReceipts(supabase, runReceiptEpisodeIds);
   const {
@@ -1854,12 +1856,19 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     () => mapJobsToRunCards(archivedJobs),
     [archivedJobs, mapJobsToRunCards],
   );
-  const runsHubProps = useMemo<RunsHubProps>(
-    () => ({
+  const runsHubProps = useMemo<RunsHubProps>(() => {
+    const status = runsHubStatus({
+      jobsError,
+      jobsLoading,
+      stepHistoryError: runCostReceiptsError,
+      stepHistoryLoading: runCostReceiptsLoading,
+      stepHistoryLoaded: runCostReceiptsLoaded,
+    });
+
+    return {
       cards: runsHubCards,
       archivedCards: archivedRunsHubCards,
-      loading: jobsLoading || runCostReceiptsLoading,
-      error: jobsError ?? runCostReceiptsError,
+      ...status,
       onRetry: () => {
         void fetchJobs();
         void fetchRunCostReceipts();
@@ -1868,8 +1877,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       loadReliability: loadWorkerReliability,
       onArchiveJobs: handleArchiveJobs,
       onUnarchiveJobs: handleUnarchiveJobs,
-    }),
-    [
+    };
+  }, [
       fetchJobs,
       fetchRunCostReceipts,
       archivedRunsHubCards,
@@ -1880,10 +1889,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       loadWorkerReliability,
       navigate,
       runCostReceiptsError,
+      runCostReceiptsLoaded,
       runCostReceiptsLoading,
       runsHubCards,
-    ],
-  );
+    ]);
   const auroraNav = {
     activeKey: scope.kind === "workspace" ? "channels" : scope.hub,
     onNavigate: (key: "channels" | "characters" | "ideas" | "runs" | "review") =>

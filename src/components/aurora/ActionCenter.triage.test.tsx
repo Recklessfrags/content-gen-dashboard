@@ -279,6 +279,35 @@ describe("ActionCenter triage", () => {
     expect(await screen.findByText(/no below-floor data recorded on this receipt/i)).toBeInTheDocument();
   });
 
+  it("states when a below-floor notice records no count or listed cuts", async () => {
+    const user = userEvent.setup();
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 1 })]}
+        parkById={{ 1: park("spend") }}
+        loadDiagnostics={vi.fn().mockResolvedValue({
+          error: null,
+          receipts: [{
+            seq: 1,
+            stage: "visual_router",
+            verdict: "park",
+            reason: "Notice without magnitude",
+            model: "",
+            provider: "",
+            evidence: { below_floor_notice: {} },
+          }],
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
+    await user.click(screen.getByRole("button", { name: /Open run log/ }));
+
+    expect(await screen.findByText(/recorded, count not stated/i)).toBeInTheDocument();
+    expect(screen.queryByText(/flagged: 0/i)).not.toBeInTheDocument();
+  });
+
   it("moves a classification into NEEDS A LOOK when its timeout elapses", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-18T12:00:00.000Z"));

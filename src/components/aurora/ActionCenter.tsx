@@ -391,7 +391,9 @@ function ParkContext({ job, park, loadDiagnostics }: {
           {belowFloor?.hasData ? (
             <div className="au-below-floor">
               <strong>
-                {plainLanguage("below_floor")}: {belowFloor.reportedCount !== belowFloor.cuts.length
+                {plainLanguage("below_floor")}: {belowFloor.reportedCount === null
+                  ? "recorded, count not stated"
+                  : belowFloor.reportedCount !== belowFloor.cuts.length
                   ? `${belowFloor.reportedCount} flagged, ${belowFloor.cuts.length} listed`
                   : belowFloor.reportedCount}
               </strong>

@@ -12,4 +12,17 @@ export function assertTrackGeometry(trackGeometry) {
       + `${failedGeometry.count} nodes, bounds ${failedGeometry.minLeft}..${failedGeometry.maxRight}`,
     );
   }
+
+  const failedHeight = trackGeometry.find(
+    (geometry) => !Number.isFinite(geometry.minHeight)
+      || !Number.isFinite(geometry.maxHeight)
+      || Math.abs(geometry.minHeight - 44) > 0.5
+      || Math.abs(geometry.maxHeight - 44) > 0.5,
+  );
+  if (failedHeight) {
+    throw new Error(
+      `run track height failed at ${failedHeight.viewportWidth}px: `
+      + `node heights ${failedHeight.minHeight}..${failedHeight.maxHeight}px, expected 44px`,
+    );
+  }
 }

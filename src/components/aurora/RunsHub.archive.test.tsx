@@ -60,14 +60,14 @@ describe("RunsHub archive controls", () => {
     expect(screen.queryByText("Run 3")).not.toBeInTheDocument();
   });
 
-  it("keeps every lifecycle-scoped channel facet available after selecting one", async () => {
+  it("keeps channel facets from other lifecycles available after selecting one", async () => {
     const user = userEvent.setup();
     render(
       <RunsHub
         {...baseProps}
         cards={[
           card(1, "ready_for_review", "dark_history"),
-          card(2, "ready_for_review", "weird_food"),
+          card(2, "done", "weird_food"),
         ]}
       />,
     );
@@ -124,6 +124,44 @@ describe("RunsHub archive controls", () => {
     expect(screen.getByRole("button", { name: "grandma (1)" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText(/No parked runs/)).toBeInTheDocument();
     expect(document.querySelectorAll("[data-run-id]")).toHaveLength(0);
+  });
+
+  it("names an active channel filter in a lifecycle empty state and offers to clear it", async () => {
+    const user = userEvent.setup();
+    render(
+      <RunsHub
+        {...baseProps}
+        cards={[
+          card(1, "done", "dark_history"),
+          card(2, "ready_for_review", "weird_food"),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "weird_food (1)" }));
+    await user.click(screen.getByRole("tab", { name: /Finished 0/ }));
+
+    expect(screen.getByText("No finished runs in weird_food")).toBeInTheDocument();
+    expect(screen.getByText(/or clear the channel filter/i)).toBeInTheDocument();
+  });
+
+  it("places the channel scope before the global Active and Archived totals", () => {
+    render(
+      <RunsHub
+        {...baseProps}
+        cards={[
+          card(1, "ready_for_review", "dark_history"),
+          card(2, "done", "weird_food"),
+        ]}
+        archivedCards={[card(3, "done", "dark_history")]}
+        onArchiveJobs={vi.fn()}
+        onUnarchiveJobs={vi.fn()}
+      />,
+    );
+
+    const filters = screen.getByRole("group", { name: "Filter by channel" });
+    const archiveToggle = screen.getByRole("group", { name: "run view" });
+    expect(filters.compareDocumentPosition(archiveToggle) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   });
 
   it("falls back to all channels only when refreshed population removes the selected channel", async () => {
@@ -249,7 +287,7 @@ describe("RunsHub archive controls", () => {
       expect(row).not.toBeNull();
       expect(within(row as HTMLElement).queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
     }
-    expect(screen.getByText(/2 runs with statuses “queued”, “running” cannot be archived while in flight/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 runs are still queued or running and cannot be archived yet/i)).toBeInTheDocument();
   });
 
   it("keeps an unknown pipeline status visible as in-flight, held out of bulk, and deliberately dismissible", async () => {
@@ -400,5 +438,36 @@ describe("RunsHub archive controls", () => {
     await user.click(screen.getByRole("button", { name: "Archive 1 run" }));
     await user.click(screen.getByRole("button", { name: "Archive 1" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("archive unavailable");
+  });
+});
+
+describe("RunsHub load failures", () => {
+  it("suppresses run rows when the jobs read fails", () => {
+    render(
+      <RunsHub
+        {...baseProps}
+        cards={[card(1, "ready_for_review", "alpha")]}
+        error="jobs unavailable"
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load runs");
+    expect(screen.queryByText("Run 1")).not.toBeInTheDocument();
+  });
+
+  it("retains run rows and warns when only step history fails", () => {
+    render(
+      <RunsHub
+        {...baseProps}
+        cards={[card(1, "ready_for_review", "alpha")]}
+        stepHistoryError="receipts timed out"
+      />,
+    );
+
+    expect(screen.getByText("Run 1")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Step history unavailable — progress marks may be incomplete",
+    );
+    expect(screen.queryByText("Couldn't load runs")).not.toBeInTheDocument();
   });
 });

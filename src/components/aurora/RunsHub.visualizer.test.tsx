@@ -160,7 +160,7 @@ describe("RunsHub step track", () => {
     expect(screen.getByRole("listitem", { name: "Publishing: not reached" })).toBeInTheDocument();
   });
 
-  it("puts all 11 nodes in a responsive row while preserving the 44px height", () => {
+  it("keeps the responsive-row rules in the stylesheet", () => {
     render(<RunsHub {...baseProps} cards={[{ ...card(1, "done"), attemptsByStage: { researcher: 1 } }]} />);
     const article = screen.getByText("Topic 1").closest("article") as HTMLElement;
     const head = article.querySelector(".run-card__head");

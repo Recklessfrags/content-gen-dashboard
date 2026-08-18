@@ -216,7 +216,7 @@ async function main() {
       const geometry = await firstTrack.evaluate((track, viewportWidth) => {
         const rects = Array.from(track.querySelectorAll(".au-step-node"), (node) => {
           const rect = node.getBoundingClientRect();
-          return { left: rect.left, right: rect.right, width: rect.width };
+          return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
         });
         return {
           viewportWidth,
@@ -224,6 +224,8 @@ async function main() {
           nodeWidth: rects[0]?.width ?? 0,
           minLeft: Math.min(...rects.map((rect) => rect.left)),
           maxRight: Math.max(...rects.map((rect) => rect.right)),
+          minHeight: Math.min(...rects.map((rect) => rect.height)),
+          maxHeight: Math.max(...rects.map((rect) => rect.height)),
           allVisible: rects.length === 11
             && rects.every((rect) => rect.left >= 0 && rect.right <= viewportWidth),
         };
@@ -231,6 +233,7 @@ async function main() {
       trackGeometry.push(geometry);
       console.log(
         `run-track ${width}px — nodes=${geometry.count} node=${geometry.nodeWidth.toFixed(2)}px `
+        + `height=${geometry.minHeight.toFixed(2)}..${geometry.maxHeight.toFixed(2)}px `
         + `left=${geometry.minLeft.toFixed(2)} right=${geometry.maxRight.toFixed(2)} visible=${geometry.allVisible}`,
       );
     }

@@ -92,6 +92,7 @@ export type RunsHubProps = {
   archivedCards?: RunCardVM[];
   loading: boolean;
   error: string | null;
+  stepHistoryError?: string | null;
   onRetry: () => void;
   onBack: () => void;
   loadReliability: () => Promise<ReliabilityResult>;
@@ -119,6 +120,7 @@ export function RunsHub({
   archivedCards = [],
   loading,
   error,
+  stepHistoryError = null,
   onRetry,
   onBack,
   loadReliability,
@@ -135,6 +137,8 @@ export function RunsHub({
   const effectiveChannelKey = facets.some((facet) => facet.key === channelKey)
     ? channelKey
     : ALL_CHANNELS_KEY;
+  const effectiveChannelLabel = facets.find((facet) => facet.key === effectiveChannelKey)?.label;
+  const isChannelFiltered = effectiveChannelKey !== ALL_CHANNELS_KEY;
   const channelFiltered = useMemo(
     () => viewCards.filter((card) => cardMatchesChannel(card, effectiveChannelKey)),
     [effectiveChannelKey, viewCards],
@@ -204,6 +208,22 @@ export function RunsHub({
         ))}
       </div>
 
+      {facets.length > 2 || effectiveChannelKey !== ALL_CHANNELS_KEY ? (
+        <div className="runs-hub__filters runs-hub__filter--channel" role="group" aria-label="Filter by channel">
+          {facets.map((facet) => (
+            <button
+              key={facet.key}
+              type="button"
+              className={"runs-hub__filter" + (effectiveChannelKey === facet.key ? " is-active" : "")}
+              aria-pressed={effectiveChannelKey === facet.key}
+              onClick={() => setChannelKey(facet.key)}
+            >
+              {facet.label} ({facet.count})
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {onArchiveJobs && onUnarchiveJobs ? (
         <JobArchiveControls
           activeCount={cards.length}
@@ -235,22 +255,6 @@ export function RunsHub({
 
       <WorkerReliabilityPanel loadReliability={loadReliability} />
 
-      {facets.length > 2 || effectiveChannelKey !== ALL_CHANNELS_KEY ? (
-        <div className="runs-hub__filters runs-hub__filter--channel" role="group" aria-label="Filter by channel">
-          {facets.map((facet) => (
-            <button
-              key={facet.key}
-              type="button"
-              className={"runs-hub__filter" + (effectiveChannelKey === facet.key ? " is-active" : "")}
-              aria-pressed={effectiveChannelKey === facet.key}
-              onClick={() => setChannelKey(facet.key)}
-            >
-              {facet.label} ({facet.count})
-            </button>
-          ))}
-        </div>
-      ) : null}
-
       {loading ? (
         <div className="glass-panel au-empty" aria-busy="true">
           <span className="spin" aria-hidden="true" /> Loading runs…
@@ -273,12 +277,26 @@ export function RunsHub({
         </div>
       ) : null}
 
+      {!loading && error === null && stepHistoryError !== null ? (
+        <div className="glass-panel au-empty" role="status">
+          <p className="text-title">Step history unavailable — progress marks may be incomplete</p>
+          <p className="dim">Retry reloads both runs and step history.</p>
+          <button type="button" className="btn-secondary" onClick={onRetry}>
+            Retry
+          </button>
+        </div>
+      ) : null}
+
       {showEmpty ? (
         <div className="glass-panel au-empty">
           <p className="text-title">
-            {showArchived ? `No archived ${lifecycleLabel(lifecycle).toLowerCase()} runs` : `No ${lifecycleLabel(lifecycle).toLowerCase()} runs`}
+            No {showArchived ? "archived " : ""}{lifecycleLabel(lifecycle).toLowerCase()} runs
+            {isChannelFiltered && effectiveChannelLabel ? ` in ${effectiveChannelLabel}` : ""}
           </p>
-          <p className="dim">Choose another lifecycle tab{showArchived ? " or return to Active" : ""}.</p>
+          <p className="dim">
+            Choose another lifecycle tab{showArchived ? " or return to Active" : ""}
+            {isChannelFiltered ? " or clear the channel filter" : ""}.
+          </p>
         </div>
       ) : null}
 

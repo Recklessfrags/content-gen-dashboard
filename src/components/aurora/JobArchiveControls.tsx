@@ -170,7 +170,7 @@ export function JobArchiveBulkControl({
         ) : null}
         {!showArchived && refused.length > 0 ? (
           <span className="dim job-archive-skip-note">
-            {refused.length} {pluralize(noun, refused.length)} with {describeSkippedStatuses(refused)} cannot be archived while in flight.
+            {archiveRefusalCopy(refused.length, noun)}
           </span>
         ) : null}
       </div>
@@ -188,7 +188,7 @@ export function JobArchiveBulkControl({
                   ? ` ${heldOut.length} ${pluralize(noun, heldOut.length)} with ${describeSkippedStatuses(heldOut)} will be held out of bulk archive; use ${heldOut.length === 1 ? "its row Archive action" : "their row Archive actions"} to dismiss ${heldOut.length === 1 ? "it" : "them"}.`
                   : ""}
                 {refused.length > 0
-                  ? ` ${refused.length} ${pluralize(noun, refused.length)} with ${describeSkippedStatuses(refused)} cannot be archived while in flight.`
+                  ? ` ${archiveRefusalCopy(refused.length, noun)}`
                   : ""}
               </>
             )}
@@ -258,6 +258,10 @@ export function JobArchiveRowButton({
 
 function pluralize(noun: string, count: number): string {
   return count === 1 ? noun : `${noun}s`;
+}
+
+function archiveRefusalCopy(count: number, noun: string): string {
+  return `${count} ${pluralize(noun, count)} ${count === 1 ? "is" : "are"} still queued or running and cannot be archived yet.`;
 }
 
 function describeSkippedStatuses(

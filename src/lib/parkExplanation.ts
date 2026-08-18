@@ -28,7 +28,7 @@ export type BelowFloorCut = { cut: string; reason: string | null };
 export type BelowFloorReport = {
   cuts: BelowFloorCut[];
   hasData: boolean;
-  reportedCount: number;
+  reportedCount: number | null;
 };
 
 /** Extracts known below-floor payload shapes without trusting receipt JSON. */
@@ -131,10 +131,13 @@ export function extractBelowFloorReport(value: unknown): BelowFloorReport {
 
   walk(value);
   const cuts = [...found.values()];
+  const selfConsistentCount = reportedCount === null
+    ? cuts.length > 0 ? cuts.length : null
+    : Math.max(reportedCount, cuts.length);
   return {
     cuts,
     hasData,
-    reportedCount: reportedCount ?? cuts.length,
+    reportedCount: selfConsistentCount,
   };
 }
 

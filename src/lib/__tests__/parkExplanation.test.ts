@@ -51,4 +51,60 @@ describe("extractBelowFloorCuts", () => {
       ],
     });
   });
+
+  it("extracts explained cuts from object rows in a production below-floor notice", () => {
+    const payload = {
+      below_floor_notice: {
+        count: 5,
+        cuts: [{
+          cut_id: "cut22",
+          anchor_phrase: "21 CFR 133.128",
+          relevance_score: 0,
+          vision_confirm: "vision_fail",
+          escalation: {
+            exhausted: true,
+            accepted_tier: null,
+            attempted_tiers: ["footage", "pixabay"],
+          },
+        }],
+      },
+    };
+
+    expect(extractBelowFloorCuts(payload)).toEqual([{
+      cut: "cut22",
+      reason: 'cut22 — "21 CFR 133.128", relevance 0.00, vision_fail, attempted tiers footage → pixabay, exhausted',
+    }]);
+  });
+
+  it("does not invent a zero count when a notice states no count and lists no cuts", () => {
+    expect(extractBelowFloorReport({ below_floor_notice: {} })).toEqual({
+      hasData: true,
+      reportedCount: null,
+      cuts: [],
+    });
+    expect(extractBelowFloorReport({ below_floor_notice: null })).toEqual({
+      hasData: true,
+      reportedCount: null,
+      cuts: [],
+    });
+  });
+
+  it("never reports fewer flagged cuts than the union of listed ids", () => {
+    const payload = {
+      result: { below_floor_notice: { count: 3, cut_ids: ["cut1", "cut2", "cut3"] } },
+      evidence: { below_floor_notice: { count: 3, cut_ids: ["cut3", "cut4", "cut5"] } },
+    };
+
+    expect(extractBelowFloorReport(payload)).toMatchObject({
+      hasData: true,
+      reportedCount: 5,
+      cuts: [
+        { cut: "cut1", reason: null },
+        { cut: "cut2", reason: null },
+        { cut: "cut3", reason: null },
+        { cut: "cut4", reason: null },
+        { cut: "cut5", reason: null },
+      ],
+    });
+  });
 });

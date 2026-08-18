@@ -14,4 +14,23 @@ describe("audit-ui static and helper guards (no browser launch)", () => {
   it("makes the assertion helper reject an empty geometry sample", () => {
     expect(() => assertTrackGeometry([])).toThrow(/skipped - unverified/);
   });
+
+  it("makes the browser assertion reject step nodes that are not 44px tall", () => {
+    expect(() => assertTrackGeometry([{
+      viewportWidth: 412,
+      count: 11,
+      minLeft: 0,
+      maxRight: 412,
+      allVisible: true,
+      minHeight: 43,
+      maxHeight: 43,
+    }])).toThrow(/height/);
+    expect(() => assertTrackGeometry([{
+      viewportWidth: 412,
+      count: 11,
+      minLeft: 0,
+      maxRight: 412,
+      allVisible: true,
+    }])).toThrow(/height/);
+  });
 });
