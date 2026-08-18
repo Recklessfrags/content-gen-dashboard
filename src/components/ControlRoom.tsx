@@ -65,8 +65,11 @@ import type {
   ReliabilityResult,
   RunCardVM,
   RunDiagnosticsResult,
+  RunStage,
+  RunStageDetailResult,
   RunsHubProps,
 } from "./aurora/RunsHub";
+import { STAGE_DETAIL_SELECTS } from "./aurora/RunsHub";
 import { RunCostEstimate } from "./aurora/RunCostEstimate";
 import { computeWorkerReliability } from "@/lib/workerReliability";
 import { MOCK_REVIEW_FIXTURES } from "@/lib/renderReview";
@@ -1694,7 +1697,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     async (episodeId: string): Promise<RunDiagnosticsResult> => {
       const { data, error } = await supabase
         .from("receipts")
-        .select("seq, stage, verdict, reason, model, provider, result, evidence")
+        .select("seq, stage, verdict, reason, model, provider, iteration, spend_so_far, below_floor_notice:evidence->below_floor_notice")
         .eq("episode_id", episodeId)
         .order("seq", { ascending: true });
       if (error) return { receipts: [], error: error.message };
@@ -1705,10 +1708,33 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         reason: row.reason ?? "",
         model: row.model ?? "",
         provider: row.provider ?? "",
-        result: row.result,
-        evidence: row.evidence,
+        iteration: typeof row.iteration === "number" ? row.iteration : undefined,
+        spendSoFar: typeof row.spend_so_far === "number" ? row.spend_so_far : undefined,
+        evidence: row.below_floor_notice
+          ? { below_floor_notice: row.below_floor_notice }
+          : undefined,
       }));
       return { receipts, error: null };
+    },
+    [supabase],
+  );
+  const loadRunStageDetail = useCallback(
+    async (
+      episodeId: string,
+      stage: RunStage,
+      seq: number | null,
+    ): Promise<RunStageDetailResult> => {
+      let query = supabase
+        .from("receipts")
+        .select(STAGE_DETAIL_SELECTS[stage])
+        .eq("episode_id", episodeId)
+        .eq("stage", stage);
+      query = seq === null
+        ? query.order("seq", { ascending: false }).limit(1)
+        : query.eq("seq", seq).limit(1);
+      const { data, error } = await query.returns<Array<Record<string, unknown>>>();
+      if (error) return { payload: null, error: error.message };
+      return { payload: data?.[0] ?? null, error: null };
     },
     [supabase],
   );
@@ -1866,6 +1892,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
       onReviewApprovals: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
       loadDiagnostics: loadRunDiagnostics,
+      loadStageDetail: loadRunStageDetail,
       loadReliability: loadWorkerReliability,
       onArchiveJobs: handleArchiveJobs,
       onUnarchiveJobs: handleUnarchiveJobs,
@@ -1878,6 +1905,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
       jobsError,
       jobsLoading,
       loadRunDiagnostics,
+      loadRunStageDetail,
       loadWorkerReliability,
       navigate,
       runsHubCards,

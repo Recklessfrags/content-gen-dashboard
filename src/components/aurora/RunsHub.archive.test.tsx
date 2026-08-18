@@ -54,8 +54,7 @@ describe("RunsHub archive controls", () => {
     }
   });
 
-  it("keeps an unknown pipeline status out of the default bulk archive", async () => {
-    const user = userEvent.setup();
+  it("keeps an unknown pipeline status visible as in-flight and out of archive actions", () => {
     const awaitingApproval = card(135, "queued", "alpha");
     awaitingApproval.rawStatus = "awaiting_spend_approval";
     awaitingApproval.statusLabel = "awaiting_spend_approval";
@@ -69,14 +68,13 @@ describe("RunsHub archive controls", () => {
       />,
     );
 
-    expect(screen.queryByText("In progress")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Done · 1/ }));
+    expect(screen.getByRole("tab", { name: /In flight 1/ })).toHaveAttribute("aria-selected", "true");
     const row = screen.getByText("Run 135").closest("article");
-    expect(within(row as HTMLElement).getByRole("button", { name: "Archive" })).toBeInTheDocument();
+    expect(within(row as HTMLElement).queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Archive 0 runs" })).toBeDisabled();
   });
 
-  it("default bulk archive excludes approvals and names the skipped status", async () => {
+  it("bulk archive is scoped to the selected finished lifecycle", async () => {
     const user = userEvent.setup();
     const onArchiveJobs = vi.fn().mockResolvedValue({
       ok: true,
@@ -99,10 +97,10 @@ describe("RunsHub archive controls", () => {
       />,
     );
 
+    await user.click(screen.getByRole("tab", { name: /Finished 3/ }));
     await user.click(screen.getByRole("button", { name: "Archive 3 runs" }));
 
     expect(screen.getByText(/Hide 3 runs/)).toBeInTheDocument();
-    expect(screen.getByText(/1 run with status “running” will be skipped/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Archive 3" }));
 
     expect(onArchiveJobs).toHaveBeenCalledWith([1, 2, 4]);

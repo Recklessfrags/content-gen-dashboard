@@ -16,7 +16,7 @@ import { RunsHub, type RunCardVM } from "@/components/aurora/RunsHub";
 afterEach(cleanup);
 
 describe("RunsHub plain-language defaults", () => {
-  it("shows the operator label without raw field jargon", () => {
+  it("keeps the collapsed parked row compact and omits raw field jargon", () => {
     const card: RunCardVM = {
       id: "job-1",
       episodeId: null,
@@ -44,12 +44,16 @@ describe("RunsHub plain-language defaults", () => {
       />,
     );
 
-    expect(screen.getAllByText("Waiting on you").length).toBeGreaterThan(0);
+    expect(screen.getByRole("tab", { name: /Parked 1/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("group", { name: "Steps for A test run" })).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("Waiting on you");
+    expect(document.body).not.toHaveTextContent("Stopped at");
+    expect(document.body).not.toHaveTextContent("Technical details");
     expect(document.body).not.toHaveTextContent("park_kind");
     expect(document.body).not.toHaveTextContent("verdict");
   });
 
-  it("shows honest progress only for in-flight runs", () => {
+  it("shows honest node progress only for the selected lifecycle", () => {
     const base: RunCardVM = {
       id: "job-running",
       episodeId: "ep-1",
@@ -75,13 +79,14 @@ describe("RunsHub plain-language defaults", () => {
       />,
     );
 
-    const progress = screen.getByRole("progressbar", { name: /video render progress/i });
-    expect(progress).toHaveAttribute("aria-valuenow", "7");
-    expect(screen.getByText("Step 7 of 9 · Editing the cut")).toBeInTheDocument();
-    expect(screen.getAllByRole("progressbar")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Editing the cut: running" })).toBeInTheDocument();
+    expect(screen.queryByText("Finished video")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Finished 1/ }));
+    expect(screen.getByText("Finished video")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /: passed$/ })).toHaveLength(11);
   });
 
-  it("labels the final stage as where the run stopped", () => {
+  it("represents the final failed stage on the track without restoring the old stopped-at box", () => {
     const card: RunCardVM = {
       id: "job-stopped",
       episodeId: "ep-stopped",
@@ -108,8 +113,8 @@ describe("RunsHub plain-language defaults", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Done · 1/ }));
-    expect(screen.getByText("Stopped at · Recording the voiceover")).toBeInTheDocument();
-    expect(document.body).not.toHaveTextContent("Why it stopped · Recording the voiceover");
+    expect(screen.getByRole("button", { name: "Recording the voiceover: failed" })).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("Stopped at");
+    expect(document.body).not.toHaveTextContent("Why it stopped");
   });
 });
