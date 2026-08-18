@@ -6,7 +6,7 @@
 >
 > Supabase project: **`reels-content`** (`tyeejhaknqkeftjykqog`, region `us-east-1`).
 > This project is **shared with the content pipeline** — see the two ownership
-> classes below. Last verified against the live DB: **2026-06-28**.
+> classes below. Last verified against the live DB: **2026-08-18**.
 
 ## Ownership classes
 
@@ -288,6 +288,39 @@ character's locked reference image.
 
 ---
 
+## `job_archive` — dashboard-owned (a VIEW PREFERENCE, not a decision)
+
+**Live since 2026-08-18** (migration `dash_0016_job_archive.sql`). Added because the operator
+had 107 approvals in one list and needed them out of the working view without approving them
+and without deleting them.
+
+```sql
+job_id      bigint      not null
+owner       uuid        not null default auth.uid()
+archived_at timestamptz not null default now()
+primary key (job_id, owner)
+```
+
+RLS enabled; `select` / `insert` / `delete` for `authenticated`, each gated on
+`owner = auth.uid()` — the same shape as `ideas` and `characters`. Archive is an INSERT,
+unarchive a DELETE.
+
+**The pipeline never reads this table**, and must not start: hiding a row from one operator's
+screen says nothing about the run. Specifically:
+
+- **Archiving is NOT a decision.** It does not approve, reject, cancel or resolve anything. A
+  parked run that is archived stays parked; the pipeline's view of it is unchanged.
+- **`jobs` remains ENQUEUE-ONLY to the dashboard.** This table exists precisely so that hiding a
+  row needs no `UPDATE` on `jobs` — that boundary was the reason a column on `jobs` was rejected
+  during design, along with a proposed service-role Edge Function to get around it.
+- **The composite PK is deliberate.** With per-owner RLS, a single-column key would make one
+  operator's archive row block another's insert against a row they cannot even see.
+- **There is deliberately NO foreign key to `jobs.id`.** A hard FK would make a future `jobs`
+  cleanup (like the 343-row delete of 2026-08-18) fail or cascade unexpectedly. A stale archive
+  row for a deleted job is harmless and is ignored on join.
+
+Spec: `docs/architecture/spec-job-archive.md` (dashboard repo).
+
 ## `episodes` — PIPELINE-owned (READ-ONLY for dashboard)
 
 Discovered already-present in the shared project. **Do not recreate or alter.**
@@ -446,6 +479,17 @@ surface as unclassified, not mislabeled — and ages out via self-healing).
 RLS, and adds the two read-only policies (`episodes_read`, `receipts_read`) to the
 pipeline-owned tables. It is idempotent (`if not exists`, `drop policy if exists`) and
 never alters pipeline columns.
+
+**Applied 2026-08-18** (both verified against the live DB after apply):
+`dash_0015_channel_profiles_ai_disclosure.sql` — adds `channel_profiles.ai_disclosure`
+(`boolean not null default true`), read by the pipeline as a per-channel publish toggle;
+`dash_0016_job_archive.sql` — creates `public.job_archive` (see its section above).
+
+⚠️ **Process note, recorded because the control failed and not the outcome:** both of these were
+applied to the shared production database **before** the `AGENTS.md` L-2 suerta review ran. L-2
+exists to catch problems *before* landing anything touching a migration, a money path or a
+shared contract; reviewing an applied migration leaves only a follow-up migration as a lever.
+Neither needed reverting — that was luck, not process. **Apply after the L-2 pass, not before.**
 
 **Migration namespacing (shared DB).** Because dashboard and pipeline share one
 `reels-content` project, the two repos use **separate version lanes** to avoid
