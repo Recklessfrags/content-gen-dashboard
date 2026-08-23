@@ -13,6 +13,48 @@ Operator stated (verbatim intent): *"for now I'll pay for the users' renders, bu
 
 ---
 
+## 🔚 CLOSE-OUT 2026-08-23 (coordinator session) — Runs hub MERGED after 5 review rounds · pipeline findings T57–T62 recorded · persona-channel capability mapped
+
+### LANDED (merged to `claude/new-session-3l99vs` as `ef8a698`; Vercel deploys from it)
+Eleven commits. **Five independent L-2 suerta rounds; four returned NOT-PASS.**
+- **The Runs track told a lie and now cannot.** Node state derived from `status === "done"`, painting all 11 nodes green — live jobs 1 and 3 are `done` with `final_stage='script_writer'` and no assembly/virality/distribution receipts, i.e. the screen claimed they shipped. State now derives from receipt counts; a stage with no receipt can never render as passed.
+- Lifecycle tabs (Parked/In flight/Finished) under **one contract**: the channel filter is a filter on the VIEW, persists across tabs, is never silently cleared, and always renders its own off-switch. Counts, rows and the auto-opened tab derive from one set in every (Active/Archived × tab × channel) combination.
+- **Bulk archive cannot take the approval queue.** Per-row deliberate dismissal still clears terminal runs (incl. `stale` and future-unknown statuses); the bulk control's prop type cannot even name the bypass.
+- Render playback distinguishes `missing` from `unknown`, so a transient failure no longer reports "no render" on the publish gate. Classification is by HTTP status (400/404 = missing; 401/403/429/5xx = unknown).
+- The receipts read is scoped (`.in()` batched at 100) and paginates by **rows returned**, so a server cap below the page size cannot silently truncate; and a failure in that decorative query no longer blanks the whole hub.
+- Verified: `tsc` clean, **562/562**, build passes, **authenticated browser audit clean across 14 screens** desktop+mobile (0 overflow, 0 console errors, 0 writes attempted).
+
+### THE PROCESS LESSON — do not skip this
+**Every regression guard here was proven by reverting its defect.** That mattered: three separate times a test asserted the defect it was meant to prevent, and once a fix's guard passed with the defect fully restored (560/560 green). Green suites were repeatedly meaningless. **L-7 is not ceremony — run the revert.**
+
+### PIPELINE — recorded, NOT merged (`claude/content-gen-coordinator-setup-ym957o`)
+- **T62** 🔴 *(operator deferred to next session)* — `generation.py:79` declares `seedance-1.5-pro: (2, 12)`; the API **rejects duration 2 after billing 0.93s**. Same billed-then-rejected shape as T50/job 365. Valid: 4/8/12. `wan-2.7-r2v: (2,10)` unverified by the same standard. Fix + pin that every EMITTED duration is provider-accepted, not merely in-range.
+- **T60** — the hook was **exempt from fact-checking** ("The hook, CTA, and pure visual directions are not factual claims") while the spec demands the opposite in three places. Fix BUILT + verified (2498 pass, L-7 proved) but **UNMERGED**, pending the operator's GREEN/YELLOW threshold call. 61/198 episodes (30.8%) have ZERO green claims, so literal GREEN-only would park ~a third of production.
+- **T59** — the retry loop can only SUBTRACT: a true-but-unsourced claim's only exit is deletion. Job 368 deleted the cavitation-bubble fact and shipped a reef-health payoff. Measured at 8/184 episodes (~4%) — narrower than first claimed; do not cite it as the general quality explanation.
+- **T58** — T56's resume can carry `fact_approved` onto regenerated content (auto-passing regulated YELLOW claims needing operator sign-off) and resurrect FAIL/BLOCKED payloads as validated. T56 blocked.
+- **T57** — migration 0028 held unapplied: it moves the daily cap's denominator onto `jobs`, from which 233 episodes / $172.88 have already been deleted. Current function fails safe; 0028 fails unsafe.
+- **T61** — character consistency works via `image_references` and we don't use it; MoneyPrinterTurbo comparison; the fast-lane finding (job 368 ran a paid fact_check with `anchor_type: none`).
+- **Spec** `docs/architecture/spec-content-ceiling-router.md` — three-ceiling dial/router/pre-flight, with production-measured numbers.
+
+### PERSONA-CHANNEL CAPABILITY (measured, not assumed)
+- **`characters.reference_image_url` is a dead column** — zero readers repo-wide, all 12 characters null, nothing sets `meta.reference_images`. It is the character's **complete physical definition**, not a face field: it overrides build, wardrobe AND lighting, and no prompt can override it. Define the character text-only in ONE pass; iterate at **0.12 credits** vs **65** for video.
+- **Provider ceilings are per MODEL VERSION, not per vendor.** Identical prompt: seedance 2.0 / Wan 2.6 / Grok 1.5 rendered it; seedance **2.5** / Flux 3 / Gemini Omni refused. **The newest model was the strictest.**
+- **Moderation reads the PROMPT, not the output** — anatomical enumeration in text is refused; the same visual content passes when the body rides the reference image.
+- **Replicate (production) ladder:** exposure passes to swimwear/bare midriff; **attention** (anatomical enumeration) and **suggestion** (posing) are refused; **lingerie refused as a garment category**. Higgsfield was NOT representative (9/9 there incl. lingerie) — its numbers must not be used.
+- Rejections bill 0.157s vs 63–73s for a success (~0.2%).
+- Platform ceiling binds far below the model ceiling: TikTok age-restricts + FYF-excludes suggestive content; Meta won't recommend "revealing clothing" to non-followers; **AI labeling is mandatory and auto-detected via C2PA/IPTC**; and Meta penalises unoriginal/automated content. **Hard-connects to T54** (flag recorded, never transmitted — Buffer has no AI field).
+
+### TRAPS
+- **`.env.local` is NOT gitignored in the pipeline repo** (only `.env` is). Never put secrets there.
+- Higgsfield may return a `preset_recommendation` instead of generating — pass `declined_preset_id` or you silently get a different look.
+- A video job cannot be used as an `image_references` value; extract a still first.
+- **The Replicate token is in this session's transcript — rotate it.**
+
+### OWED BY OPERATOR
+Hook GREEN/YELLOW threshold (blocks T60 merge) · bulk spend approval · arm-A claim c5 sign-off · T27 dial spend · T7 hedging · T3 sheet · Europeana key.
+
+---
+
 ## 🔚 CLOSE-OUT 2026-08-11 (coordinator session, dashboard half) — move-5 SPEC landed (build-ready, reviewed) · SPEC B Phase 1 CLOSED as already-true · monetization group spec DRAFT awaiting ack
 
 - **SPEC A move 5 (casting unification) is SPEC'D, not built:** `docs/slices/slice-casting-unification-move5.md` — one wizard flow at `?hub=characters` reusing the existing panels inline; zero schema change; moves 5.0–5.7 cheapest-first; Gemini adversarial rounds 1–3 PASS (round-1 P0s: variant-prop lifecycle + step-4 null-channel dead end — both fixed with an explicit build-order contract and a channel-picker/finish-without-attaching mode; round-2: shell↔panel completion callbacks + `initialCharacterId` seed added). **Open Qs for operator: Q2 (preset audio previews — rec: text-only now), Q3 (demo-clip hosting — rec: `render-assets` bucket), Q4 (channel-type card list). Architect Q1 answered in-spec: treat move 5.6 (`channel_profiles` write) as PS-GO, self-merge the rest. Q5 answered with verified evidence** (pipeline reads neither `treatment` nor `reference_image_url`; Mad Dog continuity is pipeline-side — the avatar gate is a dashboard-only advisory and correct).
