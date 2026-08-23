@@ -4,11 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import {
   canArchiveJob,
   partitionArchivableJobs,
+  type JobArchiveOptions,
   type JobArchiveMutationResult,
   type QueueJob,
 } from "@/lib/jobs";
 
-type ArchiveMutation = (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
+type DeliberateArchiveMutation = (
+  jobIds: readonly number[],
+  options?: JobArchiveOptions,
+) => Promise<JobArchiveMutationResult>;
+
+type BareArchiveMutation = (
+  jobIds: readonly number[],
+) => Promise<JobArchiveMutationResult>;
 
 export type JobArchiveControlsProps = {
   activeCount: number;
@@ -17,8 +25,8 @@ export type JobArchiveControlsProps = {
   noun: string;
   showArchived: boolean;
   onShowArchivedChange: (showArchived: boolean) => void;
-  onArchive: ArchiveMutation;
-  onUnarchive: ArchiveMutation;
+  onArchive: BareArchiveMutation;
+  onUnarchive: BareArchiveMutation;
 };
 
 type JobArchiveViewToggleProps = Pick<
@@ -30,10 +38,13 @@ type JobArchiveViewToggleProps = Pick<
   | "onShowArchivedChange"
 >;
 
-type JobArchiveBulkControlProps = Pick<
-  JobArchiveControlsProps,
-  "currentJobs" | "noun" | "showArchived" | "onArchive" | "onUnarchive"
->;
+type JobArchiveBulkControlProps = {
+  currentJobs: readonly Pick<QueueJob, "id" | "status">[];
+  noun: string;
+  showArchived: boolean;
+  onArchive: BareArchiveMutation;
+  onUnarchive: BareArchiveMutation;
+};
 
 export function JobArchiveControls({
   activeCount,
@@ -108,13 +119,20 @@ export function JobArchiveBulkControl({
     () => partitionArchivableJobs(currentJobs),
     [currentJobs],
   );
+  const heldOut = skipped.filter((job) => canArchiveJob(job));
+  const refused = skipped.filter((job) => !canArchiveJob(job));
   const affectedCount = showArchived ? currentJobs.length : archivable.length;
-  const skippedStatusCopy = describeSkippedStatuses(skipped);
-
+  const targetIdentity = useMemo(
+    () => (showArchived ? currentJobs : archivable)
+      .map((job) => job.id)
+      .sort((left, right) => left - right)
+      .join(","),
+    [archivable, currentJobs, showArchived],
+  );
   useEffect(() => {
     setConfirming(false);
     setWriteError(null);
-  }, [showArchived]);
+  }, [showArchived, targetIdentity]);
 
   const runBulkAction = async () => {
     if (submitting || affectedCount === 0) return;
@@ -145,9 +163,14 @@ export function JobArchiveBulkControl({
         >
           {showArchived ? "Unarchive" : "Archive"} {affectedCount} {pluralize(noun, affectedCount)}
         </button>
-        {!showArchived && skipped.length > 0 && affectedCount === 0 ? (
+        {!showArchived && heldOut.length > 0 ? (
           <span className="dim job-archive-skip-note">
-            {skipped.length} {pluralize(noun, skipped.length)} with {skippedStatusCopy} cannot be archived.
+            {heldOut.length} {pluralize(noun, heldOut.length)} {heldOut.length === 1 ? "is" : "are"} held out of bulk archive — {describeSkippedStatuses(heldOut)}. Archive {heldOut.length === 1 ? "it from the row" : "them from their rows"} if you mean to dismiss {heldOut.length === 1 ? "it" : "them"}.
+          </span>
+        ) : null}
+        {!showArchived && refused.length > 0 ? (
+          <span className="dim job-archive-skip-note">
+            {archiveRefusalCopy(refused.length, noun)}
           </span>
         ) : null}
       </div>
@@ -161,8 +184,11 @@ export function JobArchiveBulkControl({
               <>
                 Hide {affectedCount} {pluralize(noun, affectedCount)}? Archiving does not approve,
                 reject, cancel, or resolve them. You can bring them back from Archived.
-                {skipped.length > 0
-                  ? ` ${skipped.length} ${pluralize(noun, skipped.length)} with ${skippedStatusCopy} will be skipped.`
+                {heldOut.length > 0
+                  ? ` ${heldOut.length} ${pluralize(noun, heldOut.length)} with ${describeSkippedStatuses(heldOut)} will be held out of bulk archive; use ${heldOut.length === 1 ? "its row Archive action" : "their row Archive actions"} to dismiss ${heldOut.length === 1 ? "it" : "them"}.`
+                  : ""}
+                {refused.length > 0
+                  ? ` ${archiveRefusalCopy(refused.length, noun)}`
                   : ""}
               </>
             )}
@@ -203,8 +229,8 @@ export function JobArchiveRowButton({
 }: {
   job: Pick<QueueJob, "id" | "status">;
   showArchived: boolean;
-  onArchive: ArchiveMutation;
-  onUnarchive: ArchiveMutation;
+  onArchive: DeliberateArchiveMutation;
+  onUnarchive: BareArchiveMutation;
 }) {
   const [submitting, setSubmitting] = useState(false);
 
@@ -219,7 +245,9 @@ export function JobArchiveRowButton({
       onClick={async () => {
         if (submitting || (!showArchived && !canArchiveJob(job))) return;
         setSubmitting(true);
-        const result = showArchived ? await onUnarchive([job.id]) : await onArchive([job.id]);
+        const result = showArchived
+          ? await onUnarchive([job.id])
+          : await onArchive([job.id], { allowDeliberateDismissal: true });
         if (!result.ok) setSubmitting(false);
       }}
     >
@@ -232,11 +260,17 @@ function pluralize(noun: string, count: number): string {
   return count === 1 ? noun : `${noun}s`;
 }
 
+function archiveRefusalCopy(count: number, noun: string): string {
+  return `${count} ${pluralize(noun, count)} ${count === 1 ? "is" : "are"} still queued or running and cannot be archived yet.`;
+}
+
 function describeSkippedStatuses(
   jobs: readonly Pick<QueueJob, "status">[],
 ): string {
   const statuses = [...new Set(jobs.map((job) => job.status))];
   return `${statuses.length === 1 ? "status" : "statuses"} ${statuses
-    .map((status) => `“${status}”`)
+    .map((status) => status.trim().toLowerCase() === "ready_for_review"
+      ? "“ready for review — approval pending”"
+      : `“${status}”`)
     .join(", ")}`;
 }

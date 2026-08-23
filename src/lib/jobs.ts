@@ -10,6 +10,7 @@ export const JOB_STATUSES = [
   "ready_for_review",
   "error",
   "stale",
+  "abandoned",
 ] as const;
 
 export type JobStatus = (typeof JOB_STATUSES)[number];
@@ -22,6 +23,7 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   ready_for_review: "Ready for review",
   error: "Error",
   stale: "Stale",
+  abandoned: "Abandoned",
 };
 
 const JOB_STATUS_SET = new Set<string>(JOB_STATUSES);
@@ -31,7 +33,7 @@ export function isActionableStatus(status: JobStatus): boolean {
 }
 
 export function isTerminalStatus(status: JobStatus): boolean {
-  return status === "done" || status === "no_op" || status === "error";
+  return status === "done" || status === "no_op" || status === "error" || status === "abandoned";
 }
 
 export function isInFlightStatus(status: string | null | undefined): boolean {
@@ -46,11 +48,17 @@ export type JobArchiveMutationResult = {
   error: string | null;
 };
 
+export type JobArchiveOptions = {
+  allowDeliberateDismissal?: boolean;
+};
+
 export function canArchiveJob(
   job: Pick<QueueJob, "status">,
 ): boolean {
   return !isInFlightStatus(job.status);
 }
+
+const BULK_ARCHIVABLE_STATUSES = new Set(["done", "no_op", "error", "abandoned"]);
 
 export function partitionArchivableJobs<T extends Pick<QueueJob, "id" | "status">>(
   jobs: readonly T[],
@@ -62,7 +70,8 @@ export function partitionArchivableJobs<T extends Pick<QueueJob, "id" | "status"
   for (const job of jobs) {
     if (seen.has(job.id)) continue;
     seen.add(job.id);
-    (canArchiveJob(job) ? archivable : skipped).push(job);
+    const canBulkArchive = BULK_ARCHIVABLE_STATUSES.has(job.status.trim().toLowerCase());
+    (canBulkArchive ? archivable : skipped).push(job);
   }
 
   return { archivable, skipped };

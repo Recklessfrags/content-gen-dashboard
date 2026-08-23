@@ -10,6 +10,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { chromium } from "playwright";
+import { assertTrackGeometry } from "./audit-ui-geometry.mjs";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const PORT = Number.parseInt(process.env.AUDIT_PORT || "4319", 10);
@@ -140,6 +141,7 @@ async function main() {
     { id: "login", url: `${BASE}/login`, noauth: true },
     { id: "hub-channels", url: `${BASE}/?hub=channels` },
     { id: "hub-actions", url: `${BASE}/?hub=actions` },
+    { id: "hub-runs", url: `${BASE}/?hub=runs` },
     { id: "hub-overview", url: `${BASE}/?hub=overview` },
     { id: "ws-production", url: `${BASE}/?channel=default&tab=production` },
     { id: "ws-character", url: `${BASE}/?channel=default&tab=character` },
@@ -147,55 +149,104 @@ async function main() {
     { id: "ws-cost", url: `${BASE}/?channel=default&tab=cost` },
   ];
 
-  for (const vp of viewports) {
-    const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, deviceScaleFactor: 1 });
-    await installBridge(context);
-    const page = await context.newPage();
-    const errs = [];
-    page.on("console", (m) => { if (m.type() !== "error") return; const t = m.text(); if (/fonts\.googleapis|ERR_CONNECTION_RESET|Failed to load resource|status of 4|status of 5/.test(t)) return; errs.push(t.slice(0, 160)); });
-    page.on("pageerror", (e) => errs.push("pageerror: " + e.message.slice(0, 160)));
+  if (process.env.AUDIT_TRACK_ONLY !== "1") {
+    for (const vp of viewports) {
+      const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, deviceScaleFactor: 1 });
+      await installBridge(context);
+      const page = await context.newPage();
+      const errs = [];
+      page.on("console", (m) => { if (m.type() !== "error") return; const t = m.text(); if (/fonts\.googleapis|ERR_CONNECTION_RESET|Failed to load resource|status of 4|status of 5/.test(t)) return; errs.push(t.slice(0, 160)); });
+      page.on("pageerror", (e) => errs.push("pageerror: " + e.message.slice(0, 160)));
 
-    let loggedIn = false;
-    for (const r of routes) {
-      try {
-        if (!r.noauth && !loggedIn) { await login(page); loggedIn = true; }
-        const before = errs.length;
-        await page.goto(r.url, { waitUntil: "networkidle" }).catch(() => {});
-        await page.waitForTimeout(2200);
-        const checks = await page.evaluate(CHECK_JS).catch((e) => ({ error: e.message }));
-        const shot = join(OUT, `${r.id}.${vp.name}.png`);
-        await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
-        report.push({ id: r.id, vp: vp.name, url: r.url, checks, newErrors: errs.slice(before) });
-        console.log(`shot ${r.id} ${vp.name} — overflow=${checks.overflow} small=${checks.smallCount} lowContrast=${checks.lowContrast?.length ?? "?"} errs=${errs.length - before}`);
-      } catch (e) { report.push({ id: r.id, vp: vp.name, error: e.message }); console.log(`FAIL ${r.id} ${vp.name}: ${e.message}`); }
-    }
-
-    // Legacy console flows (button-navigated). Best-effort.
-    try {
-      await page.goto(`${BASE}/?hub=channels`, { waitUntil: "networkidle" });
-      await page.waitForTimeout(1500);
-      const legacyBtn = page.getByRole("button", { name: /Legacy console/i }).first();
-      if (await legacyBtn.count()) {
-        await legacyBtn.click().catch(() => {});
-        await page.waitForTimeout(2000);
-        await page.screenshot({ path: join(OUT, `legacy-roster.${vp.name}.png`), fullPage: true }).catch(() => {});
-        const rosterChecks = await page.evaluate(CHECK_JS).catch(() => ({}));
-        report.push({ id: "legacy-roster", vp: vp.name, checks: rosterChecks });
-        console.log(`shot legacy-roster ${vp.name} — overflow=${rosterChecks.overflow} small=${rosterChecks.smallCount}`);
-        // open the first character
-        const card = page.locator(".char-card, .roster-card, [data-character-id], .cr-card").first();
-        if (await card.count()) { await card.click().catch(() => {}); await page.waitForTimeout(1800);
-          await page.screenshot({ path: join(OUT, `legacy-character.${vp.name}.png`), fullPage: true }).catch(() => {}); }
+      let loggedIn = false;
+      for (const r of routes) {
+        try {
+          if (!r.noauth && !loggedIn) { await login(page); loggedIn = true; }
+          const before = errs.length;
+          await page.goto(r.url, { waitUntil: "networkidle" }).catch(() => {});
+          await page.waitForTimeout(2200);
+          const checks = await page.evaluate(CHECK_JS).catch((e) => ({ error: e.message }));
+          const shot = join(OUT, `${r.id}.${vp.name}.png`);
+          await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
+          report.push({ id: r.id, vp: vp.name, url: r.url, checks, newErrors: errs.slice(before) });
+          console.log(`shot ${r.id} ${vp.name} — overflow=${checks.overflow} small=${checks.smallCount} lowContrast=${checks.lowContrast?.length ?? "?"} errs=${errs.length - before}`);
+        } catch (e) { report.push({ id: r.id, vp: vp.name, error: e.message }); console.log(`FAIL ${r.id} ${vp.name}: ${e.message}`); }
       }
-    } catch (e) { console.log(`legacy flow ${vp.name}: ${e.message}`); }
 
-    await context.close();
+      // Legacy console flows (button-navigated). Best-effort.
+      try {
+        await page.goto(`${BASE}/?hub=channels`, { waitUntil: "networkidle" });
+        await page.waitForTimeout(1500);
+        const legacyBtn = page.getByRole("button", { name: /Legacy console/i }).first();
+        if (await legacyBtn.count()) {
+          await legacyBtn.click().catch(() => {});
+          await page.waitForTimeout(2000);
+          await page.screenshot({ path: join(OUT, `legacy-roster.${vp.name}.png`), fullPage: true }).catch(() => {});
+          const rosterChecks = await page.evaluate(CHECK_JS).catch(() => ({}));
+          report.push({ id: "legacy-roster", vp: vp.name, checks: rosterChecks });
+          console.log(`shot legacy-roster ${vp.name} — overflow=${rosterChecks.overflow} small=${rosterChecks.smallCount}`);
+          // open the first character
+          const card = page.locator(".char-card, .roster-card, [data-character-id], .cr-card").first();
+          if (await card.count()) { await card.click().catch(() => {}); await page.waitForTimeout(1800);
+            await page.screenshot({ path: join(OUT, `legacy-character.${vp.name}.png`), fullPage: true }).catch(() => {}); }
+        }
+      } catch (e) { console.log(`legacy flow ${vp.name}: ${e.message}`); }
+
+      await context.close();
+    }
   }
 
-  writeFileSync(join(OUT, "findings.json"), JSON.stringify({ writeLog, report }, null, 2));
+  const trackContext = await browser.newContext({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 1 });
+  await installBridge(trackContext);
+  const trackPage = await trackContext.newPage();
+  await login(trackPage);
+  await trackPage.goto(`${BASE}/?hub=runs`, { waitUntil: "networkidle" }).catch(() => {});
+  await trackPage.waitForFunction(() => (
+    document.querySelector(".au-step-track")
+    || document.querySelector(".runs-hub .au-empty:not([aria-busy='true'])")
+  ), undefined, { timeout: 15_000 }).catch(() => {});
+  const firstTrack = trackPage.locator(".au-step-track").first();
+
+  const trackGeometry = [];
+  if (await firstTrack.count() > 0) {
+    await firstTrack.waitFor({ state: "visible", timeout: 15_000 });
+    for (const width of [320, 360, 375, 390, 412]) {
+      await trackPage.setViewportSize({ width, height: 915 });
+      await trackPage.waitForTimeout(150);
+      const geometry = await firstTrack.evaluate((track, viewportWidth) => {
+        const rects = Array.from(track.querySelectorAll(".au-step-node"), (node) => {
+          const rect = node.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+        });
+        return {
+          viewportWidth,
+          count: rects.length,
+          nodeWidth: rects[0]?.width ?? 0,
+          minLeft: Math.min(...rects.map((rect) => rect.left)),
+          maxRight: Math.max(...rects.map((rect) => rect.right)),
+          minHeight: Math.min(...rects.map((rect) => rect.height)),
+          maxHeight: Math.max(...rects.map((rect) => rect.height)),
+          allVisible: rects.length === 11
+            && rects.every((rect) => rect.left >= 0 && rect.right <= viewportWidth),
+        };
+      }, width);
+      trackGeometry.push(geometry);
+      console.log(
+        `run-track ${width}px — nodes=${geometry.count} node=${geometry.nodeWidth.toFixed(2)}px `
+        + `height=${geometry.minHeight.toFixed(2)}..${geometry.maxHeight.toFixed(2)}px `
+        + `left=${geometry.minLeft.toFixed(2)} right=${geometry.maxRight.toFixed(2)} visible=${geometry.allVisible}`,
+      );
+    }
+  } else {
+    console.log("run-track geometry skipped - unverified: no run track is present");
+  }
+  await trackContext.close();
+
+  writeFileSync(join(OUT, "findings.json"), JSON.stringify({ writeLog, report, trackGeometry }, null, 2));
   console.log(`\nwrites attempted (all intercepted, none persisted): ${writeLog.length}`);
   console.log(`report + screenshots in ${OUT}`);
   await browser.close().catch(() => {});
   server?.kill?.("SIGKILL");
+  assertTrackGeometry(trackGeometry);
 }
 main().catch((e) => { console.error(e); server?.kill?.("SIGKILL"); process.exit(1); });

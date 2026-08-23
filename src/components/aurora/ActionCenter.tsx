@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { extractBelowFloorCuts, parkExplanation } from "@/lib/parkExplanation";
+import { extractBelowFloorReport, parkExplanation } from "@/lib/parkExplanation";
 import { plainLanguage, stageLabel } from "@/lib/plainLanguage";
 import type { FactClaim } from "@/lib/factClaims";
-import type { JobArchiveMutationResult } from "@/lib/jobs";
+import type { JobArchiveMutationResult, JobArchiveOptions } from "@/lib/jobs";
 import { FactClaimsReviewSection } from "../controlroom/QueueActionDialog";
 import type { JobParkResolution, QueueJob } from "../controlroom/shared";
 import {
@@ -44,7 +44,10 @@ export type ActionCenterProps = {
   factClaims?: FactClaim[] | null;
   factClaimsLoading?: boolean;
   factClaimsError?: string | null;
-  onArchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
+  onArchiveJobs?: (
+    jobIds: readonly number[],
+    options?: JobArchiveOptions,
+  ) => Promise<JobArchiveMutationResult>;
   onUnarchiveJobs?: (jobIds: readonly number[]) => Promise<JobArchiveMutationResult>;
 };
 
@@ -249,7 +252,7 @@ export function ActionCenter({
                       <p className="dim">{parkLine(job, park)}</p>
                       <ParkContext job={job} park={park} loadDiagnostics={loadDiagnostics} />
                       {job.episode_id && groupShowsRender(group.key) ? (
-                        <RenderPlayer episodeId={job.episode_id} />
+                        <RenderPlayer episodeId={job.episode_id} variant="approval" />
                       ) : null}
 
                       <div className="approval-actions">
@@ -318,7 +321,7 @@ export function ActionCenter({
                     </div>
                     <p className="dim">{parkLine(job, park)}</p>
                     <ParkContext job={job} park={park} loadDiagnostics={loadDiagnostics} />
-                    {job.episode_id ? <RenderPlayer episodeId={job.episode_id} /> : null}
+                    {job.episode_id ? <RenderPlayer episodeId={job.episode_id} variant="approval" /> : null}
                     {onArchiveJobs && onUnarchiveJobs ? (
                       <div className="approval-actions">
                         <JobArchiveRowButton
@@ -366,7 +369,9 @@ function ParkContext({ job, park, loadDiagnostics }: {
     if (next && state.receipts === null && !inFlightRef.current) void load();
   };
   const latest = state.receipts?.at(-1);
-  const cuts = latest ? extractBelowFloorCuts({ result: latest.result, evidence: latest.evidence }) : [];
+  const belowFloor = latest
+    ? extractBelowFloorReport({ result: latest.result, evidence: latest.evidence })
+    : null;
 
   return (
     <div className="au-park-context">
@@ -383,7 +388,20 @@ function ParkContext({ job, park, loadDiagnostics }: {
         {latest && !state.loading && !state.error ? <>
           <div className="au-park-receipt-head"><strong>{stageLabel(latest.stage)}</strong><span className="status-chip">{plainLanguage("verdict")}: {latest.verdict || "—"}</span></div>
           {latest.reason ? <p>{latest.reason}</p> : null}
-          {cuts.length ? <div className="au-below-floor"><strong>{plainLanguage("below_floor")}: {cuts.length}</strong><ul>{cuts.map((cut) => <li key={cut.cut}><span>{cut.cut}</span>{cut.reason ? ` — ${cut.reason}` : ""}</li>)}</ul></div> : null}
+          {belowFloor?.hasData ? (
+            <div className="au-below-floor">
+              <strong>
+                {plainLanguage("below_floor")}: {belowFloor.reportedCount === null
+                  ? "recorded, count not stated"
+                  : belowFloor.reportedCount !== belowFloor.cuts.length
+                  ? `${belowFloor.reportedCount} flagged, ${belowFloor.cuts.length} listed`
+                  : belowFloor.reportedCount}
+              </strong>
+              {belowFloor.cuts.length > 0 ? (
+                <ul>{belowFloor.cuts.map((cut) => <li key={cut.cut}><span>{cut.cut}</span>{cut.reason ? ` — ${cut.reason}` : ""}</li>)}</ul>
+              ) : null}
+            </div>
+          ) : <p className="dim au-below-floor">No below-floor data recorded on this receipt.</p>}
         </> : null}
       </div> : null}
     </div>
@@ -480,8 +498,7 @@ function effectivePark(
   };
 }
 
-/** A render only exists once a run has got far enough to make one. Mounting the player
- *  on a spend or fact hold just renders "No render available for this episode." */
+/** A render can only exist once a run has reached one of these stages. */
 function groupShowsRender(key: ApprovalGroupKey): boolean {
   return key === "publish" || key === "reveal";
 }

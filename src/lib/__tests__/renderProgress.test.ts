@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { renderProgress, STAGE_LADDER } from "@/lib/renderProgress";
 
 describe("renderProgress", () => {
+  it("keeps the progress ladder arithmetic at nine steps", () => {
+    expect(STAGE_LADDER).toHaveLength(9);
+    expect(renderProgress("distribution").total).toBe(9);
+  });
   it.each(STAGE_LADDER.map((stage, index) => [stage.stage, stage.label, index + 1] as const))(
     "maps %s to its honest ladder position",
     (stage, label, step) => {

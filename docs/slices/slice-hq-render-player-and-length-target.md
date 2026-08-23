@@ -13,13 +13,15 @@ MP4 — the owner watches via raw storage URLs. Verified live 2026-07-14: render
 `video/mp4` with HTTP range support (206) — streams in a plain `<video>`.
 
 **Build:**
+- **Superseded 2026-08-18:** the player now probes the public object with a cached
+  `HEAD` request and renders no DOM when the object is absent or the probe fails.
 - `src/lib/renderAssets.ts` — pure `renderVideoUrl(episodeId: string): string | null`
   building `${NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/render-assets/{episode_id}/mastered.mp4`
   (null on blank episodeId; URL-encode the path segment). Unit-tested.
 - `src/components/aurora/RenderPlayer.tsx` — collapsed-by-default disclosure
   ("Watch render ▸"): the `<video controls playsInline preload="metadata">` element mounts
   ONLY after the operator opens it (an Action Center list must not load N videos on
-  render). `max-width:100%`; on element error show "No render available for this episode."
+  render). `max-width:100%`; absent renders do not mount the player.
   Accessible: the toggle is a real button with `aria-expanded`; keyboardable. Both themes,
   412/700/1440 (portrait 9:16 videos must not overflow the card — cap height, letterbox).
 - **Mount points:** (1) Action Center job cards where `job.episode_id` is present (the
@@ -59,8 +61,8 @@ silently fail-safes to 70 — so the UI guard is the only visible feedback.
 1. `tsc` clean · `vitest` green including new tests (`renderVideoUrl`, `parseShortSeconds`)
    · `next build` clean.
 2. Player: video element does NOT exist in the DOM until the disclosure is opened
-   (test or measured); URL matches the verified live pattern; error state renders on a
-   bogus episode id.
+   (test or measured); URL matches the verified live pattern; a bogus episode id renders
+   nothing.
 3. Field: save blocked with visible error for 0 / 181 / "abc"; empty saves `{}` unchanged;
    70 and 180 save. Helper copy present.
 4. No new writes anywhere; no service-role; no signed-URL code.

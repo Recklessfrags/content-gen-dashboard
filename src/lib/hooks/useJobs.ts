@@ -10,7 +10,9 @@ import {
 import type { Tables } from "@/lib/database.types";
 import type { createClient } from "@/lib/supabase/client";
 import {
+  canArchiveJob,
   partitionArchivableJobs,
+  type JobArchiveOptions,
   type JobArchiveMutationResult,
   type QueueJob,
 } from "@/lib/jobs";
@@ -144,13 +146,24 @@ export function useJobs(supabase: ReturnType<typeof createClient>) {
   }, [supabase]);
 
   const archiveJobs = useCallback(
-    async (jobIds: readonly number[]): Promise<JobArchiveMutationResult> => {
+    async (
+      jobIds: readonly number[],
+      options: JobArchiveOptions = {},
+    ): Promise<JobArchiveMutationResult> => {
       const requestedIds = [...new Set(jobIds)];
       const requestedJobs = requestedIds.flatMap((id) => {
         const job = allJobs.find((candidate) => candidate.id === id);
         return job ? [job] : [];
       });
-      const { archivable, skipped } = partitionArchivableJobs(requestedJobs);
+      const { archivable, skipped } = options.allowDeliberateDismissal === true
+        ? requestedJobs.reduce<{ archivable: QueueJob[]; skipped: QueueJob[] }>(
+            (partitioned, job) => {
+              (canArchiveJob(job) ? partitioned.archivable : partitioned.skipped).push(job);
+              return partitioned;
+            },
+            { archivable: [], skipped: [] },
+          )
+        : partitionArchivableJobs(requestedJobs);
       const targetIds = archivable
         .map((job) => job.id)
         .filter(

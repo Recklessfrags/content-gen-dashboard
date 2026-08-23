@@ -9,7 +9,7 @@ import {
   isDraftCharacterId,
   useCharacters,
 } from "@/lib/hooks/useCharacters";
-import { useCostReceipts } from "@/lib/hooks/useCostReceipts";
+import { useAllCostReceipts, useCostReceipts } from "@/lib/hooks/useCostReceipts";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { useEpisodes } from "@/lib/hooks/useEpisodes";
 import { useFocusTrap } from "@/lib/hooks/useFocusTrap";
@@ -32,10 +32,11 @@ import {
   publishSourceEpisodeId,
   reenqueueApprovalThenArchiveParent,
   resolveParkKind,
+  type JobArchiveOptions,
   type JobEnqueueInput,
 } from "@/lib/jobs";
-import { classifyFailure, resolveTerminalState } from "@/lib/failureClass";
-import { parseBelowFloorCuts } from "@/lib/parkReason";
+import { resolveTerminalState } from "@/lib/failureClass";
+import { runsHubStatus } from "@/lib/runsHubState";
 import { parseFactClaims, type FactClaim } from "@/lib/factClaims";
 import { isCast } from "@/lib/casting";
 import { isVisuallyCast, signedRefImageUrl } from "@/lib/castingVisual";
@@ -60,11 +61,12 @@ import type {
 import { IdeasHub } from "./aurora/IdeasHub";
 import type { IdeasHubProps } from "./aurora/IdeasHub";
 import { ReviewHub } from "./aurora/ReviewHub";
-import { RunsHub } from "./aurora/RunsHub";
+import { isRunStage, RunsHub } from "./aurora/RunsHub";
 import type {
   ReliabilityResult,
   RunCardVM,
   RunDiagnosticsResult,
+  RunStage,
   RunsHubProps,
 } from "./aurora/RunsHub";
 import { RunCostEstimate } from "./aurora/RunCostEstimate";
@@ -434,13 +436,24 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     archiveJobs,
     unarchiveJobs,
   } = useJobs(supabase);
+  const runReceiptEpisodeIds = useMemo(
+    () => [...jobs, ...archivedJobs].flatMap((job) => job.episode_id ? [job.episode_id] : []),
+    [archivedJobs, jobs],
+  );
+  const {
+    costReceipts: runCostReceipts,
+    loading: runCostReceiptsLoading,
+    error: runCostReceiptsError,
+    loaded: runCostReceiptsLoaded,
+    refetch: fetchRunCostReceipts,
+  } = useCostReceipts(supabase, runReceiptEpisodeIds);
   const {
     costReceipts,
     loading: costReceiptsLoading,
     error: costReceiptsError,
     loaded: costReceiptsLoaded,
     refetch: fetchCostReceipts,
-  } = useCostReceipts(supabase);
+  } = useAllCostReceipts(supabase);
   const {
     profiles: channelProfiles,
     loading: channelProfilesLoading,
@@ -543,8 +556,11 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 2200);
   }, []);
-  const handleArchiveJobs = useCallback(async (jobIds: readonly number[]) => {
-    const result = await archiveJobs(jobIds);
+  const handleArchiveJobs = useCallback(async (
+    jobIds: readonly number[],
+    options?: JobArchiveOptions,
+  ) => {
+    const result = await archiveJobs(jobIds, options);
     if (!result.ok) {
       showFlash(`Could not archive ${jobIds.length === 1 ? "run" : "runs"} — ${result.error}`, true);
     } else if (result.affected > 0) {
@@ -1317,7 +1333,7 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           const result = await supabase.from("jobs").insert(payload);
           return { error: result.error };
         },
-        () => archiveJobs([job.id]),
+        () => archiveJobs([job.id], { allowDeliberateDismissal: true }),
       );
       error = outcome.reenqueueError;
       archiveWarning = approvalParentArchiveWarning(outcome.archiveResult);
@@ -1694,9 +1710,10 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     async (episodeId: string): Promise<RunDiagnosticsResult> => {
       const { data, error } = await supabase
         .from("receipts")
-        .select("seq, stage, verdict, reason, model, provider, result, evidence")
+        .select("seq, stage, verdict, reason, model, provider, iteration, spend_so_far, result, evidence")
         .eq("episode_id", episodeId)
-        .order("seq", { ascending: true });
+        .order("seq", { ascending: true })
+        .returns<Array<Pick<Receipt, "seq" | "stage" | "verdict" | "reason" | "model" | "provider" | "iteration" | "spend_so_far" | "result" | "evidence">>>();
       if (error) return { receipts: [], error: error.message };
       const receipts = (data ?? []).map((row) => ({
         seq: typeof row.seq === "number" ? row.seq : 0,
@@ -1705,6 +1722,8 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
         reason: row.reason ?? "",
         model: row.model ?? "",
         provider: row.provider ?? "",
+        iteration: typeof row.iteration === "number" ? row.iteration : undefined,
+        spendSoFar: typeof row.spend_so_far === "number" ? row.spend_so_far : undefined,
         result: row.result,
         evidence: row.evidence,
       }));
@@ -1792,31 +1811,22 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
     }));
     return { reliability: computeWorkerReliability(raw), error: null, windowDays };
   }, [supabase]);
-  const episodeParkReasonById = useMemo(
-    () =>
-      new Map(
-        episodes.map((episode) => [
-          episode.episode_id,
-          {
-            finalStage: episode.final_stage ?? null,
-            message: episode.message ?? null,
-          },
-        ]),
-      ),
-    [episodes],
-  );
+  const runAttemptsByEpisode = useMemo(() => {
+    const attempts = new Map<string, Partial<Record<RunStage, number>>>();
+    for (const receipt of runCostReceipts) {
+      const stage = receipt.stage.trim().toLowerCase();
+      if (!isRunStage(stage)) continue;
+      const episodeAttempts = attempts.get(receipt.episode_id) ?? {};
+      episodeAttempts[stage] = (episodeAttempts[stage] ?? 0) + 1;
+      attempts.set(receipt.episode_id, episodeAttempts);
+    }
+    return attempts;
+  }, [runCostReceipts]);
   const mapJobsToRunCards = useCallback(
     (sourceJobs: QueueJob[]): RunCardVM[] =>
       sourceJobs.map((job) => {
         const status = classifyJobStatus(job.status);
-        const isParked = status === "ready_for_review" || (status === "error" && job.park_kind != null);
-        const isFailure = status === "error";
-        const episodeParkReason = job.episode_id
-          ? (episodeParkReasonById.get(job.episode_id) ?? null)
-          : null;
-        const parkedFinalStage = isParked ? (episodeParkReason?.finalStage ?? null) : null;
-        const finalStage =
-          isFailure && parkedFinalStage === null ? (episodeParkReason?.finalStage ?? null) : parkedFinalStage;
+        const isFailure = status === "error" || status === "stale" || status === "abandoned";
         const terminalStateResult = isFailure ? resolveTerminalState(job.park_kind, job.error) : null;
         return {
           id: String(job.id),
@@ -1833,56 +1843,56 @@ export default function ControlRoom({ userEmail }: { userEmail: string }) {
           createdAt: job.created_at,
           spend: typeof job.spend === "number" ? job.spend : null,
           error: job.error ?? null,
-          needsAttention:
-            status === "error" || status === "stale" || status === "ready_for_review",
-          parkKind: isParked ? resolveParkKind(job.park_kind, null) : null,
-          parkKindColumn: isParked ? (job.park_kind ?? null) : null,
-          failureClass: isFailure ? classifyFailure(job.error) : null,
           terminalState: isFailure ? terminalStateResult?.state ?? null : null,
-          terminalStateSource: isFailure ? terminalStateResult?.source ?? null : null,
-          finalStage,
-          parkReason: isParked ? (episodeParkReason?.message ?? null) : null,
-          belowFloorCuts: isParked
-            ? parseBelowFloorCuts(episodeParkReason?.message ?? null)
-            : [],
+          attemptsByStage: job.episode_id
+            ? runAttemptsByEpisode.get(job.episode_id)
+            : undefined,
         };
       }),
-    [episodeParkReasonById],
+    [runAttemptsByEpisode],
   );
   const runsHubCards = useMemo(() => mapJobsToRunCards(jobs), [jobs, mapJobsToRunCards]);
   const archivedRunsHubCards = useMemo(
     () => mapJobsToRunCards(archivedJobs),
     [archivedJobs, mapJobsToRunCards],
   );
-  const runsHubProps = useMemo<RunsHubProps>(
-    () => ({
+  const runsHubProps = useMemo<RunsHubProps>(() => {
+    const status = runsHubStatus({
+      jobsError,
+      jobsLoading,
+      stepHistoryError: runCostReceiptsError,
+      stepHistoryLoading: runCostReceiptsLoading,
+      stepHistoryLoaded: runCostReceiptsLoaded,
+    });
+
+    return {
       cards: runsHubCards,
       archivedCards: archivedRunsHubCards,
-      loading: jobsLoading,
-      error: jobsError,
+      ...status,
       onRetry: () => {
         void fetchJobs();
+        void fetchRunCostReceipts();
       },
       onBack: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
-      onReviewApprovals: () => navigate({ kind: "hub", hub: DEFAULT_HUB }),
-      loadDiagnostics: loadRunDiagnostics,
       loadReliability: loadWorkerReliability,
       onArchiveJobs: handleArchiveJobs,
       onUnarchiveJobs: handleUnarchiveJobs,
-    }),
-    [
+    };
+  }, [
       fetchJobs,
+      fetchRunCostReceipts,
       archivedRunsHubCards,
       handleArchiveJobs,
       handleUnarchiveJobs,
       jobsError,
       jobsLoading,
-      loadRunDiagnostics,
       loadWorkerReliability,
       navigate,
+      runCostReceiptsError,
+      runCostReceiptsLoaded,
+      runCostReceiptsLoading,
       runsHubCards,
-    ],
-  );
+    ]);
   const auroraNav = {
     activeKey: scope.kind === "workspace" ? "channels" : scope.hub,
     onNavigate: (key: "channels" | "characters" | "ideas" | "runs" | "review") =>

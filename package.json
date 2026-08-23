@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "audit:ui": "node scripts/audit-ui.mjs",
     "ratify": "node scripts/ratify.mjs"
   },
   "dependencies": {

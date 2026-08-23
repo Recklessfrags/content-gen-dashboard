@@ -45,6 +45,8 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("ActionCenter triage", () => {
@@ -143,9 +145,26 @@ describe("ActionCenter triage", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
-    // The old screen mounted this on every card and it usually said
-    // "No render available for this episode."
+    // The old screen mounted this on every card, including stages with no render.
     expect(screen.queryByText(/watch render/i)).not.toBeInTheDocument();
+  });
+
+  it("states a missing render inside an opened publish approval", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404, type: "basic" }));
+    const user = userEvent.setup();
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 41, episode_id: "approval-card-missing" })]}
+        parkById={{ 41: park("publish") }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
+
+    expect(await screen.findByText("No render is available for this episode.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /watch render/i })).not.toBeInTheDocument();
   });
 
   it("keeps a still-classifying row out of the group that says to go investigate", () => {
@@ -200,6 +219,93 @@ describe("ActionCenter triage", () => {
     expect(screen.getByRole("button", { name: /Open run log/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Approve spend & continue/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /Approve facts & continue/i })).toBeNull();
+  });
+
+  it("reports the receipt count and distinguishes it from the listed cut ids", async () => {
+    const user = userEvent.setup();
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 1 })]}
+        parkById={{ 1: park("spend") }}
+        loadDiagnostics={vi.fn().mockResolvedValue({
+          error: null,
+          receipts: [{
+            seq: 1,
+            stage: "visual_router",
+            verdict: "park",
+            reason: "Below floor",
+            model: "",
+            provider: "",
+            evidence: { below_floor_notice: { count: 17, cut_ids: ["cut19", "cut20", "cut21"] } },
+          }],
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
+    await user.click(screen.getByRole("button", { name: /Open run log/ }));
+
+    expect(await screen.findByText(/17 flagged, 3 listed/)).toBeInTheDocument();
+    expect(screen.getByText("cut19")).toBeInTheDocument();
+  });
+
+  it("states when the latest receipt records no below-floor data", async () => {
+    const user = userEvent.setup();
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 1 })]}
+        parkById={{ 1: park("spend") }}
+        loadDiagnostics={vi.fn().mockResolvedValue({
+          error: null,
+          receipts: [{
+            seq: 1,
+            stage: "visual_router",
+            verdict: "park",
+            reason: "No payload",
+            model: "",
+            provider: "",
+            result: {},
+            evidence: { unrelated: true },
+          }],
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
+    await user.click(screen.getByRole("button", { name: /Open run log/ }));
+
+    expect(await screen.findByText(/no below-floor data recorded on this receipt/i)).toBeInTheDocument();
+  });
+
+  it("states when a below-floor notice records no count or listed cuts", async () => {
+    const user = userEvent.setup();
+    render(
+      <ActionCenter
+        {...baseProps}
+        jobs={[job({ id: 1 })]}
+        parkById={{ 1: park("spend") }}
+        loadDiagnostics={vi.fn().mockResolvedValue({
+          error: null,
+          receipts: [{
+            seq: 1,
+            stage: "visual_router",
+            verdict: "park",
+            reason: "Notice without magnitude",
+            model: "",
+            provider: "",
+            evidence: { below_floor_notice: {} },
+          }],
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
+    await user.click(screen.getByRole("button", { name: /Open run log/ }));
+
+    expect(await screen.findByText(/recorded, count not stated/i)).toBeInTheDocument();
+    expect(screen.queryByText(/flagged: 0/i)).not.toBeInTheDocument();
   });
 
   it("moves a classification into NEEDS A LOOK when its timeout elapses", () => {
@@ -278,14 +384,17 @@ describe("ActionCenter triage", () => {
 
     await user.click(screen.getByRole("button", { name: /The Great Molasses Flood/ }));
     const approvalRow = screen.getAllByRole("listitem")[0];
-    expect(within(approvalRow).getByRole("button", { name: "Archive" })).toHaveClass("ghost");
+    const approvalArchive = within(approvalRow).getByRole("button", { name: "Archive" });
+    expect(approvalArchive).toHaveClass("ghost");
+    await user.click(approvalArchive);
+    expect(onArchiveJobs).toHaveBeenCalledWith([1], { allowDeliberateDismissal: true });
 
     const errorRow = screen.getAllByRole("listitem")[1];
     await user.click(within(errorRow).getByRole("button", { name: "Archive" }));
-    expect(onArchiveJobs).toHaveBeenCalledWith([2]);
+    expect(onArchiveJobs).toHaveBeenCalledWith([2], { allowDeliberateDismissal: true });
   });
 
-  it("bulk-archives only the selected decision group", async () => {
+  it("does not bulk-archive a selected approval decision group", async () => {
     const user = userEvent.setup();
     const onArchiveJobs = vi.fn().mockResolvedValue({
       ok: true,
@@ -314,19 +423,18 @@ describe("ActionCenter triage", () => {
     );
 
     const factGroup = screen.getByText(/\/\/ FACT CALLS \(1\)/).closest("section")!;
-    await user.click(within(factGroup).getByRole("button", { name: "Archive 1 item" }));
-    await user.click(within(factGroup).getByRole("button", { name: "Archive 1" }));
+    expect(within(factGroup).getByRole("button", { name: "Archive 0 items" })).toBeDisabled();
+    expect(within(factGroup).getByText(/approval pending/)).toBeInTheDocument();
+    await user.click(within(factGroup).getByRole("button", { name: "Archive 0 items" }));
 
-    expect(onArchiveJobs).toHaveBeenCalledOnce();
-    expect(onArchiveJobs).toHaveBeenCalledWith([12]);
-    expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([11, 13, 14]));
+    expect(onArchiveJobs).not.toHaveBeenCalled();
   });
 
-  it("bulk-archiving errored jobs leaves a pending spend approval untouched", async () => {
+  it("bulk-archiving errored jobs leaves pending spend approvals and stale work untouched", async () => {
     const user = userEvent.setup();
     const onArchiveJobs = vi.fn().mockResolvedValue({
       ok: true,
-      affected: 2,
+      affected: 1,
       skipped: 0,
       error: null,
     });
@@ -345,11 +453,15 @@ describe("ActionCenter triage", () => {
     );
 
     const errorGroup = screen.getByRole("heading", { name: "Errored / stuck" }).closest("section")!;
-    await user.click(within(errorGroup).getByRole("button", { name: "Archive 2 items" }));
-    await user.click(within(errorGroup).getByRole("button", { name: "Archive 2" }));
+    expect(within(errorGroup).getByText(/1 item is held out of bulk archive.*stale.*Archive it from the row/i)).toBeInTheDocument();
+    const staleRow = within(errorGroup).getAllByRole("listitem")[1];
+    await user.click(within(staleRow).getByRole("button", { name: "Archive" }));
+    expect(onArchiveJobs).toHaveBeenCalledWith([23], { allowDeliberateDismissal: true });
 
-    expect(onArchiveJobs).toHaveBeenCalledOnce();
-    expect(onArchiveJobs).toHaveBeenCalledWith([22, 23]);
-    expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([21]));
+    await user.click(within(errorGroup).getByRole("button", { name: "Archive 1 item" }));
+    await user.click(within(errorGroup).getByRole("button", { name: "Archive 1" }));
+
+    expect(onArchiveJobs).toHaveBeenCalledWith([22]);
+    expect(onArchiveJobs).not.toHaveBeenCalledWith(expect.arrayContaining([21, 23]));
   });
 });

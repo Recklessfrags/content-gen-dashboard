@@ -6,6 +6,7 @@ import {
   buildPublishApprovalReenqueue,
   buildSpendApprovalReenqueue,
   canArchiveJob,
+  partitionArchivableJobs,
   reenqueueApprovalThenArchiveParent,
   classifyJobStatus,
   detectParkKind,
@@ -14,6 +15,7 @@ import {
   isInFlightStatus,
   isTerminalStatus,
   isValidEpisodeCap,
+  JOB_STATUS_LABELS,
   jobInputFromRow,
   publishSourceEpisodeId,
   resolveParkKind,
@@ -453,6 +455,19 @@ describe("detectParkKind", () => {
 });
 
 describe("job status helpers", () => {
+  it.each([
+    ["queued", "Queued"],
+    ["running", "Running"],
+    ["done", "Done"],
+    ["no_op", "No-op"],
+    ["ready_for_review", "Ready for review"],
+    ["error", "Error"],
+    ["stale", "Stale"],
+    ["abandoned", "Abandoned"],
+  ] as const)("labels %s as %s", (status, label) => {
+    expect(JOB_STATUS_LABELS[status]).toBe(label);
+  });
+
   it("validates episode caps", () => {
     expect(isValidEpisodeCap(0)).toBe(false);
     expect(isValidEpisodeCap(1)).toBe(true);
@@ -462,6 +477,7 @@ describe("job status helpers", () => {
 
   it("classifies unknown statuses as queued", () => {
     expect(classifyJobStatus("DONE")).toBe("done");
+    expect(classifyJobStatus("ABANDONED")).toBe("abandoned");
     expect(classifyJobStatus(" mystery ")).toBe("queued");
     expect(classifyJobStatus(null)).toBe("queued");
   });
@@ -474,6 +490,7 @@ describe("job status helpers", () => {
     expect(isTerminalStatus("done")).toBe(true);
     expect(isTerminalStatus("no_op")).toBe(true);
     expect(isTerminalStatus("error")).toBe(true);
+    expect(isTerminalStatus("abandoned")).toBe(true);
     expect(isTerminalStatus("running")).toBe(false);
 
     expect(isInFlightStatus("queued")).toBe(true);
@@ -483,12 +500,31 @@ describe("job status helpers", () => {
     expect(isInFlightStatus("done")).toBe(false);
   });
 
-  it("archives unknown terminal statuses while refusing only raw queued and running", () => {
+  it("allows deliberate row dismissal for every raw status that is not genuinely in flight", () => {
     expect(canArchiveJob({ status: "queued" })).toBe(false);
     expect(canArchiveJob({ status: "running" })).toBe(false);
     expect(canArchiveJob({ status: " Running " })).toBe(false);
+    expect(canArchiveJob({ status: "ready_for_review" })).toBe(true);
+    expect(canArchiveJob({ status: "stale" })).toBe(true);
     expect(canArchiveJob({ status: "abandoned" })).toBe(true);
     expect(canArchiveJob({ status: "future_terminal" })).toBe(true);
+  });
+
+  it("default-denies approvals, stale rows, unknown statuses, and in-flight work from bulk", () => {
+    const rows = [
+      { id: 1, status: "ready_for_review" },
+      { id: 2, status: "done" },
+      { id: 3, status: "stale" },
+      { id: 4, status: "future_terminal" },
+      { id: 5, status: "queued" },
+      { id: 6, status: "running" },
+      { id: 7, status: "abandoned" },
+    ];
+
+    expect(partitionArchivableJobs(rows)).toEqual({
+      archivable: [rows[1], rows[6]],
+      skipped: [rows[0], rows[2], rows[3], rows[4], rows[5]],
+    });
   });
 });
 

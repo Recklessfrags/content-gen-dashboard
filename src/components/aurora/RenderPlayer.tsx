@@ -1,41 +1,86 @@
 "use client";
 
-import { useState } from "react";
-import { renderVideoUrl } from "@/lib/renderAssets";
+import { useEffect, useState } from "react";
+import {
+  renderVideoExists,
+  renderVideoUrl,
+  type RenderAvailability,
+} from "@/lib/renderAssets";
 
-export function RenderPlayer({ episodeId }: { episodeId: string }) {
+type ConfirmedAvailability = {
+  result: RenderAvailability;
+  videoUrl: string;
+};
+
+type RenderPlayerProps = {
+  episodeId: string;
+  variant?: "run" | "approval";
+};
+
+export function RenderPlayer({ episodeId, variant = "run" }: RenderPlayerProps) {
   const [open, setOpen] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [playbackFailed, setPlaybackFailed] = useState(false);
+  const [confirmedAvailability, setConfirmedAvailability] =
+    useState<ConfirmedAvailability | null>(null);
   const videoUrl = renderVideoUrl(episodeId);
 
-  if (!videoUrl) return null;
+  useEffect(() => {
+    let mounted = true;
+
+    setOpen(false);
+    setPlaybackFailed(false);
+    setConfirmedAvailability(null);
+
+    void renderVideoExists(episodeId).then((result) => {
+      if (mounted && videoUrl) setConfirmedAvailability({ result, videoUrl });
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [episodeId, videoUrl]);
+
+  if (!videoUrl || confirmedAvailability?.videoUrl !== videoUrl) {
+    return null;
+  }
+
+  if (confirmedAvailability.result === "missing") {
+    return variant === "approval"
+      ? <p className="render-player__status dim">No render is available for this episode.</p>
+      : null;
+  }
 
   return (
     <div className="render-player">
+      {confirmedAvailability.result === "unknown" ? (
+        <p className="render-player__status dim">
+          Render availability could not be confirmed. You can still try to watch it.
+        </p>
+      ) : null}
       <button
         type="button"
         className="render-player__toggle"
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          if (!open) setPlaybackFailed(false);
+          setOpen((current) => !current);
+        }}
       >
         Watch render <span aria-hidden="true">{open ? "▾" : "▸"}</span>
       </button>
       {open ? (
         <div className="render-player__stage">
-          {failed ? (
-            <p className="render-player__error" role="status">
-              No render available for this episode.
-            </p>
-          ) : (
-            <video
-              className="render-player__video"
-              controls
-              playsInline
-              preload="metadata"
-              src={videoUrl}
-              onError={() => setFailed(true)}
-            />
-          )}
+          <video
+            className="render-player__video"
+            controls
+            playsInline
+            preload="metadata"
+            src={videoUrl}
+            onError={() => setPlaybackFailed(true)}
+          />
+          {playbackFailed ? (
+            <p role="alert">The render could not be loaded. Try again shortly.</p>
+          ) : null}
         </div>
       ) : null}
     </div>

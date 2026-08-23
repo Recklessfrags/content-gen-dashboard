@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { extractBelowFloorCuts, parkExplanation } from "../parkExplanation";
+import {
+  extractBelowFloorCuts,
+  extractBelowFloorReport,
+  parkExplanation,
+} from "../parkExplanation";
 
 describe("parkExplanation", () => {
   it.each([
@@ -21,41 +25,86 @@ describe("parkExplanation", () => {
 
 describe("extractBelowFloorCuts", () => {
   it("extracts array and keyed per-cut reasons", () => {
-    expect(extractBelowFloorCuts({ result: { below_floor_cuts: [{ cut_id: "cut14", reason: "Too generic" }] }, evidence: { below_floor_cuts: { cut2: { reason: "Low relevance" } } } })).toEqual([
+    const payload = { result: { below_floor_cuts: [{ cut_id: "cut14", reason: "Too generic" }] }, evidence: { below_floor_cuts: { cut2: { reason: "Low relevance" } } } };
+    expect(extractBelowFloorCuts(payload)).toEqual([
       { cut: "cut14", reason: "Too generic" },
       { cut: "cut2", reason: "Low relevance" },
     ]);
+    expect(extractBelowFloorReport(payload).reportedCount).toBe(2);
   });
 
-  it("extracts explained cuts from the production below_floor_notice shape", () => {
+  it("reports the receipt magnitude even when only some flagged ids are listed", () => {
     const payload = {
       below_floor_notice: {
-        count: 5,
-        operator_watch: true,
-        stock_vision_gate: true,
-        cuts: [
-          {
-            cut_id: "cut22",
-            shot_id: "beat_001",
-            anchor_phrase: "21 CFR 133.128",
-            relevance_score: 0.0,
-            relevance_method: "grid_vision",
-            vision_confirm: "vision_fail",
-            escalation: {
-              exhausted: true,
-              accepted_tier: null,
-              attempted_tiers: ["footage", "pixabay"],
-            },
-          },
-        ],
+        count: 17,
+        cut_ids: ["cut19", "cut20", "cut21"],
       },
     };
 
-    expect(extractBelowFloorCuts(payload)).toEqual([
-      {
-        cut: "cut22",
-        reason: 'cut22 — "21 CFR 133.128", relevance 0.00, vision_fail, attempted tiers footage → pixabay, exhausted',
+    expect(extractBelowFloorReport(payload)).toEqual({
+      hasData: true,
+      reportedCount: 17,
+      cuts: [
+        { cut: "cut19", reason: null },
+        { cut: "cut20", reason: null },
+        { cut: "cut21", reason: null },
+      ],
+    });
+  });
+
+  it("extracts explained cuts from object rows in a production below-floor notice", () => {
+    const payload = {
+      below_floor_notice: {
+        count: 5,
+        cuts: [{
+          cut_id: "cut22",
+          anchor_phrase: "21 CFR 133.128",
+          relevance_score: 0,
+          vision_confirm: "vision_fail",
+          escalation: {
+            exhausted: true,
+            accepted_tier: null,
+            attempted_tiers: ["footage", "pixabay"],
+          },
+        }],
       },
-    ]);
+    };
+
+    expect(extractBelowFloorCuts(payload)).toEqual([{
+      cut: "cut22",
+      reason: 'cut22 — "21 CFR 133.128", relevance 0.00, vision_fail, attempted tiers footage → pixabay, exhausted',
+    }]);
+  });
+
+  it("does not invent a zero count when a notice states no count and lists no cuts", () => {
+    expect(extractBelowFloorReport({ below_floor_notice: {} })).toEqual({
+      hasData: true,
+      reportedCount: null,
+      cuts: [],
+    });
+    expect(extractBelowFloorReport({ below_floor_notice: null })).toEqual({
+      hasData: true,
+      reportedCount: null,
+      cuts: [],
+    });
+  });
+
+  it("never reports fewer flagged cuts than the union of listed ids", () => {
+    const payload = {
+      result: { below_floor_notice: { count: 3, cut_ids: ["cut1", "cut2", "cut3"] } },
+      evidence: { below_floor_notice: { count: 3, cut_ids: ["cut3", "cut4", "cut5"] } },
+    };
+
+    expect(extractBelowFloorReport(payload)).toMatchObject({
+      hasData: true,
+      reportedCount: 5,
+      cuts: [
+        { cut: "cut1", reason: null },
+        { cut: "cut2", reason: null },
+        { cut: "cut3", reason: null },
+        { cut: "cut4", reason: null },
+        { cut: "cut5", reason: null },
+      ],
+    });
   });
 });

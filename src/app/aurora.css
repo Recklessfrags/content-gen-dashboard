@@ -4456,28 +4456,6 @@
   word-break: break-word;
 }
 
-.aurora-app .run-card__failure {
-  background: var(--surface-2);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  padding: 0.65rem 0.85rem;
-}
-.aurora-app .run-card__failure-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-.aurora-app .run-card__failure-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-main);
-}
-.aurora-app .run-card__failure-class-chip { background: var(--surface-3); color: var(--text-main); }
-.aurora-app .run-card__failure-terminal { background: var(--surface-3); color: var(--text-main); }
-.aurora-app .run-card__failure-stage { margin-top: 0.35rem; font-size: 0.8125rem; }
-
 .aurora-app .runs-hub__failure-rollup {
   background: var(--surface-2);
   border: 1px solid var(--border-soft);
@@ -4672,6 +4650,167 @@
   min-width: 10rem;
 }
 
+/* Runs lifecycle + per-stage receipt visualizer. */
+.aurora-app .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.aurora-app .runs-hub__title { font-size: 2rem; }
+.aurora-app .runs-hub__lifecycle-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.aurora-app .runs-hub__lifecycle-tab {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.aurora-app .runs-hub__lifecycle-tab + .runs-hub__lifecycle-tab { border-left: 1px solid var(--border-soft); }
+.aurora-app .runs-hub__lifecycle-tab:hover { color: var(--text-main); background: var(--surface-2); }
+.aurora-app .runs-hub__lifecycle-tab.is-active { color: var(--text-main); background: var(--surface-3); box-shadow: inset 0 -2px var(--accent); }
+
+.aurora-app .runs-hub__list { gap: 0.65rem; }
+.aurora-app .run-card {
+  min-width: 0;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border-left: 3px solid var(--border-soft);
+  overflow: hidden;
+}
+.aurora-app .run-card--parked { border-left-color: var(--status-parked); }
+.aurora-app .run-card--failed { border-left-color: var(--danger); }
+.aurora-app .run-card__head { display: grid; gap: 0.25rem; align-items: stretch; }
+.aurora-app .run-card__identity {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.aurora-app .run-card__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aurora-app .run-card__identity .cost-readout {
+  flex: 0 0 auto;
+  color: var(--text-main);
+  font-size: 0.875rem;
+}
+.aurora-app .run-card__status {
+  flex: 0 0 auto;
+  background: var(--surface-3);
+  color: var(--text-main);
+}
+.aurora-app .run-card__meta {
+  display: flex;
+  gap: 0.4rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+.aurora-app .run-card__failure {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+.aurora-app .run-card__failure summary {
+  width: fit-content;
+  color: var(--text-main);
+  cursor: pointer;
+  font-weight: 600;
+}
+.aurora-app .run-card__failure-body {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+  padding-left: 1rem;
+  word-break: break-word;
+}
+
+.aurora-app .au-step-track {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.aurora-app .au-step-track::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 17px;
+  left: calc(100% / 22);
+  right: calc(100% / 22);
+  height: 1px;
+  background: var(--border-strong);
+}
+.aurora-app .au-step-node {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  height: 44px;
+  display: grid;
+  grid-template-rows: 30px 12px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.aurora-app .au-step-node__mark {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  align-self: end;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--bg-base);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.aurora-app[data-theme="light"] .au-step-node__mark { background: var(--surface-2); }
+.aurora-app .au-step-node__short { font-size: 0.625rem; line-height: 1; text-transform: lowercase; }
+.aurora-app .au-step-node.is-passed { color: var(--success); }
+.aurora-app .au-step-node.is-running { color: var(--status-running); }
+.aurora-app .au-step-node.is-parked { color: var(--warn); }
+.aurora-app .au-step-node.is-failed { color: var(--danger-fg); }
+.aurora-app .au-step-node.is-skipped { color: var(--text-dim); }
+.aurora-app .au-step-node.is-skipped .au-step-node__mark { border-color: transparent; }
+.aurora-app .au-step-node.is-parked .au-step-node__mark { border-radius: 4px; }
+
+@media (max-width: 640px) {
+  .aurora-app .runs-hub.scoped { margin-top: 2rem; }
+  .aurora-app .run-card { padding: 0.85rem 0.75rem; }
+  .aurora-app .au-step-track { width: calc(100% + 1.5rem); margin-inline: -0.75rem; }
+}
+
 /* Render watch gate: compact disclosure with a constrained portrait-safe stage. */
 .aurora-app .render-player {
   width: 100%;
@@ -4717,13 +4856,6 @@
   object-fit: contain;
   background: #000;
 }
-.aurora-app .render-player__error {
-  margin: 0;
-  padding: 1rem;
-  color: var(--text-main);
-  background: var(--surface-2);
-}
-
 @media (max-width: 480px) {
   .aurora-app .render-player__video {
     max-height: min(70vh, calc(100vw - 3rem));

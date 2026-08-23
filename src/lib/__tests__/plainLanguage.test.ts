@@ -23,6 +23,8 @@ describe("plainLanguage", () => {
 
   it("uses the render ladder as the stage-label source", () => {
     expect(stageLabel("script_writer")).toBe("Writing the script");
+    expect(stageLabel("lexicon")).toBe("Checking channel language");
+    expect(stageLabel("virality")).toBe("Checking audience appeal");
     expect(stageLabel("future_stage")).toBe("Future Stage");
   });
 

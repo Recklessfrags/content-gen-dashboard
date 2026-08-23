@@ -94,6 +94,28 @@ describe("useJobs archive preference", () => {
     expect(result.current.jobs.map((row) => row.id)).toEqual([1, 2]);
   });
 
+  it("requires the deliberate row option before archiving held-out terminal statuses", async () => {
+    const query = archiveClient({
+      jobs: [job(1, "ready_for_review"), job(2, "stale"), job(3, "future_terminal")],
+    });
+    const { result } = renderHook(() => useJobs(query.client as never));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      expect(await result.current.archiveJobs([1, 2, 3])).toMatchObject({ affected: 0, skipped: 3 });
+      expect(await result.current.archiveJobs([1, 2, 3], { allowDeliberateDismissal: true })).toMatchObject({
+        affected: 3,
+        skipped: 0,
+      });
+    });
+
+    expect(query.upsert).toHaveBeenCalledOnce();
+    expect(query.upsert).toHaveBeenCalledWith(
+      [{ job_id: 1 }, { job_id: 2 }, { job_id: 3 }],
+      { onConflict: "job_id,owner", ignoreDuplicates: true },
+    );
+  });
+
   it("unarchive restores a row to the default list", async () => {
     const query = archiveClient({
       jobs: [job(1)],
