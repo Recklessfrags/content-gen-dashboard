@@ -13,6 +13,17 @@ Operator stated (verbatim intent): *"for now I'll pay for the users' renders, bu
 
 ---
 
+## 🔒 2026-09-08 — DB-only hardening, no app code changed (`dash_0017`)
+
+Supabase advisor email (2026-09-06) → two production fixes, both reviewed (Gemini, no findings) and applied via the management API, both on `claude/content-gen-coordinator-setup-ym957o`, **not** on the deploy branch:
+- `dash_0017_bump_usage_execute_grants` — `casting_bump_usage` / `channel_guideline_bump_usage` / `character_bump_usage` were callable by `anon` and `authenticated` despite `dash_0001/0009/0013` writing `revoke ... from public` (this project's default ACL grants EXECUTE to `anon`/`authenticated` by name; a revoke from PUBLIC does not touch it). Now `service_role` only. All three deployed proxies call these with the service-role client — verified from the **deployed** source, not the repo copy.
+- pipeline `0029` — RLS on the T5 audit snapshot `jobs_archive_2026_08_17`.
+
+**Not yet exercised live:** the three proxies had zero invocations in the 24h around the change. The next Casting/Guideline/Character generation is the first live proof; the failure fingerprint, if any, is the proxy's `500 "Could not check the ... cap."`.
+**Trap for every future function migration:** revoke from `anon, authenticated` by name, not just `public`; `DROP`+`CREATE` re-applies the default ACL, `CREATE OR REPLACE` keeps it. Full audit: pipeline repo `docs/audits/2026-09-08-supabase-hardening-impact-audit.md`; ledger rows T63/T64.
+
+---
+
 ## 🔚 CLOSE-OUT 2026-08-23 (coordinator session) — Runs hub MERGED after 5 review rounds · pipeline findings T57–T62 recorded · persona-channel capability mapped
 
 ### LANDED (merged to `claude/new-session-3l99vs` as `ef8a698`; Vercel deploys from it)
